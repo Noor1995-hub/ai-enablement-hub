@@ -1,0 +1,125 @@
+from __future__ import annotations
+
+import uuid
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING, Literal
+
+from src.core.security import create_access_token, hash_token, new_opaque_token
+from src.services.exceptions import (
+    InvalidSessionError,
+    TokenExpiredError,
+    TokenNotFoundError,
+)
+
+if TYPE_CHECKING:
+    from src.core.configs.auth import AuthSettings
+    from src.db.models import AuthToken, User
+    from src.repositories.base import (
+        AbstractAuthSessionRepository,
+        AbstractAuthTokenRepository,
+        AbstractUserRepository,
+    )
+
+__all__ = ["TokenPair", "TokenService"]
+
+TokenPurpose = Literal["invite", "reset"]
+
+
+@dataclass(frozen=True)
+class TokenPair:
+    access_token: str
+    refresh_token: str
+    expires_in: int
+
+
+class TokenService:
+    """All token machinery: JWT access tokens, rotating refresh sessions, and
+    single-use invite/reset action tokens. Raw opaque tokens never touch the DB —
+    only their SHA-256 (see core/security.py)."""
+
+    def __init__(
+        self,
+        users: AbstractUserRepository,
+        tokens: AbstractAuthTokenRepository,
+        sessions: AbstractAuthSessionRepository,
+        auth: AuthSettings,
+    ) -> None:
+        self._users = users
+        self._tokens = tokens
+        self._sessions = sessions
+        self._auth = auth
+
+    # -- access + refresh -------------------------------------------------
+
+    async def issue_pair(self, user: User) -> TokenPair:
+        raw_refresh = new_opaque_token()
+        expires_at = datetime.now(UTC) + timedelta(days=self._auth.refresh_token_days)
+        await self._sessions.create(user.id, hash_token(raw_refresh), expires_at)
+        return TokenPair(
+            access_token=create_access_token(user.id, self._auth),
+            refresh_token=raw_refresh,
+            expires_in=self._auth.access_token_minutes * 60,
+        )
+
+    async def refresh_pair(self, raw_refresh: str) -> TokenPair:
+        """Rotation-on-use: the presented refresh token is revoked and a new pair
+        issued (sliding refresh lifetime). Raises InvalidSessionError."""
+        auth_session = await self._sessions.get_by_hash(hash_token(raw_refresh))
+        if (
+            auth_session is None
+            or auth_session.revoked_at is not None
+            or auth_session.expires_at <= datetime.now(UTC)
+        ):
+            raise InvalidSessionError
+        user = await self._users.get_by_id(auth_session.user_id)
+        if user is None or not user.is_active:
+            raise InvalidSessionError
+        await self._sessions.revoke(auth_session)
+        return await self.issue_pair(user)
+
+    async def revoke_session(self, raw_refresh: str) -> None:
+        """Logout. Idempotent: unknown or already-revoked tokens are a no-op."""
+        auth_session = await self._sessions.get_by_hash(hash_token(raw_refresh))
+        if auth_session is not None and auth_session.revoked_at is None:
+            await self._sessions.revoke(auth_session)
+
+    # -- invite / reset action tokens --------------------------------------
+
+    async def issue_action_token(self, user: User, purpose: TokenPurpose) -> str:
+        """Create a single-use token and return its raw form (the only time it
+        exists unhashed). A new reset token revokes prior unused reset tokens."""
+        if purpose == "reset":
+            await self._tokens.delete_unconsumed(user.id, purpose="reset")
+        ttl_days = self._auth.invite_ttl_days if purpose == "invite" else self._auth.reset_ttl_days
+        raw = new_opaque_token()
+        expires_at = datetime.now(UTC) + timedelta(days=ttl_days)
+        await self._tokens.create(user.id, hash_token(raw), purpose, expires_at)
+        return raw
+
+    async def peek_action_token(self, raw: str) -> tuple[AuthToken, User]:
+        """Validate without consuming (the invite-info endpoint).
+
+        Raises TokenNotFoundError (unknown/used/user gone or inactive) or
+        TokenExpiredError.
+        """
+        token = await self._tokens.get_by_hash(hash_token(raw))
+        if token is None or token.consumed_at is not None:
+            raise TokenNotFoundError
+        if token.expires_at <= datetime.now(UTC):
+            raise TokenExpiredError
+        user = await self._users.get_by_id(token.user_id)
+        if user is None or not user.is_active:
+            raise TokenNotFoundError
+        return token, user
+
+    async def consume_action_token(self, raw: str) -> tuple[AuthToken, User]:
+        token, user = await self.peek_action_token(raw)
+        await self._tokens.consume(token)
+        return token, user
+
+    async def revoke_all_for_user(self, user_id: uuid.UUID) -> None:
+        """After set-password: delete the user's other outstanding action tokens
+        and revoke every refresh session."""
+        await self._tokens.delete_unconsumed(user_id)
+        await self._sessions.revoke_all_for_user(user_id)

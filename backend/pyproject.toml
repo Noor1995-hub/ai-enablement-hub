@@ -13,6 +13,7 @@ dependencies = [
     "alembic~=1.18",
     "pydantic~=2.9",
     "pydantic-settings~=2.6",
+    "email-validator~=2.2",
     "bcrypt~=4.2",
     "pyjwt~=2.10",
 ]
@@ -52,6 +53,21 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+# One event loop for the whole run: the session-scoped async engine (remote PG)
+# must live on the same loop as the tests that use it (asyncpg pins connections
+# to their creating loop).
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+markers = [
+    "unit: no I/O, mocked repositories",
+    "integration: runs against the ai-enablement-hub-test PostgreSQL database",
+]
+
+[tool.coverage.run]
+# Async SQLAlchemy runs DB calls through greenlets; without this, coverage
+# loses trace of every coroutine that resumes after a greenlet switch and
+# under-reports executed code (SQLAlchemy docs recommend this setting).
+concurrency = ["greenlet", "thread"]
 
 [build-system]
 requires = ["hatchling"]

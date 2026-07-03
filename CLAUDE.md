@@ -24,9 +24,14 @@ Database for PostgreSQL** (playground server, database `ai-enablement-hub`).
   Azure, verified. Roles `ai_hub_owner` (DDL) / `ai_hub_app` (app DML) with default
   privileges configured. Users migrated with `password_set=false` — re-invite manually once
   auth exists.
-- **Batch 2 next:** auth core — `services/token_service.py`, user repository/service,
-  `routers/auth.py` (login / refresh / logout / set-password / invite-info), `api` deps
-  (`get_current_user`, `require_admin`), invite-lifecycle + authz tests.
+- **Batch 2 DONE (2026-07-03):** auth core — `core/security.py` (bcrypt + HS256 JWT +
+  opaque-token helpers), `services/token_service.py` + `user_service.py`, repositories
+  (user / auth_token / auth_session), `routers/auth.py` (login / refresh / logout /
+  set-password / invite-info), `core/dependencies/auth.py` (`get_current_user`,
+  `require_admin`), error-shape handlers (`{"error":{code,message[,fields]}}`).
+  73 tests green (unit + integration on the PG test DB), coverage 97%.
+  `AUTH__JWT_SECRET` now required in `backend/.env`.
+  Deferred to Batch 3 per design build order: rate limiting, CORS, daily token-cleanup task.
 - Batch 3: remaining routers + scoring port (golden-parity tests vs `../app/api/_lib/scoring.js`;
   beware JS `null >= 2` is false vs Python TypeError on the c5 rung).
 - Batches 4–6: frontend (foundation/auth → learner pages → admin + parity pass).
@@ -43,6 +48,14 @@ Database for PostgreSQL** (playground server, database `ai-enablement-hub`).
   user identifier from the request** — ownership comes from the token only.
 - Backend checks after changes: `uv run poe format && uv run poe lint && uv run poe test`
   (run inside `backend/`).
+- **FastAPI signature gotcha:** any type used in a *parameter* annotation that FastAPI
+  inspects (routers, DI providers in `core/dependencies/`) must be imported at runtime,
+  not under `TYPE_CHECKING` — with deferred annotations an unresolvable name silently
+  degrades the param to a required query param (uniform 422s). Return-type-only imports
+  may stay type-only.
+- Integration tests derive their DSN from `ALEMBIC_DATABASE_URL` with the database swapped
+  to `ai-enablement-hub-test`; schema is created per session from `Base.metadata`, isolation
+  is per-test savepoint rollback (`join_transaction_mode="create_savepoint"`).
 - The old Supabase project stays live until cutover; refresh + reload data via
   `db/export_supabase_snapshot.py` then `db/migrate_supabase_to_azure.py` (destructive on
   Azure — see db/README.md).

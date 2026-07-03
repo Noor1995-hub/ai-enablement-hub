@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from src.core.configs.auth import AuthSettings
 from src.core.configs.database import DatabaseSettings
 
 __all__ = ["Settings"]
@@ -9,6 +10,8 @@ __all__ = ["Settings"]
 
 class Settings(BaseSettings):
     database: DatabaseSettings = DatabaseSettings()
+    # No default: AUTH__JWT_SECRET must be set or startup fails loudly.
+    auth: AuthSettings
 
     model_config = SettingsConfigDict(
         frozen=True,
