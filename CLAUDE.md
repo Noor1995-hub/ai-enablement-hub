@@ -85,7 +85,41 @@ Database for PostgreSQL** (playground server, database `ai-enablement-hub`).
   refresh rotation ×2, single-flight, consumed-link reuse, logout, wrong password, admin
   guard). Frontend checks after changes: `npm run typecheck && npm run lint && npm run build`
   (run inside `frontend/`).
-- Batches 5–6: frontend learner pages → admin + parity pass.
+- **Batch 5 DONE (2026-07-03):** learner pages — JourneyHome (one `GET /api/me/journey`;
+  survey_status is `'not_started'|'in_progress'|'complete'`, NOT the design doc's `'none'`),
+  Assessment (967-line port; `GET/PUT /api/survey/me` + `POST /api/survey/complete`; answers
+  typed via the surveyOptions-derived unions, `c5_codes: C5Code[]`), ModulePopup + LearningPath
+  (one `GET /api/learning/graph` — the design doc's `/api/learning/path` name is stale; backend
+  returns ALL tracks/modules with per-caller `assigned` flags, frontend filters to assigned
+  tracks → assigned modules, same joins as the old 7-query chain; `col_offset` never existed in
+  this page — nothing to drop), lesson `blocks/*` (7 renderers + renderInline) + LessonView
+  (`RENDERERS` map exhaustively keyed on `ContentBlock['type']`) + LessonPage VIEW+PROGRESS
+  (one `GET /api/lessons/{id}` aggregate — `next_lesson_id` already resolves the cross-module
+  hop server-side; complete = `PUT /api/lessons/{id}/progress {answers}`, NOT `/complete`;
+  sidebar = `GET /api/modules/{id}/lessons`). content_blocks crosses the JSONB boundary with
+  ONE cast in LessonPage; CardsBlock tolerates the legacy what/useCase/tools card shape found
+  in real data. Dead nav style blocks (D2) dropped in JourneyHome AND Assessment (same dead
+  class); `let cancelled = false` in every fetch effect (A5). **Deliberate behavior fix over
+  the old app:** LessonPage never remounts between lessons, so the old app leaked
+  quizDone/completing across navigations (next lesson's quiz gate silently open); the port
+  resets per-lesson UI state on lessonId change and memoizes `onQuizComplete` with useCallback
+  — the stable identity is load-bearing (an inline arrow makes the still-mounted previous
+  quiz's completion effect refire and undo the reset). NOT ported (Batch 6): LearningPath edit
+  mode (ModulePanel/AddTrackModal/AddModuleModal), LessonPage edit+MDX modes, `editors/*`.
+  tsc gotcha: `current?.type === x` on a loop-carried `let current: T | null` resolves to
+  `never` under tsc 5.6 — use `current && current.type === x` (ParagraphBlock). Verified in
+  Chromium against the live backend + real Azure data: all three survey states on JourneyHome
+  (hidden interview filtered, locked learning, Being-built badge), assessment full flow +
+  mid-step reload-resume + c5 multi-select + read-only revisit, graph (19 nodes/20 edges for
+  the real dataset), popup continue→first-uncompleted, quiz all-correct gate, complete→next
+  lesson, cross-module hop, empty-module popup disabled, reload on every route; completion
+  scored practitioner/regular via the admin API. Outstanding: pixel side-by-side vs the old
+  app on :3000 needs Matthias's live Supabase login (Azure password ≠ Supabase password);
+  `question` blocks exist in no real lesson, so that renderer is type-checked but not
+  browser-exercised. Test artifacts left on Azure (flagged to Matthias): matthias's completed
+  survey row + 4 lesson_progress rows (What-AI-is ×3, Beyond-chat) — his 2 pre-existing Intro
+  rows are untouched.
+- Batch 6: admin + parity pass.
 
 ## Key facts
 

@@ -1,7 +1,10 @@
 import { BrowserRouter, Navigate, Route, Routes, useNavigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
+import Assessment from './pages/Assessment'
 import InviteRedirect from './pages/InviteRedirect'
 import JourneyHome from './pages/JourneyHome'
+import LearningPath from './pages/LearningPath'
+import LessonPage from './pages/LessonPage'
 import Login from './pages/Login'
 import SetPassword from './pages/SetPassword'
 
@@ -45,8 +48,8 @@ function AppRoutes() {
   // password_set already true.
   const needsPassword = session && passwordSet === false
 
-  // /admin, /assessment, /learning(+lesson) and /interview render ComingSoon
-  // until Batches 5–6 port the real pages; the guard semantics are final.
+  // /admin renders ComingSoon until Batch 6 ports the admin panel; /interview
+  // is ComingSoon in the old app too. Guard semantics are final.
   return (
     <Routes>
       <Route path="/login" element={session ? <Navigate to="/" replace /> : <Login />} />
@@ -61,9 +64,9 @@ function AppRoutes() {
           : role !== 'admin' ? <Navigate to="/" replace />
           : <ComingSoon />
       } />
-      <Route path="/assessment" element={session ? <ComingSoon /> : <Navigate to="/login" replace />} />
-      <Route path="/learning" element={session ? <ComingSoon /> : <Navigate to="/login" replace />} />
-      <Route path="/learning/lesson/:lessonId" element={session ? <ComingSoon /> : <Navigate to="/login" replace />} />
+      <Route path="/assessment" element={session ? <Assessment /> : <Navigate to="/login" replace />} />
+      <Route path="/learning" element={session ? <LearningPath /> : <Navigate to="/login" replace />} />
+      <Route path="/learning/lesson/:lessonId" element={session ? <LessonPage /> : <Navigate to="/login" replace />} />
       <Route path="/interview" element={session ? <ComingSoon /> : <Navigate to="/login" replace />} />
       <Route path="/invite/:id" element={<InviteRedirect />} />
       <Route path="*" element={<Navigate to={needsPassword ? '/set-password' : session ? '/' : '/login'} replace />} />
