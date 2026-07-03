@@ -2,11 +2,15 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any, cast
 
-from sqlalchemy import select, update
+from sqlalchemy import delete, or_, select, update
 
 from src.db.models import AuthSession
 from src.repositories.base import AbstractAuthSessionRepository
+
+if TYPE_CHECKING:
+    from sqlalchemy import CursorResult
 
 __all__ = ["AuthSessionRepository"]
 
@@ -41,3 +45,15 @@ class AuthSessionRepository(AbstractAuthSessionRepository):
             .values(revoked_at=datetime.now(UTC))
         )
         await self._session.commit()
+
+    async def delete_dead(self) -> int:
+        result = await self._session.execute(
+            delete(AuthSession).where(
+                or_(
+                    AuthSession.expires_at < datetime.now(UTC),
+                    AuthSession.revoked_at.is_not(None),
+                )
+            )
+        )
+        await self._session.commit()
+        return cast("CursorResult[Any]", result).rowcount

@@ -40,7 +40,7 @@ class TestInviteLifecycle:
         )
         assert completed.status_code == 200
         access = completed.json()["access_token"]
-        me = await client.get("/api/_test/me", headers={"Authorization": f"Bearer {access}"})
+        me = await client.get("/api/me", headers={"Authorization": f"Bearer {access}"})
         assert me.status_code == 200
 
         login = await client.post(

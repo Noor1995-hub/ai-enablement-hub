@@ -29,7 +29,7 @@ class TestLogin:
         assert body["token_type"] == "bearer"
         assert body["expires_in"] == 30 * 60
         me = await client.get(
-            "/api/_test/me", headers={"Authorization": f"Bearer {body['access_token']}"}
+            "/api/me", headers={"Authorization": f"Bearer {body['access_token']}"}
         )
         assert me.status_code == 200
         assert me.json()["id"] == str(user.id)

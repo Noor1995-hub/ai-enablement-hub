@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from typing import Annotated, cast
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from src.core.dependencies.auth import get_token_service
+from src.core.dependencies.ratelimit import get_rate_limiter
 from src.core.dependencies.user import get_user_service
+from src.core.ratelimit import RateLimiter
 from src.schemas.auth import (
     InviteInfoResponse,
     LoginRequest,
@@ -29,11 +31,17 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 UserServiceDep = Annotated[UserService, Depends(get_user_service)]
 TokenServiceDep = Annotated[TokenService, Depends(get_token_service)]
+RateLimiterDep = Annotated[RateLimiter, Depends(get_rate_limiter)]
 
 _INVALID_LINK = HTTPException(
     status_code=status.HTTP_404_NOT_FOUND, detail="Invalid or already-used link"
 )
 _EXPIRED_LINK = HTTPException(status_code=status.HTTP_410_GONE, detail="This link has expired")
+_RATE_LIMITED = HTTPException(
+    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+    detail="Too many attempts — try again in a minute",
+    headers={"Retry-After": "60"},
+)
 
 
 def _pair_response(pair: TokenPair) -> TokenPairResponse:
@@ -46,8 +54,13 @@ def _pair_response(pair: TokenPair) -> TokenPairResponse:
 
 @router.post("/login", response_model=TokenPairResponse)
 async def login(
-    body: LoginRequest, user_service: UserServiceDep, token_service: TokenServiceDep
+    body: LoginRequest,
+    user_service: UserServiceDep,
+    token_service: TokenServiceDep,
+    limiter: RateLimiterDep,
 ) -> TokenPairResponse:
+    if limiter.is_limited(f"login:{body.email.strip().lower()}"):
+        raise _RATE_LIMITED
     try:
         user = await user_service.authenticate(body.email, body.password)
     except InvalidCredentialsError as exc:
@@ -99,10 +112,17 @@ async def invite_info(token: str, token_service: TokenServiceDep) -> InviteInfoR
 
 @router.post("/set-password", response_model=TokenPairResponse)
 async def set_password(
-    body: SetPasswordRequest, user_service: UserServiceDep, token_service: TokenServiceDep
+    body: SetPasswordRequest,
+    request: Request,
+    user_service: UserServiceDep,
+    token_service: TokenServiceDep,
+    limiter: RateLimiterDep,
 ) -> TokenPairResponse:
     """Complete an invite or reset: consume the token, set the password, revoke
     all other outstanding tokens/sessions, and auto-login."""
+    client_ip = request.client.host if request.client is not None else "unknown"
+    if limiter.is_limited(f"set-password:{client_ip}"):
+        raise _RATE_LIMITED
     try:
         _, user = await token_service.consume_action_token(body.token)
     except TokenNotFoundError as exc:

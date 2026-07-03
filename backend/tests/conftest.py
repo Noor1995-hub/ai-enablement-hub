@@ -2,11 +2,10 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated
+from typing import TYPE_CHECKING
 
 import pytest
 import pytest_asyncio
-from fastapi import Depends
 from httpx import ASGITransport, AsyncClient
 from pydantic import SecretStr
 from sqlalchemy.engine import make_url
@@ -15,11 +14,10 @@ from sqlalchemy.pool import NullPool
 
 from src.core.configs.auth import AuthSettings
 from src.core.configs.settings import Settings
-from src.core.dependencies.auth import get_current_user, require_admin
 from src.core.dependencies.database import get_session
 from src.core.dependencies.settings import get_settings
+from src.core.ratelimit import rate_limiter
 from src.db.base import Base
-from src.db.models import User
 from src.main import app
 from src.repositories.auth_session_repository import AuthSessionRepository
 from src.repositories.auth_token_repository import AuthTokenRepository
@@ -27,7 +25,7 @@ from src.repositories.user_repository import UserRepository
 from src.services.token_service import TokenService
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator
+    from collections.abc import AsyncGenerator, Generator
 
     from sqlalchemy.engine import URL
     from sqlalchemy.ext.asyncio import AsyncEngine
@@ -66,16 +64,12 @@ def _test_database_url() -> URL:
     return test_url
 
 
-# Protected routes exist only in Batch 3+; these test-only endpoints let the
-# authz tests exercise get_current_user/require_admin end-to-end today.
-@app.get("/api/_test/me", include_in_schema=False)
-async def _test_me(user: Annotated[User, Depends(get_current_user)]) -> dict[str, str]:
-    return {"id": str(user.id), "role": user.role}
-
-
-@app.get("/api/_test/admin", include_in_schema=False)
-async def _test_admin(user: Annotated[User, Depends(require_admin)]) -> dict[str, str]:
-    return {"id": str(user.id)}
+@pytest.fixture(autouse=True)
+def _reset_rate_limiter() -> Generator[None]:
+    """The limiter is a process-global; isolate its counters per test."""
+    rate_limiter.reset()
+    yield
+    rate_limiter.reset()
 
 
 @pytest.fixture(scope="session")

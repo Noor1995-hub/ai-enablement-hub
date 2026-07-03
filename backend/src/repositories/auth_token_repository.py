@@ -2,11 +2,15 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any, cast
 
 from sqlalchemy import delete, select
 
 from src.db.models import AuthToken
 from src.repositories.base import AbstractAuthTokenRepository
+
+if TYPE_CHECKING:
+    from sqlalchemy import CursorResult
 
 __all__ = ["AuthTokenRepository"]
 
@@ -42,3 +46,10 @@ class AuthTokenRepository(AbstractAuthTokenRepository):
             stmt = stmt.where(AuthToken.purpose == purpose)
         await self._session.execute(stmt)
         await self._session.commit()
+
+    async def delete_expired(self) -> int:
+        result = await self._session.execute(
+            delete(AuthToken).where(AuthToken.expires_at < datetime.now(UTC))
+        )
+        await self._session.commit()
+        return cast("CursorResult[Any]", result).rowcount

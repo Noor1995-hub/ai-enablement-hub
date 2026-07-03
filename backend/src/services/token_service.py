@@ -123,3 +123,13 @@ class TokenService:
         and revoke every refresh session."""
         await self._tokens.delete_unconsumed(user_id)
         await self._sessions.revoke_all_for_user(user_id)
+
+    # -- maintenance --------------------------------------------------------
+
+    async def purge_expired(self) -> tuple[int, int]:
+        """Delete expired action tokens and expired/revoked sessions (fixes DB2).
+
+        Returns (tokens_deleted, sessions_deleted); called by the daily
+        lifespan cleanup task in main.py.
+        """
+        return await self._tokens.delete_expired(), await self._sessions.delete_dead()

@@ -1,0 +1,75 @@
+from __future__ import annotations
+
+import uuid
+from typing import Any
+
+from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+
+from src.db.models import Company, Project, ProjectComponentSetting
+from src.repositories.base import AbstractOrgRepository
+
+__all__ = ["OrgRepository"]
+
+
+class OrgRepository(AbstractOrgRepository):
+    async def list_companies(self) -> list[Company]:
+        result = await self._session.execute(select(Company).order_by(Company.name))
+        return list(result.scalars().all())
+
+    async def list_projects(self) -> list[Project]:
+        result = await self._session.execute(select(Project).order_by(Project.name))
+        return list(result.scalars().all())
+
+    async def get_company_by_name_ci(self, name: str) -> Company | None:
+        result = await self._session.execute(
+            select(Company).where(func.lower(Company.name) == name.lower())
+        )
+        return result.scalars().first()
+
+    async def create_company(self, name: str) -> Company:
+        company = Company(name=name)
+        self._session.add(company)
+        await self._session.commit()
+        await self._session.refresh(company)
+        return company
+
+    async def get_company(self, company_id: uuid.UUID) -> Company | None:
+        result = await self._session.execute(select(Company).where(Company.id == company_id))
+        return result.scalar_one_or_none()
+
+    async def get_project(self, project_id: uuid.UUID) -> Project | None:
+        result = await self._session.execute(select(Project).where(Project.id == project_id))
+        return result.scalar_one_or_none()
+
+    async def create_project_with_default_components(
+        self, name: str, company_id: uuid.UUID, defaults: list[dict[str, Any]]
+    ) -> Project:
+        project = Project(name=name, company_id=company_id)
+        self._session.add(project)
+        await self._session.flush()
+        self._session.add_all(
+            ProjectComponentSetting(project_id=project.id, **row) for row in defaults
+        )
+        await self._session.commit()
+        await self._session.refresh(project)
+        return project
+
+    async def get_component_settings(self, project_id: uuid.UUID) -> list[ProjectComponentSetting]:
+        result = await self._session.execute(
+            select(ProjectComponentSetting).where(ProjectComponentSetting.project_id == project_id)
+        )
+        return list(result.scalars().all())
+
+    async def upsert_component_setting(
+        self, project_id: uuid.UUID, component: str, *, hidden: bool, locked: bool
+    ) -> None:
+        stmt = pg_insert(ProjectComponentSetting).values(
+            project_id=project_id, component=component, hidden=hidden, locked=locked
+        )
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["project_id", "component"],
+            set_={"hidden": stmt.excluded.hidden, "locked": stmt.excluded.locked},
+        )
+        await self._session.execute(stmt)
+        await self._session.commit()

@@ -3,8 +3,9 @@ from __future__ import annotations
 import uuid
 
 from sqlalchemy import select
+from sqlalchemy.orm import aliased
 
-from src.db.models import User
+from src.db.models import Company, Project, User
 from src.repositories.base import AbstractUserRepository
 
 __all__ = ["UserRepository"]
@@ -24,3 +25,58 @@ class UserRepository(AbstractUserRepository):
         user.password_set = True
         await self._session.commit()
         await self._session.refresh(user)
+
+    async def list_with_org_names(
+        self, project_id: uuid.UUID | None = None
+    ) -> list[tuple[User, str | None, str | None]]:
+        stmt = (
+            select(User, Company.name, Project.name)
+            .outerjoin(Company, Company.id == User.company_id)
+            .outerjoin(Project, Project.id == User.project_id)
+            .order_by(User.created_at.desc())
+        )
+        if project_id is not None:
+            stmt = stmt.where(User.project_id == project_id)
+        result = await self._session.execute(stmt)
+        return [(user, company, project) for user, company, project in result.all()]
+
+    async def list_for_learning(self) -> list[tuple[User, str | None, str | None]]:
+        # Company resolved through the user's project (legacy handleGetLearning shape).
+        project_company = aliased(Company)
+        stmt = (
+            select(User, Project.name, project_company.name)
+            .outerjoin(Project, Project.id == User.project_id)
+            .outerjoin(project_company, project_company.id == Project.company_id)
+            .order_by(User.first_name)
+        )
+        result = await self._session.execute(stmt)
+        return [(user, project, company) for user, project, company in result.all()]
+
+    async def create(
+        self,
+        *,
+        email: str,
+        first_name: str,
+        last_name: str,
+        company_id: uuid.UUID,
+        project_id: uuid.UUID,
+    ) -> User:
+        user = User(
+            email=email,
+            first_name=first_name,
+            last_name=last_name,
+            company_id=company_id,
+            project_id=project_id,
+        )
+        self._session.add(user)
+        await self._session.commit()
+        await self._session.refresh(user)
+        return user
+
+    async def update_role(self, user: User, role: str) -> None:
+        user.role = role
+        await self._session.commit()
+
+    async def delete(self, user: User) -> None:
+        await self._session.delete(user)
+        await self._session.commit()

@@ -1,0 +1,363 @@
+"""Admin content management: track/module/lesson creation with server-side
+sort_order arithmetic, module-insert shifting (DB6), batch reorder (B5)."""
+
+from __future__ import annotations
+
+import uuid
+from typing import TYPE_CHECKING
+
+import pytest_asyncio
+
+from tests.fixtures.auth import auth_headers
+from tests.fixtures.factories import create_lesson, create_module, create_track, create_user
+
+if TYPE_CHECKING:
+    from httpx import AsyncClient
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    from src.core.configs.settings import Settings
+
+
+@pytest_asyncio.fixture
+async def admin_headers(db_session: AsyncSession, test_settings: Settings) -> dict[str, str]:
+    admin = await create_user(db_session, email="content-admin@example.com", role="admin")
+    return auth_headers(admin, test_settings)
+
+
+class TestTrackReads:
+    async def test_tracks_visible_to_plain_users(
+        self, client: AsyncClient, db_session: AsyncSession, test_settings: Settings
+    ) -> None:
+        track = await create_track(db_session, "Readable", color="#abc")
+        user = await create_user(db_session, email="track-reader@example.com")
+        response = await client.get("/api/tracks", headers=auth_headers(user, test_settings))
+        assert response.status_code == 200
+        entry = next(t for t in response.json() if t["id"] == str(track.id))
+        assert entry == {
+            "id": str(track.id),
+            "name": "Readable",
+            "sort_order": 0,
+            "track_type": "general",
+            "color": "#abc",
+        }
+
+    async def test_track_modules_ordered(
+        self, client: AsyncClient, db_session: AsyncSession, test_settings: Settings
+    ) -> None:
+        track = await create_track(db_session, "Ordered")
+        await create_module(db_session, track, "Second", sort_order=1)
+        await create_module(db_session, track, "First", sort_order=0)
+        user = await create_user(db_session, email="module-reader@example.com")
+        response = await client.get(
+            f"/api/tracks/{track.id}/modules", headers=auth_headers(user, test_settings)
+        )
+        assert [m["title"] for m in response.json()] == ["First", "Second"]
+
+    async def test_unknown_track_is_404(
+        self, client: AsyncClient, db_session: AsyncSession, test_settings: Settings
+    ) -> None:
+        user = await create_user(db_session, email="lost-reader@example.com")
+        response = await client.get(
+            f"/api/tracks/{uuid.uuid4()}/modules", headers=auth_headers(user, test_settings)
+        )
+        assert response.status_code == 404
+
+
+class TestCreateTrack:
+    async def test_sort_order_is_max_plus_one(
+        self, client: AsyncClient, db_session: AsyncSession, admin_headers: dict[str, str]
+    ) -> None:
+        await create_track(db_session, "Existing", sort_order=4)
+        response = await client.post(
+            "/api/admin/tracks",
+            json={"name": "Appended", "track_type": "tool", "color": "#fff"},
+            headers=admin_headers,
+        )
+        assert response.status_code == 201
+        assert response.json()["sort_order"] == 5
+
+    async def test_invalid_track_type_is_422(
+        self, client: AsyncClient, admin_headers: dict[str, str]
+    ) -> None:
+        response = await client.post(
+            "/api/admin/tracks",
+            json={"name": "Bad", "track_type": "banana"},
+            headers=admin_headers,
+        )
+        assert response.status_code == 422
+
+
+class TestCreateModule:
+    async def test_append_without_predecessor(
+        self, client: AsyncClient, db_session: AsyncSession, admin_headers: dict[str, str]
+    ) -> None:
+        track = await create_track(db_session, "Append Track")
+        await create_module(db_session, track, "M0", sort_order=0)
+        response = await client.post(
+            "/api/admin/modules",
+            json={"track_id": str(track.id), "title": "M1"},
+            headers=admin_headers,
+        )
+        assert response.status_code == 201
+        assert response.json()["sort_order"] == 1
+
+    async def test_insert_after_shifts_successors(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        admin_headers: dict[str, str],
+        test_settings: Settings,
+    ) -> None:
+        """The DB6 fix: inserting between modules renumbers successors instead
+        of creating duplicate sort_orders."""
+        track = await create_track(db_session, "Shift Track")
+        first = await create_module(db_session, track, "First", sort_order=0)
+        await create_module(db_session, track, "Third", sort_order=1)
+
+        response = await client.post(
+            "/api/admin/modules",
+            json={"track_id": str(track.id), "title": "Second", "after_module_id": str(first.id)},
+            headers=admin_headers,
+        )
+        assert response.status_code == 201
+        assert response.json()["sort_order"] == 1
+
+        user = await create_user(db_session, email="shift-viewer@example.com")
+        modules = (
+            await client.get(
+                f"/api/tracks/{track.id}/modules", headers=auth_headers(user, test_settings)
+            )
+        ).json()
+        assert [(m["title"], m["sort_order"]) for m in modules] == [
+            ("First", 0),
+            ("Second", 1),
+            ("Third", 2),
+        ]
+
+    async def test_prerequisites_inserted_atomically(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        admin_headers: dict[str, str],
+        test_settings: Settings,
+    ) -> None:
+        track = await create_track(db_session, "Prereq Track")
+        base = await create_module(db_session, track, "Base", sort_order=0)
+        response = await client.post(
+            "/api/admin/modules",
+            json={
+                "track_id": str(track.id),
+                "title": "Dependent",
+                "prerequisite_ids": [str(base.id), str(base.id)],  # duplicates collapse
+            },
+            headers=admin_headers,
+        )
+        assert response.status_code == 201
+        module_id = response.json()["id"]
+
+        user = await create_user(db_session, email="prereq-viewer@example.com")
+        graph = (
+            await client.get("/api/learning/graph", headers=auth_headers(user, test_settings))
+        ).json()
+        edges = [p for p in graph["prerequisites"] if p["module_id"] == module_id]
+        assert edges == [{"module_id": module_id, "prerequisite_module_id": str(base.id)}]
+
+    async def test_after_module_from_other_track_is_400(
+        self, client: AsyncClient, db_session: AsyncSession, admin_headers: dict[str, str]
+    ) -> None:
+        track = await create_track(db_session, "Main Track")
+        other_track = await create_track(db_session, "Other Track", sort_order=1)
+        foreign = await create_module(db_session, other_track, "Foreign")
+        response = await client.post(
+            "/api/admin/modules",
+            json={
+                "track_id": str(track.id),
+                "title": "Misplaced",
+                "after_module_id": str(foreign.id),
+            },
+            headers=admin_headers,
+        )
+        assert response.status_code == 400
+        assert response.json()["error"]["code"] == "bad_request"
+
+    async def test_unknown_track_or_prerequisite_is_404(
+        self, client: AsyncClient, db_session: AsyncSession, admin_headers: dict[str, str]
+    ) -> None:
+        track = await create_track(db_session, "Known Track")
+        assert (
+            await client.post(
+                "/api/admin/modules",
+                json={"track_id": str(uuid.uuid4()), "title": "Orphan"},
+                headers=admin_headers,
+            )
+        ).status_code == 404
+        assert (
+            await client.post(
+                "/api/admin/modules",
+                json={
+                    "track_id": str(track.id),
+                    "title": "Ghost prereq",
+                    "prerequisite_ids": [str(uuid.uuid4())],
+                },
+                headers=admin_headers,
+            )
+        ).status_code == 404
+
+
+class TestLessons:
+    async def test_create_lesson_appends(
+        self, client: AsyncClient, db_session: AsyncSession, admin_headers: dict[str, str]
+    ) -> None:
+        track = await create_track(db_session, "Lesson Track")
+        module = await create_module(db_session, track, "Lesson Module")
+        await create_lesson(db_session, module, "Existing", sort_order=2)
+        response = await client.post(
+            "/api/admin/lessons",
+            json={"module_id": str(module.id), "title": "Appended"},
+            headers=admin_headers,
+        )
+        assert response.status_code == 201
+        assert response.json()["sort_order"] == 3
+
+    async def test_create_lesson_unknown_module_is_404(
+        self, client: AsyncClient, admin_headers: dict[str, str]
+    ) -> None:
+        response = await client.post(
+            "/api/admin/lessons",
+            json={"module_id": str(uuid.uuid4()), "title": "Orphan"},
+            headers=admin_headers,
+        )
+        assert response.status_code == 404
+
+    async def test_patch_title_and_content_blocks(
+        self, client: AsyncClient, db_session: AsyncSession, admin_headers: dict[str, str]
+    ) -> None:
+        track = await create_track(db_session, "Patch Track")
+        module = await create_module(db_session, track, "Patch Module")
+        lesson = await create_lesson(db_session, module, "Draft title")
+        blocks = [{"type": "text", "content": "Hello"}, {"type": "quiz", "question": "?"}]
+        response = await client.patch(
+            f"/api/admin/lessons/{lesson.id}",
+            json={"title": "Final title", "content_blocks": blocks},
+            headers=admin_headers,
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["title"] == "Final title"
+        assert body["content_blocks"] == blocks
+
+        # Partial patch keeps the other field.
+        response = await client.patch(
+            f"/api/admin/lessons/{lesson.id}",
+            json={"title": "Renamed only"},
+            headers=admin_headers,
+        )
+        assert response.json()["content_blocks"] == blocks
+
+    async def test_patch_unknown_lesson_is_404(
+        self, client: AsyncClient, admin_headers: dict[str, str]
+    ) -> None:
+        response = await client.patch(
+            f"/api/admin/lessons/{uuid.uuid4()}", json={"title": "X"}, headers=admin_headers
+        )
+        assert response.status_code == 404
+
+    async def test_delete_lesson_cascades_progress(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        admin_headers: dict[str, str],
+        test_settings: Settings,
+    ) -> None:
+        from sqlalchemy import func, select
+
+        from src.db.models import LessonProgress
+        from tests.fixtures.factories import complete_lesson
+
+        track = await create_track(db_session, "Delete Track")
+        module = await create_module(db_session, track, "Delete Module")
+        lesson = await create_lesson(db_session, module, "Doomed")
+        user = await create_user(db_session, email="lesson-loser@example.com")
+        await complete_lesson(db_session, user, lesson)
+
+        response = await client.delete(f"/api/admin/lessons/{lesson.id}", headers=admin_headers)
+        assert response.status_code == 204
+        assert (
+            await client.get(f"/api/lessons/{lesson.id}", headers=auth_headers(user, test_settings))
+        ).status_code == 404
+        orphans = (
+            await db_session.execute(
+                select(func.count())
+                .select_from(LessonProgress)
+                .where(LessonProgress.lesson_id == lesson.id)
+            )
+        ).scalar_one()
+        assert orphans == 0
+
+
+class TestReorderLessons:
+    async def test_batch_reorder_applies_positions(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        admin_headers: dict[str, str],
+        test_settings: Settings,
+    ) -> None:
+        track = await create_track(db_session, "Reorder Track")
+        module = await create_module(db_session, track, "Reorder Module")
+        lessons = [await create_lesson(db_session, module, f"L{i}", sort_order=i) for i in range(3)]
+        reversed_ids = [str(lesson.id) for lesson in reversed(lessons)]
+        response = await client.put(
+            f"/api/admin/modules/{module.id}/lessons/order",
+            json={"lesson_ids": reversed_ids},
+            headers=admin_headers,
+        )
+        assert response.status_code == 204
+
+        user = await create_user(db_session, email="reorder-viewer@example.com")
+        listed = (
+            await client.get(
+                f"/api/modules/{module.id}/lessons", headers=auth_headers(user, test_settings)
+            )
+        ).json()["lessons"]
+        assert [lesson["title"] for lesson in listed] == ["L2", "L1", "L0"]
+        assert [lesson["sort_order"] for lesson in listed] == [0, 1, 2]
+
+    async def test_mismatched_set_is_400(
+        self, client: AsyncClient, db_session: AsyncSession, admin_headers: dict[str, str]
+    ) -> None:
+        track = await create_track(db_session, "Mismatch Track")
+        module = await create_module(db_session, track, "Mismatch Module")
+        lessons = [await create_lesson(db_session, module, f"L{i}", sort_order=i) for i in range(2)]
+        url = f"/api/admin/modules/{module.id}/lessons/order"
+
+        # Missing a lesson.
+        assert (
+            await client.put(url, json={"lesson_ids": [str(lessons[0].id)]}, headers=admin_headers)
+        ).status_code == 400
+        # Duplicated id padding out the count.
+        assert (
+            await client.put(
+                url,
+                json={"lesson_ids": [str(lessons[0].id), str(lessons[0].id)]},
+                headers=admin_headers,
+            )
+        ).status_code == 400
+        # Foreign lesson id.
+        assert (
+            await client.put(
+                url,
+                json={"lesson_ids": [str(lessons[0].id), str(uuid.uuid4())]},
+                headers=admin_headers,
+            )
+        ).status_code == 400
+
+    async def test_reorder_unknown_module_is_404(
+        self, client: AsyncClient, admin_headers: dict[str, str]
+    ) -> None:
+        response = await client.put(
+            f"/api/admin/modules/{uuid.uuid4()}/lessons/order",
+            json={"lesson_ids": []},
+            headers=admin_headers,
+        )
+        assert response.status_code == 404

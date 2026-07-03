@@ -32,9 +32,29 @@ Database for PostgreSQL** (playground server, database `ai-enablement-hub`).
   73 tests green (unit + integration on the PG test DB), coverage 97%.
   `AUTH__JWT_SECRET` now required in `backend/.env`.
   Deferred to Batch 3 per design build order: rate limiting, CORS, daily token-cleanup task.
-- Batch 3: remaining routers + scoring port (golden-parity tests vs `../app/api/_lib/scoring.js`;
-  beware JS `null >= 2` is false vs Python TypeError on the c5 rung).
-- Batches 4–6: frontend (foundation/auth → learner pages → admin + parity pass).
+- **Batch 3 DONE (2026-07-03):** all remaining routers — `me`, `survey`, `learning` (incl.
+  `/learning/graph` aggregate), `admin_org`, `admin_users` (invites/reset wired to the Batch 2
+  token service), `admin_content` (module-insert shifting, batch lesson reorder). 37 API
+  endpoints + `/api/health` live at `/docs` (design §3 fully covered; its "29 total" line was
+  a miscount of its own table). `services/scoring.py` is a pure port of `scoring.js` proven by
+  `tests/golden/scoring_golden.json` (582 cases generated from the REAL legacy scorer by
+  `tests/golden/generate_scoring_golden.mjs`; re-run only if scoring.js changes). Deferred
+  cross-cutting landed: `core/ratelimit.py` (fixed-window port of rateLimit.js; login/set-password/
+  invite/reset-link), CORS (`APP__URL`/`APP__ENV` settings), daily auth-cleanup lifespan task.
+  Domain errors: services raise `NotFoundError`/`ConflictError`/`DomainError`/`ScoringError`;
+  main.py exception handlers map them to 404/409/400/422 in the standard error shape — routers
+  stay try/except-free. Re-score parity vs the real Azure data: every legacy-scored row matches
+  exactly (`scripts/rescore_parity.py`); one migrated row (16797147…) is `complete` but was
+  never scored by the old app (B3-class artifact) — flagged as UNSCORED-IN-LEGACY, Python
+  would score it integrator/embedded; backfill is a pending manual decision.
+  **Deviation:** `col_offset` (graph nodes + POST /admin/modules in design-backend §3) is
+  omitted — the live DB has no such column and the old frontend never reads it
+  (design-database.md documents the stale-doc history).
+  781 tests green (584 golden/scoring + authz matrix over every endpoint × 3 auth levels +
+  flow suites), coverage 98%. The `/api/_test/*` conftest endpoints from Batch 2 are gone —
+  authz tests now run against the real routes.
+- Batches 4–6: frontend (foundation/auth → learner pages → admin + parity pass) —
+  **React 18 + TypeScript (Vite)** per the approved plan.
 
 ## Key facts
 
