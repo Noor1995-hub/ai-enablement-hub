@@ -130,9 +130,11 @@ export const READINESS_LABELS = toLabelMap(READINESS_OPTIONS)
 
 // ── Full competency Q&A definitions (used by Admin.tsx SurveyResults) ────────
 
+// key/field are literal unions so SurveyResults can index the typed
+// AdminSurveyOut row (c1_rung…c6_rung, c1_code…c6_code/c5_codes) without casts.
 export interface CompetencyQA {
-  key: string
-  field: string
+  key: 'c1' | 'c2' | 'c3' | 'c4' | 'c5' | 'c6'
+  field: 'c1_code' | 'c2_code' | 'c3_code' | 'c4_code' | 'c5_codes' | 'c6_code'
   label: string
   question: string
   options: Record<string, string>

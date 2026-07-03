@@ -119,7 +119,71 @@ Database for PostgreSQL** (playground server, database `ai-enablement-hub`).
   browser-exercised. Test artifacts left on Azure (flagged to Matthias): matthias's completed
   survey row + 4 lesson_progress rows (What-AI-is ×3, Beyond-chat) — his 2 pre-existing Intro
   rows are untouched.
-- Batch 6: admin + parity pass.
+- **Batch 6 DONE (2026-07-03) — the rebuild is FEATURE-COMPLETE.** Admin pages + edit modes:
+  adminStyles.ts (`satisfies Record<string, CSSProperties>`; D3 dead nav/avatar/dropdown styles
+  dropped, navBadge/navDivider/navTabs* kept for the AppNav leftExtra tab strip) + adminHelpers.tsx
+  (LevelBadge/BandBadge/RungPill typed; unknown level/band strings render nothing, as before);
+  Admin.tsx shell (God component kept per A1; both hand-rolled `authH` patterns replaced by the
+  typed client — A2 fixed; the old `loadingLearning` state was dead even in the old app — dropped);
+  ProjectsView/SetupView/ProjectDetailView/UserPanel/SurveyResults (typed from AdminSurveyOut;
+  COMPETENCY_QA key/field narrowed to literal unions so rung/code lookups need no casts);
+  AddTrackModal (tracks prop dropped — server assigns sort_order) / AddModuleModal / ModulePanel
+  (reorder = ONE batch PUT, fixes B5); LearningPath edit mode restored (banner, +Add Track/Module,
+  per-node edit targets, floating toggle; track-zoom + popup targets disabled in edit mode);
+  editors/* (7, each typed to its union member, `onChange: (b: XBlock) => void`) + LessonEditor
+  (EDITORS map exhaustively keyed like LessonView's RENDERERS; saves via
+  `PATCH /api/admin/lessons/{id}`) + LessonPage edit+MDX modes. Batch 5's per-lesson state reset
+  and useCallback'd onQuizComplete are untouched; **LessonPage passes a useCallback'd onLiveChange
+  to LessonEditor for the same reason** — an inline arrow refires the editor's live-change effect
+  every render (each firing setLesson's a fresh object) = infinite loop; the old app passed the
+  bare `setLesson`.
+  **Admin endpoint drift (design-frontend §3 admin rows are stale, same class as Batch 5's):**
+  real contract per schema.d.ts — projects are `POST /api/admin/projects` (NOT a `type:'project'`
+  variant of /admin/companies; both creates return the bare row, no `{company}`/`{project}`
+  wrapper); components `GET /api/admin/projects/{id}/components` +
+  `PUT …/components/{component} {hidden?,locked?}`; invites `POST /api/admin/invites`; reset
+  `POST /api/admin/users/{id}/reset-link` (no email body); role `PATCH /api/admin/users/{id}`;
+  delete `DELETE /api/admin/users/{id}`; assignment `PUT /api/admin/users/{id}/tracks/{tid}` and
+  `…/modules/{mid}` with `{assigned}`; surveys `GET /api/admin/surveys?user_ids=csv` +
+  `GET /api/admin/surveys/{user_id}`; content `POST /api/admin/tracks`, `POST /api/admin/modules`
+  (NO col_offset — never existed; omitted after_module_id = append, matching the old modal),
+  `POST /api/admin/lessons`, `PATCH|DELETE /api/admin/lessons/{id}`,
+  `PUT /api/admin/modules/{id}/lessons/order {lesson_ids}`.
+  Parity findings: freshly invited users show the **active** badge — `is_active` defaults true in
+  BOTH schemas and the old invite handler never set it false, so the `invited` state is unreachable
+  via UI in the old app too. Editor **Save exits edit mode** to the learner view (old handleSave
+  behavior). Browser-verified in Chromium against live backend + real Azure data using disposable
+  ZZ-B6-prefixed entities: setup create company/project; invite → copy link → fresh-context
+  redemption → auto-login; consumed-link reuse rejected; maturity badges (real Delaware users,
+  read-only) + UserPanel survey results; component toggles persist across reload AND reflect on
+  the learner's JourneyHome (learning unlocked, interview hidden); role toggle user↔admin
+  (disposable user only); add track via modal (server sort_order=max+1) + 3 modules incl. a
+  modal-set prerequisite; **module-insert shifting** verified via API `after_module_id`
+  (A,A2,B,C = 0,1,2,3 after inserting A2 after A — no UI control for it, same as old app);
+  track/module assignment reflected on the learner's graph (unassigned module filtered, prereq
+  edge drawn); ModulePanel add/reorder/delete lessons, reorder survives reload; editor live
+  preview + save persistence; MDX round-trip (prefill via blocksToMdx → paste → 5 blocks parsed →
+  save as blocks → learner-view render with quiz gate); reset-link generate/copy → fresh-context
+  redemption → old password 401; token-expiry spot check (corrupted access token → transparent
+  single-flight refresh); reload on every route incl. /admin; logout. Cleanup: disposable user
+  (UI confirm flow, cascade) + 2 lessons (`DELETE /api/admin/lessons`) removed — 6 real users
+  intact. **Leftovers needing Matthias's DB-level cleanup approval (no DELETE endpoints exist for
+  these):** company 'ZZ-B6 Test Co', project 'ZZ-B6 Project' (+3 component-settings rows), track
+  'ZZ-B6 Track' (sort_order 7), modules 'ZZ-B6 Mod A/A2/B/C' (+1 prerequisite row A→B).
+
+## Open for cutover
+
+- Pixel side-by-side old app (:3000, live Supabase) vs new (:5173) — blocked on Matthias's
+  Supabase password (≠ Azure password).
+- Azure test-artifact cleanup (needs approval; direct DB deletes are permission-blocked):
+  Batch 5 — matthias's completed survey row (practitioner/regular) + 4 lesson_progress rows;
+  Batch 6 — the ZZ-B6 leftovers listed above.
+- Real migrated users still have `password_set=false` (all but matthias) — re-invite via the
+  admin UI once cutover is scheduled.
+- `question` content block: typed + rendered + editable, but exists in no real lesson — never
+  browser-exercised end to end.
+- Deployment (Azure hosting, CSP incl. `style-src 'unsafe-inline'`, env wiring) was never in
+  batch scope.
 
 ## Key facts
 

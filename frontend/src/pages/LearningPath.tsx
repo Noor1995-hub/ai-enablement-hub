@@ -1,13 +1,14 @@
-import React, { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react'
+import React, { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { client } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
 import AppNav from '../components/AppNav'
+import ModulePanel from '../components/ModulePanel'
 import ModulePopup from '../components/ModulePopup'
+import AddTrackModal from '../components/AddTrackModal'
+import AddModuleModal from '../components/AddModuleModal'
 import type { ModuleNode, TrackNode } from '../types/domain'
 
-// Admin edit mode (edit banner, ModulePanel, AddTrackModal, AddModuleModal)
-// is Batch 6 — this port covers the learner surface only.
 // Note: `col_offset` never existed in the live DB or in this page's buildGraph
 // (design-frontend §3's mention of it is stale); layout is pure rank/branch math.
 
@@ -168,14 +169,21 @@ export default function LearningPath() {
   const [zoomScale, setZoomScale]           = useState(1)
   const [zoomOrigin, setZoomOrigin]         = useState('50% 50%')
   const [canvasWidth, setCanvasWidth]       = useState(0)
+  const [isEditMode, setIsEditMode]         = useState(false)
+  const [selectedModule, setSelectedModule] = useState<{ id: string; title: string } | null>(null)
   const [activeModule, setActiveModule]     = useState<ActiveModule | null>(null)
   const [lessonCountMap, setLessonCountMap] = useState<Record<string, { total: number; completed: number }>>({})
   const [loadError, setLoadError]           = useState<string | null>(null)
+  const [loadKey, setLoadKey]               = useState(0)    // increment to trigger data reload
+  const [showAddTrack, setShowAddTrack]     = useState(false)
+  const [showAddModule, setShowAddModule]   = useState(false)
 
   const canvasRef = useRef<HTMLDivElement | null>(null)
   const scrollRef = useRef<HTMLDivElement | null>(null)
 
   const userId = user?.id
+
+  const reload = useCallback(() => setLoadKey(k => k + 1), [])
 
   useEffect(() => {
     if (!userId) return
@@ -229,7 +237,7 @@ export default function LearningPath() {
 
     load()
     return () => { cancelled = true }
-  }, [userId])
+  }, [userId, loadKey])
 
   useLayoutEffect(() => {
     if (!canvasRef.current) return
@@ -304,6 +312,38 @@ export default function LearningPath() {
     <div style={{ height: '100vh', background: 'var(--dlw-surface)', fontFamily: 'var(--dlw-font-body)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
       <AppNav backTo="/" title="Learning path" />
+
+      {/* Edit mode banner */}
+      <AnimatePresence>
+        {isEditMode && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2 }}
+            style={{ flexShrink: 0, background: '#F0FAF9', borderBottom: '1px solid #B2EBE6', padding: '9px 24px 9px 40px', display: 'flex', alignItems: 'center', gap: 10, zIndex: 10 }}
+          >
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#3BC9BC', flexShrink: 0 }} />
+            <span style={{ fontFamily: 'var(--dlw-font-body)', fontWeight: 600, fontSize: 13, color: '#1D7A52' }}>
+              Edit mode — click a module node to manage its lessons
+            </span>
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+              <button
+                type="button"
+                onClick={() => setShowAddTrack(true)}
+                style={{ padding: '6px 14px', borderRadius: 999, border: '1.5px solid #3BC9BC', background: '#fff', color: '#1D7A52', fontFamily: 'var(--dlw-font-body)', fontWeight: 600, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}
+              >
+                + Add Track
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowAddModule(true)}
+                style={{ padding: '6px 14px', borderRadius: 999, border: 'none', background: '#3BC9BC', color: '#fff', fontFamily: 'var(--dlw-font-body)', fontWeight: 600, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}
+              >
+                + Add Module
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Content area — scrollable in overview, locked when zoomed so canvas rect is stable */}
       <div ref={scrollRef} style={{ flex: 1, position: 'relative', overflowY: 'auto', overflowX: 'hidden' }}>
@@ -452,23 +492,25 @@ export default function LearningPath() {
                             {track.name}
                           </motion.div>
 
-                          {/* Click target — track zoom */}
-                          <motion.div
-                            animate={{ opacity: isOther ? 0 : 1 }}
-                            onClick={() => handleTrackClick(track.id)}
-                            whileHover={!isZoomed ? { scale: 1.06 } : {}}
-                            transition={{ duration: 0.25 }}
-                            style={{
-                              position: 'absolute', left: box.x, top: box.y,
-                              width: box.w, height: box.h,
-                              borderRadius: 14,
-                              cursor: isZoomed ? 'default' : 'pointer',
-                              zIndex: 4,
-                            }}
-                          />
+                          {/* Click target — track zoom (non-edit mode) */}
+                          {!isEditMode && (
+                            <motion.div
+                              animate={{ opacity: isOther ? 0 : 1 }}
+                              onClick={() => handleTrackClick(track.id)}
+                              whileHover={!isZoomed ? { scale: 1.06 } : {}}
+                              transition={{ duration: 0.25 }}
+                              style={{
+                                position: 'absolute', left: box.x, top: box.y,
+                                width: box.w, height: box.h,
+                                borderRadius: 14,
+                                cursor: isZoomed ? 'default' : 'pointer',
+                                zIndex: 4,
+                              }}
+                            />
+                          )}
 
-                          {/* Per-node click targets (zoomed view) */}
-                          {isZoomed && groupNodes.map(node => (
+                          {/* Per-node click targets (zoomed non-edit mode) */}
+                          {isZoomed && !isEditMode && groupNodes.map(node => (
                             <div
                               key={`zoom-node-${node.id}`}
                               onClick={e => {
@@ -489,6 +531,30 @@ export default function LearningPath() {
                                 borderRadius: '50%',
                                 cursor: 'pointer',
                                 zIndex: 6,
+                              }}
+                            />
+                          ))}
+
+                          {/* Per-node click targets (edit mode only) */}
+                          {isEditMode && groupNodes.map(node => (
+                            <motion.div
+                              key={`edit-${node.id}`}
+                              animate={{ opacity: 1 }}
+                              onClick={() => setSelectedModule({ id: node.id, title: node.title })}
+                              whileHover={{ scale: 1.15 }}
+                              transition={{ duration: 0.15 }}
+                              title={`Edit lessons for: ${node.title}`}
+                              style={{
+                                position: 'absolute',
+                                left: node.x - R,
+                                top:  node.y - R,
+                                width: R * 2, height: R * 2,
+                                borderRadius: '50%',
+                                cursor: 'pointer',
+                                zIndex: 5,
+                                border: '2.5px solid #3BC9BC',
+                                boxShadow: '0 0 0 3px rgba(59,201,188,0.25)',
+                                boxSizing: 'border-box',
                               }}
                             />
                           ))}
@@ -521,6 +587,35 @@ export default function LearningPath() {
         )}
       </AnimatePresence>
 
+      {/* Admin edit mode toggle — floating bottom-right */}
+      {isAdmin && (
+        <button
+          onClick={() => { setIsEditMode(m => !m); setSelectedModule(null) }}
+          style={{
+            position: 'fixed', bottom: 28, right: selectedModule ? 448 : 28,
+            padding: '10px 22px', borderRadius: 999,
+            background: isEditMode ? '#3BC9BC' : '#fff',
+            border: isEditMode ? '2px solid #3BC9BC' : '1.5px solid #E2E2E2',
+            color: isEditMode ? '#fff' : '#3C3C3C',
+            fontFamily: 'var(--dlw-font-body)', fontWeight: 600, fontSize: 14,
+            cursor: 'pointer', zIndex: 200,
+            boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
+            transition: 'right 0.25s ease',
+          }}
+        >
+          {isEditMode ? '✓ Editing' : 'Edit content'}
+        </button>
+      )}
+
+      {/* Module panel */}
+      {isEditMode && selectedModule && (
+        <ModulePanel
+          moduleId={selectedModule.id}
+          moduleName={selectedModule.title}
+          onClose={() => setSelectedModule(null)}
+        />
+      )}
+
       {/* Transparent backdrop — closes popup without zooming out */}
       {activeModule && (
         <div
@@ -529,7 +624,7 @@ export default function LearningPath() {
         />
       )}
 
-      {/* Module popup — shown when clicking a node in zoomed view */}
+      {/* Module popup — shown when clicking a node in zoomed non-edit view */}
       <AnimatePresence>
         {activeModule && (
           <ModulePopup
@@ -543,6 +638,22 @@ export default function LearningPath() {
           />
         )}
       </AnimatePresence>
+
+      {/* Add Track modal */}
+      {showAddTrack && (
+        <AddTrackModal
+          onClose={() => setShowAddTrack(false)}
+          onAdded={() => { setShowAddTrack(false); reload() }}
+        />
+      )}
+
+      {/* Add Module modal */}
+      {showAddModule && (
+        <AddModuleModal
+          onClose={() => setShowAddModule(false)}
+          onAdded={() => { setShowAddModule(false); reload() }}
+        />
+      )}
     </div>
   )
 }

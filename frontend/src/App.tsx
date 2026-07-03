@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes, useNavigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
+import Admin from './pages/Admin'
 import Assessment from './pages/Assessment'
 import InviteRedirect from './pages/InviteRedirect'
 import JourneyHome from './pages/JourneyHome'
@@ -48,8 +49,7 @@ function AppRoutes() {
   // password_set already true.
   const needsPassword = session && passwordSet === false
 
-  // /admin renders ComingSoon until Batch 6 ports the admin panel; /interview
-  // is ComingSoon in the old app too. Guard semantics are final.
+  // /interview is ComingSoon in the old app too. Guard semantics are final.
   return (
     <Routes>
       <Route path="/login" element={session ? <Navigate to="/" replace /> : <Login />} />
@@ -62,7 +62,7 @@ function AppRoutes() {
       <Route path="/admin" element={
         !session ? <Navigate to="/login" replace />
           : role !== 'admin' ? <Navigate to="/" replace />
-          : <ComingSoon />
+          : <Admin />
       } />
       <Route path="/assessment" element={session ? <Assessment /> : <Navigate to="/login" replace />} />
       <Route path="/learning" element={session ? <LearningPath /> : <Navigate to="/login" replace />} />
