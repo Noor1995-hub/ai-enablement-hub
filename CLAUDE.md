@@ -194,7 +194,14 @@ Database for PostgreSQL** (playground server, database `ai-enablement-hub`).
   it just logs everyone out). `APP__URL` env var = the public URL (CORS + invite/reset
   link base) — must change with a custom domain.
 - **Gotchas:** `az acr build` uploads git-ignored files → `.dockerignore` excludes
-  `**/.env` (load-bearing). The az CLI on this machine is old
+  `**/.env` (load-bearing). **The old az CLI's .dockerignore matcher ignores `dir/`
+  trailing-slash patterns when packing the upload** (found 2026-07-03: `db/` and
+  `frontend/node_modules/` went up in the v1 build — no .env/secrets, but the baseline
+  data export incl. invite_tokens.json landed in ACR's internal task storage; `**/.env`
+  patterns DID work). Every dir in .dockerignore is now listed bare AND with `/**`.
+  Verify any .dockerignore change by re-packing with az's own code and inspecting the
+  tar: `_pack_source_code` from `azure.cli.command_modules.acr._archive_utils` (run with
+  `C:\Program Files\Microsoft SDKs\Azure\CLI2\python.exe`). The az CLI on this machine is old
   (`C:\Program Files\Microsoft SDKs\Azure\CLI2\wbin\az.cmd`, not on PATH); set
   `PYTHONIOENCODING=utf-8` or its log streaming crashes on Vite's unicode output, and
   `infra/containerapp.yaml` must stay pure ASCII (az parses it with the system codepage).

@@ -7,27 +7,48 @@
 **/.env.*
 !backend/.env.local.example
 
+# NOTE: the old az CLI on this machine (used by deploy.ps1) has a buggy
+# .dockerignore matcher: `dir/` trailing-slash patterns are NOT honored when it
+# packs the upload tar (verified 2026-07-03 — db/ and node_modules went up).
+# Every directory is therefore listed BOTH bare and with /** so both the local
+# az packer and the real Docker daemon exclude it. Verify any change with the
+# pack_check repro (see CLAUDE.md deployment section).
+
 # heavy / rebuilt in-image
-backend/.venv/
-backend/static/
-frontend/node_modules/
-frontend/dist/
+backend/.venv
+backend/.venv/**
+backend/static
+backend/static/**
+frontend/node_modules
+frontend/node_modules/**
+frontend/dist
+frontend/dist/**
 
 # caches & test artifacts
-**/__pycache__/
+**/__pycache__
+**/__pycache__/**
 **/*.pyc
-backend/.pytest_cache/
-backend/.ruff_cache/
+backend/.pytest_cache
+backend/.pytest_cache/**
+backend/.ruff_cache
+backend/.ruff_cache/**
 backend/.coverage
-backend/tests/
-backend/scripts/
+backend/tests
+backend/tests/**
+backend/scripts
+backend/scripts/**
 
-# not needed in the image
-db/
-docs/
-infra/
+# not needed in the image (db/ holds the real-data baseline export — NEVER upload)
+db
+db/**
+docs
+docs/**
+infra
+infra/**
 *.md
+**/*.md
 CLAUDE.md
-.claude/
+.claude
+.claude/**
 .gitignore
 deploy.ps1
