@@ -57,8 +57,35 @@ Database for PostgreSQL** (playground server, database `ai-enablement-hub`).
   781 tests green (584 golden/scoring + authz matrix over every endpoint × 3 auth levels +
   flow suites), coverage 98%. The `/api/_test/*` conftest endpoints from Batch 2 are gone —
   authz tests now run against the real routes.
-- Batches 4–6: frontend (foundation/auth → learner pages → admin + parity pass) —
-  **React 18 + TypeScript (Vite)** per the approved plan.
+- **Batch 4 DONE (2026-07-03):** frontend foundation + auth spine. `frontend/` scaffolded
+  by hand (Vite 6, React **18.3.1 pinned**, react-router-dom **v6**, framer-motion 12,
+  openapi-fetch; tsconfig strict with `noUncheckedIndexedAccess` OFF for the port; ESLint 9
+  flat config). Vite proxy `/api → :8000` is load-bearing (one origin in dev, no CORS on the
+  happy path; old app on 3000, new on 5173 side-by-side). API layer: `npm run gen:api`
+  regenerates the **committed** `src/api/schema.d.ts` (backend must be running); `api/tokens.ts`
+  is the localStorage pair + `subscribe()` logout broadcast (the MSAL/Entra swap seam);
+  `api/client.ts` attaches Bearer and on 401 runs a **single-flight refresh** then one retry
+  (refresh tokens rotate on every use — two parallel refreshes would revoke each other into a
+  logout loop; browser-proven: 3 concurrent 401s → exactly 1 refresh POST). Everything under
+  `/api/auth/*` is middleware-exempt (its 401s are answers, not expiry). lib/ ports done
+  (constants, surveyOptions + derived code unions, contentBlocks factories, mdxParser,
+  blocksToMdx) over the hand-written `types/contentBlocks.ts` 7-type union. AuthContext keeps
+  the old provider shape minus `isRecovery`; login = POST /auth/login → pair + `GET /api/me`
+  (contract deviation from design-frontend §2: login returns only the token pair, no user
+  object); session restore = stored token + `GET /api/me`. Invite flow: the **URL token is
+  the credential** — `InviteRedirect` peeks `GET /api/auth/invite/{token}` (410=expired,
+  404=invalid) → `/set-password?token=…` → one atomic `POST /api/auth/set-password` sets the
+  password AND returns login tokens. Login page: 401 → old error text; **429 is shown, never
+  auto-retried** (5/min/email limit). `JourneyHome` and /admin,/assessment,/learning,
+  /interview are placeholders (ComingSoon) until Batches 5–6 — guard semantics are final.
+  Bootstrap tool: `uv run python scripts/issue_invite.py <email>` (backend/) mints an invite
+  link directly through TokenService — solves the migration chicken-and-egg (all users
+  `password_set=false`, but POST /api/admin/invites needs an admin token). All flows verified
+  in real Chromium against the live backend (invite→set-password→auto-login, reload restore,
+  refresh rotation ×2, single-flight, consumed-link reuse, logout, wrong password, admin
+  guard). Frontend checks after changes: `npm run typecheck && npm run lint && npm run build`
+  (run inside `frontend/`).
+- Batches 5–6: frontend learner pages → admin + parity pass.
 
 ## Key facts
 

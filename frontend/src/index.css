@@ -1,0 +1,125 @@
+@import url('https://fonts.googleapis.com/css2?family=Mulish:ital,wght@0,200..900;1,200..900&family=Work+Sans:wght@400;500;600;700&display=swap');
+
+:root {
+  /* Brand reds */
+  --dlw-dot-red:       #EF463C;
+  --dlw-primary-red:   #C42828;
+  --dlw-sub-red-2:     #941914;
+  --dlw-red-tint:      rgba(239, 70, 60, 0.055);
+
+  /* Secondaries */
+  --dlw-teal:          #72C4BF;
+  --dlw-purple:        #AB9BCB;
+
+  /* Neutrals */
+  --dlw-black:         #101820;
+  --dlw-text:          #3C3C3C;
+  --dlw-muted:         #8A8A8A;
+  --dlw-faint:         #B6B6B6;
+  --dlw-border:        #E2E2E2;
+  --dlw-surface:       #F5F5F5;
+  --dlw-warm-grey:     #EFEDEA;
+  --dlw-white:         #FFFFFF;
+
+  /* Semantic */
+  --dlw-accent:        var(--dlw-dot-red);
+  --dlw-accent-hover:  var(--dlw-primary-red);
+
+  /* Fonts */
+  --dlw-font-body:     "Mulish", system-ui, sans-serif;
+  --dlw-font-ui:       "Work Sans", "Mulish", sans-serif;
+
+  /* Type scale */
+  --dlw-h1-size:       55px;
+  --dlw-h2-size:       42px;
+  --dlw-h3-size:       32px;
+  --dlw-body-size:     16px;
+  --dlw-body-lh:       1.55;
+  --dlw-body-weight:   300;
+
+  /* Spacing */
+  --dlw-space-huge:    60px;
+  --dlw-space-large:   40px;
+  --dlw-space-base:    24px;
+  --dlw-space-small:   16px;
+  --dlw-space-tiny:    8px;
+  --dlw-space-1:       4px;
+
+  /* Radii */
+  --dlw-radius-sm:     4px;
+  --dlw-radius-md:     8px;
+  --dlw-radius-lg:     10px;
+  --dlw-radius-xl:     16px;
+  --dlw-radius-full:   9999px;
+
+  /* Shadows */
+  --dlw-shadow-card:   0 2px 8px rgba(0, 0, 0, 0.08);
+  --dlw-shadow-lg:     0 4px 14px rgba(0, 0, 0, 0.25);
+
+  /* Transitions */
+  --dlw-ease:          cubic-bezier(0.4, 0, 0.2, 1);
+  --dlw-duration:      180ms;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  font-family: var(--dlw-font-body);
+  font-weight: var(--dlw-body-weight);
+  font-size: var(--dlw-body-size);
+  line-height: var(--dlw-body-lh);
+  color: var(--dlw-text);
+  background: var(--dlw-white);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Remove focus ring after mouse clicks; keep it for keyboard navigation */
+button:focus:not(:focus-visible),
+[role="button"]:focus:not(:focus-visible),
+[role="checkbox"]:focus:not(:focus-visible) { outline: none; }
+
+/* ── Hover utilities ─────────────────────────────────────────────────────────
+   These exist because inline styles can't express :hover. JS hover state gets
+   stuck when React re-renders shift the DOM — CSS hover never does.
+   !important overrides the inline style base values only for the :hover state.   */
+
+/* Option/scale cards in Assessment */
+.option-card:not([disabled]):not([aria-checked="true"]):not(.option-selected):hover { border-color: var(--dlw-black) !important; }
+.option-card:focus { outline: none; }
+
+/* Module cards in JourneyHome */
+.module-card:not(.is-locked):hover { border-color: var(--dlw-black) !important; box-shadow: 0 8px 24px -12px rgba(16,24,32,.22) !important; }
+.module-card:not(.is-locked):hover .module-card-action { color: var(--dlw-primary-red) !important; }
+
+/* Project cards in Admin */
+.project-card:hover { border-color: var(--dlw-primary-red) !important; box-shadow: 0 2px 8px -2px rgba(196,40,40,.12) !important; }
+
+
+.btn-ghost { transition: border-color 180ms, color 180ms; }
+.btn-ghost:hover { border-color: #C9C9C9 !important; color: var(--dlw-black) !important; }
+
+.btn-ghost-danger { transition: border-color 180ms, color 180ms; }
+.btn-ghost-danger:hover { border-color: #FBCFCC !important; color: var(--dlw-primary-red) !important; }
+
+.btn-red { transition: background 180ms; }
+.btn-red:hover:not(:disabled) { background: var(--dlw-primary-red) !important; }
+
+.btn-red-dark { transition: background 180ms; }
+.btn-red-dark:hover:not(:disabled) { background: var(--dlw-sub-red-2) !important; }
+
+.menu-item-hover { transition: background 150ms; }
+.menu-item-hover:hover { background: var(--dlw-surface) !important; }
+
+.menu-action-hover { transition: background 150ms, color 150ms; }
+.menu-action-hover:hover { background: var(--dlw-surface) !important; color: var(--dlw-primary-red) !important; }
+
+.link-muted-hover { transition: color 150ms; }
+.link-muted-hover:hover { color: var(--dlw-text) !important; }
+
+@media (max-width: 980px) {
+  :root { --dlw-h1-size: 42px; --dlw-h2-size: 32px; --dlw-h3-size: 24px; }
+}
+@media (max-width: 740px) {
+  :root { --dlw-h1-size: 34px; --dlw-h2-size: 26px; --dlw-h3-size: 20px; }
+}
