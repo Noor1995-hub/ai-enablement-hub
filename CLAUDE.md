@@ -171,19 +171,50 @@ Database for PostgreSQL** (playground server, database `ai-enablement-hub`).
   these):** company 'ZZ-B6 Test Co', project 'ZZ-B6 Project' (+3 component-settings rows), track
   'ZZ-B6 Track' (sort_order 7), modules 'ZZ-B6 Mod A/A2/B/C' (+1 prerequisite row A→B).
 
+## Deployment (2026-07-03) — LIVE on Azure Container Apps
+
+- **URL:** https://ai-enablement-hub.kindcoast-3b1fe056.swedencentral.azurecontainerapps.io
+  (default domain; custom domain deferred until cutover — needs delaware DNS + one az command).
+- **Shape:** ONE container app (`ai-enablement-hub`, RG `imaginemore-playground`, env
+  `imaginemore-playground-cae`, same pattern as siblings bta-portal/dellie: ACR admin auth,
+  external ingress :8000, 0.5 CPU/1Gi, min=max=1 replica — single replica is a design
+  constraint: rate limiter + daily cleanup are in-process). Image = multi-stage `Dockerfile`
+  at repo root: node builds `frontend/` → uv installs backend deps → `python:3.13-slim`
+  runs `startup.py` (alembic upgrade + uvicorn) and serves the SPA from `/app/static`.
+- **main.py serves the frontend in prod:** SPA catch-all + `/assets` mount activate only
+  when `backend/static/index.html` exists (never in dev). Security headers ported from the
+  old vercel.json; CSP is skipped for `/docs`/`/redoc` (Swagger loads from jsdelivr);
+  top-level `/assets/*` files get `immutable` caching (Vite hashes), subdirs (public/) 1 h.
+- **Redeploy:** `.\deploy.ps1` at repo root (cloud build via `az acr build` — no local
+  Docker — then `az containerapp update`). One-time create was `infra\deploy-initial.ps1`
+  + `infra\containerapp.yaml` (only needed again if the app is deleted; health probes on
+  `/api/health`, Startup probe budgets ~240 s because migrations run before the port binds).
+- **Secrets** live as Container App secrets (`database-password`, `alembic-database-url`,
+  `jwt-secret`, `acr-password`). The prod `AUTH__JWT_SECRET` is NOT the dev one (rotating
+  it just logs everyone out). `APP__URL` env var = the public URL (CORS + invite/reset
+  link base) — must change with a custom domain.
+- **Gotchas:** `az acr build` uploads git-ignored files → `.dockerignore` excludes
+  `**/.env` (load-bearing). The az CLI on this machine is old
+  (`C:\Program Files\Microsoft SDKs\Azure\CLI2\wbin\az.cmd`, not on PATH); set
+  `PYTHONIOENCODING=utf-8` or its log streaming crashes on Vite's unicode output, and
+  `infra/containerapp.yaml` must stay pure ASCII (az parses it with the system codepage).
+- Verified live 2026-07-03: health, SPA deep links, headers/CSP, JSON 404 shape, hashed-asset
+  caching, wrong-password login 401 (proves container→PG chain), full page load in browser.
+- Not yet in the deployed image (staged in main.py, ride along with the next deploy):
+  HEAD support on SPA routes (`@app.api_route(..., ["GET","HEAD"])` — link-preview bots).
+
 ## Open for cutover
 
-- Pixel side-by-side old app (:3000, live Supabase) vs new (:5173) — blocked on Matthias's
-  Supabase password (≠ Azure password).
-- Azure test-artifact cleanup (needs approval; direct DB deletes are permission-blocked):
-  Batch 5 — matthias's completed survey row (practitioner/regular) + 4 lesson_progress rows;
-  Batch 6 — the ZZ-B6 leftovers listed above.
+- **DONE (2026-07-03):** side-by-side check old app vs new — Matthias reviewed the running
+  app on :5173 and signed off.
+- **DONE (2026-07-03):** Azure test-artifact cleanup (Batch 5 survey + lesson_progress rows,
+  Batch 6 ZZ-B6 leftovers) — marked done by Matthias.
 - Real migrated users still have `password_set=false` (all but matthias) — re-invite via the
   admin UI once cutover is scheduled.
 - `question` content block: typed + rendered + editable, but exists in no real lesson — never
   browser-exercised end to end.
-- Deployment (Azure hosting, CSP incl. `style-src 'unsafe-inline'`, env wiring) was never in
-  batch scope.
+- ~~Deployment (Azure hosting, CSP incl. `style-src 'unsafe-inline'`, env wiring) was never in
+  batch scope.~~ **DONE 2026-07-03** — see the Deployment section above.
 
 ## Key facts
 

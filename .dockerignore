@@ -1,0 +1,33 @@
+# `az acr build` tars and uploads the ENTIRE folder (git-ignored files included)
+# before building. The .env exclusions below keep live credentials off the build
+# agents; the rest just shrinks the upload.
+
+# secrets — never upload
+**/.env
+**/.env.*
+!backend/.env.local.example
+
+# heavy / rebuilt in-image
+backend/.venv/
+backend/static/
+frontend/node_modules/
+frontend/dist/
+
+# caches & test artifacts
+**/__pycache__/
+**/*.pyc
+backend/.pytest_cache/
+backend/.ruff_cache/
+backend/.coverage
+backend/tests/
+backend/scripts/
+
+# not needed in the image
+db/
+docs/
+infra/
+*.md
+CLAUDE.md
+.claude/
+.gitignore
+deploy.ps1

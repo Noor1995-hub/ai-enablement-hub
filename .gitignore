@@ -17,3 +17,6 @@ __pycache__/
 # Node (frontend, from Batch 4)
 node_modules/
 dist/
+
+# Local smoke-test copy of the frontend build (the Dockerfile creates the real one)
+backend/static/

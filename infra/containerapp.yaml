@@ -1,0 +1,85 @@
+# Template for the one-time `az containerapp create --yaml` (the az CLI has no
+# flags for HTTP health probes, hence YAML). Placeholders (__X__) are filled by
+# deploy-initial.ps1 into a temp file - never commit real secrets here.
+location: swedencentral
+properties:
+  managedEnvironmentId: /subscriptions/e2b785b0-d93d-4c19-9537-4f752f759cb1/resourceGroups/imaginemore-playground/providers/Microsoft.App/managedEnvironments/imaginemore-playground-cae
+  configuration:
+    ingress:
+      external: true
+      targetPort: 8000
+      transport: auto
+      allowInsecure: false
+    registries:
+      - server: ca530fc7463eacr.azurecr.io
+        username: ca530fc7463eacr
+        passwordSecretRef: acr-password
+    secrets:
+      - name: acr-password
+        value: "__ACR_PASSWORD__"
+      - name: database-password
+        value: "__DB_PASSWORD__"
+      - name: alembic-database-url
+        value: "__ALEMBIC_DATABASE_URL__"
+      - name: jwt-secret
+        value: "__JWT_SECRET__"
+  template:
+    containers:
+      - name: ai-enablement-hub
+        image: ca530fc7463eacr.azurecr.io/ai-enablement-hub:__TAG__
+        resources:
+          cpu: 0.5
+          memory: 1Gi
+        env:
+          - name: APP__ENV
+            value: prod
+          - name: APP__URL
+            value: "https://ai-enablement-hub.kindcoast-3b1fe056.swedencentral.azurecontainerapps.io"
+          - name: DATABASE__PROTOCOL
+            value: postgresql
+          - name: DATABASE__HOST
+            value: imaginemore-playground-pg.postgres.database.azure.com
+          - name: DATABASE__PORT
+            value: "5432"
+          - name: DATABASE__USERNAME
+            value: ai_hub_app
+          - name: DATABASE__NAME
+            value: ai-enablement-hub
+          - name: DATABASE__SSL_MODE
+            value: require
+          - name: DATABASE__PASSWORD
+            secretRef: database-password
+          - name: ALEMBIC_DATABASE_URL
+            secretRef: alembic-database-url
+          - name: AUTH__JWT_SECRET
+            secretRef: jwt-secret
+        probes:
+          # startup.py runs `alembic upgrade head` BEFORE uvicorn binds :8000,
+          # so nothing answers until migrations finish - budget ~240s.
+          - type: Startup
+            httpGet:
+              path: /api/health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 48
+          - type: Readiness
+            httpGet:
+              path: /api/health
+              port: 8000
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          - type: Liveness
+            httpGet:
+              path: /api/health
+              port: 8000
+            periodSeconds: 30
+            timeoutSeconds: 3
+            failureThreshold: 3
+    scale:
+      # Single replica by design: the fixed-window rate limiter and the daily
+      # auth-cleanup task are in-process (see backend CLAUDE.md).
+      minReplicas: 1
+      maxReplicas: 1

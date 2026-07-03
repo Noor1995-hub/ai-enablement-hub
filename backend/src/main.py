@@ -3,14 +3,17 @@ from __future__ import annotations
 import asyncio
 import logging
 from contextlib import asynccontextmanager, suppress
+from pathlib import Path
 from typing import TYPE_CHECKING
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.middleware.base import RequestResponseEndpoint
 
 from src.core.configs.database import DatabaseProtocol
 from src.core.dependencies.settings import get_settings
@@ -34,6 +37,10 @@ __all__ = ["app"]
 logger = logging.getLogger(__name__)
 
 _CLEANUP_INTERVAL_SECONDS = 24 * 60 * 60
+
+# Vite build output; only exists in the container image (the Dockerfile copies
+# frontend/dist here). Absent in dev, so the SPA block at the bottom is a no-op locally.
+_STATIC_DIR = (Path(__file__).resolve().parents[1] / "static").resolve()
 
 
 async def _auth_cleanup_loop(engine: AsyncEngine, auth_settings: AuthSettings) -> None:
@@ -95,6 +102,40 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type"],
     max_age=86400,
 )
+
+# Ported from the old app's vercel.json headers. style-src needs 'unsafe-inline'
+# (framer-motion inline styles) and fonts.googleapis.com (index.css @imports it).
+_CSP = (
+    "default-src 'self'; script-src 'self'; "
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+    "font-src 'self' https://fonts.gstatic.com; "
+    "img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'"
+)
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next: RequestResponseEndpoint) -> Response:
+    response = await call_next(request)
+    h = response.headers
+    h["X-Content-Type-Options"] = "nosniff"
+    h["X-Frame-Options"] = "DENY"
+    h["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    h["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains; preload"
+    h["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), payment=()"
+    path = request.url.path
+    # Swagger UI at /docs loads its JS/CSS from cdn.jsdelivr.net — exempt it.
+    if not path.startswith(("/docs", "/redoc")):
+        h["Content-Security-Policy"] = _CSP
+    if path.startswith("/assets/"):
+        # Files directly under /assets/ are Vite hash-named bundles; subdirs
+        # (icons/, images/, logo/) come from public/ un-hashed and must NOT
+        # be cached as immutable.
+        if "/" not in path.removeprefix("/assets/"):
+            h["Cache-Control"] = "public, max-age=31536000, immutable"
+        else:
+            h["Cache-Control"] = "public, max-age=3600"
+    return response
+
 
 app.include_router(auth.router)
 app.include_router(me.router)
@@ -183,6 +224,28 @@ async def validation_exception_handler(
 @app.get("/api/health")
 async def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+# --- SPA serving (container only) -------------------------------------------
+# Registered last so every explicit route above (routers, /docs, /openapi.json)
+# wins over the catch-all.
+if (_STATIC_DIR / "index.html").is_file():
+    app.mount("/assets", StaticFiles(directory=_STATIC_DIR / "assets"), name="assets")
+
+    # api_route with explicit HEAD: link-preview bots probe with HEAD, and
+    # FastAPI's @app.get does not add HEAD automatically (FileResponse handles it).
+    @app.api_route("/{full_path:path}", methods=["GET", "HEAD"], include_in_schema=False)
+    async def spa(full_path: str) -> FileResponse:
+        # Unknown /api/* paths must 404 as JSON, never fall back to index.html.
+        if full_path.split("/", 1)[0] == "api":
+            raise HTTPException(status_code=404, detail="Not Found")
+        candidate = (_STATIC_DIR / full_path).resolve()
+        if candidate.is_relative_to(_STATIC_DIR) and candidate.is_file():
+            return FileResponse(candidate, headers={"Cache-Control": "public, max-age=3600"})
+        # Missing file-looking paths (e.g. /favicon.ico) -> 404, not index.html.
+        if "." in full_path.rsplit("/", 1)[-1]:
+            raise HTTPException(status_code=404, detail="Not Found")
+        return FileResponse(_STATIC_DIR / "index.html", headers={"Cache-Control": "no-cache"})
 
 
 if __name__ == "__main__":
