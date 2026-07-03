@@ -1,0 +1,32 @@
+[
+ {
+  "company_id": "94bddf33-01d2-428e-a7cb-6f6bf3c7e9eb",
+  "created_at": "2026-06-23T09:32:47.819659+00:00",
+  "id": "f83b3d22-726f-414c-9784-51436f51fa05",
+  "name": "Delaware"
+ },
+ {
+  "company_id": "61001f0c-4759-4482-b3a4-2dde1dc46e5e",
+  "created_at": "2026-06-23T09:44:13.84118+00:00",
+  "id": "d569cf53-54bc-4e04-8efe-ec2bdd11732b",
+  "name": "test"
+ },
+ {
+  "company_id": "cdae6713-9a79-4071-b0bb-fbbf00dbe23a",
+  "created_at": "2026-06-25T07:39:50.503361+00:00",
+  "id": "9d7047fe-2a2c-4d33-9ad4-cfb7e168a80e",
+  "name": "poen"
+ },
+ {
+  "company_id": "94bddf33-01d2-428e-a7cb-6f6bf3c7e9eb",
+  "created_at": "2026-06-25T14:15:20.381055+00:00",
+  "id": "3a8632dd-c939-4826-bf65-b9878968e688",
+  "name": "test"
+ },
+ {
+  "company_id": "5da60ab8-2140-46d4-9b4e-8d132b87bf95",
+  "created_at": "2026-06-26T06:13:11.907714+00:00",
+  "id": "a5a2bde9-1f55-402d-9644-2034e58d799d",
+  "name": "Exec enablement"
+ }
+]

@@ -1,0 +1,66 @@
+[
+ {
+  "component": "interview",
+  "hidden": false,
+  "id": "6940a3ef-f1c0-4db7-9439-817fb4a2b739",
+  "locked": false,
+  "project_id": "d569cf53-54bc-4e04-8efe-ec2bdd11732b",
+  "updated_at": "2026-06-23T16:06:06.028+00:00"
+ },
+ {
+  "component": "learning",
+  "hidden": false,
+  "id": "fb8b9924-e766-4045-8541-026449240e1f",
+  "locked": false,
+  "project_id": "d569cf53-54bc-4e04-8efe-ec2bdd11732b",
+  "updated_at": "2026-06-23T16:06:05.297+00:00"
+ },
+ {
+  "component": "assessment",
+  "hidden": false,
+  "id": "7de3f5fe-8eb6-4ad0-aea2-53370431b231",
+  "locked": false,
+  "project_id": "f83b3d22-726f-414c-9784-51436f51fa05",
+  "updated_at": "2026-06-25T12:07:29.851+00:00"
+ },
+ {
+  "component": "interview",
+  "hidden": false,
+  "id": "293ea72f-a432-4fa2-81a7-baa7631b3dfc",
+  "locked": true,
+  "project_id": "f83b3d22-726f-414c-9784-51436f51fa05",
+  "updated_at": "2026-06-25T15:03:54.205+00:00"
+ },
+ {
+  "component": "assessment",
+  "hidden": false,
+  "id": "76a54d16-233c-4296-8081-549e12f29f8f",
+  "locked": false,
+  "project_id": "a5a2bde9-1f55-402d-9644-2034e58d799d",
+  "updated_at": "2026-06-26T06:13:11.97+00:00"
+ },
+ {
+  "component": "learning",
+  "hidden": false,
+  "id": "9bb8a266-54ef-4c32-9af8-f68334a156b8",
+  "locked": false,
+  "project_id": "f83b3d22-726f-414c-9784-51436f51fa05",
+  "updated_at": "2026-07-02T12:26:33.048+00:00"
+ },
+ {
+  "component": "learning",
+  "hidden": false,
+  "id": "e91714ac-6d26-4ec8-945d-d6eb6a656c71",
+  "locked": true,
+  "project_id": "a5a2bde9-1f55-402d-9644-2034e58d799d",
+  "updated_at": "2026-07-02T14:07:04.548+00:00"
+ },
+ {
+  "component": "interview",
+  "hidden": true,
+  "id": "1274c60c-e218-4870-86ce-6578be32d5be",
+  "locked": true,
+  "project_id": "a5a2bde9-1f55-402d-9644-2034e58d799d",
+  "updated_at": "2026-07-02T14:07:19.113+00:00"
+ }
+]
