@@ -44,9 +44,13 @@ Database for PostgreSQL** (playground server, database `ai-enablement-hub`).
   Domain errors: services raise `NotFoundError`/`ConflictError`/`DomainError`/`ScoringError`;
   main.py exception handlers map them to 404/409/400/422 in the standard error shape — routers
   stay try/except-free. Re-score parity vs the real Azure data: every legacy-scored row matches
-  exactly (`scripts/rescore_parity.py`); one migrated row (16797147…) is `complete` but was
-  never scored by the old app (B3-class artifact) — flagged as UNSCORED-IN-LEGACY, Python
-  would score it integrator/embedded; backfill is a pending manual decision.
+  exactly (`scripts/rescore_parity.py`); one migrated row (16797147…) was `complete` but
+  never scored by the old app (completed 2026-06-25 09:42 UTC, hours before scoring shipped
+  in old-app commit ae0d2da) — **backfilled on Azure 2026-07-03** (user-approved) via
+  `rescore_parity.py --backfill-unscored` → integrator/embedded; parity now compares 2/2 clean.
+  The flag only touches rows where every scored column is NULL. The live Supabase DB still
+  has the blank (untouched by design — it stays authoritative until cutover), so a re-run of
+  the Supabase→Azure migration resurrects the NULLs: re-run the backfill afterwards.
   **Deviation:** `col_offset` (graph nodes + POST /admin/modules in design-backend §3) is
   omitted — the live DB has no such column and the old frontend never reads it
   (design-database.md documents the stale-doc history).

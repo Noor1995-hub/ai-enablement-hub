@@ -2,16 +2,21 @@
 
 Re-scores every migrated `complete` survey_responses row with the Python port
 and diffs the result against the stored rung/level/band/flag columns from the
-old app. Read-only; exits 1 on any mismatch.
+old app. Read-only by default; exits 1 on any mismatch.
+
+`--backfill-unscored` additionally WRITES computed scores (and scored_at=now)
+to rows the legacy app marked complete but never scored — i.e. every scored
+column is NULL. Rows that carry any legacy score are never touched.
 
 Run from backend/ (uses DATABASE__* from .env):
-    uv run python scripts/rescore_parity.py
+    uv run python scripts/rescore_parity.py [--backfill-unscored]
 """
 
 from __future__ import annotations
 
 import asyncio
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -39,14 +44,17 @@ SCORED_FIELDS = (
 )
 
 
-async def main() -> int:
+async def main(*, backfill_unscored: bool = False) -> int:
     settings = get_settings()
     engine = create_async_engine(settings.database.url.get_secret_value())
     mismatches = 0
     unscored = 0
+    backfilled = 0
     compared = 0
     try:
-        async with AsyncSession(engine) as session:
+        # expire_on_commit=False: the backfill prints row attributes after its
+        # commit; expiring them would trigger a sync lazy-load (MissingGreenlet).
+        async with AsyncSession(engine, expire_on_commit=False) as session:
             rows = (
                 (
                     await session.execute(
@@ -81,11 +89,22 @@ async def main() -> int:
                     # Legacy anomaly (B3 class): marked complete but the old app
                     # never persisted scores. Nothing to be at parity with.
                     unscored += 1
-                    print(
-                        f"  UNSCORED-IN-LEGACY {row.id} (user {row.user_id}): "
-                        f"Python scores it as {scores['score_level']!r} "
-                        f"(band {scores['usage_band']!r}) — consider a manual backfill"
-                    )
+                    if backfill_unscored:
+                        for field in SCORED_FIELDS:
+                            setattr(row, field, scores[field])
+                        row.scored_at = datetime.now(UTC)
+                        await session.commit()
+                        backfilled += 1
+                        print(
+                            f"  BACKFILLED {row.id} (user {row.user_id}): "
+                            f"{scores['score_level']!r} (band {scores['usage_band']!r})"
+                        )
+                    else:
+                        print(
+                            f"  UNSCORED-IN-LEGACY {row.id} (user {row.user_id}): "
+                            f"Python scores it as {scores['score_level']!r} "
+                            f"(band {scores['usage_band']!r}) — consider a manual backfill"
+                        )
                     continue
                 compared += 1
                 diffs = {
@@ -101,7 +120,10 @@ async def main() -> int:
     finally:
         await engine.dispose()
 
-    print(f"compared: {compared}, unscored-in-legacy: {unscored}, mismatches: {mismatches}")
+    print(
+        f"compared: {compared}, unscored-in-legacy: {unscored} "
+        f"(backfilled: {backfilled}), mismatches: {mismatches}"
+    )
     if mismatches:
         print("FAIL: stored legacy scores differ from the Python scorer")
         return 1
@@ -110,4 +132,4 @@ async def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(asyncio.run(main()))
+    raise SystemExit(asyncio.run(main(backfill_unscored="--backfill-unscored" in sys.argv[1:])))
