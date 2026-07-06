@@ -38,6 +38,7 @@ class TestProfile:
             "company_id": str(company.id),
             "project_id": str(project.id),
             "password_set": True,
+            "external_login": False,
         }
 
 

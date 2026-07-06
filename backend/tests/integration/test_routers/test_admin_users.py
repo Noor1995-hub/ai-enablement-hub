@@ -104,6 +104,8 @@ class TestInvite:
             headers=org.headers,
         )
         assert response.status_code == 201
+        # conftest's test_settings has email=None → the send is skipped.
+        assert response.json()["email_status"] == "disabled"
         token = _extract_token(response.json()["link"])
 
         info = await client.get(f"/api/auth/invite/{token}")
@@ -199,6 +201,7 @@ class TestResetLink:
         url = f"/api/admin/users/{user.id}/reset-link"
         first = await client.post(url, headers=org.headers)
         assert first.status_code == 200
+        assert first.json()["email_status"] == "disabled"
         second = await client.post(url, headers=org.headers)
         assert second.status_code == 200
 
@@ -317,6 +320,174 @@ class TestAssignments:
         assert any(m["id"] == str(module.id) for m in overview["modules"])
         entry = next(u for u in overview["users"] if u["id"] == str(user.id))
         assert entry["assigned_module_ids"] == [str(module.id)]
+
+    async def test_assign_and_unassign_lesson(
+        self, client: AsyncClient, db_session: AsyncSession, org: Org, test_settings: Settings
+    ) -> None:
+        user = await create_user(db_session, email="lesson-assignee@example.com")
+        track = await create_track(db_session, "Lesson Track")
+        module = await create_module(db_session, track, "Lesson Module")
+        lesson = await create_lesson(db_session, module, "Assignable Lesson")
+        url = f"/api/admin/users/{user.id}/lessons/{lesson.id}"
+
+        for _ in range(2):  # idempotent
+            assert (
+                await client.put(url, json={"assigned": True}, headers=org.headers)
+            ).status_code == 204
+        body = (
+            await client.get(
+                f"/api/modules/{module.id}/lessons", headers=auth_headers(user, test_settings)
+            )
+        ).json()
+        assert body["lessons"][0]["assigned"] is True
+
+        assert (
+            await client.put(url, json={"assigned": False}, headers=org.headers)
+        ).status_code == 204
+        overview = (await client.get("/api/admin/learning", headers=org.headers)).json()
+        entry = next(u for u in overview["users"] if u["id"] == str(user.id))
+        assert entry["assigned_lesson_ids"] == []
+
+    async def test_bulk_assign_and_unassign_tracks(
+        self, client: AsyncClient, db_session: AsyncSession, org: Org
+    ) -> None:
+        user = await create_user(db_session, email="bulk-tracks@example.com")
+        tracks = [await create_track(db_session, f"Bulk T{i}", sort_order=i) for i in range(3)]
+        url = f"/api/admin/users/{user.id}/tracks"
+        ids = [str(t.id) for t in tracks]
+
+        response = await client.put(
+            url, json={"track_ids": ids, "assigned": True}, headers=org.headers
+        )
+        assert response.status_code == 204
+        overview = (await client.get("/api/admin/learning", headers=org.headers)).json()
+        entry = next(u for u in overview["users"] if u["id"] == str(user.id))
+        assert sorted(entry["assigned_track_ids"]) == sorted(ids)
+
+        response = await client.put(
+            url, json={"track_ids": ids, "assigned": False}, headers=org.headers
+        )
+        assert response.status_code == 204
+        overview = (await client.get("/api/admin/learning", headers=org.headers)).json()
+        entry = next(u for u in overview["users"] if u["id"] == str(user.id))
+        assert entry["assigned_track_ids"] == []
+
+        response = await client.put(
+            url,
+            json={"track_ids": [str(uuid.uuid4())], "assigned": True},
+            headers=org.headers,
+        )
+        assert response.status_code == 404
+
+    async def test_bulk_assign_and_unassign_modules(
+        self, client: AsyncClient, db_session: AsyncSession, org: Org
+    ) -> None:
+        user = await create_user(db_session, email="bulk-mods@example.com")
+        track = await create_track(db_session, "Bulk Track")
+        modules = [
+            await create_module(db_session, track, f"Bulk M{i}", sort_order=i) for i in range(3)
+        ]
+        url = f"/api/admin/users/{user.id}/modules"
+        ids = [str(m.id) for m in modules]
+
+        response = await client.put(
+            url, json={"module_ids": ids, "assigned": True}, headers=org.headers
+        )
+        assert response.status_code == 204
+        overview = (await client.get("/api/admin/learning", headers=org.headers)).json()
+        entry = next(u for u in overview["users"] if u["id"] == str(user.id))
+        assert sorted(entry["assigned_module_ids"]) == sorted(ids)
+
+        response = await client.put(
+            url, json={"module_ids": ids[:2], "assigned": False}, headers=org.headers
+        )
+        assert response.status_code == 204
+        overview = (await client.get("/api/admin/learning", headers=org.headers)).json()
+        entry = next(u for u in overview["users"] if u["id"] == str(user.id))
+        assert entry["assigned_module_ids"] == [ids[2]]
+
+    async def test_bulk_assign_lessons_and_overview_lists_lessons(
+        self, client: AsyncClient, db_session: AsyncSession, org: Org
+    ) -> None:
+        user = await create_user(db_session, email="bulk-lessons@example.com")
+        track = await create_track(db_session, "Bulk L Track")
+        module = await create_module(db_session, track, "Bulk L Module")
+        lessons = [
+            await create_lesson(db_session, module, f"Bulk L{i}", sort_order=i) for i in range(3)
+        ]
+        ids = [str(le.id) for le in lessons]
+
+        response = await client.put(
+            f"/api/admin/users/{user.id}/lessons",
+            json={"lesson_ids": ids, "assigned": True},
+            headers=org.headers,
+        )
+        assert response.status_code == 204
+
+        overview = (await client.get("/api/admin/learning", headers=org.headers)).json()
+        listed = [le for le in overview["lessons"] if le["module_id"] == str(module.id)]
+        assert [le["id"] for le in listed] == ids  # ordered by sort_order
+        entry = next(u for u in overview["users"] if u["id"] == str(user.id))
+        assert sorted(entry["assigned_lesson_ids"]) == sorted(ids)
+
+    async def test_bulk_with_unknown_id_is_404_and_writes_nothing(
+        self, client: AsyncClient, db_session: AsyncSession, org: Org
+    ) -> None:
+        user = await create_user(db_session, email="bulk-404@example.com")
+        track = await create_track(db_session, "Bulk 404 Track")
+        module = await create_module(db_session, track, "Bulk 404 Module")
+        lesson = await create_lesson(db_session, module, "Bulk 404 Lesson")
+
+        response = await client.put(
+            f"/api/admin/users/{user.id}/modules",
+            json={"module_ids": [str(module.id), str(uuid.uuid4())], "assigned": True},
+            headers=org.headers,
+        )
+        assert response.status_code == 404
+        response = await client.put(
+            f"/api/admin/users/{user.id}/lessons",
+            json={"lesson_ids": [str(lesson.id), str(uuid.uuid4())], "assigned": True},
+            headers=org.headers,
+        )
+        assert response.status_code == 404
+
+        overview = (await client.get("/api/admin/learning", headers=org.headers)).json()
+        entry = next(u for u in overview["users"] if u["id"] == str(user.id))
+        assert entry["assigned_module_ids"] == []
+        assert entry["assigned_lesson_ids"] == []
+
+    async def test_bulk_empty_list_is_422(
+        self, client: AsyncClient, db_session: AsyncSession, org: Org
+    ) -> None:
+        user = await create_user(db_session, email="bulk-empty@example.com")
+        response = await client.put(
+            f"/api/admin/users/{user.id}/modules",
+            json={"module_ids": [], "assigned": True},
+            headers=org.headers,
+        )
+        assert response.status_code == 422
+
+    async def test_unknown_user_or_lesson_is_404(
+        self, client: AsyncClient, db_session: AsyncSession, org: Org
+    ) -> None:
+        user = await create_user(db_session, email="lesson-half-known@example.com")
+        track = await create_track(db_session, "Lesson Half Track")
+        module = await create_module(db_session, track, "Lesson Half Module")
+        lesson = await create_lesson(db_session, module, "Lesson Half Lesson")
+        assert (
+            await client.put(
+                f"/api/admin/users/{uuid.uuid4()}/lessons/{lesson.id}",
+                json={"assigned": True},
+                headers=org.headers,
+            )
+        ).status_code == 404
+        assert (
+            await client.put(
+                f"/api/admin/users/{user.id}/lessons/{uuid.uuid4()}",
+                json={"assigned": True},
+                headers=org.headers,
+            )
+        ).status_code == 404
 
     async def test_unknown_user_or_track_is_404(
         self, client: AsyncClient, db_session: AsyncSession, org: Org

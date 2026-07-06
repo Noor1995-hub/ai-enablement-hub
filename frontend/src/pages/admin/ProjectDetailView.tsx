@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { client, errorMessage } from '../../api/client'
 import type { ComponentKey } from '../../lib/constants'
-import type { AdminUser, ComponentState } from '../../types/domain'
+import type { AdminUser, ComponentState, EmailStatus } from '../../types/domain'
 import type { ResetLinkEntry } from '../Admin'
 import { s, COMPONENT_KEYS, COMPONENT_LABELS } from './adminStyles'
 import { LevelBadge, Field, formatDate } from './adminHelpers'
@@ -91,6 +91,7 @@ export default function ProjectDetailView({
   const [submitting, setSubmitting] = useState(false)
   const [formMsg, setFormMsg] = useState<FormMsg | null>(null)
   const [inviteLink, setInviteLink] = useState<string | null>(null)
+  const [inviteEmailStatus, setInviteEmailStatus] = useState<EmailStatus>('disabled')
   const [copied, setCopied] = useState(false)
   const [inviteOpen, setInviteOpen] = useState(false)
 
@@ -108,7 +109,14 @@ export default function ProjectDetailView({
         body: { ...inviteForm, project_id: project.id },
       })
       if (data) {
-        setFormMsg({ ok: true, text: `${inviteForm.first_name} added. Share the link below:` })
+        setInviteEmailStatus(data.email_status)
+        setFormMsg(
+          data.email_status === 'sent'
+            ? { ok: true, text: `${inviteForm.first_name} added — invitation emailed.` }
+            : data.email_status === 'failed'
+              ? { ok: false, text: `${inviteForm.first_name} added, but the email could not be sent — share the link below manually.` }
+              : { ok: true, text: `${inviteForm.first_name} added. Share the link below:` },
+        )
         setInviteLink(data.link)
         setInviteForm({ first_name: '', last_name: '', email: '' })
         onProjectRefresh?.()
@@ -190,7 +198,13 @@ export default function ProjectDetailView({
           </form>
           {inviteLink && (
             <div style={s.linkBox}>
-              <p style={s.linkBoxLabel}>Invite link — send this to the participant</p>
+              <p style={s.linkBoxLabel}>
+                {inviteEmailStatus === 'sent'
+                  ? 'Invite link — emailed to the participant (fallback below)'
+                  : inviteEmailStatus === 'failed'
+                    ? 'Email failed — send this link to the participant'
+                    : 'Invite link — send this to the participant'}
+              </p>
               <div style={s.linkRow}>
                 <input style={s.linkInput} readOnly value={inviteLink} onFocus={e => e.target.select()} />
                 <button style={s.copyBtn} onClick={copyInviteLink}>{copied ? '✓ copied' : 'copy'}</button>
@@ -290,7 +304,11 @@ export default function ProjectDetailView({
                       <td colSpan={7} style={{ padding: '0 24px 14px', borderBottom: '1px solid #F5F5F5' }}>
                         <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '10px 14px', background: '#FEF3F2', border: '1px solid #FBCFCC', borderRadius: 6 }}>
                           <span style={{ fontFamily: 'var(--dlw-font-ui)', fontWeight: 600, fontSize: 11, color: '#C42828', whiteSpace: 'nowrap', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                            Password reset link
+                            {resetLinks[u.id].emailStatus === 'sent'
+                              ? 'Password reset link · emailed'
+                              : resetLinks[u.id].emailStatus === 'failed'
+                                ? 'Password reset link · email failed — share manually'
+                                : 'Password reset link'}
                           </span>
                           <input style={{ ...s.linkInput, borderColor: '#FBCFCC', flex: 1 }} readOnly value={resetLinks[u.id].link} onFocus={e => e.target.select()} />
                           <button style={{ ...s.copyBtn, color: '#C42828', borderColor: '#FBCFCC' }} onClick={() => onCopyResetLink(u.id)}>

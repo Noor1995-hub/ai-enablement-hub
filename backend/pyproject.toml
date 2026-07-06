@@ -16,6 +16,11 @@ dependencies = [
     "email-validator~=2.2",
     "bcrypt~=4.2",
     "pyjwt~=2.10",
+    # Entra ID login: httpx does the server-side code exchange; cryptography is
+    # required by PyJWT for RS256 id_token verification.
+    "httpx~=0.28",
+    "cryptography~=45.0",
+    "azure-communication-email>=1.1.0",
 ]
 
 [project.optional-dependencies]

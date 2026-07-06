@@ -53,6 +53,7 @@ class ModuleLessonItem(BaseModel):
     title: str
     sort_order: int
     completed: bool
+    assigned: bool
 
 
 class ModuleLessonsResponse(BaseModel):

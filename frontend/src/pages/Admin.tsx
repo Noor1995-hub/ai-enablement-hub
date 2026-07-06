@@ -9,6 +9,7 @@ import type {
   AdminUser,
   CompanyWithProjects,
   ComponentState,
+  EmailStatus,
   ProjectOut,
   Track,
 } from '../types/domain'
@@ -25,6 +26,7 @@ import SetupView from './admin/SetupView'
 export interface ResetLinkEntry {
   link: string
   copied: boolean
+  emailStatus: EmailStatus
 }
 
 export default function Admin() {
@@ -80,7 +82,7 @@ export default function Admin() {
   /* ── learning data (all users) ──
    * The old file also tracked loadingLearning; it was destructured but never
    * rendered anywhere (dead, same class as D3) — not ported. */
-  const [learningData, setLearningData] = useState<AdminLearning>({ modules: [], users: [] })
+  const [learningData, setLearningData] = useState<AdminLearning>({ modules: [], lessons: [], users: [] })
   const [togglingItem, setTogglingItem] = useState<string | null>(null)
 
   /* ── global errors ── */
@@ -185,19 +187,30 @@ export default function Admin() {
     setTogglingComponent(null)
   }
 
-  /* ── track/module assignment ── */
-  async function toggleLearningItem(action: 'track' | 'module', userId: string, itemId: string, currentlyAssigned: boolean) {
+  /* ── track/module/lesson assignment ── */
+  const LIST_FIELDS = {
+    track: 'assigned_track_ids',
+    module: 'assigned_module_ids',
+    lesson: 'assigned_lesson_ids',
+  } as const
+
+  async function toggleLearningItem(action: 'track' | 'module' | 'lesson', userId: string, itemId: string, currentlyAssigned: boolean) {
     const key = `${action}-${userId}-${itemId}`
     setTogglingItem(key)
-    const listField = action === 'track' ? 'assigned_track_ids' : 'assigned_module_ids'
+    const listField = LIST_FIELDS[action]
     try {
       const { error } = action === 'track'
         ? await client.PUT('/api/admin/users/{user_id}/tracks/{track_id}', {
             params: { path: { user_id: userId, track_id: itemId } },
             body: { assigned: !currentlyAssigned },
           })
-        : await client.PUT('/api/admin/users/{user_id}/modules/{module_id}', {
+        : action === 'module'
+        ? await client.PUT('/api/admin/users/{user_id}/modules/{module_id}', {
             params: { path: { user_id: userId, module_id: itemId } },
+            body: { assigned: !currentlyAssigned },
+          })
+        : await client.PUT('/api/admin/users/{user_id}/lessons/{lesson_id}', {
+            params: { path: { user_id: userId, lesson_id: itemId } },
             body: { assigned: !currentlyAssigned },
           })
       if (error) {
@@ -211,6 +224,45 @@ export default function Admin() {
               ? u[listField].filter(id => id !== itemId)
               : [...u[listField], itemId]
             return { ...u, [listField]: ids }
+          }),
+        }))
+      }
+    } catch { setActionError('Network error.') }
+    setTogglingItem(null)
+  }
+
+  /* ── "add all" / "unassign all" for tracks, modules and lessons (one bulk call) ── */
+  async function bulkAssignLearningItems(kind: 'tracks' | 'modules' | 'lessons', userId: string, groupId: string, ids: string[], assigned: boolean) {
+    if (ids.length === 0) return
+    const key = `bulk-${kind}-${userId}-${groupId}`
+    setTogglingItem(key)
+    const listField = kind === 'tracks' ? LIST_FIELDS.track : kind === 'modules' ? LIST_FIELDS.module : LIST_FIELDS.lesson
+    try {
+      const { error } = kind === 'tracks'
+        ? await client.PUT('/api/admin/users/{user_id}/tracks', {
+            params: { path: { user_id: userId } },
+            body: { track_ids: ids, assigned },
+          })
+        : kind === 'modules'
+        ? await client.PUT('/api/admin/users/{user_id}/modules', {
+            params: { path: { user_id: userId } },
+            body: { module_ids: ids, assigned },
+          })
+        : await client.PUT('/api/admin/users/{user_id}/lessons', {
+            params: { path: { user_id: userId } },
+            body: { lesson_ids: ids, assigned },
+          })
+      if (error) {
+        setActionError(errorMessage(error, `Failed to update ${kind} assignments.`))
+      } else {
+        setLearningData(prev => ({
+          ...prev,
+          users: prev.users.map(u => {
+            if (u.id !== userId) return u
+            const next = assigned
+              ? Array.from(new Set([...u[listField], ...ids]))
+              : u[listField].filter(id => !ids.includes(id))
+            return { ...u, [listField]: next }
           }),
         }))
       }
@@ -259,7 +311,7 @@ export default function Admin() {
       const { data, error } = await client.POST('/api/admin/users/{user_id}/reset-link', {
         params: { path: { user_id: userId } },
       })
-      if (data) setResetLinks(prev => ({ ...prev, [userId]: { link: data.link, copied: false } }))
+      if (data) setResetLinks(prev => ({ ...prev, [userId]: { link: data.link, copied: false, emailStatus: data.email_status } }))
       else setActionError(errorMessage(error, 'Failed to generate reset link.'))
     } catch { setActionError('Network error.') }
     setGeneratingReset(null)
@@ -372,6 +424,7 @@ export default function Admin() {
           learningData={learningData}
           togglingItem={togglingItem}
           onToggleLearning={toggleLearningItem}
+          onBulkAssign={bulkAssignLearningItems}
           onClose={() => setPanelUserId(null)}
         />
       )}

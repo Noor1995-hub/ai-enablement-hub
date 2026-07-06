@@ -4,9 +4,10 @@ import uuid
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 __all__ = [
+    "AdminLearningLessonOut",
     "AdminLearningModuleOut",
     "AdminLearningResponse",
     "AdminLearningUserOut",
@@ -14,6 +15,10 @@ __all__ = [
     "AdminUserOut",
     "AdminUsersResponse",
     "AssignmentRequest",
+    "BulkLessonAssignmentRequest",
+    "BulkModuleAssignmentRequest",
+    "BulkTrackAssignmentRequest",
+    "EmailStatus",
     "InviteRequest",
     "LinkResponse",
     "RoleUpdateRequest",
@@ -44,6 +49,7 @@ class AdminUserOut(BaseModel):
     project_name: str | None
     assigned_track_ids: list[uuid.UUID]
     assigned_module_ids: list[uuid.UUID]
+    assigned_lesson_ids: list[uuid.UUID]
 
 
 class AdminUsersResponse(BaseModel):
@@ -59,8 +65,14 @@ class InviteRequest(BaseModel):
     _non_blank = field_validator("first_name", "last_name")(_require_non_blank)
 
 
+# "sent" = ACS accepted the message; "failed" = send errored (admin shares the
+# link manually); "disabled" = EMAIL__* unconfigured.
+EmailStatus = Literal["sent", "failed", "disabled"]
+
+
 class LinkResponse(BaseModel):
     link: str
+    email_status: EmailStatus
 
 
 class RoleUpdateRequest(BaseModel):
@@ -71,9 +83,31 @@ class AssignmentRequest(BaseModel):
     assigned: bool
 
 
+class BulkTrackAssignmentRequest(BaseModel):
+    track_ids: list[uuid.UUID] = Field(min_length=1)
+    assigned: bool
+
+
+class BulkModuleAssignmentRequest(BaseModel):
+    module_ids: list[uuid.UUID] = Field(min_length=1)
+    assigned: bool
+
+
+class BulkLessonAssignmentRequest(BaseModel):
+    lesson_ids: list[uuid.UUID] = Field(min_length=1)
+    assigned: bool
+
+
 class AdminLearningModuleOut(BaseModel):
     id: uuid.UUID
     track_id: uuid.UUID
+    title: str
+    sort_order: int
+
+
+class AdminLearningLessonOut(BaseModel):
+    id: uuid.UUID
+    module_id: uuid.UUID
     title: str
     sort_order: int
 
@@ -86,10 +120,12 @@ class AdminLearningUserOut(BaseModel):
     company_name: str | None
     assigned_track_ids: list[uuid.UUID]
     assigned_module_ids: list[uuid.UUID]
+    assigned_lesson_ids: list[uuid.UUID]
 
 
 class AdminLearningResponse(BaseModel):
     modules: list[AdminLearningModuleOut]
+    lessons: list[AdminLearningLessonOut]
     users: list[AdminLearningUserOut]
 
 

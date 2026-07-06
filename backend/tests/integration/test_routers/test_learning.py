@@ -11,6 +11,7 @@ import pytest_asyncio
 
 from tests.fixtures.auth import auth_headers
 from tests.fixtures.factories import (
+    assign_lesson,
     assign_module,
     assign_track,
     complete_lesson,
@@ -32,8 +33,8 @@ if TYPE_CHECKING:
 @dataclass
 class World:
     """Two tracks; track A has two modules (B depends on A1), module A1 has
-    three lessons; the learner is assigned track A + module A2 and completed
-    lesson 1."""
+    three lessons; the learner is assigned track A + module A2, ALL lessons
+    (backfill parity), and completed lesson 1."""
 
     track_a: Track
     track_b: Track
@@ -41,6 +42,7 @@ class World:
     module_a2: Module
     module_b1: Module
     lessons: list[Lesson]
+    lesson_a2: Lesson
     learner: User
 
 
@@ -53,12 +55,14 @@ async def world(db_session: AsyncSession) -> World:
     module_b1 = await create_module(db_session, track_b, "B1", sort_order=0)
     await create_prerequisite(db_session, module_a2, module_a1)
     lessons = [await create_lesson(db_session, module_a1, f"L{i}", sort_order=i) for i in range(3)]
-    await create_lesson(db_session, module_a2, "A2-L0", sort_order=0)
+    lesson_a2 = await create_lesson(db_session, module_a2, "A2-L0", sort_order=0)
     learner = await create_user(db_session, email="graph-learner@example.com")
     await assign_track(db_session, learner, track_a)
     await assign_module(db_session, learner, module_a2)
+    for lesson in [*lessons, lesson_a2]:
+        await assign_lesson(db_session, learner, lesson)
     await complete_lesson(db_session, learner, lessons[0], {"q1": "answer"})
-    return World(track_a, track_b, module_a1, module_a2, module_b1, lessons, learner)
+    return World(track_a, track_b, module_a1, module_a2, module_b1, lessons, lesson_a2, learner)
 
 
 class TestGraph:
@@ -95,6 +99,26 @@ class TestGraph:
             }
         ]
 
+    async def test_counts_only_cover_assigned_lessons(
+        self, client: AsyncClient, world: World, db_session: AsyncSession, test_settings: Settings
+    ) -> None:
+        """lesson_count is the caller's curriculum, not the module inventory;
+        completed lessons that are not assigned do not count either."""
+        partial = await create_user(db_session, email="partial-learner@example.com")
+        await assign_track(db_session, partial, world.track_a)
+        await assign_module(db_session, partial, world.module_a1)
+        await assign_lesson(db_session, partial, world.lessons[0])
+        await assign_lesson(db_session, partial, world.lessons[1])
+        await complete_lesson(db_session, partial, world.lessons[0])
+        await complete_lesson(db_session, partial, world.lessons[2])  # NOT assigned
+
+        graph = (
+            await client.get("/api/learning/graph", headers=auth_headers(partial, test_settings))
+        ).json()
+        a1 = next(m for m in graph["modules"] if m["id"] == str(world.module_a1.id))
+        assert a1["lesson_count"] == 2
+        assert a1["completed_lesson_count"] == 1
+
 
 class TestModuleLessons:
     async def test_lessons_with_completion_and_next(
@@ -108,8 +132,28 @@ class TestModuleLessons:
         body = response.json()
         assert [lesson["title"] for lesson in body["lessons"]] == ["L0", "L1", "L2"]
         assert [lesson["completed"] for lesson in body["lessons"]] == [True, False, False]
-        # First uncompleted lesson.
+        assert [lesson["assigned"] for lesson in body["lessons"]] == [True, True, True]
+        # First uncompleted assigned lesson.
         assert body["next_lesson_id"] == str(world.lessons[1].id)
+
+    async def test_all_lessons_returned_with_flags_and_next_skips_unassigned(
+        self, client: AsyncClient, world: World, db_session: AsyncSession, test_settings: Settings
+    ) -> None:
+        """ALL lessons come back (the admin ModulePanel uses this endpoint);
+        `assigned` is per-caller and next skips unassigned lessons."""
+        partial = await create_user(db_session, email="partial-lessons@example.com")
+        await assign_lesson(db_session, partial, world.lessons[0])
+        await assign_lesson(db_session, partial, world.lessons[2])
+        await complete_lesson(db_session, partial, world.lessons[0])
+
+        body = (
+            await client.get(
+                f"/api/modules/{world.module_a1.id}/lessons",
+                headers=auth_headers(partial, test_settings),
+            )
+        ).json()
+        assert [lesson["assigned"] for lesson in body["lessons"]] == [True, False, True]
+        assert body["next_lesson_id"] == str(world.lessons[2].id)
 
     async def test_next_is_null_when_module_fully_completed(
         self, client: AsyncClient, world: World, db_session: AsyncSession, test_settings: Settings
@@ -180,6 +224,39 @@ class TestLessonDetail:
         body = response.json()
         assert body["next_module_id"] == str(world.module_a2.id)
         assert body["next_lesson_id"] == first_a2_lesson["id"]
+
+    async def test_next_skips_unassigned_lessons(
+        self, client: AsyncClient, world: World, db_session: AsyncSession, test_settings: Settings
+    ) -> None:
+        partial = await create_user(db_session, email="partial-detail@example.com")
+        await assign_lesson(db_session, partial, world.lessons[0])
+        await assign_lesson(db_session, partial, world.lessons[2])
+
+        body = (
+            await client.get(
+                f"/api/lessons/{world.lessons[0].id}",
+                headers=auth_headers(partial, test_settings),
+            )
+        ).json()
+        assert body["next_lesson_id"] == str(world.lessons[2].id)
+        assert body["next_module_id"] is None
+
+    async def test_cross_module_hop_requires_assigned_lesson(
+        self, client: AsyncClient, world: World, db_session: AsyncSession, test_settings: Settings
+    ) -> None:
+        """The hop still names the next module, but with none of its lessons
+        assigned there is no next lesson to land on."""
+        partial = await create_user(db_session, email="partial-hop@example.com")
+        await assign_lesson(db_session, partial, world.lessons[2])
+
+        body = (
+            await client.get(
+                f"/api/lessons/{world.lessons[2].id}",
+                headers=auth_headers(partial, test_settings),
+            )
+        ).json()
+        assert body["next_module_id"] == str(world.module_a2.id)
+        assert body["next_lesson_id"] is None
 
     async def test_end_of_track_has_no_next(
         self, client: AsyncClient, world: World, db_session: AsyncSession, test_settings: Settings

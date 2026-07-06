@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import hashlib
 import secrets
 import uuid
@@ -14,12 +15,18 @@ if TYPE_CHECKING:
 
 __all__ = [
     "create_access_token",
+    "create_entra_state_token",
     "decode_access_token",
+    "decode_entra_state_token",
     "hash_password",
     "hash_token",
     "new_opaque_token",
+    "pkce_challenge",
     "verify_password",
 ]
+
+# The OAuth handshake (authorize redirect → callback) must finish within this window.
+ENTRA_STATE_TTL_MINUTES = 10
 
 
 def hash_password(password: str) -> str:
@@ -69,6 +76,41 @@ def decode_access_token(token: str, auth: AuthSettings) -> dict[str, Any]:
     return claims
 
 
+def create_entra_state_token(state: str, nonce: str, code_verifier: str, auth: AuthSettings) -> str:
+    """Sign the Entra OAuth handshake state into a short-lived JWT carried by a
+    transient HttpOnly cookie between /entra/login and /entra/callback."""
+    now = datetime.now(UTC)
+    claims = {
+        "state": state,
+        "nonce": nonce,
+        "code_verifier": code_verifier,
+        "iat": now,
+        "exp": now + timedelta(minutes=ENTRA_STATE_TTL_MINUTES),
+        "iss": auth.jwt_issuer,
+        "aud": auth.jwt_audience,
+        "typ": "entra_state",
+    }
+    return jwt.encode(claims, auth.jwt_secret.get_secret_value(), algorithm="HS256")
+
+
+def decode_entra_state_token(token: str, auth: AuthSettings) -> dict[str, Any]:
+    """Raises jwt.InvalidTokenError on failure. Requires typ == "entra_state" so
+    an access token can never stand in for handshake state (and vice versa —
+    decode_access_token rejects typ != "access" symmetrically)."""
+    claims: dict[str, Any] = jwt.decode(
+        token,
+        auth.jwt_secret.get_secret_value(),
+        algorithms=["HS256"],
+        audience=auth.jwt_audience,
+        issuer=auth.jwt_issuer,
+        options={"require": ["exp", "iat", "state", "nonce", "code_verifier"]},
+    )
+    if claims.get("typ") != "entra_state":
+        msg = "not an entra state token"
+        raise jwt.InvalidTokenError(msg)
+    return claims
+
+
 def new_opaque_token() -> str:
     """43-char URL-safe random token for refresh sessions and invite/reset links."""
     return secrets.token_urlsafe(32)
@@ -77,3 +119,9 @@ def new_opaque_token() -> str:
 def hash_token(raw_token: str) -> str:
     """SHA-256 hex digest — the only form of an opaque token that is ever stored."""
     return hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+
+
+def pkce_challenge(code_verifier: str) -> str:
+    """S256 code challenge: BASE64URL(SHA256(verifier)), unpadded (RFC 7636)."""
+    digest = hashlib.sha256(code_verifier.encode("ascii")).digest()
+    return base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")

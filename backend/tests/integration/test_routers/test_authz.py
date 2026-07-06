@@ -18,6 +18,8 @@ from src.core.security import create_access_token
 from src.main import app
 from tests.fixtures.auth import auth_headers, bearer
 from tests.fixtures.factories import (
+    assign_lesson,
+    assign_module,
     assign_track,
     complete_lesson,
     create_company,
@@ -164,6 +166,34 @@ _MATRIX: list[tuple[str, str, Any, Any, bool]] = [
         "PUT",
         lambda s: f"/api/admin/users/{s.other.id}/modules/{s.module.id}",
         lambda s: {"assigned": True},
+        True,
+    ),
+    (
+        "assign-lesson",
+        "PUT",
+        lambda s: f"/api/admin/users/{s.other.id}/lessons/{s.lesson.id}",
+        lambda s: {"assigned": True},
+        True,
+    ),
+    (
+        "assign-tracks-bulk",
+        "PUT",
+        lambda s: f"/api/admin/users/{s.other.id}/tracks",
+        lambda s: {"track_ids": [str(s.track.id)], "assigned": True},
+        True,
+    ),
+    (
+        "assign-modules-bulk",
+        "PUT",
+        lambda s: f"/api/admin/users/{s.other.id}/modules",
+        lambda s: {"module_ids": [str(s.module.id)], "assigned": True},
+        True,
+    ),
+    (
+        "assign-lessons-bulk",
+        "PUT",
+        lambda s: f"/api/admin/users/{s.other.id}/lessons",
+        lambda s: {"lesson_ids": [str(s.lesson.id)], "assigned": True},
         True,
     ),
     ("admin-learning", "GET", lambda s: "/api/admin/learning", lambda s: None, True),
@@ -317,6 +347,8 @@ class TestIronRule:
         bob = await create_user(db_session, email="iso-bob@example.com")
         await complete_lesson(db_session, bob, lesson)
         await assign_track(db_session, bob, track)
+        await assign_module(db_session, bob, module)
+        await assign_lesson(db_session, bob, lesson)
 
         response = await client.get(
             f"/api/modules/{module.id}/lessons", headers=auth_headers(alice, test_settings)

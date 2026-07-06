@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes, useNavigate } from 'react-route
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import Admin from './pages/Admin'
 import Assessment from './pages/Assessment'
+import AuthCallback from './pages/AuthCallback'
 import InviteRedirect from './pages/InviteRedirect'
 import JourneyHome from './pages/JourneyHome'
 import LearningPath from './pages/LearningPath'
@@ -39,15 +40,16 @@ function ComingSoon() {
 }
 
 function AppRoutes() {
-  const { session, role, passwordSet, loading } = useAuth()
+  const { session, role, passwordSet, externalLogin, loading } = useAuth()
 
   if (loading) return <Spinner />
 
   // Old app also gated on isRecovery; that mode is gone (the invite/reset
   // credential is a URL token, not a session). This gate is defensive only —
   // the primary flow never hits it because set-password auto-logs-in with
-  // password_set already true.
-  const needsPassword = session && passwordSet === false
+  // password_set already true. Entra-linked users are exempt: they sign in
+  // via Microsoft and may never have a hub password at all.
+  const needsPassword = session && passwordSet === false && !externalLogin
 
   // /interview is ComingSoon in the old app too. Guard semantics are final.
   return (
@@ -69,6 +71,7 @@ function AppRoutes() {
       <Route path="/learning/lesson/:lessonId" element={session ? <LessonPage /> : <Navigate to="/login" replace />} />
       <Route path="/interview" element={session ? <ComingSoon /> : <Navigate to="/login" replace />} />
       <Route path="/invite/:id" element={<InviteRedirect />} />
+      <Route path="/auth/callback" element={<AuthCallback />} />
       <Route path="*" element={<Navigate to={needsPassword ? '/set-password' : session ? '/' : '/login'} replace />} />
     </Routes>
   )

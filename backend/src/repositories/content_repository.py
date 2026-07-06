@@ -4,6 +4,7 @@ import uuid
 from typing import Any
 
 from sqlalchemy import func, select, update
+from sqlalchemy.orm import load_only
 
 from src.db.models import Lesson, Module, ModulePrerequisite, Track
 from src.repositories.base import AbstractContentRepository
@@ -103,11 +104,31 @@ class ContentRepository(AbstractContentRepository):
         )
         return list(result.scalars().all())
 
-    async def lesson_counts_by_module(self) -> dict[uuid.UUID, int]:
+    async def list_lesson_summaries(self) -> list[Lesson]:
         result = await self._session.execute(
-            select(Lesson.module_id, func.count()).group_by(Lesson.module_id)
+            select(Lesson)
+            .options(load_only(Lesson.id, Lesson.module_id, Lesson.title, Lesson.sort_order))
+            .order_by(Lesson.sort_order, Lesson.id)
         )
-        return {row[0]: row[1] for row in result.all()}
+        return list(result.scalars().all())
+
+    async def count_tracks_by_ids(self, track_ids: list[uuid.UUID]) -> int:
+        result = await self._session.execute(
+            select(func.count()).select_from(Track).where(Track.id.in_(track_ids))
+        )
+        return result.scalar_one()
+
+    async def count_modules_by_ids(self, module_ids: list[uuid.UUID]) -> int:
+        result = await self._session.execute(
+            select(func.count()).select_from(Module).where(Module.id.in_(module_ids))
+        )
+        return result.scalar_one()
+
+    async def count_lessons_by_ids(self, lesson_ids: list[uuid.UUID]) -> int:
+        result = await self._session.execute(
+            select(func.count()).select_from(Lesson).where(Lesson.id.in_(lesson_ids))
+        )
+        return result.scalar_one()
 
     async def get_lesson(self, lesson_id: uuid.UUID) -> Lesson | None:
         result = await self._session.execute(select(Lesson).where(Lesson.id == lesson_id))
@@ -136,24 +157,6 @@ class ContentRepository(AbstractContentRepository):
     async def delete_lesson(self, lesson: Lesson) -> None:
         await self._session.delete(lesson)
         await self._session.commit()
-
-    async def next_lesson_in_module(self, module_id: uuid.UUID, sort_order: int) -> Lesson | None:
-        result = await self._session.execute(
-            select(Lesson)
-            .where(Lesson.module_id == module_id, Lesson.sort_order > sort_order)
-            .order_by(Lesson.sort_order, Lesson.id)
-            .limit(1)
-        )
-        return result.scalars().first()
-
-    async def first_lesson(self, module_id: uuid.UUID) -> Lesson | None:
-        result = await self._session.execute(
-            select(Lesson)
-            .where(Lesson.module_id == module_id)
-            .order_by(Lesson.sort_order, Lesson.id)
-            .limit(1)
-        )
-        return result.scalars().first()
 
     async def set_lesson_orders(self, orders: list[tuple[uuid.UUID, int]]) -> None:
         for lesson_id, sort_order in orders:

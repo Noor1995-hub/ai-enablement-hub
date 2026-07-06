@@ -1,4 +1,4 @@
-from src.db.models.assignment import LessonProgress, UserModule, UserTrack
+from src.db.models.assignment import LessonProgress, UserLesson, UserModule, UserTrack
 from src.db.models.auth import AuthSession, AuthToken
 from src.db.models.company import Company, Project, ProjectComponentSetting
 from src.db.models.learning import Curriculum, Lesson, Module, ModulePrerequisite, Track
@@ -19,6 +19,7 @@ __all__ = [
     "SurveyResponse",
     "Track",
     "User",
+    "UserLesson",
     "UserModule",
     "UserTrack",
 ]

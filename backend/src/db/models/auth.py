@@ -13,10 +13,13 @@ __all__ = ["AuthSession", "AuthToken"]
 
 
 class AuthToken(Base):
-    """Single-use invite/reset token. Only the SHA-256 of the raw token is stored."""
+    """Single-use invite/reset/entra-login token. Only the SHA-256 of the raw
+    token is stored."""
 
     __tablename__ = "auth_tokens"
-    __table_args__ = (CheckConstraint("purpose IN ('invite', 'reset')", name="purpose"),)
+    __table_args__ = (
+        CheckConstraint("purpose IN ('invite', 'reset', 'entra_login')", name="purpose"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")

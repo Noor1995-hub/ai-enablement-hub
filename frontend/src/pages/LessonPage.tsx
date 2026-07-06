@@ -72,7 +72,9 @@ export default function LessonPage() {
     return () => { cancelled = true }
   }, [lessonId])
 
-  // Sidebar: all lessons in the current module + per-lesson completion.
+  // Sidebar: the caller's ASSIGNED lessons in the current module + per-lesson
+  // completion. completedIds stays unfiltered so the current lesson's own
+  // completed state is right even if it was unassigned after completion.
   useEffect(() => {
     if (!userId || !moduleId) return
     const mid = moduleId
@@ -82,7 +84,7 @@ export default function LessonPage() {
         params: { path: { module_id: mid } },
       })
       if (cancelled || !data) return
-      setModuleLessons(data.lessons)
+      setModuleLessons(data.lessons.filter(l => l.assigned))
       setCompletedIds(new Set(data.lessons.filter(l => l.completed).map(l => l.id)))
     }
     load()

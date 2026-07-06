@@ -23,6 +23,7 @@ if TYPE_CHECKING:
         SurveyResponse,
         Track,
         User,
+        UserLesson,
         UserModule,
         UserTrack,
     )
@@ -48,6 +49,14 @@ class AbstractUserRepository(ABC):
 
     @abstractmethod
     async def get_by_email(self, email: str) -> User | None: ...
+
+    @abstractmethod
+    async def get_by_external_id(self, external_id: str) -> User | None:
+        """Lookup by the linked Entra ID object id (oid claim)."""
+
+    @abstractmethod
+    async def link_external_id(self, user: User, external_id: str) -> None:
+        """Persist the Entra ID object id (first Microsoft sign-in linking)."""
 
     @abstractmethod
     async def set_password(self, user: User, password_hash: str) -> None:
@@ -259,7 +268,21 @@ class AbstractContentRepository(ABC):
         """Lessons of a module ordered by sort_order."""
 
     @abstractmethod
-    async def lesson_counts_by_module(self) -> dict[uuid.UUID, int]: ...
+    async def list_lesson_summaries(self) -> list[Lesson]:
+        """All lessons ordered by sort_order, content_blocks NOT loaded
+        (admin learning overview)."""
+
+    @abstractmethod
+    async def count_tracks_by_ids(self, track_ids: list[uuid.UUID]) -> int:
+        """How many of the given track ids exist (bulk-assignment validation)."""
+
+    @abstractmethod
+    async def count_modules_by_ids(self, module_ids: list[uuid.UUID]) -> int:
+        """How many of the given module ids exist (bulk-assignment validation)."""
+
+    @abstractmethod
+    async def count_lessons_by_ids(self, lesson_ids: list[uuid.UUID]) -> int:
+        """How many of the given lesson ids exist (bulk-assignment validation)."""
 
     @abstractmethod
     async def get_lesson(self, lesson_id: uuid.UUID) -> Lesson | None: ...
@@ -277,20 +300,12 @@ class AbstractContentRepository(ABC):
     async def delete_lesson(self, lesson: Lesson) -> None: ...
 
     @abstractmethod
-    async def next_lesson_in_module(
-        self, module_id: uuid.UUID, sort_order: int
-    ) -> Lesson | None: ...
-
-    @abstractmethod
-    async def first_lesson(self, module_id: uuid.UUID) -> Lesson | None: ...
-
-    @abstractmethod
     async def set_lesson_orders(self, orders: list[tuple[uuid.UUID, int]]) -> None:
         """Assign sort_order per lesson id in one transaction (batch reorder)."""
 
 
 class AbstractAssignmentRepository(ABC):
-    """user_tracks / user_modules assignment links."""
+    """user_tracks / user_modules / user_lessons assignment links."""
 
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
@@ -302,10 +317,22 @@ class AbstractAssignmentRepository(ABC):
     async def module_ids_for_user(self, user_id: uuid.UUID) -> set[uuid.UUID]: ...
 
     @abstractmethod
+    async def lesson_ids_for_user(self, user_id: uuid.UUID) -> set[uuid.UUID]: ...
+
+    @abstractmethod
     async def all_user_tracks(self) -> list[UserTrack]: ...
 
     @abstractmethod
     async def all_user_modules(self) -> list[UserModule]: ...
+
+    @abstractmethod
+    async def all_user_lessons(self) -> list[UserLesson]: ...
+
+    @abstractmethod
+    async def assigned_lesson_counts_by_module(
+        self, user_id: uuid.UUID
+    ) -> dict[uuid.UUID, tuple[int, int]]:
+        """module_id → (assigned lessons, assigned-and-completed lessons)."""
 
     @abstractmethod
     async def set_user_track(self, user_id: uuid.UUID, track_id: uuid.UUID, assigned: bool) -> None:
@@ -316,6 +343,30 @@ class AbstractAssignmentRepository(ABC):
         self, user_id: uuid.UUID, module_id: uuid.UUID, assigned: bool
     ) -> None:
         """Idempotent upsert (assigned) or delete (unassigned)."""
+
+    @abstractmethod
+    async def set_user_lesson(
+        self, user_id: uuid.UUID, lesson_id: uuid.UUID, assigned: bool
+    ) -> None:
+        """Idempotent upsert (assigned) or delete (unassigned)."""
+
+    @abstractmethod
+    async def set_user_tracks(
+        self, user_id: uuid.UUID, track_ids: list[uuid.UUID], assigned: bool
+    ) -> None:
+        """Bulk variant of set_user_track, one statement + commit."""
+
+    @abstractmethod
+    async def set_user_modules(
+        self, user_id: uuid.UUID, module_ids: list[uuid.UUID], assigned: bool
+    ) -> None:
+        """Bulk variant of set_user_module, one statement + commit."""
+
+    @abstractmethod
+    async def set_user_lessons(
+        self, user_id: uuid.UUID, lesson_ids: list[uuid.UUID], assigned: bool
+    ) -> None:
+        """Bulk variant of set_user_lesson, one statement + commit."""
 
 
 class AbstractProgressRepository(ABC):
@@ -332,9 +383,6 @@ class AbstractProgressRepository(ABC):
         self, user_id: uuid.UUID, lesson_ids: list[uuid.UUID] | None = None
     ) -> set[uuid.UUID]:
         """The user's completed lesson ids, optionally restricted to a set."""
-
-    @abstractmethod
-    async def completed_counts_by_module(self, user_id: uuid.UUID) -> dict[uuid.UUID, int]: ...
 
     @abstractmethod
     async def upsert(

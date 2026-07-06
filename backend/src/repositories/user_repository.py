@@ -20,6 +20,15 @@ class UserRepository(AbstractUserRepository):
         result = await self._session.execute(select(User).where(User.email == email))
         return result.scalar_one_or_none()
 
+    async def get_by_external_id(self, external_id: str) -> User | None:
+        result = await self._session.execute(select(User).where(User.external_id == external_id))
+        return result.scalar_one_or_none()
+
+    async def link_external_id(self, user: User, external_id: str) -> None:
+        user.external_id = external_id
+        await self._session.commit()
+        await self._session.refresh(user)
+
     async def set_password(self, user: User, password_hash: str) -> None:
         user.password_hash = password_hash
         user.password_set = True

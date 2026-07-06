@@ -1,5 +1,6 @@
-import { useState, type CSSProperties } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useState, type CSSProperties } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { client } from '../api/client'
 import { LoginError, useAuth } from '../contexts/AuthContext'
 
 const s = {
@@ -97,6 +98,21 @@ const s = {
     background: '#FFF0EF', border: '1px solid #FBCFCC',
     borderRadius: 6, fontSize: 13, lineHeight: 1.55, color: '#C42828',
   },
+
+  divider: { display: 'flex', alignItems: 'center', gap: 12, margin: '20px 0 0' },
+  dividerLine: { flex: 1, height: 1, background: '#E2E2E2' },
+  dividerText: {
+    fontFamily: 'var(--dlw-font-ui)', fontWeight: 600, fontSize: 11,
+    letterSpacing: '0.08em', textTransform: 'uppercase', color: '#B6B6B6',
+  },
+  msBtn: {
+    width: '100%', padding: '13px 24px', marginTop: 16,
+    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+    fontFamily: 'var(--dlw-font-body)', fontWeight: 600, fontSize: 15,
+    color: '#3C3C3C', background: '#fff', border: '1px solid #E2E2E2',
+    borderRadius: 999, cursor: 'pointer', transition: 'background 180ms',
+  },
+  msBtnHover: { background: '#F7F7F7' },
   consent: {
     display: 'flex', gap: 10, alignItems: 'flex-start',
     marginTop: 24, fontSize: 13, lineHeight: 1.55, color: '#B6B6B6',
@@ -110,6 +126,27 @@ function ShieldIcon() {
       <path d="M8 1.5l5 2v4c0 3.2-2.1 5.6-5 7-2.9-1.4-5-3.8-5-7v-4l5-2z" strokeLinejoin="round" />
     </svg>
   )
+}
+
+function MicrosoftIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" style={{ flexShrink: 0 }}>
+      <rect x="0" y="0" width="7.5" height="7.5" fill="#F25022" />
+      <rect x="8.5" y="0" width="7.5" height="7.5" fill="#7FBA00" />
+      <rect x="0" y="8.5" width="7.5" height="7.5" fill="#00A4EF" />
+      <rect x="8.5" y="8.5" width="7.5" height="7.5" fill="#FFB900" />
+    </svg>
+  )
+}
+
+// Friendly messages for the ?error= codes the backend's Entra callback
+// redirects with (a top-level navigation can't carry a JSON error body).
+const ENTRA_ERRORS: Record<string, string> = {
+  invalid_state: 'Sign-in expired or was interrupted — please try again.',
+  not_invited: "Your Microsoft account isn't linked to a hub account yet. Ask your delaware contact for an invite.",
+  entra_denied: 'Sign-in was cancelled.',
+  entra_failed: 'Microsoft sign-in failed — please try again.',
+  rate_limited: 'Too many attempts — try again in a minute.',
 }
 
 interface InputFieldProps {
@@ -140,14 +177,37 @@ function InputField({ id, label, type, placeholder, value, onChange }: InputFiel
 export default function Login() {
   const navigate = useNavigate()
   const { login } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState<string | null>(null)
   const [btnHover, setBtnHover] = useState(false)
+  const [msHover, setMsHover]   = useState(false)
   const [forgotMode, setForgotMode] = useState(false)
+  const [entraEnabled, setEntraEnabled] = useState(false)
 
   const canSubmit = email.includes('@') && password.length >= 6
+
+  // Show the Microsoft button only when the backend has Entra configured.
+  useEffect(() => {
+    let cancelled = false
+    client.GET('/api/auth/methods').then(({ data }) => {
+      if (!cancelled && data) setEntraEnabled(data.entra)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // A failed Entra sign-in lands back here as /login?error=<code>; surface it
+  // once and scrub the param so a reload doesn't re-show it.
+  useEffect(() => {
+    const code = searchParams.get('error')
+    if (!code) return
+    setError(ENTRA_ERRORS[code] ?? ENTRA_ERRORS.entra_failed)
+    setSearchParams({}, { replace: true })
+  }, [searchParams, setSearchParams])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -227,6 +287,26 @@ export default function Login() {
               </form>
 
               {error && <div style={s.errorBox}>{error}</div>}
+
+              {entraEnabled && (
+                <>
+                  <div style={s.divider}>
+                    <div style={s.dividerLine} />
+                    <span style={s.dividerText}>or</span>
+                    <div style={s.dividerLine} />
+                  </div>
+                  <button
+                    type="button"
+                    style={{ ...s.msBtn, ...(msHover ? s.msBtnHover : {}) }}
+                    onMouseEnter={() => setMsHover(true)}
+                    onMouseLeave={() => setMsHover(false)}
+                    onClick={() => window.location.assign('/api/auth/entra/login')}
+                  >
+                    <MicrosoftIcon />
+                    sign in with Microsoft
+                  </button>
+                </>
+              )}
             </>
           )}
 

@@ -171,10 +171,175 @@ Database for PostgreSQL** (playground server, database `ai-enablement-hub`).
   these):** company 'ZZ-B6 Test Co', project 'ZZ-B6 Project' (+3 component-settings rows), track
   'ZZ-B6 Track' (sort_order 7), modules 'ZZ-B6 Mod A/A2/B/C' (+1 prerequisite row A→B).
 
+- **Lesson assignment (2026-07-06, post-Batch 6):** per-lesson assignment via new
+  `user_lessons` table (mirrors user_modules; migration `a3f8c1d2e4b7` backfills all lessons
+  of every existing user↔module assignment, so current learners keep what they see today).
+  Semantics: assigning a module does NOT auto-assign its lessons — the admin picks lessons in
+  the UserPanel (module row expands to a lesson list) or clicks "+ add all lessons"; tracks
+  got "+ add all modules". Every level (tracks section header / track's module list / module's
+  lesson list) has BOTH "+ add all" and "− unassign all" buttons (shown only when applicable).
+  Bulk = ONE call: `PUT /api/admin/users/{id}/tracks` / `…/modules` /
+  `…/lessons` `{track_ids|module_ids|lesson_ids, assigned}` (404 if any id unknown, 422 on
+  empty list);
+  single lesson toggle = `PUT …/lessons/{lesson_id} {assigned}`. Unassigning a module/track
+  KEEPS the child assignment rows (same keep-rows semantics the old track→module pair already
+  had — reassigning restores the previous selection). Learner side: graph `lesson_count`/
+  `completed_lesson_count` now count ONLY the caller's assigned lessons (one SQL in
+  AssignmentRepository.assigned_lesson_counts_by_module); `GET /api/modules/{id}/lessons`
+  returns ALL lessons with per-caller `assigned` flags (admin ModulePanel needs all — learner
+  sidebar + ModulePopup filter client-side, graph pattern) and `next_lesson_id` = first
+  uncompleted ASSIGNED lesson; lesson_detail's next-hop skips unassigned lessons (repo methods
+  next_lesson_in_module/first_lesson/lesson_counts_by_module/completed_counts_by_module were
+  removed — filtering happens over list_lessons). Assignment stays a visibility filter, not
+  access control (direct lesson URLs still render — parity with module semantics).
+  `GET /api/admin/learning` gained `lessons[]` + per-user `assigned_lesson_ids`;
+  AdminUserOut too. LearningPath's prerequisite unlock (`completed === total`) now means
+  "all assigned lessons completed"; a prereq module with 0 assigned lessons keeps its
+  dependents locked (0/0 also disables the popup start button, so it's admin-visible).
+  794 backend tests green (13 new: authz matrix ×3 new endpoints, bulk/single assignment
+  flows, filtered counts/next). **Migration NOT yet applied to the dev Azure DB** (needs
+  approval; prod applies it automatically on next deploy via startup.py's alembic upgrade).
+
+- **Invite/reset emails (2026-07-06, post-Batch 6):** POST /api/admin/invites and
+  POST /api/admin/users/{id}/reset-link now auto-email the link to the user via **Azure
+  Communication Services** (`azure-communication-email`, sync EmailClient in
+  `run_in_threadpool`, retry_total=0 + bounded timeouts, LRO poller deliberately not awaited
+  — "sent" = ACS 202). Feature-flagged like Entra: `Settings.email: EmailSettings | None`
+  (`EMAIL__CONNECTION_STRING` + `EMAIL__SENDER_ADDRESS`, both-or-neither); None = exactly the
+  old copy-the-link behavior. `LinkResponse` gained REQUIRED `email_status:
+  "sent"|"failed"|"disabled"`; a failed send never fails the endpoint (log + fallback link).
+  Invite email offers BOTH sign-in paths — "Sign in with your Microsoft account" →
+  `{APP__URL}/login` (rendered only when `settings.entra` is configured) + the set-password
+  link; reset email = link + TTL + "current password keeps working". Templates =
+  `services/email_templates.py` pure functions (f-strings + html.escape, no engine); service
+  seam = `EmailSender` Protocol (stubbed in tests, `tests/fixtures/email.py`); DI
+  `get_email_service` returns None (NOT 404 — endpoints exist regardless) when unconfigured.
+  conftest `test_settings` pins `email=None` for hermeticity. Frontend: invite card + reset
+  row show emailed/failed indicators, link box + copy button stay in all cases
+  (`inviteEmailStatus` in ProjectDetailView, `ResetLinkEntry.emailStatus` in Admin.tsx).
+  861 backend tests green. Azure infra ALREADY EXISTS (nothing to provision):
+  `imaginemore-playground-acs` + `imaginemore-playground-email`/AzureManagedDomain (verified,
+  linked); sender `hub@c07b8f9c-80df-4e8a-9fb1-5671cfd049a5.azurecomm.net` (sender username
+  `hub`, display name "AI Enablement Hub", created 2026-07-06; the default `DoNotReply`
+  username also still exists). Domain part is fixed until a custom email domain is verified
+  (delaware DNS — bundle with the cutover custom-domain ticket).
+  **Azure config DONE 2026-07-06 (user-approved):** Container App secret
+  `acs-connection-string` + `EMAIL__CONNECTION_STRING` (secretref) + `EMAIL__SENDER_ADDRESS`
+  are set on the live app — the deployed OLD image ignores them (its Settings has no `email`
+  field, `extra="ignore"`), so prod behavior is unchanged until the next `.\deploy.ps1`.
+  deploy-initial.ps1 fills the yaml placeholder via `az rest` listKeys for DR parity.
+  **Local dev .env now carries EMAIL__* too → local invites/resets send REAL email** via the
+  shared playground ACS (remove/comment the two lines to go back to copy-link-only).
+  `scripts/issue_invite.py` intentionally does not send email.
+
+- **Entra ID login (2026-07-06, post-Batch 6) — code-complete, BLOCKED on one-time IT admin
+  consent.** Runs SIDE-BY-SIDE with password auth (approved plan
+  `C:\Users\danneelm\.claude\plans\could-you-create-a-hazy-canyon.md`) — this supersedes the
+  design docs' full-MSAL-swap sketch: instead, a **server-side confidential-client OIDC
+  authorization-code flow (+ PKCE)** whose end product is the app's EXISTING native token
+  pair, so refresh rotation / middleware / `get_current_user` / all prior tests are untouched
+  and password login keeps working (externals rely on it — the single-tenant registration
+  blocks non-delaware accounts at Microsoft with AADSTS50020 before our code runs).
+  Endpoints (`routers/auth_entra.py`): `GET /api/auth/entra/login` → 302 to the tenant
+  authorize URL (`prompt=select_account`, scope `openid profile email`, S256 challenge) +
+  signed state cookie `entra_oidc` (HS256 JWT `typ:"entra_state"` via the existing
+  AUTH__JWT_SECRET, carries state/nonce/code_verifier, 10-min, HttpOnly SameSite=Lax
+  `Path=/api/auth/entra`, Secure only when `app.env=prod`); `GET /api/auth/entra/callback` →
+  state check → httpx code exchange (`EntraService`, client secret + verifier) → RS256
+  id_token validation (`@lru_cache` PyJWKClient run in threadpool — sync urllib, never on the
+  loop; iss/aud/exp/nonce, leeway 60 s, identity claim = **`oid`**, never `sub`) →
+  invite-gated `resolve_user` → one-time redeem code → 302 `{APP__URL}/auth/callback#code=…`
+  (fragment = never in server logs; ALL failures → 302 `/login?error=invalid_state|
+  not_invited|entra_denied|entra_failed|rate_limited`, never JSON on a top-level navigation);
+  `POST /api/auth/entra/redeem {code}` → `TokenPairResponse` (404 used/unknown, 410 expired,
+  429); public `GET /api/auth/methods` `{password, entra}` drives the Login button.
+  Feature-flagged like email: `Settings.entra: EntraSettings | None` (`ENTRA__TENANT_ID/
+  CLIENT_ID/CLIENT_SECRET`, all-or-nothing → partial config fails startup), `get_entra_service`
+  dep 404s when unset. Redeem codes reuse auth_tokens (purpose `entra_login`, 60 s TTL,
+  migration `c7d2e9f0a1b3` extends the CHECK); **security-critical:**
+  `peek/consume_action_token` are now purpose-filtered (default `("invite","reset")`) so a
+  leaked login code can never reach set-password/invite-peek and vice versa — regression
+  tests pin this. `resolve_user`: linked oid first (email drift logged, oid wins) → else
+  email match (`email` claim FIRST, `preferred_username` fallback — delaware UPN
+  `danneelm@delawareconsulting.com` ≠ hub email `matthias.danneel@delaware.pro`) → one-time
+  `link_external_id` backfill; same-email-different-oid → reject loudly; NEVER provisions
+  (invite-gating preserved — invited users can skip the invite link entirely and onboard via
+  the Microsoft button). `/api/me` gained `external_login` (User property on `external_id`);
+  frontend gate is now `needsPassword = session && !passwordSet && !externalLogin`.
+  Frontend: Login.tsx fetches /methods, shows the Microsoft pill button + "or" divider, maps
+  `?error=` codes to friendly text then scrubs the param; new `pages/AuthCallback.tsx` parses
+  the fragment code → redeem → `setTokens`+`refreshProfile` (a `useRef` fired-guard is
+  load-bearing — StrictMode's dev double-effect would burn the single-use code); public route
+  `/auth/callback`. Deps: `httpx` + `cryptography` promoted to main (PyJWT RS256 hard-requires
+  cryptography). Tests: `tests/fixtures/entra.py` (module-scope RSA keypair, RS256 id_token
+  mint, StubJWKS, FakeTokenEndpoint via httpx.MockTransport) + unit matrix (authorize-URL,
+  exchange, id_token incl. HS256 alg-confusion, resolve_user incl. conflict edges) +
+  integration flows (full happy path with PKCE round-trip assert, state/cookie failures,
+  not-invited leaves no row, rate limits, purpose confusion) — 849 green at feature
+  completion (the email entry's 861 is the later combined total). **Azure (all
+  user-approved 2026-07-06):** app registration **"AI Enablement Hub"** appId
+  `ad61703c-684f-4392-b786-8926ba2ab69d` (SP `f2d141e6-3f33-470a-9456-a123adef4cda`),
+  single-tenant, web redirect URIs = prod CA URL + `http://localhost:5173`, each +
+  `/api/auth/entra/callback`; client secret **'hub-oidc' expires July 2028** (rotate:
+  `az ad app credential reset --append` → CA secret update → revision restart);
+  requiredResourceAccess declares delegated openid/profile/email so IT's consent is one
+  click. Dev `backend/.env` carries real ENTRA__* values; **prod CA env NOT wired** (needs
+  `az containerapp secret set entra-client-secret=…` + `--set-env-vars ENTRA__…` — ask
+  first; until then the feature deploys dark). **BLOCKER:** the tenant's
+  `microsoft-user-default-low` self-consent policy covers only permissions classified low
+  and delaware classified ONLY `profile` → sign-in hits "Beheerdersgoedkeuring vereist";
+  fix = one-time tenant-wide admin consent (portal → App registrations → AI Enablement Hub →
+  API permissions → Grant admin consent), requested via IT (in the 2026-07-06 hosting
+  ticket). Local e2e verified up to Microsoft's consent wall (302 + params + cookie correct
+  through the Vite proxy); full flow untested pending the grant. B2B guest sign-in for
+  externals would work with this code as-is IF IT allows it (invite policy says members may
+  invite guests, but cross-tenant access / domain restrictions / Conditional Access are
+  unreadable to members — IT to confirm). Later removal of password auth = delete
+  login/set-password/invite-peek + Login form/SetPassword/InviteRedirect; the token-pair
+  stack stays.
+
+## Locking, prerequisites & preview (as-built; reviewed 2026-07-06)
+
+- **Two independent lock systems that never interact:**
+  - **Component level** (`assessment`/`learning`/`interview` hub tiles): `project_component_settings`
+    over `DEFAULT_LOCKED = {assessment: false, learning: true, interview: true}`
+    (`core/constants.py`), resolved server-side (`org_service.resolve_components`), served by
+    `GET /api/me/journey`, rendered ONLY on JourneyHome. `hidden` = card filtered out entirely;
+    `locked` = greyed inert card (title/description still visible). Completing the assessment
+    does NOT unlock learning — despite the "Unlocks after assessment" copy and the
+    "Being built" badge, unlock is a manual admin component toggle.
+  - **Module level**: explicit `module_prerequisites` edge table (composite PK; only DB
+    constraint is `not_self` — nothing blocks cross-track or cyclic edges; the frontend drops
+    cross-track predecessors from layout and rank-guards cycles, but such rows would still
+    lock dependents invisibly). The unlock rule exists ONLY in
+    `LearningPath.tsx::isModuleUnlocked`: unlocked ⇔ admin OR no prereqs OR every prereq has
+    assigned-lesson `total > 0 && completed === total` (counts are the caller's ASSIGNED
+    lessons since the lesson-assignment feature). Graph layout ranks by prerequisite depth;
+    `sort_order` is only a tie-breaker + the "next module in track" hop.
+- **No prerequisites between tracks** (the dotted general→tool graph edge is decorative,
+  `trackId: null`) and **none between lessons** (`sort_order` only; the sidebar allows
+  skipping ahead; the quiz gate blocks "Mark as complete", not navigation).
+- **Locks and assignments are visibility filters, NOT access control** (documented design,
+  design-backend.md authz matrix): learning endpoints check auth + existence only —
+  `GET /api/lessons/{id}` serves `content_blocks` for any lesson to any authenticated user,
+  `PUT …/progress` accepts locked/unassigned lessons, and route guards check session only,
+  so `/learning` and deep lesson URLs bypass both component and module locks.
+- **Lock display:** graph node at 45% opacity + padlock badge; ModulePopup swaps to
+  "Complete the required modules first…" with a disabled grey "Locked" button (the `disabled`
+  attribute is the only guard — `handleStart` has no lock check); JourneyHome greyed card +
+  LockIcon note. There is NO admin "view as learner" mode: admins bypass module locks but
+  still see only their own assigned tracks.
+- **Known quirks (accepted as-is 2026-07-06):** a prereq module with 0 assigned lessons locks
+  its dependents forever (0/0 also disables the popup start button, so it's admin-visible);
+  an UNASSIGNED prerequisite locks dependents with no edge drawn to explain why;
+  `?edit=true` shows the lesson editor UI to non-admins (saves 403 via the admin-only PATCH);
+  `GET /api/learning/graph` returns ALL track/module titles with `assigned` flags.
+
 ## Deployment (2026-07-03) — LIVE on Azure Container Apps
 
 - **URL:** https://ai-enablement-hub.kindcoast-3b1fe056.swedencentral.azurecontainerapps.io
-  (default domain; custom domain deferred until cutover — needs delaware DNS + one az command).
+  (default domain; custom domain `ai-enablement-hub.delaware.pro` planned — DNS request to
+  delaware IT is the blocker, full recipe under "Open for cutover").
 - **Shape:** ONE container app (`ai-enablement-hub`, RG `imaginemore-playground`, env
   `imaginemore-playground-cae`, same pattern as siblings bta-portal/dellie: ACR admin auth,
   external ingress :8000, 0.5 CPU/1Gi, min=max=1 replica — single replica is a design
@@ -212,6 +377,52 @@ Database for PostgreSQL** (playground server, database `ai-enablement-hub`).
 
 ## Open for cutover
 
+- **HOSTING MOVE (IT meeting 2026-07-06) — changes the cutover picture:** delaware IT deems
+  the Imagine More playground not secure enough for a client-facing app; the hub must move to
+  a secured environment ("behind a firewall" — but public reachability for external client
+  users is a stated requirement, likely WAF-fronted). Matthias is logging the IT ticket
+  (drafted 2026-07-06) covering: new hosting location, custom domain
+  `ai-enablement-hub.delaware.pro`, the Entra admin-consent grant, Entra for internal +
+  external users (B2B guests vs invite flow = IT's call), and an ACS custom email domain
+  (SPF/DKIM). Consequences when it lands: redeploy target changes (deploy.ps1 registry/RG/app
+  names), app registration redirect URIs + `APP__URL` must be updated, and the playground
+  custom-domain recipe below may be superseded. Until the ticket resolves, the playground
+  deployment stays the live one.
+- **Entra ID login (2026-07-06):** code-complete + dev-configured, BLOCKED on the one-time IT
+  admin consent (see feature entry). After the grant: Matthias tests the full sign-in on
+  :5173, then prod wiring (`az containerapp secret set` + `--set-env-vars ENTRA__…`, ask
+  first) + redeploy — or fold prod wiring into the hosting move.
+- **Custom domain `ai-enablement-hub.delaware.pro` (investigated 2026-07-06, not started —
+  likely superseded by the hosting move above; recipe kept for the playground fallback):**
+  delaware.pro DNS is hosted externally at NSclusters (`ns.nscluster.*`) — NOT Azure DNS, and
+  no zone exists in any of our 3 subscriptions — so step 1 is a delaware IT/domain-team request
+  for two records (bundle with the ACS custom email domain, see Invite/reset emails feature
+  entry): CNAME `ai-enablement-hub.delaware.pro` →
+  `ai-enablement-hub.kindcoast-3b1fe056.swedencentral.azurecontainerapps.io` and TXT
+  `asuid.ai-enablement-hub.delaware.pro` =
+  `0C86501110614A7AC723F46FFA0117AA481151D5B52994A21A2C9E18AFD4CE0C` (the app's
+  customDomainVerificationId, subscription-level constant). No CAA records on delaware.pro
+  (checked 2026-07-06) → managed-cert issuance unblocked. Once both records resolve
+  (`Resolve-DnsName`): `az containerapp hostname add -n ai-enablement-hub -g
+  imaginemore-playground --hostname ai-enablement-hub.delaware.pro`, then `... hostname bind`
+  (same args + `--environment imaginemore-playground-cae --validation-method CNAME`; provisions
+  the free managed cert, takes minutes), then `az containerapp update --set-env-vars
+  APP__URL=https://ai-enablement-hub.delaware.pro` (new revision; CORS + invite/reset link base
+  follow automatically — the only load-bearing runtime setting) — all Azure mutations, ask
+  first. Afterwards update repo refs: `infra/containerapp.yaml` (APP__URL value), `deploy.ps1`
+  + `infra/deploy-initial.ps1` (cosmetic printed URL), this file. The default
+  azurecontainerapps.io URL keeps working alongside (rollback). Sequence BEFORE re-inviting
+  users so invite links carry the final URL.
+- Invite/reset emails (2026-07-06): code-complete + tested, Container App secret/env vars
+  ALREADY SET (see feature entry above) — only `.\deploy.ps1` remains, ON HOLD pending
+  Matthias's localhost email check (dev servers :8000/:5173, real sends from
+  `hub@…azurecomm.net`). The deploy also ships lesson-assignment + dormant Entra code and
+  migrates prod on container start — ask first.
+- Lesson-assignment feature (2026-07-06) is code-complete + tested but NOT live in prod:
+  ~~apply `alembic upgrade head` to the dev DB~~ **dev DB migrated 2026-07-06 (user-approved,
+  together with the entra_login migration — dev head is now `c7d2e9f0a1b3`)**; remaining:
+  browser-check, then redeploy (`.\deploy.ps1`, which also migrates prod on container
+  start) — Azure mutations, ask first.
 - **DONE (2026-07-03):** side-by-side check old app vs new — Matthias reviewed the running
   app on :5173 and signed off.
 - **DONE (2026-07-03):** Azure test-artifact cleanup (Batch 5 survey + lesson_progress rows,
@@ -226,11 +437,15 @@ Database for PostgreSQL** (playground server, database `ai-enablement-hub`).
 ## Key facts
 
 - Secrets: `db/.env` and `backend/.env` (both git-ignored). `backend/.env.local.example`
-  documents keys. Rotate with `db/provision_roles.py --rotate-passwords`.
+  documents keys. Rotate with `db/provision_roles.py --rotate-passwords`. The dev
+  `AUTH__JWT_SECRET` surfaced in a tool transcript 2026-07-06 (dev-only blast radius) —
+  rotate when convenient; prod uses a different secret.
 - Auth model: FastAPI-native JWT (PyJWT HS256, 30-min access + rotating 14-day refresh in
   `auth_sessions`), invite/reset via SHA-256-hashed single-use tokens in `auth_tokens`.
-  Designed for a later Entra ID swap: keep token verification inside one dependency and key
-  users by internal UUID (`users.external_id` reserved for the Entra OID).
+  **Entra ID sign-in now exists SIDE-BY-SIDE** (server-side OIDC issuing the same native
+  pair — see the feature entry; `users.external_id` = the Entra OID, linked on first
+  Microsoft sign-in). The old "later Entra swap" design note is superseded: coexistence was
+  chosen deliberately so externals keep the invite/password path.
 - Authorization iron rule (tests must enforce): **no endpoint outside `/admin/*` accepts a
   user identifier from the request** — ownership comes from the token only.
 - Backend checks after changes: `uv run poe format && uv run poe lint && uv run poe test`

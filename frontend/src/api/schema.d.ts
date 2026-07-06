@@ -4,6 +4,27 @@
  */
 
 export interface paths {
+    "/api/auth/methods": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Auth Methods
+         * @description Which sign-in methods this deployment offers (the login page uses this
+         *     to decide whether to show the Microsoft button). Public, never fails.
+         */
+        get: operations["auth_methods_api_auth_methods_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/login": {
         parameters: {
             query?: never;
@@ -95,6 +116,70 @@ export interface paths {
          *     all other outstanding tokens/sessions, and auto-login.
          */
         post: operations["set_password_api_auth_set_password_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/entra/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Entra Login
+         * @description Start the OAuth handshake: 302 to Microsoft with a fresh state/nonce/PKCE
+         *     triple, mirrored into the signed state cookie.
+         */
+        get: operations["entra_login_api_auth_entra_login_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/entra/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Entra Callback
+         * @description Finish the handshake: validate state, exchange the code, resolve the
+         *     invited user, and hand the SPA a one-time redeem code in the URL fragment
+         *     (fragments never reach server logs).
+         */
+        get: operations["entra_callback_api_auth_entra_callback_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/entra/redeem": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Entra Redeem
+         * @description Swap the one-time login code for the app's native token pair (same
+         *     response shape as password login).
+         */
+        post: operations["entra_redeem_api_auth_entra_redeem_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -376,8 +461,9 @@ export interface paths {
         put?: never;
         /**
          * Create Invite
-         * @description Create the user row + single-use invite token; the admin copies the
-         *     returned link manually (no email is sent), as in the old app.
+         * @description Create the user row + single-use invite token; the link is emailed to
+         *     the user (when EMAIL__* is configured) and always returned as the admin's
+         *     manual fallback.
          */
         post: operations["create_invite_api_admin_invites_post"];
         delete?: never;
@@ -397,7 +483,8 @@ export interface paths {
         put?: never;
         /**
          * Create Reset Link
-         * @description Issue a password-reset link; prior unused reset tokens are revoked.
+         * @description Issue a password-reset link (emailed to the user when EMAIL__* is
+         *     configured, always returned); prior unused reset tokens are revoked.
          */
         post: operations["create_reset_link_api_admin_users__user_id__reset_link_post"];
         delete?: never;
@@ -455,6 +542,83 @@ export interface paths {
         get?: never;
         /** Set User Module */
         put: operations["set_user_module_api_admin_users__user_id__modules__module_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/users/{user_id}/tracks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set User Tracks
+         * @description Bulk assign/unassign tracks ("Add/unassign all tracks"); 404 if any id is unknown.
+         */
+        put: operations["set_user_tracks_api_admin_users__user_id__tracks_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/users/{user_id}/modules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set User Modules
+         * @description Bulk assign/unassign modules ("Add all modules"); 404 if any id is unknown.
+         */
+        put: operations["set_user_modules_api_admin_users__user_id__modules_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/users/{user_id}/lessons/{lesson_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set User Lesson */
+        put: operations["set_user_lesson_api_admin_users__user_id__lessons__lesson_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/users/{user_id}/lessons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set User Lessons
+         * @description Bulk assign/unassign lessons ("Add all lessons"); 404 if any id is unknown.
+         */
+        put: operations["set_user_lessons_api_admin_users__user_id__lessons_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -682,6 +846,23 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AdminLearningLessonOut */
+        AdminLearningLessonOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Module Id
+             * Format: uuid
+             */
+            module_id: string;
+            /** Title */
+            title: string;
+            /** Sort Order */
+            sort_order: number;
+        };
         /** AdminLearningModuleOut */
         AdminLearningModuleOut: {
             /**
@@ -703,6 +884,8 @@ export interface components {
         AdminLearningResponse: {
             /** Modules */
             modules: components["schemas"]["AdminLearningModuleOut"][];
+            /** Lessons */
+            lessons: components["schemas"]["AdminLearningLessonOut"][];
             /** Users */
             users: components["schemas"]["AdminLearningUserOut"][];
         };
@@ -725,6 +908,8 @@ export interface components {
             assigned_track_ids: string[];
             /** Assigned Module Ids */
             assigned_module_ids: string[];
+            /** Assigned Lesson Ids */
+            assigned_lesson_ids: string[];
         };
         /**
          * AdminSurveyOut
@@ -832,6 +1017,8 @@ export interface components {
             assigned_track_ids: string[];
             /** Assigned Module Ids */
             assigned_module_ids: string[];
+            /** Assigned Lesson Ids */
+            assigned_lesson_ids: string[];
         };
         /** AdminUsersResponse */
         AdminUsersResponse: {
@@ -840,6 +1027,34 @@ export interface components {
         };
         /** AssignmentRequest */
         AssignmentRequest: {
+            /** Assigned */
+            assigned: boolean;
+        };
+        /** AuthMethodsResponse */
+        AuthMethodsResponse: {
+            /** Password */
+            password: boolean;
+            /** Entra */
+            entra: boolean;
+        };
+        /** BulkLessonAssignmentRequest */
+        BulkLessonAssignmentRequest: {
+            /** Lesson Ids */
+            lesson_ids: string[];
+            /** Assigned */
+            assigned: boolean;
+        };
+        /** BulkModuleAssignmentRequest */
+        BulkModuleAssignmentRequest: {
+            /** Module Ids */
+            module_ids: string[];
+            /** Assigned */
+            assigned: boolean;
+        };
+        /** BulkTrackAssignmentRequest */
+        BulkTrackAssignmentRequest: {
+            /** Track Ids */
+            track_ids: string[];
             /** Assigned */
             assigned: boolean;
         };
@@ -895,6 +1110,11 @@ export interface components {
             components: {
                 [key: string]: components["schemas"]["ComponentState"];
             };
+        };
+        /** EntraRedeemRequest */
+        EntraRedeemRequest: {
+            /** Code */
+            code: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -1062,6 +1282,11 @@ export interface components {
         LinkResponse: {
             /** Link */
             link: string;
+            /**
+             * Email Status
+             * @enum {string}
+             */
+            email_status: "sent" | "failed" | "disabled";
         };
         /** LoginRequest */
         LoginRequest: {
@@ -1105,6 +1330,8 @@ export interface components {
             sort_order: number;
             /** Completed */
             completed: boolean;
+            /** Assigned */
+            assigned: boolean;
         };
         /** ModuleLessonsResponse */
         ModuleLessonsResponse: {
@@ -1465,6 +1692,8 @@ export interface components {
             project_id: string | null;
             /** Password Set */
             password_set: boolean;
+            /** External Login */
+            external_login: boolean;
         };
         /** UserSurveyResponse */
         UserSurveyResponse: {
@@ -1492,6 +1721,26 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    auth_methods_api_auth_methods_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthMethodsResponse"];
+                };
+            };
+        };
+    };
     login_api_auth_login_post: {
         parameters: {
             query?: never;
@@ -1630,6 +1879,94 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["SetPasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenPairResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    entra_login_api_auth_entra_login_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    entra_callback_api_auth_entra_callback_get: {
+        parameters: {
+            query?: {
+                code?: string | null;
+                state?: string | null;
+                error?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: {
+                entra_oidc?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    entra_redeem_api_auth_entra_redeem_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EntraRedeemRequest"];
             };
         };
         responses: {
@@ -2236,6 +2573,139 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["AssignmentRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_user_tracks_api_admin_users__user_id__tracks_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkTrackAssignmentRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_user_modules_api_admin_users__user_id__modules_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkModuleAssignmentRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_user_lesson_api_admin_users__user_id__lessons__lesson_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+                lesson_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignmentRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_user_lessons_api_admin_users__user_id__lessons_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkLessonAssignmentRequest"];
             };
         };
         responses: {

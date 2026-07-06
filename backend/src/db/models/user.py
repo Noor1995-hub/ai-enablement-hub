@@ -62,3 +62,9 @@ class User(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
+
+    @property
+    def external_login(self) -> bool:
+        """True once an Entra ID account is linked — the frontend uses this to
+        skip the forced set-password step for Microsoft sign-ins."""
+        return self.external_id is not None

@@ -23,7 +23,16 @@ if TYPE_CHECKING:
 
 __all__ = ["TokenPair", "TokenService"]
 
-TokenPurpose = Literal["invite", "reset"]
+TokenPurpose = Literal["invite", "reset", "entra_login"]
+
+# Action-token purposes reachable via the invite/set-password endpoints. A
+# purpose outside this set (entra_login) must be invisible there: a leaked
+# login code must never be able to set a password.
+_ACTION_PURPOSES: tuple[str, ...] = ("invite", "reset")
+
+# An entra_login code only bridges the OAuth callback redirect to the SPA's
+# redeem POST — seconds of legitimate lifetime.
+_LOGIN_CODE_TTL_SECONDS = 60
 
 
 @dataclass(frozen=True)
@@ -97,14 +106,16 @@ class TokenService:
         await self._tokens.create(user.id, hash_token(raw), purpose, expires_at)
         return raw
 
-    async def peek_action_token(self, raw: str) -> tuple[AuthToken, User]:
+    async def peek_action_token(
+        self, raw: str, purposes: tuple[str, ...] = _ACTION_PURPOSES
+    ) -> tuple[AuthToken, User]:
         """Validate without consuming (the invite-info endpoint).
 
-        Raises TokenNotFoundError (unknown/used/user gone or inactive) or
-        TokenExpiredError.
+        Raises TokenNotFoundError (unknown/used/wrong purpose/user gone or
+        inactive) or TokenExpiredError.
         """
         token = await self._tokens.get_by_hash(hash_token(raw))
-        if token is None or token.consumed_at is not None:
+        if token is None or token.consumed_at is not None or token.purpose not in purposes:
             raise TokenNotFoundError
         if token.expires_at <= datetime.now(UTC):
             raise TokenExpiredError
@@ -113,10 +124,25 @@ class TokenService:
             raise TokenNotFoundError
         return token, user
 
-    async def consume_action_token(self, raw: str) -> tuple[AuthToken, User]:
-        token, user = await self.peek_action_token(raw)
+    async def consume_action_token(
+        self, raw: str, purposes: tuple[str, ...] = _ACTION_PURPOSES
+    ) -> tuple[AuthToken, User]:
+        token, user = await self.peek_action_token(raw, purposes)
         await self._tokens.consume(token)
         return token, user
+
+    # -- entra login codes ---------------------------------------------------
+
+    async def issue_login_code(self, user: User) -> str:
+        """Single-use code bridging the Entra callback redirect to the SPA's
+        redeem POST (same hashing/storage as invite/reset, 60-second TTL)."""
+        raw = new_opaque_token()
+        expires_at = datetime.now(UTC) + timedelta(seconds=_LOGIN_CODE_TTL_SECONDS)
+        await self._tokens.create(user.id, hash_token(raw), "entra_login", expires_at)
+        return raw
+
+    async def consume_login_code(self, raw: str) -> tuple[AuthToken, User]:
+        return await self.consume_action_token(raw, purposes=("entra_login",))
 
     async def revoke_all_for_user(self, user_id: uuid.UUID) -> None:
         """After set-password: delete the user's other outstanding action tokens

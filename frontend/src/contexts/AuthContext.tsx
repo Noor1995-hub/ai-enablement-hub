@@ -34,6 +34,9 @@ interface AuthValue {
   user: UserProfile | null | undefined
   role: Role | null
   passwordSet: boolean | undefined
+  /** true once an Entra ID account is linked — such users never need the
+   * forced set-password step (they may have no password at all). */
+  externalLogin: boolean | undefined
   loading: boolean
   login: (email: string, password: string) => Promise<void>
   logout: () => Promise<void>
@@ -118,6 +121,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     role: user ? (user.role as Role) : null,
     passwordSet: user?.password_set,
+    externalLogin: user?.external_login,
     loading: user === undefined,
     login,
     logout,

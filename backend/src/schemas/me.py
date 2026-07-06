@@ -19,6 +19,7 @@ class UserProfileResponse(BaseModel):
     company_id: uuid.UUID | None
     project_id: uuid.UUID | None
     password_set: bool
+    external_login: bool
 
 
 class ComponentState(BaseModel):

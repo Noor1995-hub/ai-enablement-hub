@@ -20,7 +20,16 @@ from src.core.dependencies.settings import get_settings
 from src.repositories.auth_session_repository import AuthSessionRepository
 from src.repositories.auth_token_repository import AuthTokenRepository
 from src.repositories.user_repository import UserRepository
-from src.routers import admin_content, admin_org, admin_users, auth, learning, me, survey
+from src.routers import (
+    admin_content,
+    admin_org,
+    admin_users,
+    auth,
+    auth_entra,
+    learning,
+    me,
+    survey,
+)
 from src.services.exceptions import ConflictError, DomainError, NotFoundError
 from src.services.scoring import ScoringError
 from src.services.token_service import TokenService
@@ -138,6 +147,7 @@ async def security_headers(request: Request, call_next: RequestResponseEndpoint)
 
 
 app.include_router(auth.router)
+app.include_router(auth_entra.router)
 app.include_router(me.router)
 app.include_router(survey.router)
 app.include_router(learning.router)

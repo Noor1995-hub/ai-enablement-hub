@@ -13,6 +13,7 @@ from src.db.models import (
     SurveyResponse,
     Track,
     User,
+    UserLesson,
     UserModule,
     UserTrack,
 )
@@ -22,6 +23,7 @@ if TYPE_CHECKING:
 
 __all__ = [
     "VALID_ANSWERS",
+    "assign_lesson",
     "assign_module",
     "assign_track",
     "complete_lesson",
@@ -135,6 +137,10 @@ async def assign_track(session: AsyncSession, user: User, track: Track) -> UserT
 
 async def assign_module(session: AsyncSession, user: User, module: Module) -> UserModule:
     return await _persist(session, UserModule(user_id=user.id, module_id=module.id))
+
+
+async def assign_lesson(session: AsyncSession, user: User, lesson: Lesson) -> UserLesson:
+    return await _persist(session, UserLesson(user_id=user.id, lesson_id=lesson.id))
 
 
 async def complete_lesson(

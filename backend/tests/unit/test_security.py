@@ -10,10 +10,13 @@ from pydantic import SecretStr
 from src.core.configs.auth import AuthSettings
 from src.core.security import (
     create_access_token,
+    create_entra_state_token,
     decode_access_token,
+    decode_entra_state_token,
     hash_password,
     hash_token,
     new_opaque_token,
+    pkce_challenge,
     verify_password,
 )
 
@@ -113,3 +116,43 @@ class TestOpaqueTokens:
         assert hash_token(raw) == hash_token(raw)
         assert len(hash_token(raw)) == 64
         assert hash_token(raw) != hash_token(raw + "x")
+
+
+class TestEntraStateToken:
+    def test_roundtrip(self) -> None:
+        token = create_entra_state_token("state-1", "nonce-1", "verifier-1", AUTH)
+        claims = decode_entra_state_token(token, AUTH)
+        assert claims["state"] == "state-1"
+        assert claims["nonce"] == "nonce-1"
+        assert claims["code_verifier"] == "verifier-1"
+        assert claims["typ"] == "entra_state"
+
+    def test_access_token_rejected_as_state(self) -> None:
+        """typ confusion: a bearer access token must never pass as OAuth state."""
+        token = create_access_token(uuid.uuid4(), AUTH)
+        with pytest.raises(jwt.InvalidTokenError):
+            decode_entra_state_token(token, AUTH)
+
+    def test_state_token_rejected_as_access(self) -> None:
+        """...and the reverse: state can never be replayed as a bearer token."""
+        token = create_entra_state_token("s", "n", "v", AUTH)
+        with pytest.raises(jwt.InvalidTokenError):
+            decode_access_token(token, AUTH)
+
+    def test_wrong_secret_rejected(self) -> None:
+        token = create_entra_state_token("s", "n", "v", AUTH)
+        other = AUTH.model_copy(
+            update={"jwt_secret": SecretStr("other-secret-0123456789-0123456789")}
+        )
+        with pytest.raises(jwt.InvalidTokenError):
+            decode_entra_state_token(token, other)
+
+
+class TestPkceChallenge:
+    def test_rfc7636_vector(self) -> None:
+        # Appendix B of RFC 7636: the canonical verifier/challenge pair.
+        verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
+        assert pkce_challenge(verifier) == "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"
+
+    def test_unpadded(self) -> None:
+        assert "=" not in pkce_challenge(new_opaque_token())

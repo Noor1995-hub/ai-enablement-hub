@@ -4,11 +4,14 @@ from typing import Annotated, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
+from src.core.configs.settings import Settings
 from src.core.dependencies.auth import get_token_service
 from src.core.dependencies.ratelimit import get_rate_limiter
+from src.core.dependencies.settings import get_settings
 from src.core.dependencies.user import get_user_service
 from src.core.ratelimit import RateLimiter
 from src.schemas.auth import (
+    AuthMethodsResponse,
     InviteInfoResponse,
     LoginRequest,
     LogoutRequest,
@@ -50,6 +53,15 @@ def _pair_response(pair: TokenPair) -> TokenPairResponse:
         refresh_token=pair.refresh_token,
         expires_in=pair.expires_in,
     )
+
+
+@router.get("/methods", response_model=AuthMethodsResponse)
+async def auth_methods(
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> AuthMethodsResponse:
+    """Which sign-in methods this deployment offers (the login page uses this
+    to decide whether to show the Microsoft button). Public, never fails."""
+    return AuthMethodsResponse(password=True, entra=settings.entra is not None)
 
 
 @router.post("/login", response_model=TokenPairResponse)

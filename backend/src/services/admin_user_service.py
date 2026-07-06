@@ -38,7 +38,7 @@ class AdminUserService:
 
     async def list_users(self, project_id: uuid.UUID | None = None) -> list[dict[str, Any]]:
         rows = await self._users.list_with_org_names(project_id)
-        track_map, module_map = await self._assignment_maps()
+        track_map, module_map, lesson_map = await self._assignment_maps()
         return [
             {
                 "id": user.id,
@@ -55,6 +55,7 @@ class AdminUserService:
                 "project_name": project_name,
                 "assigned_track_ids": track_map.get(user.id, []),
                 "assigned_module_ids": module_map.get(user.id, []),
+                "assigned_lesson_ids": lesson_map.get(user.id, []),
             }
             for user, company_name, project_name in rows
         ]
@@ -119,11 +120,54 @@ class AdminUserService:
             raise NotFoundError("Module")
         await self._assignments.set_user_module(user_id, module_id, assigned)
 
+    async def set_lesson_assignment(
+        self, user_id: uuid.UUID, lesson_id: uuid.UUID, assigned: bool
+    ) -> None:
+        if await self._users.get_by_id(user_id) is None:
+            raise NotFoundError("User")
+        if await self._content.get_lesson(lesson_id) is None:
+            raise NotFoundError("Lesson")
+        await self._assignments.set_user_lesson(user_id, lesson_id, assigned)
+
+    async def set_track_assignments(
+        self, user_id: uuid.UUID, track_ids: list[uuid.UUID], assigned: bool
+    ) -> None:
+        """Bulk assign/unassign ("Add/unassign all tracks"); 404 if ANY id is unknown."""
+        if await self._users.get_by_id(user_id) is None:
+            raise NotFoundError("User")
+        unique_ids = list(set(track_ids))
+        if await self._content.count_tracks_by_ids(unique_ids) != len(unique_ids):
+            raise NotFoundError("Track")
+        await self._assignments.set_user_tracks(user_id, unique_ids, assigned)
+
+    async def set_module_assignments(
+        self, user_id: uuid.UUID, module_ids: list[uuid.UUID], assigned: bool
+    ) -> None:
+        """Bulk assign/unassign ("Add all modules"); 404 if ANY id is unknown."""
+        if await self._users.get_by_id(user_id) is None:
+            raise NotFoundError("User")
+        unique_ids = list(set(module_ids))
+        if await self._content.count_modules_by_ids(unique_ids) != len(unique_ids):
+            raise NotFoundError("Module")
+        await self._assignments.set_user_modules(user_id, unique_ids, assigned)
+
+    async def set_lesson_assignments(
+        self, user_id: uuid.UUID, lesson_ids: list[uuid.UUID], assigned: bool
+    ) -> None:
+        """Bulk assign/unassign ("Add all lessons"); 404 if ANY id is unknown."""
+        if await self._users.get_by_id(user_id) is None:
+            raise NotFoundError("User")
+        unique_ids = list(set(lesson_ids))
+        if await self._content.count_lessons_by_ids(unique_ids) != len(unique_ids):
+            raise NotFoundError("Lesson")
+        await self._assignments.set_user_lessons(user_id, unique_ids, assigned)
+
     async def learning_overview(self) -> dict[str, Any]:
-        """Modules + users with their assignments (admin learning panel)."""
+        """Modules + lessons + users with their assignments (admin learning panel)."""
         modules = await self._content.list_modules()
+        lessons = await self._content.list_lesson_summaries()
         rows = await self._users.list_for_learning()
-        track_map, module_map = await self._assignment_maps()
+        track_map, module_map, lesson_map = await self._assignment_maps()
         return {
             "modules": [
                 {
@@ -134,6 +178,15 @@ class AdminUserService:
                 }
                 for module in modules
             ],
+            "lessons": [
+                {
+                    "id": lesson.id,
+                    "module_id": lesson.module_id,
+                    "title": lesson.title,
+                    "sort_order": lesson.sort_order,
+                }
+                for lesson in lessons
+            ],
             "users": [
                 {
                     "id": user.id,
@@ -143,6 +196,7 @@ class AdminUserService:
                     "company_name": company_name,
                     "assigned_track_ids": track_map.get(user.id, []),
                     "assigned_module_ids": module_map.get(user.id, []),
+                    "assigned_lesson_ids": lesson_map.get(user.id, []),
                 }
                 for user, project_name, company_name in rows
             ],
@@ -156,11 +210,18 @@ class AdminUserService:
 
     async def _assignment_maps(
         self,
-    ) -> tuple[dict[uuid.UUID, list[uuid.UUID]], dict[uuid.UUID, list[uuid.UUID]]]:
+    ) -> tuple[
+        dict[uuid.UUID, list[uuid.UUID]],
+        dict[uuid.UUID, list[uuid.UUID]],
+        dict[uuid.UUID, list[uuid.UUID]],
+    ]:
         track_map: dict[uuid.UUID, list[uuid.UUID]] = {}
         for link in await self._assignments.all_user_tracks():
             track_map.setdefault(link.user_id, []).append(link.track_id)
         module_map: dict[uuid.UUID, list[uuid.UUID]] = {}
         for link in await self._assignments.all_user_modules():
             module_map.setdefault(link.user_id, []).append(link.module_id)
-        return track_map, module_map
+        lesson_map: dict[uuid.UUID, list[uuid.UUID]] = {}
+        for link in await self._assignments.all_user_lessons():
+            lesson_map.setdefault(link.user_id, []).append(link.lesson_id)
+        return track_map, module_map, lesson_map

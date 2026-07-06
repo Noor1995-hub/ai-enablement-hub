@@ -23,6 +23,8 @@ properties:
         value: "__ALEMBIC_DATABASE_URL__"
       - name: jwt-secret
         value: "__JWT_SECRET__"
+      - name: acs-connection-string
+        value: "__ACS_CONNECTION_STRING__"
   template:
     containers:
       - name: ai-enablement-hub
@@ -53,6 +55,10 @@ properties:
             secretRef: alembic-database-url
           - name: AUTH__JWT_SECRET
             secretRef: jwt-secret
+          - name: EMAIL__CONNECTION_STRING
+            secretRef: acs-connection-string
+          - name: EMAIL__SENDER_ADDRESS
+            value: "hub@c07b8f9c-80df-4e8a-9fb1-5671cfd049a5.azurecomm.net"
         probes:
           # startup.py runs `alembic upgrade head` BEFORE uvicorn binds :8000,
           # so nothing answers until migrations finish - budget ~240s.

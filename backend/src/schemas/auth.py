@@ -5,6 +5,8 @@ from typing import Literal
 from pydantic import BaseModel, EmailStr, Field
 
 __all__ = [
+    "AuthMethodsResponse",
+    "EntraRedeemRequest",
     "InviteInfoResponse",
     "LoginRequest",
     "LogoutRequest",
@@ -12,6 +14,15 @@ __all__ = [
     "SetPasswordRequest",
     "TokenPairResponse",
 ]
+
+
+class AuthMethodsResponse(BaseModel):
+    password: bool
+    entra: bool
+
+
+class EntraRedeemRequest(BaseModel):
+    code: str
 
 
 class LoginRequest(BaseModel):

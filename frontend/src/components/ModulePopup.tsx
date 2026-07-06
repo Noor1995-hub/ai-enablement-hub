@@ -33,14 +33,16 @@ export default function ModulePopup({ moduleId, title, total, completed, locked 
     setLoading(true)
 
     // One call replaces the old lessons + lesson_progress pair: next_lesson_id
-    // is the first uncompleted lesson (server-computed), lessons[0] the fallback
-    // when everything is already done — same destinations as the old logic.
+    // is the first uncompleted ASSIGNED lesson (server-computed), the first
+    // assigned lesson the fallback when everything is already done.
     const { data } = await client.GET('/api/modules/{module_id}/lessons', {
       params: { path: { module_id: moduleId } },
     })
-    if (!data || data.lessons.length === 0) { setLoading(false); return }
+    if (!data) { setLoading(false); return }
+    const assignedLessons = data.lessons.filter(l => l.assigned)
+    if (assignedLessons.length === 0) { setLoading(false); return }
 
-    navigate(`/learning/lesson/${data.next_lesson_id ?? data.lessons[0].id}`)
+    navigate(`/learning/lesson/${data.next_lesson_id ?? assignedLessons[0].id}`)
     setLoading(false)
   }
 

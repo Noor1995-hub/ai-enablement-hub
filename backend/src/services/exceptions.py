@@ -6,6 +6,8 @@ __all__ = [
     "DomainError",
     "DuplicateCompanyNameError",
     "EmailAlreadyRegisteredError",
+    "EntraExchangeError",
+    "EntraUserNotFoundError",
     "InvalidCredentialsError",
     "InvalidRequestError",
     "InvalidSessionError",
@@ -36,6 +38,15 @@ class TokenNotFoundError(AuthError):
 
 class TokenExpiredError(AuthError):
     """Invite/reset token exists but is past its expiry. → 410"""
+
+
+class EntraExchangeError(AuthError):
+    """Entra code exchange or id_token validation failed. → redirect ?error=entra_failed"""
+
+
+class EntraUserNotFoundError(AuthError):
+    """Microsoft account has no matching invited hub user (or it is inactive).
+    → redirect ?error=not_invited"""
 
 
 class DomainError(Exception):
