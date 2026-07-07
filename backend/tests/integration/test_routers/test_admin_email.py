@@ -134,6 +134,35 @@ class TestInviteEmails:
         assert info.status_code == 200
         assert info.json()["purpose"] == "invite"
 
+    async def test_send_email_false_skips_the_send_entirely(
+        self,
+        make_client: Callable[[EmailSender], Awaitable[AsyncClient]],
+        project: Project,
+        headers: dict[str, str],
+    ) -> None:
+        """The "Create invite link" admin action: even with EMAIL__* configured,
+        no send is attempted and the link is still returned + redeemable."""
+        sender = RecordingSender()
+        client = await make_client(sender)
+        response = await client.post(
+            "/api/admin/invites",
+            json={
+                "email": "link-only@example.com",
+                "first_name": "Link",
+                "last_name": "Only",
+                "project_id": str(project.id),
+                "send_email": False,
+            },
+            headers=headers,
+        )
+        assert response.status_code == 201
+        data = response.json()
+        assert data["email_status"] == "skipped"
+        assert sender.messages == []
+        info = await client.get(f"/api/auth/invite/{_extract_token(data['link'])}")
+        assert info.status_code == 200
+        assert info.json()["purpose"] == "invite"
+
 
 class TestResetEmails:
     async def test_sent_and_addressed_with_the_returned_link(

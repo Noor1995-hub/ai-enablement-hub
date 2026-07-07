@@ -90,16 +90,20 @@ async def create_invite(
     email_service: EmailServiceDep,
 ) -> LinkResponse:
     """Create the user row + single-use invite token; the link is emailed to
-    the user (when EMAIL__* is configured) and always returned as the admin's
-    manual fallback."""
+    the user (when EMAIL__* is configured and body.send_email is true) and
+    always returned as the admin's manual fallback."""
     if limiter.is_limited(f"invite:{body.email.strip().lower()}"):
         raise _RATE_LIMITED
     user, raw_token = await admin_user_service.invite(
         body.email, body.first_name, body.last_name, body.project_id
     )
     link = _invite_link(settings, raw_token)
-    email_status = await _email_the_link(
-        email_service, purpose="invite", to=user.email, first_name=user.first_name, link=link
+    email_status: EmailStatus = (
+        await _email_the_link(
+            email_service, purpose="invite", to=user.email, first_name=user.first_name, link=link
+        )
+        if body.send_email
+        else "skipped"
     )
     return LinkResponse(link=link, email_status=email_status)
 

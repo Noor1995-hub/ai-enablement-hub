@@ -313,6 +313,24 @@ Database for PostgreSQL** (playground server, database `ai-enablement-hub`).
   typecheck/lint/build clean; `schema.d.ts` regenerated. Not browser-verified this session (no
   browser automation tool available) — spot-check locally before relying on it.
 
+- **Invite link/email split (2026-07-07):** the single "create invite link →" button on
+  ProjectDetailView's add-participant form (which always both created the user AND attempted
+  an email when EMAIL__* was configured, despite its label) is now two buttons: "create invite
+  link →" (link-only, never emails) and "send email with invite →" (unchanged prior behavior).
+  `InviteRequest` gained `send_email: bool = True` (backend default keeps any other caller's
+  behavior unchanged); `POST /api/admin/invites` skips `_email_the_link` entirely when
+  `send_email` is false and returns the new `EmailStatus` value `"skipped"` — distinct from
+  `"disabled"` (EMAIL__* unconfigured) so the two "no email was attempted" reasons stay
+  distinguishable in data, though the frontend already defaults both to the same "share the
+  link below" copy (no branch change needed). `schema.d.ts` was hand-patched (not regenerated
+  via `npm run gen:api`, which requires the dev server up against the real Azure dev DB and
+  would trigger its startup auth-cleanup DELETE — ask before Azure-touching commands) with the
+  same two fields openapi-typescript would emit; regenerate for real next time the backend is
+  already running for other reasons. 865 backend tests green (1 new, in
+  `test_admin_email.py::TestInviteEmails`, asserting the ACS sender is never invoked). Frontend
+  typecheck/lint/build clean. Not browser-verified this session (no browser automation tool
+  available).
+
 ## Locking, prerequisites & preview (as-built; reviewed 2026-07-06)
 
 - **Two independent lock systems that never interact:**

@@ -462,8 +462,8 @@ export interface paths {
         /**
          * Create Invite
          * @description Create the user row + single-use invite token; the link is emailed to
-         *     the user (when EMAIL__* is configured) and always returned as the admin's
-         *     manual fallback.
+         *     the user (when EMAIL__* is configured and body.send_email is true) and
+         *     always returned as the admin's manual fallback.
          */
         post: operations["create_invite_api_admin_invites_post"];
         delete?: never;
@@ -1170,6 +1170,11 @@ export interface components {
              * Format: uuid
              */
             project_id: string;
+            /**
+             * Send Email
+             * @default true
+             */
+            send_email: boolean;
         };
         /** JourneyResponse */
         JourneyResponse: {
@@ -1307,7 +1312,7 @@ export interface components {
              * Email Status
              * @enum {string}
              */
-            email_status: "sent" | "failed" | "disabled";
+            email_status: "sent" | "failed" | "disabled" | "skipped";
         };
         /** LoginRequest */
         LoginRequest: {

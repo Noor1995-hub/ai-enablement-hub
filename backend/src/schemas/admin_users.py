@@ -61,13 +61,15 @@ class InviteRequest(BaseModel):
     first_name: str
     last_name: str
     project_id: uuid.UUID
+    send_email: bool = True
 
     _non_blank = field_validator("first_name", "last_name")(_require_non_blank)
 
 
 # "sent" = ACS accepted the message; "failed" = send errored (admin shares the
-# link manually); "disabled" = EMAIL__* unconfigured.
-EmailStatus = Literal["sent", "failed", "disabled"]
+# link manually); "disabled" = EMAIL__* unconfigured; "skipped" = the admin
+# chose the link-only path (send_email=False) — email was never attempted.
+EmailStatus = Literal["sent", "failed", "disabled", "skipped"]
 
 
 class LinkResponse(BaseModel):

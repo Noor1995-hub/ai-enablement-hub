@@ -88,7 +88,7 @@ export default function ProjectDetailView({
 
   const [inviteForm, setInviteForm] = useState<Record<InviteField, string>>({ first_name: '', last_name: '', email: '' })
   const [focused, setFocused] = useState<Partial<Record<InviteField, boolean>>>({})
-  const [submitting, setSubmitting] = useState(false)
+  const [submittingAction, setSubmittingAction] = useState<'link' | 'email' | null>(null)
   const [formMsg, setFormMsg] = useState<FormMsg | null>(null)
   const [inviteLink, setInviteLink] = useState<string | null>(null)
   const [inviteEmailStatus, setInviteEmailStatus] = useState<EmailStatus>('disabled')
@@ -97,16 +97,15 @@ export default function ProjectDetailView({
 
   const valid = inviteForm.email.includes('@') && inviteForm.first_name.trim() && inviteForm.last_name.trim()
 
-  async function handleInvite(e: React.FormEvent) {
-    e.preventDefault()
-    if (!valid || submitting) return
-    setSubmitting(true)
+  async function handleInvite(sendEmail: boolean) {
+    if (!valid || submittingAction) return
+    setSubmittingAction(sendEmail ? 'email' : 'link')
     setFormMsg(null)
     setInviteLink(null)
     setCopied(false)
     try {
       const { data, error } = await client.POST('/api/admin/invites', {
-        body: { ...inviteForm, project_id: project.id },
+        body: { ...inviteForm, project_id: project.id, send_email: sendEmail },
       })
       if (data) {
         setInviteEmailStatus(data.email_status)
@@ -126,7 +125,7 @@ export default function ProjectDetailView({
     } catch {
       setFormMsg({ ok: false, text: 'Network error, please try again.' })
     }
-    setSubmitting(false)
+    setSubmittingAction(null)
   }
 
   function copyInviteLink() {
@@ -163,7 +162,7 @@ export default function ProjectDetailView({
       {inviteOpen && (
         <div style={{ ...s.card, marginBottom: 24 }}>
           <p style={s.cardTitle}>Add a participant to {project.name}</p>
-          <form onSubmit={handleInvite} noValidate>
+          <form onSubmit={e => { e.preventDefault(); handleInvite(false) }} noValidate>
             <div style={s.formRow}>
               <Field id="invite-first" label="First name" placeholder="Sarah" value={inviteForm.first_name}
                 onChange={v => setInviteForm(f => ({ ...f, first_name: v }))}
@@ -183,11 +182,19 @@ export default function ProjectDetailView({
             </div>
             <div style={s.formActions}>
               <button
-                type="submit" className="btn-red-dark"
-                disabled={!valid || submitting}
-                style={{ ...s.submitBtn, ...(!valid || submitting ? s.submitBtnDisabled : {}) }}
+                type="submit" className="btn-ghost"
+                disabled={!valid || !!submittingAction}
+                style={{ ...s.submitBtn, ...(!valid || !!submittingAction ? s.submitBtnDisabled : {}) }}
               >
-                {submitting ? 'creating…' : 'create invite link →'}
+                {submittingAction === 'link' ? 'creating…' : 'create invite link →'}
+              </button>
+              <button
+                type="button" className="btn-red-dark"
+                disabled={!valid || !!submittingAction}
+                onClick={() => handleInvite(true)}
+                style={{ ...s.submitBtn, ...(!valid || !!submittingAction ? s.submitBtnDisabled : {}) }}
+              >
+                {submittingAction === 'email' ? 'sending…' : 'send email with invite →'}
               </button>
               {formMsg && (
                 <span style={{ ...s.formMsg, ...(formMsg.ok ? s.formMsgOk : s.formMsgErr) }}>
