@@ -322,14 +322,16 @@ Database for PostgreSQL** (playground server, database `ai-enablement-hub`).
   `send_email` is false and returns the new `EmailStatus` value `"skipped"` — distinct from
   `"disabled"` (EMAIL__* unconfigured) so the two "no email was attempted" reasons stay
   distinguishable in data, though the frontend already defaults both to the same "share the
-  link below" copy (no branch change needed). `schema.d.ts` was hand-patched (not regenerated
-  via `npm run gen:api`, which requires the dev server up against the real Azure dev DB and
-  would trigger its startup auth-cleanup DELETE — ask before Azure-touching commands) with the
-  same two fields openapi-typescript would emit; regenerate for real next time the backend is
-  already running for other reasons. 865 backend tests green (1 new, in
-  `test_admin_email.py::TestInviteEmails`, asserting the ACS sender is never invoked). Frontend
-  typecheck/lint/build clean. Not browser-verified this session (no browser automation tool
-  available).
+  link below" copy (no branch change needed). `schema.d.ts` regenerated for real via
+  `npm run gen:api` against a locally-launched dev backend (user-approved — its startup
+  auth-cleanup DELETE against the real Azure dev DB ran once); the real generated
+  `send_email` came out as a **required** field (matching how other defaulted fields like
+  `token_type` are already typed in this schema), not optional as a first hand-patch attempt
+  guessed. 865 backend tests green (1 new, in `test_admin_email.py::TestInviteEmails`,
+  asserting the ACS sender is never invoked). Frontend typecheck/lint/build clean. Deployed
+  live 2026-07-07 (see the Deployment section). Not browser-verified this session (no browser
+  automation tool available) — spot-check the two buttons on ProjectDetailView before relying
+  on it.
 
 ## Locking, prerequisites & preview (as-built; reviewed 2026-07-06)
 
@@ -405,8 +407,14 @@ Database for PostgreSQL** (playground server, database `ai-enablement-hub`).
   `infra/containerapp.yaml` must stay pure ASCII (az parses it with the system codepage).
 - Verified live 2026-07-03: health, SPA deep links, headers/CSP, JSON 404 shape, hashed-asset
   caching, wrong-password login 401 (proves container→PG chain), full page load in browser.
-- Not yet in the deployed image (staged in main.py, ride along with the next deploy):
-  HEAD support on SPA routes (`@app.api_route(..., ["GET","HEAD"])` — link-preview bots).
+- **Redeployed 2026-07-07** (`ai-enablement-hub:20260707-131607`, revision `--0000004`,
+  user-approved): shipped everything committed since the 2026-07-03 deploy in one go — the
+  lesson-assignment feature (prod DB migrated automatically via `startup.py`'s
+  `alembic upgrade` on container start, now at `c7d2e9f0a1b3`), ACS invite/reset emails,
+  dormant Entra ID login code (still dark — no `ENTRA__*` env vars set on the Container App),
+  module delete, and the invite link/email split (see that feature entry). HEAD support on
+  SPA routes rode along too. Health check green post-deploy; not further browser-verified
+  this session (no browser automation tool available).
 
 ## Open for cutover
 
@@ -446,16 +454,12 @@ Database for PostgreSQL** (playground server, database `ai-enablement-hub`).
   + `infra/deploy-initial.ps1` (cosmetic printed URL), this file. The default
   azurecontainerapps.io URL keeps working alongside (rollback). Sequence BEFORE re-inviting
   users so invite links carry the final URL.
-- Invite/reset emails (2026-07-06): code-complete + tested, Container App secret/env vars
-  ALREADY SET (see feature entry above) — only `.\deploy.ps1` remains, ON HOLD pending
-  Matthias's localhost email check (dev servers :8000/:5173, real sends from
-  `hub@…azurecomm.net`). The deploy also ships lesson-assignment + dormant Entra code and
-  migrates prod on container start — ask first.
-- Lesson-assignment feature (2026-07-06) is code-complete + tested but NOT live in prod:
-  ~~apply `alembic upgrade head` to the dev DB~~ **dev DB migrated 2026-07-06 (user-approved,
-  together with the entra_login migration — dev head is now `c7d2e9f0a1b3`)**; remaining:
-  browser-check, then redeploy (`.\deploy.ps1`, which also migrates prod on container
-  start) — Azure mutations, ask first.
+- ~~Invite/reset emails (2026-07-06): code-complete + tested, Container App secret/env vars
+  ALREADY SET — only `.\deploy.ps1` remains, ON HOLD pending Matthias's localhost email
+  check.~~ **DONE 2026-07-07** — deployed live (see the Deployment section's 2026-07-07 entry).
+- ~~Lesson-assignment feature (2026-07-06) is code-complete + tested but NOT live in prod~~
+  **DONE 2026-07-07** — prod DB migrated automatically on deploy, redeployed live (see the
+  Deployment section).
 - **DONE (2026-07-03):** side-by-side check old app vs new — Matthias reviewed the running
   app on :5173 and signed off.
 - **DONE (2026-07-03):** Azure test-artifact cleanup (Batch 5 survey + lesson_progress rows,
