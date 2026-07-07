@@ -204,6 +204,61 @@ class TestCreateModule:
         ).status_code == 404
 
 
+class TestDeleteModule:
+    async def test_delete_module_cascades_children(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        admin_headers: dict[str, str],
+        test_settings: Settings,
+    ) -> None:
+        from sqlalchemy import func, select
+
+        from src.db.models import Lesson, ModulePrerequisite, UserLesson, UserModule
+        from tests.fixtures.factories import assign_lesson, assign_module, create_prerequisite
+
+        track = await create_track(db_session, "Doomed Track")
+        base = await create_module(db_session, track, "Base", sort_order=0)
+        doomed = await create_module(db_session, track, "Doomed", sort_order=1)
+        await create_prerequisite(db_session, doomed, base)
+        lesson = await create_lesson(db_session, doomed, "Doomed Lesson")
+        user = await create_user(db_session, email="module-loser@example.com")
+        await assign_module(db_session, user, doomed)
+        await assign_lesson(db_session, user, lesson)
+
+        response = await client.delete(f"/api/admin/modules/{doomed.id}", headers=admin_headers)
+        assert response.status_code == 204
+
+        viewer = await create_user(db_session, email="module-check@example.com")
+        remaining_modules = (
+            await client.get(
+                f"/api/tracks/{track.id}/modules", headers=auth_headers(viewer, test_settings)
+            )
+        ).json()
+        assert [m["title"] for m in remaining_modules] == ["Base"]
+
+        for model, column in (
+            (Lesson, Lesson.module_id),
+            (ModulePrerequisite, ModulePrerequisite.module_id),
+            (UserModule, UserModule.module_id),
+            (UserLesson, UserLesson.lesson_id),
+        ):
+            remaining = (
+                await db_session.execute(
+                    select(func.count())
+                    .select_from(model)
+                    .where(column == (doomed.id if model is not UserLesson else lesson.id))
+                )
+            ).scalar_one()
+            assert remaining == 0, f"{model.__name__} row survived module delete"
+
+    async def test_delete_unknown_module_is_404(
+        self, client: AsyncClient, admin_headers: dict[str, str]
+    ) -> None:
+        response = await client.delete(f"/api/admin/modules/{uuid.uuid4()}", headers=admin_headers)
+        assert response.status_code == 404
+
+
 class TestLessons:
     async def test_create_lesson_appends(
         self, client: AsyncClient, db_session: AsyncSession, admin_headers: dict[str, str]

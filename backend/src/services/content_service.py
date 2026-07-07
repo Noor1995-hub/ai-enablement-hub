@@ -76,6 +76,12 @@ class ContentService:
 
         return await self._content.create_module(track_id, title.strip(), sort_order, deduped)
 
+    async def delete_module(self, module_id: uuid.UUID) -> None:
+        module = await self._content.get_module(module_id)
+        if module is None:
+            raise NotFoundError("Module")
+        await self._content.delete_module(module)
+
     async def create_lesson(self, module_id: uuid.UUID, title: str) -> Lesson:
         if await self._content.get_module(module_id) is None:
             raise NotFoundError("Module")

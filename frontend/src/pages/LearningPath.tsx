@@ -613,6 +613,7 @@ export default function LearningPath() {
           moduleId={selectedModule.id}
           moduleName={selectedModule.title}
           onClose={() => setSelectedModule(null)}
+          onDeleted={() => { setSelectedModule(null); reload() }}
         />
       )}
 

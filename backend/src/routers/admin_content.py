@@ -75,6 +75,17 @@ async def create_module(body: ModuleCreateRequest, content_service: ContentServi
     )
 
 
+@router.delete(
+    "/admin/modules/{module_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_admin)],
+)
+async def delete_module(module_id: uuid.UUID, content_service: ContentServiceDep) -> None:
+    """Lessons, prerequisite links (both directions), and assignment/progress
+    rows cascade."""
+    await content_service.delete_module(module_id)
+
+
 @router.post(
     "/admin/lessons",
     response_model=LessonSummaryOut,

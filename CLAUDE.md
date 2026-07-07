@@ -298,6 +298,21 @@ Database for PostgreSQL** (playground server, database `ai-enablement-hub`).
   login/set-password/invite-peek + Login form/SetPassword/InviteRedirect; the token-pair
   stack stays.
 
+- **Module delete (2026-07-07):** `DELETE /api/admin/modules/{module_id}` (admin-only, 204;
+  404 if unknown) — `ContentService.delete_module` fetches then hands the ORM row to
+  `ContentRepository.delete_module`, a plain `session.delete()` + commit; FK `ondelete="CASCADE"`
+  on lessons/module_prerequisites(both columns)/user_modules/user_lessons(via lessons)/
+  lesson_progress(via lessons) does the rest — no manual cleanup code needed. ModulePanel
+  (edit-mode lesson popup) gained a "Delete module" danger-zone button below the lesson list;
+  confirmation is an in-panel two-step swap (button → warning text + Cancel/"Yes, delete",
+  lesson count in the warning), NOT `window.confirm` — the native browser dialog reads as an
+  out-of-app interruption (feedback from browser-testing this feature 2026-07-07). On success
+  calls the new `onDeleted` prop, which LearningPath wires to close the panel + `reload()` the
+  graph. Backend tests: cascade assertions across all four child tables + 404 + authz-matrix
+  entry (`module-delete`), 68 tests green in `test_admin_content.py`/`test_authz.py`. Frontend
+  typecheck/lint/build clean; `schema.d.ts` regenerated. Not browser-verified this session (no
+  browser automation tool available) — spot-check locally before relying on it.
+
 ## Locking, prerequisites & preview (as-built; reviewed 2026-07-06)
 
 - **Two independent lock systems that never interact:**

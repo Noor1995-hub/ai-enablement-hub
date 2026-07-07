@@ -6,31 +6,6 @@
  },
  {
   "created_at": "2026-07-02T08:01:00.289697+00:00",
-  "module_id": "e00e4419-4171-42e6-aae3-817cfd4cd636",
-  "prerequisite_module_id": "212c5eb0-4f41-4838-9e88-13aa5c5f2bb6"
- },
- {
-  "created_at": "2026-07-02T08:01:00.289697+00:00",
-  "module_id": "376c929c-627e-461f-bd8d-6568e80772ff",
-  "prerequisite_module_id": "2a6a37fd-c325-40fc-b13b-301922b40a87"
- },
- {
-  "created_at": "2026-07-02T08:01:00.289697+00:00",
-  "module_id": "5f328480-648c-4776-b997-6a5ce0f1e8dd",
-  "prerequisite_module_id": "2a6a37fd-c325-40fc-b13b-301922b40a87"
- },
- {
-  "created_at": "2026-07-02T08:01:00.289697+00:00",
-  "module_id": "fc875da2-3627-4025-b262-3734d4473b1c",
-  "prerequisite_module_id": "376c929c-627e-461f-bd8d-6568e80772ff"
- },
- {
-  "created_at": "2026-07-02T08:01:00.289697+00:00",
-  "module_id": "fc875da2-3627-4025-b262-3734d4473b1c",
-  "prerequisite_module_id": "5f328480-648c-4776-b997-6a5ce0f1e8dd"
- },
- {
-  "created_at": "2026-07-02T08:01:00.289697+00:00",
   "module_id": "f399c825-1591-465e-812f-04b62cfe75a1",
   "prerequisite_module_id": "d5ae3492-6658-407c-8cc8-73814c7f0fb3"
  },
@@ -41,48 +16,13 @@
  },
  {
   "created_at": "2026-07-02T08:01:00.289697+00:00",
-  "module_id": "4712ef55-9474-442c-9ef6-febbcf81ef8b",
-  "prerequisite_module_id": "f399c825-1591-465e-812f-04b62cfe75a1"
- },
- {
-  "created_at": "2026-07-02T08:01:00.289697+00:00",
-  "module_id": "c7ccc6d0-2bc1-4976-b9cc-d70b12a4a3f2",
-  "prerequisite_module_id": "d37a0582-47d7-4867-a36e-e5f5d3a84d4d"
- },
- {
-  "created_at": "2026-07-02T08:01:00.289697+00:00",
-  "module_id": "31abeb40-9d8d-4a23-ac7a-cda2114a19ed",
-  "prerequisite_module_id": "4712ef55-9474-442c-9ef6-febbcf81ef8b"
- },
- {
-  "created_at": "2026-07-02T08:01:00.289697+00:00",
-  "module_id": "31abeb40-9d8d-4a23-ac7a-cda2114a19ed",
-  "prerequisite_module_id": "c7ccc6d0-2bc1-4976-b9cc-d70b12a4a3f2"
- },
- {
-  "created_at": "2026-07-02T08:01:00.289697+00:00",
   "module_id": "bfa0b638-6554-413b-997f-0d96b978dbd0",
   "prerequisite_module_id": "90b21ac1-96f7-4b3c-b688-c4fd43b99f8c"
  },
  {
   "created_at": "2026-07-02T08:01:00.289697+00:00",
-  "module_id": "4c7d6bb9-f75f-4975-b7d1-1fe124ba39a5",
-  "prerequisite_module_id": "df5e335a-3649-41fd-834a-6d89d7ec20dc"
- },
- {
-  "created_at": "2026-07-02T08:01:00.289697+00:00",
-  "module_id": "b5693f1f-8170-482c-98fd-221f023f8e9f",
-  "prerequisite_module_id": "df5e335a-3649-41fd-834a-6d89d7ec20dc"
- },
- {
-  "created_at": "2026-07-02T08:01:00.289697+00:00",
   "module_id": "7f0b7e90-296e-4a37-be4d-67aa749e6c57",
   "prerequisite_module_id": "4c7d6bb9-f75f-4975-b7d1-1fe124ba39a5"
- },
- {
-  "created_at": "2026-07-02T08:01:00.289697+00:00",
-  "module_id": "7f0b7e90-296e-4a37-be4d-67aa749e6c57",
-  "prerequisite_module_id": "b5693f1f-8170-482c-98fd-221f023f8e9f"
  },
  {
   "created_at": "2026-07-02T12:10:57.293927+00:00",
@@ -113,5 +53,95 @@
   "created_at": "2026-07-02T12:10:57.293927+00:00",
   "module_id": "4e9f8450-5bbe-47f8-a014-ce3cc41f19d0",
   "prerequisite_module_id": "e2202cbc-e26f-4ed6-a178-27fcdd85abce"
+ },
+ {
+  "created_at": "2026-07-03T12:36:53.800487+00:00",
+  "module_id": "2a6a37fd-c325-40fc-b13b-301922b40a87",
+  "prerequisite_module_id": "4e9f8450-5bbe-47f8-a014-ce3cc41f19d0"
+ },
+ {
+  "created_at": "2026-07-03T12:36:53.800487+00:00",
+  "module_id": "6702e37f-57f5-4964-a07b-0fd85a702b90",
+  "prerequisite_module_id": "2a6a37fd-c325-40fc-b13b-301922b40a87"
+ },
+ {
+  "created_at": "2026-07-03T12:36:53.800487+00:00",
+  "module_id": "5f328480-648c-4776-b997-6a5ce0f1e8dd",
+  "prerequisite_module_id": "6702e37f-57f5-4964-a07b-0fd85a702b90"
+ },
+ {
+  "created_at": "2026-07-03T12:36:53.800487+00:00",
+  "module_id": "376c929c-627e-461f-bd8d-6568e80772ff",
+  "prerequisite_module_id": "6702e37f-57f5-4964-a07b-0fd85a702b90"
+ },
+ {
+  "created_at": "2026-07-03T12:36:53.800487+00:00",
+  "module_id": "fc875da2-3627-4025-b262-3734d4473b1c",
+  "prerequisite_module_id": "6702e37f-57f5-4964-a07b-0fd85a702b90"
+ },
+ {
+  "created_at": "2026-07-03T12:48:51.191472+00:00",
+  "module_id": "df5e335a-3649-41fd-834a-6d89d7ec20dc",
+  "prerequisite_module_id": "4e9f8450-5bbe-47f8-a014-ce3cc41f19d0"
+ },
+ {
+  "created_at": "2026-07-03T12:48:51.191472+00:00",
+  "module_id": "c48b2b7e-1d2e-43de-b946-0889986f0320",
+  "prerequisite_module_id": "df5e335a-3649-41fd-834a-6d89d7ec20dc"
+ },
+ {
+  "created_at": "2026-07-03T12:48:51.191472+00:00",
+  "module_id": "4c7d6bb9-f75f-4975-b7d1-1fe124ba39a5",
+  "prerequisite_module_id": "c48b2b7e-1d2e-43de-b946-0889986f0320"
+ },
+ {
+  "created_at": "2026-07-03T12:55:51.127855+00:00",
+  "module_id": "d5ae3492-6658-407c-8cc8-73814c7f0fb3",
+  "prerequisite_module_id": "4e9f8450-5bbe-47f8-a014-ce3cc41f19d0"
+ },
+ {
+  "created_at": "2026-07-03T12:55:51.127855+00:00",
+  "module_id": "31abeb40-9d8d-4a23-ac7a-cda2114a19ed",
+  "prerequisite_module_id": "d37a0582-47d7-4867-a36e-e5f5d3a84d4d"
+ },
+ {
+  "created_at": "2026-07-03T12:55:51.127855+00:00",
+  "module_id": "31abeb40-9d8d-4a23-ac7a-cda2114a19ed",
+  "prerequisite_module_id": "f399c825-1591-465e-812f-04b62cfe75a1"
+ },
+ {
+  "created_at": "2026-07-03T13:06:03.251175+00:00",
+  "module_id": "212c5eb0-4f41-4838-9e88-13aa5c5f2bb6",
+  "prerequisite_module_id": "4e9f8450-5bbe-47f8-a014-ce3cc41f19d0"
+ },
+ {
+  "created_at": "2026-07-03T13:06:03.251175+00:00",
+  "module_id": "b9d1fff2-890b-4788-ae25-de47aeb50282",
+  "prerequisite_module_id": "212c5eb0-4f41-4838-9e88-13aa5c5f2bb6"
+ },
+ {
+  "created_at": "2026-07-03T13:06:03.251175+00:00",
+  "module_id": "e00e4419-4171-42e6-aae3-817cfd4cd636",
+  "prerequisite_module_id": "b9d1fff2-890b-4788-ae25-de47aeb50282"
+ },
+ {
+  "created_at": "2026-07-03T13:12:41.431013+00:00",
+  "module_id": "b69b14e4-baf6-42f4-9ee1-5541b2dbb289",
+  "prerequisite_module_id": "4e9f8450-5bbe-47f8-a014-ce3cc41f19d0"
+ },
+ {
+  "created_at": "2026-07-03T13:12:41.431013+00:00",
+  "module_id": "1f675cd9-0562-403c-bc3b-01a7a50658bd",
+  "prerequisite_module_id": "b69b14e4-baf6-42f4-9ee1-5541b2dbb289"
+ },
+ {
+  "created_at": "2026-07-03T13:12:41.431013+00:00",
+  "module_id": "de7ac38b-af1e-4c0d-817b-a284743b7816",
+  "prerequisite_module_id": "1f675cd9-0562-403c-bc3b-01a7a50658bd"
+ },
+ {
+  "created_at": "2026-07-03T13:17:06.778279+00:00",
+  "module_id": "90b21ac1-96f7-4b3c-b688-c4fd43b99f8c",
+  "prerequisite_module_id": "4e9f8450-5bbe-47f8-a014-ce3cc41f19d0"
  }
 ]

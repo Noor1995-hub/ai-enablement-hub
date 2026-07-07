@@ -220,6 +220,13 @@ _MATRIX: list[tuple[str, str, Any, Any, bool]] = [
         True,
     ),
     (
+        "module-delete",
+        "DELETE",
+        lambda s: f"/api/admin/modules/{s.module.id}",
+        lambda s: None,
+        True,
+    ),
+    (
         "lessons-post",
         "POST",
         lambda s: "/api/admin/lessons",

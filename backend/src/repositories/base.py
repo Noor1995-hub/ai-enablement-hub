@@ -262,6 +262,11 @@ class AbstractContentRepository(ABC):
     @abstractmethod
     async def list_prerequisites(self) -> list[ModulePrerequisite]: ...
 
+    @abstractmethod
+    async def delete_module(self, module: Module) -> None:
+        """Cascades to its lessons, prerequisite links (both directions), and
+        assignment/progress rows."""
+
     # -- lessons --
     @abstractmethod
     async def list_lessons(self, module_id: uuid.UUID) -> list[Lesson]:

@@ -48,19 +48,19 @@
   "updated_at": "2026-07-02T12:26:33.048+00:00"
  },
  {
-  "component": "learning",
-  "hidden": false,
-  "id": "e91714ac-6d26-4ec8-945d-d6eb6a656c71",
-  "locked": true,
-  "project_id": "a5a2bde9-1f55-402d-9644-2034e58d799d",
-  "updated_at": "2026-07-02T14:07:04.548+00:00"
- },
- {
   "component": "interview",
   "hidden": true,
   "id": "1274c60c-e218-4870-86ce-6578be32d5be",
   "locked": true,
   "project_id": "a5a2bde9-1f55-402d-9644-2034e58d799d",
   "updated_at": "2026-07-02T14:07:19.113+00:00"
+ },
+ {
+  "component": "learning",
+  "hidden": false,
+  "id": "e91714ac-6d26-4ec8-945d-d6eb6a656c71",
+  "locked": true,
+  "project_id": "a5a2bde9-1f55-402d-9644-2034e58d799d",
+  "updated_at": "2026-07-04T21:09:03.678+00:00"
  }
 ]

@@ -94,6 +94,10 @@ class ContentRepository(AbstractContentRepository):
         result = await self._session.execute(select(ModulePrerequisite))
         return list(result.scalars().all())
 
+    async def delete_module(self, module: Module) -> None:
+        await self._session.delete(module)
+        await self._session.commit()
+
     # -- lessons -----------------------------------------------------------
 
     async def list_lessons(self, module_id: uuid.UUID) -> list[Lesson]:

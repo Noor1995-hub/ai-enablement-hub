@@ -16,14 +16,17 @@ interface ModulePanelProps {
   moduleId: string
   moduleName: string
   onClose: () => void
+  onDeleted: () => void
 }
 
-export default function ModulePanel({ moduleId, moduleName, onClose }: ModulePanelProps) {
+export default function ModulePanel({ moduleId, moduleName, onClose, onDeleted }: ModulePanelProps) {
   const [lessons, setLessons]           = useState<PanelLesson[]>([])
   const [loading, setLoading]           = useState(true)
   const [addingLesson, setAddingLesson] = useState(false)
   const [newTitle, setNewTitle]         = useState('')
   const [addError, setAddError]         = useState<string | null>(null)
+  const [deletingModule, setDeletingModule]   = useState(false)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -63,6 +66,21 @@ export default function ModulePanel({ moduleId, moduleName, onClose }: ModulePan
     })
     if (error) { setAddError(errorMessage(error, 'Failed to delete lesson.')); return }
     setLessons(ls => ls.filter(l => l.id !== lessonId))
+  }
+
+  async function handleDeleteModule() {
+    setDeletingModule(true)
+    setAddError(null)
+    const { error } = await client.DELETE('/api/admin/modules/{module_id}', {
+      params: { path: { module_id: moduleId } },
+    })
+    if (error) {
+      setDeletingModule(false)
+      setConfirmingDelete(false)
+      setAddError(errorMessage(error, 'Failed to delete module.'))
+      return
+    }
+    onDeleted()
   }
 
   async function moveLesson(lessonId: string, dir: -1 | 1) {
@@ -201,6 +219,42 @@ export default function ModulePanel({ moduleId, moduleName, onClose }: ModulePan
             </button>
           )}
         </div>
+      </div>
+
+      {/* Danger zone */}
+      <div style={{ padding: '14px 20px', borderTop: '1px solid #E2E2E2', flexShrink: 0 }}>
+        {confirmingDelete ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <p style={{ fontFamily: 'var(--dlw-font-body)', fontSize: 13, color: '#3C3C3C', margin: 0 }}>
+              Delete "{moduleName}"{lessons.length > 0 && ` and its ${lessons.length} lesson${lessons.length === 1 ? '' : 's'}`}?
+              This cannot be undone.
+            </p>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button type="button" onClick={() => setConfirmingDelete(false)} disabled={deletingModule} style={{
+                flex: 1, padding: '9px 0', borderRadius: 8, border: '1px solid #E2E2E2',
+                background: '#fff', color: '#8A8A8A', fontFamily: 'var(--dlw-font-body)', fontWeight: 600, fontSize: 13,
+                cursor: deletingModule ? 'default' : 'pointer',
+              }}>
+                Cancel
+              </button>
+              <button type="button" onClick={handleDeleteModule} disabled={deletingModule} style={{
+                flex: 1, padding: '9px 0', borderRadius: 8, border: '1px solid #FCA5A5',
+                background: '#FEF2F2', color: '#C42828', fontFamily: 'var(--dlw-font-body)', fontWeight: 600, fontSize: 13,
+                cursor: deletingModule ? 'default' : 'pointer', opacity: deletingModule ? 0.6 : 1,
+              }}>
+                {deletingModule ? 'Deleting…' : 'Yes, delete'}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button type="button" onClick={() => setConfirmingDelete(true)} style={{
+            width: '100%', padding: '10px 0', borderRadius: 8,
+            border: '1px solid #FCA5A5', background: '#FEF2F2', color: '#C42828',
+            fontFamily: 'var(--dlw-font-body)', fontWeight: 600, fontSize: 14, cursor: 'pointer',
+          }}>
+            Delete module
+          </button>
+        )}
       </div>
     </div>
   )
