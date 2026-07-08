@@ -1,8 +1,13 @@
 # AI Enablement Hub — Azure Rebuild
 
-Greenfield rebuild of the hub (old app lives untouched in `../app/` on Supabase+Vercel until
-cutover). Stack: **FastAPI** (Python 3.13, uv) + **React 18 + TypeScript** (Vite) + **Azure
-Database for PostgreSQL** (playground server, database `ai-enablement-hub`).
+Greenfield rebuild of the hub (old app lives untouched in `../app/` on Supabase+Vercel — frozen,
+historical only). Stack: **FastAPI** (Python 3.13, uv) + **React 18 + TypeScript** (Vite) +
+**Azure Database for PostgreSQL** (playground server, database `ai-enablement-hub`).
+
+**Cutover is complete (confirmed 2026-07-08).** This rebuild is production — the app real
+learners use. Content edits via the admin UI (`PATCH /api/admin/lessons/{id}`) write directly to
+this Azure DB with no separate export/sync step. The old Supabase project is no longer
+authoritative for anything; see `db/README.md` for why its migration scripts must not be re-run.
 
 ## Read before working
 
@@ -466,8 +471,12 @@ Database for PostgreSQL** (playground server, database `ai-enablement-hub`).
   Batch 6 ZZ-B6 leftovers) — marked done by Matthias.
 - Real migrated users still have `password_set=false` (all but matthias) — re-invite via the
   admin UI once cutover is scheduled.
-- `question` content block: typed + rendered + editable, but exists in no real lesson — never
-  browser-exercised end to end.
+- ~~`question` content block: typed + rendered + editable, but exists in no real lesson — never
+  browser-exercised end to end.~~ **RESOLVED 2026-07-08** — first real use landed in the General
+  track capstone (7.1, "Work through a real recurring task with AI") as a closing reflection
+  prompt, alongside two new non-interactive/interactive block types added the same session
+  (`interactive`: sort/predict/spot-the-flaw; `try_it_yourself`: card-style hands-on exercise
+  box). See `frontend/src/types/contentBlocks.ts`.
 - ~~Deployment (Azure hosting, CSP incl. `style-src 'unsafe-inline'`, env wiring) was never in
   batch scope.~~ **DONE 2026-07-03** — see the Deployment section above.
 

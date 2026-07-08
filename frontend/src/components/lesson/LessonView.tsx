@@ -7,6 +7,8 @@ import CardsBlock     from './blocks/CardsBlock'
 import QuizBlock      from './blocks/QuizBlock'
 import QuestionBlock  from './blocks/QuestionBlock'
 import SpacerBlock    from './blocks/SpacerBlock'
+import InteractiveBlock from './blocks/InteractiveBlock'
+import TryItYourselfBlock from './blocks/TryItYourselfBlock'
 
 interface BlockExtraProps {
   onComplete?: () => void
@@ -26,6 +28,8 @@ const RENDERERS: {
   quiz:       QuizBlock,
   question:   QuestionBlock,
   whitespace: SpacerBlock,
+  interactive: InteractiveBlock,
+  try_it_yourself: TryItYourselfBlock,
 }
 
 interface LessonViewProps {
