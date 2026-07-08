@@ -1,5 +1,17 @@
 # Database — Azure PostgreSQL setup & Supabase migration
 
+**Cutover is complete (confirmed 2026-07-08).** Azure is now the sole authoritative database —
+the "Refresh data from Supabase" section below and the scripts it points to
+(`export_supabase_snapshot.py`, `migrate_supabase_to_azure.py`, `sync_content_from_supabase.py`)
+describe the **pre-cutover migration process only**. Do not run them. `migrate_supabase_to_azure.py`
+TRUNCATEs and reloads from the Supabase snapshot; `sync_content_from_supabase.py --apply` overwrites
+`tracks`/`modules`/`lessons`/`curricula` rows to match that same stale snapshot. Either one would
+silently erase any content edited directly on Azure since cutover (e.g. the 2026-07-08 interactivity
+pass — new `interactive`/`try_it_yourself` blocks, the General-track capstone rewrite). The
+`baseline/data/*.json` snapshot itself is a frozen historical record of the Supabase state at
+migration time, not a live mirror — it is not kept in sync with Azure and should not be treated as
+current.
+
 State after Batch 1 (2026-07-03): the Azure database has the full 15-table schema
 (Alembic-managed) and all Supabase data loaded and verified. Users are reset for
 manual re-invite (`password_set=false`, no password hashes).
@@ -11,7 +23,7 @@ manual re-invite (`password_set=false`, no password hashes).
 | Server | `imaginemore-playground-pg.postgres.database.azure.com` (PG 18, resource group `imaginemore-playground`, subscription "Playground BELU Imagine More") |
 | Main DB | `ai-enablement-hub` |
 | Test DB | `ai-enablement-hub-test` (owned by `ai_hub_owner`; for backend integration tests) |
-| Old system | Supabase project `tbeogvbjbaxgfwaoebfj` — **stays live untouched until cutover** |
+| Old system | Supabase project `tbeogvbjbaxgfwaoebfj` — **frozen, cutover complete (2026-07-08); no longer authoritative, do not sync from it** |
 
 Always connect with `sslmode=require`. The DB name contains hyphens — double-quote
 `"ai-enablement-hub"` in SQL; DSNs need no quoting.
