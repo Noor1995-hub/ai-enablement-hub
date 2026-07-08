@@ -1,4 +1,6 @@
-import { BrowserRouter, Navigate, Route, Routes, useNavigate } from 'react-router-dom'
+import { useLayoutEffect } from 'react'
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import Spinner from './components/Spinner'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import Admin from './pages/Admin'
 import Assessment from './pages/Assessment'
@@ -6,23 +8,10 @@ import AuthCallback from './pages/AuthCallback'
 import InviteRedirect from './pages/InviteRedirect'
 import JourneyHome from './pages/JourneyHome'
 import LearningPath from './pages/LearningPath'
+import LearningPathNew from './pages/LearningPathNew'
 import LessonPage from './pages/LessonPage'
 import Login from './pages/Login'
 import SetPassword from './pages/SetPassword'
-
-function Spinner() {
-  return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-        <circle cx="16" cy="16" r="13" stroke="#E2E2E2" strokeWidth="3" />
-        <circle cx="16" cy="16" r="13" stroke="#EF463C" strokeWidth="3"
-          strokeDasharray="40 44" strokeLinecap="round"
-          style={{ transformOrigin: '50% 50%', animation: 'spin 0.9s linear infinite' }} />
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-      </svg>
-    </div>
-  )
-}
 
 function ComingSoon() {
   const navigate = useNavigate()
@@ -39,10 +28,19 @@ function ComingSoon() {
   )
 }
 
+// React Router v6 keeps the window scroll offset across navigations, so a route
+// like /learning could open mid-page (whatever you'd scrolled to before). Reset
+// to the top on every path change; useLayoutEffect runs before paint (no flash).
+function ScrollToTop() {
+  const { pathname } = useLocation()
+  useLayoutEffect(() => { window.scrollTo(0, 0) }, [pathname])
+  return null
+}
+
 function AppRoutes() {
   const { session, role, passwordSet, externalLogin, loading } = useAuth()
 
-  if (loading) return <Spinner />
+  if (loading) return <Spinner fullPage />
 
   // Old app also gated on isRecovery; that mode is gone (the invite/reset
   // credential is a URL token, not a session). This gate is defensive only —
@@ -67,7 +65,10 @@ function AppRoutes() {
           : <Admin />
       } />
       <Route path="/assessment" element={session ? <Assessment /> : <Navigate to="/login" replace />} />
-      <Route path="/learning" element={session ? <LearningPath /> : <Navigate to="/login" replace />} />
+      {/* Redesign promoted to the working page 2026-07-08; the previous graph
+          page is parked at /learning/old (admin edit mode still lives there). */}
+      <Route path="/learning" element={session ? <LearningPathNew /> : <Navigate to="/login" replace />} />
+      <Route path="/learning/old" element={session ? <LearningPath /> : <Navigate to="/login" replace />} />
       <Route path="/learning/lesson/:lessonId" element={session ? <LessonPage /> : <Navigate to="/login" replace />} />
       <Route path="/interview" element={session ? <ComingSoon /> : <Navigate to="/login" replace />} />
       <Route path="/invite/:id" element={<InviteRedirect />} />
@@ -81,6 +82,7 @@ export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <ScrollToTop />
         <AppRoutes />
       </BrowserRouter>
     </AuthProvider>

@@ -4,6 +4,7 @@
  * style the Admin-specific tab strip injected into AppNav via leftExtra. */
 import type { CSSProperties } from 'react'
 import type { ComponentKey } from '../../lib/constants'
+import { levelByCode, type AssignableLevel } from '../../lib/levels'
 
 export const COMPONENT_KEYS: ComponentKey[] = ['assessment', 'learning', 'interview']
 export const COMPONENT_LABELS: Record<ComponentKey, string> = {
@@ -16,7 +17,7 @@ export const RUNG_LABELS = ['Not yet', 'Partial', 'Has it', 'Advanced'] as const
 export const RUNG_COLORS = ['#F5F5F5', '#EEF2FF', '#FFF8EC', '#EDFAF4'] as const
 export const RUNG_TEXT   = ['#8A8A8A', '#4B5CC4', '#B45309', '#1D7A52'] as const
 
-export type ScoreLevel = 'explore' | 'practitioner' | 'integrator'
+export type ScoreLevel = AssignableLevel
 export type UsageBand = 'dormant' | 'occasional' | 'regular' | 'embedded'
 
 interface BadgeStyle {
@@ -25,10 +26,14 @@ interface BadgeStyle {
   label: string
 }
 
+// Badge bg/text are the admin status palette (same scheme as BAND_STYLE and
+// RUNG_COLORS below); the display names come from the canonical level table.
+const levelName = (code: ScoreLevel): string => levelByCode(code)!.name
+
 export const LEVEL_STYLE: Record<ScoreLevel, BadgeStyle> = {
-  explore:      { bg: '#F5F5F5',  text: '#8A8A8A',  label: 'Explorer' },
-  practitioner: { bg: '#FFF8EC',  text: '#B45309',  label: 'Practitioner' },
-  integrator:   { bg: '#EDFAF4',  text: '#1D7A52',  label: 'Integrator' },
+  explore:      { bg: '#F5F5F5',  text: '#8A8A8A',  label: levelName('explore') },
+  practitioner: { bg: '#FFF8EC',  text: '#B45309',  label: levelName('practitioner') },
+  integrator:   { bg: '#EDFAF4',  text: '#1D7A52',  label: levelName('integrator') },
 }
 
 export const BAND_STYLE: Record<UsageBand, BadgeStyle> = {

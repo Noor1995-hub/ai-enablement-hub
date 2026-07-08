@@ -4,6 +4,7 @@ import { client } from '../api/client'
 import { DEFAULT_HIDDEN, DEFAULT_LOCKED, type ComponentKey } from '../lib/constants'
 import { useAuth } from '../contexts/AuthContext'
 import AppNav from '../components/AppNav'
+import Spinner from '../components/Spinner'
 
 /* ── Component definitions ── */
 interface ModuleDef {
@@ -112,8 +113,8 @@ function LockIcon({ size = 14 }: { size?: number }) {
 const s = {
   page: { minHeight: '100vh', background: '#fff', display: 'flex', flexDirection: 'column' },
 
-  /* Main */
-  main: { flex: 1, width: 'min(960px, 100%)', margin: '0 auto', padding: '52px 40px 60px' },
+  /* Main — header metrics match the learning path (the leading page) */
+  main: { flex: 1, width: 'min(1080px, 100%)', margin: '0 auto', padding: '44px 40px 60px' },
 
   eyebrow: {
     fontFamily: 'var(--dlw-font-ui)', fontWeight: 600,
@@ -127,7 +128,7 @@ const s = {
   },
   subtitle: {
     fontSize: 17, lineHeight: 1.6, fontWeight: 300,
-    color: '#8A8A8A', margin: '0 0 40px', maxWidth: '54ch',
+    color: '#8A8A8A', margin: '0 0 36px', maxWidth: '54ch',
   },
 
   /* Progress tracker */
@@ -273,7 +274,10 @@ function ModuleCard({ mod, state, meta, onAction, badgeOverride }: ModuleCardPro
 export default function JourneyHome() {
   const navigate = useNavigate()
   const { user } = useAuth()
+  // Defaults are only ever visible on the fetch-failure fallback — first paint
+  // shows a spinner until /api/me/journey resolves (loaded flag below).
   const [states, setStates] = useState<Record<ComponentKey, ModuleState>>({ assessment: 'available', learning: 'locked', interview: 'locked' })
+  const [loaded, setLoaded] = useState(false)
   const progress = calcProgress(states)
 
   const userId = user?.id
@@ -286,7 +290,8 @@ export default function JourneyHome() {
       // survey_responses pair. Contract deviation from design-frontend §3:
       // survey_status is 'not_started' | 'in_progress' | 'complete' (not 'none').
       const { data } = await client.GET('/api/me/journey')
-      if (cancelled || !data) return
+      if (cancelled) return
+      if (!data) { setLoaded(true); return } // fall back to the default render
 
       const resolved = {} as Record<ComponentKey, ModuleState>
       for (const mod of MODULES) {
@@ -307,6 +312,7 @@ export default function JourneyHome() {
         }
       }
       setStates(resolved)
+      setLoaded(true)
     }
     load()
     return () => { cancelled = true }
@@ -327,6 +333,13 @@ export default function JourneyHome() {
           confidently with AI. Pick up wherever you left off.
         </p>
 
+        {!loaded ? (
+          // minHeight ≈ tracker + cards so the decorative bottom strip doesn't jump
+          <div style={{ minHeight: 480, display: 'flex' }}>
+            <Spinner />
+          </div>
+        ) : (
+          <>
         {/* Progress tracker */}
         <div style={s.tracker}>
           <div style={s.trackerHeader}>
@@ -374,6 +387,8 @@ export default function JourneyHome() {
             )
           })}
         </div>
+          </>
+        )}
       </main>
 
       {/* Bottom decorative strip */}

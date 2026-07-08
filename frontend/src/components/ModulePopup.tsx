@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import { client } from '../api/client'
+import { getRectZoomFactor } from '../lib/uiZoom'
 
 const POPUP_WIDTH  = 280
 const POPUP_HEIGHT = 164 // approximate, for clamping
@@ -20,14 +21,26 @@ export default function ModulePopup({ moduleId, title, total, completed, locked 
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
 
-  // Position to the right of the anchor node, clamped to viewport
+  // Position to the right of the anchor node, clamped to viewport.
+  // This popup is position:fixed inside the zoomed root, so its top/left are in
+  // local (pre-zoom) space, but anchorRect comes from getBoundingClientRect and
+  // is zoom-scaled. Convert the anchor + viewport back into local space so the
+  // popup lands next to the node (POPUP_WIDTH/HEIGHT are already local units).
+  const z       = getRectZoomFactor()
+  const aTop    = anchorRect.top / z
+  const aLeft   = anchorRect.left / z
+  const aRight  = anchorRect.right / z
+  const aHeight = anchorRect.height / z
+  const vpW     = window.innerWidth / z
+  const vpH     = window.innerHeight / z
+
   const top  = Math.min(
-    Math.max(8, anchorRect.top + anchorRect.height / 2 - POPUP_HEIGHT / 2),
-    window.innerHeight - POPUP_HEIGHT - 8
+    Math.max(8, aTop + aHeight / 2 - POPUP_HEIGHT / 2),
+    vpH - POPUP_HEIGHT - 8
   )
-  const left = anchorRect.right + 16 + POPUP_WIDTH > window.innerWidth
-    ? anchorRect.left - POPUP_WIDTH - 16
-    : anchorRect.right + 16
+  const left = aRight + 16 + POPUP_WIDTH > vpW
+    ? aLeft - POPUP_WIDTH - 16
+    : aRight + 16
 
   async function handleStart() {
     setLoading(true)

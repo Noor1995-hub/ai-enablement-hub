@@ -3,10 +3,12 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { client } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
 import AppNav from '../components/AppNav'
+import Spinner from '../components/Spinner'
 import ModulePanel from '../components/ModulePanel'
 import ModulePopup from '../components/ModulePopup'
 import AddTrackModal from '../components/AddTrackModal'
 import AddModuleModal from '../components/AddModuleModal'
+import { getRectZoomFactor } from '../lib/uiZoom'
 import type { ModuleNode, TrackNode } from '../types/domain'
 
 // Note: `col_offset` never existed in the live DB or in this page's buildGraph
@@ -173,6 +175,7 @@ export default function LearningPath() {
   const [selectedModule, setSelectedModule] = useState<{ id: string; title: string } | null>(null)
   const [activeModule, setActiveModule]     = useState<ActiveModule | null>(null)
   const [lessonCountMap, setLessonCountMap] = useState<Record<string, { total: number; completed: number }>>({})
+  const [loading, setLoading]               = useState(true)  // first load only — reload() keeps the current graph on screen
   const [loadError, setLoadError]           = useState<string | null>(null)
   const [loadKey, setLoadKey]               = useState(0)    // increment to trigger data reload
   const [showAddTrack, setShowAddTrack]     = useState(false)
@@ -196,12 +199,13 @@ export default function LearningPath() {
       // assigned subset here mirrors the old client-side joins exactly.
       const { data } = await client.GET('/api/learning/graph')
       if (cancelled) return
-      if (!data) { setLoadError('Failed to load your tracks. Please refresh.'); return }
+      if (!data) { setLoadError('Failed to load your tracks. Please refresh.'); setLoading(false); return }
 
       const assignedTracks = data.tracks
         .filter(t => t.assigned)
         .sort((a, b) => a.sort_order - b.sort_order)
       setTracks(assignedTracks)
+      setLoading(false)
 
       if (assignedTracks.length === 0) return
 
@@ -269,21 +273,30 @@ export default function LearningPath() {
     if (!group || !canvasEl) return
     if (selected?.id === trackId) { zoomOut(); return }
 
+    // getBoundingClientRect is zoom-scaled; group.centerX/Y and the transform
+    // origin below live in the canvas's local (pre-zoom) space, so divide the
+    // rect + viewport back into that space before mixing them.
+    const z          = getRectZoomFactor()
     const canvasRect = canvasEl.getBoundingClientRect()
-    const groupScreenX = canvasRect.left + group.centerX
-    const groupScreenY = canvasRect.top  + group.centerY
-    const vpCX      = window.innerWidth / 2
+    const cLeft      = canvasRect.left / z
+    const cTop       = canvasRect.top / z
+    const vpW        = window.innerWidth / z
+    const vpH        = window.innerHeight / z
+
+    const groupLocalX = cLeft + group.centerX
+    const groupLocalY = cTop  + group.centerY
+    const vpCX      = vpW / 2
     const topOffset = 160
     const vpTopMin  = 190  // first node won't be placed above this (clears the back button + zoomed radius)
 
     const groupSpan = group.box.h - BLUR_PAD * 2
-    const scale     = Math.max(Math.min((window.innerHeight * 0.55) / groupSpan, 3.2), 3.0)
+    const scale     = Math.max(Math.min((vpH * 0.55) / groupSpan, 3.2), 3.0)
 
     // Center the group vertically, but shift down if the topmost node would end up
     // above the viewport (can't scroll to it because scrollTop can't go negative).
     const nodeYs      = group.nodes.map(n => n.y)
     const firstNodeY  = nodeYs.length > 0 ? Math.min(...nodeYs) : group.centerY
-    const vpCY_center = topOffset + (window.innerHeight - topOffset) / 2
+    const vpCY_center = topOffset + (vpH - topOffset) / 2
     const firstOnScreen = vpCY_center - (group.centerY - firstNodeY) * scale
     const vpCY = firstOnScreen < vpTopMin
       ? vpTopMin + (group.centerY - firstNodeY) * scale
@@ -291,8 +304,8 @@ export default function LearningPath() {
 
     // Compute the transform origin (element-relative) such that scaling alone
     // places the group center exactly at vpCX/vpCY — no x/y translation needed.
-    const ox = (vpCX - groupScreenX * scale) / (1 - scale) - canvasRect.left
-    const oy = (vpCY - groupScreenY * scale) / (1 - scale) - canvasRect.top
+    const ox = (vpCX - groupLocalX * scale) / (1 - scale) - cLeft
+    const oy = (vpCY - groupLocalY * scale) / (1 - scale) - cTop
 
     setZoomOrigin(`${ox}px ${oy}px`)
     setSelected(group.track)
@@ -348,6 +361,9 @@ export default function LearningPath() {
       {/* Content area — scrollable in overview, locked when zoomed so canvas rect is stable */}
       <div ref={scrollRef} style={{ flex: 1, position: 'relative', overflowY: 'auto', overflowX: 'hidden' }}>
 
+        {/* Loading state — first load only, so the empty state below never flashes */}
+        {loading && !loadError && <Spinner />}
+
         {/* Error state */}
         {loadError && (
           <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -356,7 +372,7 @@ export default function LearningPath() {
         )}
 
         {/* Empty state */}
-        {!loadError && user && tracks.length === 0 && (
+        {!loading && !loadError && user && tracks.length === 0 && (
           <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 8 }}>
             <p style={{ fontFamily: 'var(--dlw-font-body)', fontWeight: 600, fontSize: 16, color: '#3C3C3C', margin: 0 }}>No tracks assigned yet</p>
             <p style={{ fontFamily: 'var(--dlw-font-body)', fontWeight: 300, fontSize: 14, color: '#8A8A8A', margin: 0 }}>Your delaware contact will set up your learning path.</p>

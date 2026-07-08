@@ -59,6 +59,13 @@
   /* Transitions */
   --dlw-ease:          cubic-bezier(0.4, 0, 0.2, 1);
   --dlw-duration:      180ms;
+
+  /* Baked-in zoom — matches browser Ctrl-+ reflow. Change here to tweak the level.
+     Applied once, on :root below (NOT also on body — zoom compounds down the tree,
+     so html+body would render at 1.25 × 1.25). JS that mixes getBoundingClientRect
+     with layout coords reads this back via lib/uiZoom.ts. */
+  --dlw-zoom:          1.25;
+  zoom: var(--dlw-zoom);
 }
 
 *, *::before, *::after { box-sizing: border-box; }

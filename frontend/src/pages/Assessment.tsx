@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { client, errorMessage } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
 import AppNav from '../components/AppNav'
+import { LEVELS, LEVEL_GRADIENT } from '../lib/levels'
 import {
   C1_OPTIONS, C2_OPTIONS, C3_OPTIONS, C4_OPTIONS, C5_OPTIONS, C6_OPTIONS,
   FREQ_OPTIONS, BREADTH_OPTIONS, TOOLS_OPTIONS, ATTITUDE_OPTIONS,
@@ -153,8 +154,10 @@ const s = {
     fontFamily: 'var(--dlw-font-body)', fontWeight: 300, fontSize: 14, color: '#8A8A8A',
   },
 
-  // Main
-  main: { flex: 1, width: 'min(680px, 100%)', margin: '0 auto', padding: '52px 40px 80px' },
+  // Main — survey steps read best in a narrow column; the intro screen widens to
+  // 1080 so its header + level framework line up with the learning path (leading).
+  main:      { flex: 1, width: 'min(680px, 100%)',  margin: '0 auto', padding: '44px 40px 80px' },
+  mainWide:  { width: 'min(1080px, 100%)' },
 
   // Typography
   eyebrow: {
@@ -280,6 +283,48 @@ const s = {
   bullets: { listStyle: 'none', padding: 0, margin: '0 0 40px', display: 'flex', flexDirection: 'column', gap: 10 },
   bullet:  { display: 'flex', alignItems: 'flex-start', gap: 10, fontSize: 15, fontWeight: 300, color: '#3C3C3C' },
   bulletDot: { width: 6, height: 6, borderRadius: '50%', background: '#EF463C', flexShrink: 0, marginTop: 7 },
+
+  // Level-framework panel (intro) — styled to match the learning path progress panel
+  fwPanel: {
+    border: '1px solid #E2E2E2', borderRadius: 12,
+    padding: '24px 30px 26px', marginBottom: 24,
+  },
+  fwLabel: {
+    fontFamily: 'var(--dlw-font-ui)', fontWeight: 600, fontSize: 11,
+    letterSpacing: '0.14em', textTransform: 'uppercase',
+    color: '#8A8A8A', margin: '0 0 26px',
+  },
+  fwTrack: {
+    position: 'relative', height: 6, borderRadius: 999,
+    background: '#F5F5F5', border: '1px solid #ECECEC',
+    margin: '4px 0 30px',
+  },
+  fwFill: {
+    position: 'absolute', inset: 0, borderRadius: 999,
+    background: LEVEL_GRADIENT,
+  },
+  fwCheckpoint: {
+    position: 'absolute', top: '50%', width: 42, height: 42, marginLeft: -21,
+    transform: 'translateY(-50%)', borderRadius: '50%', border: '3px solid #fff',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    boxShadow: '0 2px 8px rgba(0,0,0,.14)', boxSizing: 'border-box',
+  },
+  fwCheckpointNum: {
+    fontFamily: 'var(--dlw-font-ui)', fontWeight: 700, fontSize: 16, color: '#fff',
+  },
+  fwGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 },
+  fwCard: { textAlign: 'center', padding: '0 6px' },
+  fwName: {
+    fontFamily: 'var(--dlw-font-body)', fontWeight: 800, fontSize: 15, margin: '0 0 3px',
+  },
+  fwTagline: {
+    fontFamily: 'var(--dlw-font-ui)', fontWeight: 600, fontSize: 12,
+    color: '#101820', margin: '0 0 3px',
+  },
+  fwSub: {
+    fontFamily: 'var(--dlw-font-body)', fontWeight: 300, fontSize: 11,
+    color: '#8A8A8A', lineHeight: 1.4, margin: 0,
+  },
 
   // Usage step sub-labels
   subLabel: { fontFamily: 'var(--dlw-font-body)', fontWeight: 600, fontSize: 16, color: '#101820', margin: '0 0 14px' },
@@ -564,13 +609,6 @@ export default function Assessment() {
   // ── Step renderers ──────────────────────────────────────────────────────────
 
   function renderIntro() {
-    const LEVELS = [
-      { num: '1', name: 'Explorer',      tagline: 'AI basics',           sub: 'Open the toolbox',             color: '#EF463C' },
-      { num: '2', name: 'Practitioner',  tagline: 'AI with context',     sub: 'Brief it. Review it. Own it.', color: '#EF463C' },
-      { num: '3', name: 'Integrator',    tagline: 'AI in your workflow',  sub: 'Build once, reuse daily',      color: '#AB9BCB' },
-      { num: '4', name: 'Multiplier',    tagline: 'Close the loop',       sub: 'Share, measure, multiply',     color: '#72C4BF' },
-    ]
-
     // Events sit at the circle centres: 1/8, 3/8, 5/8, 7/8 of full width
     const EVENTS = [
       { label: 'Maturity assessment', pct: 12.5, color: '#EF463C' },
@@ -593,50 +631,32 @@ export default function Assessment() {
           This assessment is the starting point of your AI journey. It establishes where you are today so your learning path can be tailored to get you where you need to be.
         </p>
 
-        {/* ── Level framework ── */}
-        <div style={{ marginBottom: 24 }}>
-          <p style={sectionLabel}>Level framework</p>
+        {/* ── Level framework — bordered panel + gradient checkpoint bar, the same
+            visual language as the learning path's "current level" box ── */}
+        <div style={s.fwPanel}>
+          <p style={s.fwLabel}>Level framework</p>
 
-          {/* align-items defaults to stretch: all columns grow to the tallest one */}
-          <div style={{ position: 'relative', display: 'flex', gap: 8 }}>
-            {/* Gradient connecting line behind circles */}
-            <div style={{
-              position: 'absolute', top: 21, left: 22, right: 22, height: 2,
-              background: 'linear-gradient(to right, #EF463C 40%, #AB9BCB 70%, #72C4BF)',
-              zIndex: 0,
-            }} />
-
-            {LEVELS.map(level => (
-              <div key={level.num} style={{
-                flex: 1, zIndex: 1,
-                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
+          {/* Gradient track with a numbered checkpoint per level */}
+          <div style={s.fwTrack}>
+            <div style={s.fwFill} />
+            {LEVELS.map((level, i) => (
+              <div key={level.code} style={{
+                ...s.fwCheckpoint,
+                left: `${(i + 0.5) * 25}%`,
+                background: level.color,
               }}>
-                <div style={{
-                  width: 44, height: 44, borderRadius: '50%',
-                  background: level.color, color: '#fff', flexShrink: 0,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontFamily: 'var(--dlw-font-ui)', fontWeight: 700, fontSize: 18,
-                }}>{level.num}</div>
+                <span style={s.fwCheckpointNum}>{i + 1}</span>
+              </div>
+            ))}
+          </div>
 
-                {/* flex: 1 fills the remaining column height, matching the tallest card */}
-                <div style={{
-                  width: '100%', flex: 1, padding: '12px 10px', borderRadius: 10,
-                  border: '1.5px solid #E2E2E2', background: '#FAFAF9',
-                  boxSizing: 'border-box',
-                }}>
-                  <p style={{
-                    fontFamily: 'var(--dlw-font-body)', fontWeight: 700, fontSize: 13,
-                    color: level.color, margin: '0 0 2px',
-                  }}>{level.name}</p>
-                  <p style={{
-                    fontFamily: 'var(--dlw-font-body)', fontWeight: 700, fontSize: 12,
-                    color: '#101820', margin: '0 0 3px',
-                  }}>{level.tagline}</p>
-                  <p style={{
-                    fontFamily: 'var(--dlw-font-body)', fontWeight: 300, fontSize: 11,
-                    color: '#8A8A8A', lineHeight: 1.4, margin: 0,
-                  }}>{level.sub}</p>
-                </div>
+          {/* Level detail, one column under each checkpoint */}
+          <div style={s.fwGrid}>
+            {LEVELS.map(level => (
+              <div key={level.code} style={s.fwCard}>
+                <p style={{ ...s.fwName, color: level.color }}>{level.name}</p>
+                <p style={s.fwTagline}>{level.tagline}</p>
+                <p style={s.fwSub}>{level.sub}</p>
               </div>
             ))}
           </div>
@@ -994,7 +1014,7 @@ export default function Assessment() {
       )}
 
       {/* Main content */}
-      <main style={s.main}>
+      <main style={{ ...s.main, ...(step === 0 ? s.mainWide : {}) }}>
         {renderStep()}
         {error && <p style={s.errorMsg}>{error}</p>}
         {renderNavButtons()}

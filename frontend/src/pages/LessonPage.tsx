@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
 import { client, errorMessage } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
@@ -31,6 +31,10 @@ export default function LessonPage() {
   const [completedIds, setCompletedIds]   = useState<Set<string>>(new Set())
   const [nextLessonId, setNextLessonId]   = useState<string | null>(null)
 
+  // The lesson content scrolls inside this <main>, and the page never remounts
+  // between lessons — reset it (and the window) to the top on every lesson change.
+  const contentRef = useRef<HTMLElement>(null)
+
   const completed = lessonId ? completedIds.has(lessonId) : false
 
   // content_blocks crosses the JSONB boundary as unknown[]; this is the one
@@ -57,6 +61,9 @@ export default function LessonPage() {
     setQuizDone(false)
     setCompleting(false)
     setMarkError(null)
+    // Start each lesson at the top (fresh open and lesson→lesson navigation).
+    contentRef.current?.scrollTo(0, 0)
+    window.scrollTo(0, 0)
     async function load() {
       const { data } = await client.GET('/api/lessons/{lesson_id}', {
         params: { path: { lesson_id: lid } },
@@ -365,7 +372,7 @@ export default function LessonPage() {
             </aside>
 
             {/* Lesson content */}
-            <main style={{ flex: 1, overflowY: 'auto', padding: '48px 40px' }}>
+            <main ref={contentRef} style={{ flex: 1, overflowY: 'auto', padding: '48px 40px' }}>
               <div style={{ maxWidth: 720, margin: '0 auto' }}>
 
                 <h1 style={{ fontFamily: 'var(--dlw-font-body)', fontWeight: 700, fontSize: 36, color: '#101820', margin: '0 0 36px', lineHeight: 1.15 }}>
