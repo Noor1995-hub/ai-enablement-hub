@@ -1,8 +1,16 @@
-// Learning-path redesign (2026-07-08), parked at /learning/new while the live
-// /learning page stays untouched. Runs on REAL data: GET /api/learning/graph
-// (assigned tracks/modules/prerequisites + lesson counts) and GET /api/survey/me
-// (assessed score_level for the header). Module CTA navigates via
-// GET /api/modules/{id}/lessons → next_lesson_id, same contract as ModulePopup.
+// Learning-path redesign (promoted to /learning 2026-07-08). Runs on REAL data:
+// ONE GET /api/learning/graph aggregate carries assigned tracks/modules/
+// prerequisites, lesson counts, per-track maturity locks (unlocked_by_maturity +
+// required_level) and the caller's effective maturity_level (page header). Module
+// CTA navigates via GET /api/modules/{id}/lessons → next_lesson_id, same contract
+// as ModulePopup.
+//
+// Maturity gating (2026-07-08): each track has a required_level; a track the
+// caller's effective maturity doesn't reach renders as a locked, non-expandable
+// lane ("Unlocks at {Level}"). Maturity gates whole tracks; prerequisites still
+// gate modules WITHIN an unlocked track. Admins bypass both. Completing a level's
+// modules advances maturity server-side, so returning here unlocks the next
+// track automatically (the self-propelling ladder).
 //
 // Design decisions (2026-07-08):
 // - White page, red caps eyebrow + bold title header (second mockup's style).
@@ -21,7 +29,11 @@ import { client } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
 import AppNav from '../components/AppNav'
 import Spinner from '../components/Spinner'
-import { LEVELS, LEVEL_GRADIENT } from '../lib/levels'
+import ModulePanel from '../components/ModulePanel'
+import AddTrackModal from '../components/AddTrackModal'
+import AddModuleModal from '../components/AddModuleModal'
+import { LEVELS, LEVEL_GRADIENT, levelByCode } from '../lib/levels'
+import { resolveTrackColor, FALLBACK_TRACK_COLOR } from '../lib/trackColors'
 import { getRectZoomFactor } from '../lib/uiZoom'
 import type { ModuleNode, TrackNode } from '../types/domain'
 
@@ -32,8 +44,6 @@ const RANK_DX = 178        // x distance between ranks
 const BRANCH_DY = 118      // y distance between parallel modules in a rank
 const LANE_MIN_H = 170
 const POPOVER_W = 330
-
-const FALLBACK_TRACK_COLOR = '#C42828'
 
 /* ── Persisted open lane (per user; multiple people share a browser) ── */
 const OPEN_TRACK_KEY = (userId: string) => `hub.learning.openTrack.${userId}`
@@ -51,6 +61,13 @@ function writeStoredOpenTrack(userId: string, value: string | null): void {
   try { localStorage.setItem(OPEN_TRACK_KEY(userId), value ?? '') } catch { /* ignore */ }
 }
 
+// Maturity-ladder rank of a track's required_level (General I → General II →
+// tool tracks). Unknown levels sort last.
+function trackRank(track: TrackNode): number {
+  const i = LEVELS.findIndex(l => l.code === track.required_level)
+  return i === -1 ? LEVELS.length : i
+}
+
 function lighten(hex: string, amt: number): string {
   const n = parseInt(hex.slice(1), 16)
   const r = Math.min(255, (n >> 16) + amt)
@@ -60,10 +77,10 @@ function lighten(hex: string, amt: number): string {
 }
 
 /* ── Icons ── */
-function LockGlyph({ size = 17 }: { size?: number }) {
+function LockGlyph({ size = 17, stroke = '#fff' }: { size?: number; stroke?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
-      stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+      stroke={stroke} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
       <rect x="4" y="11" width="16" height="9" rx="2.5" />
       <path d="M8 11V7a4 4 0 0 1 8 0v4" />
     </svg>
@@ -112,29 +129,37 @@ export default function LearningPathNew() {
   const [popover, setPopover] = useState<PopoverState | null>(null)
   const [ctaLoading, setCtaLoading] = useState(false)
 
+  // Admin edit mode (ported from the live /learning page, tailored to lanes):
+  // toggle → per-node click opens ModulePanel; banner adds tracks/modules.
+  const [isEditMode, setIsEditMode] = useState(false)
+  const [editingModule, setEditingModule] = useState<{ id: string; title: string } | null>(null)
+  const [showAddTrack, setShowAddTrack] = useState(false)
+  const [showAddModule, setShowAddModule] = useState(false)
+  const [loadKey, setLoadKey] = useState(0) // bump to re-fetch the graph after an edit
+
   const userId = user?.id
   const isAdmin = user?.role === 'admin'
+  const reload = () => setLoadKey(k => k + 1)
 
-  /* ── Load: graph + assessed level, in parallel ── */
+  /* ── Load: one graph aggregate (maturity level + locks come with it) ── */
   useEffect(() => {
     if (!userId) return
     let cancelled = false
     setLoadError(null)
 
     async function load() {
-      const [graphRes, surveyRes] = await Promise.all([
-        client.GET('/api/learning/graph'),
-        client.GET('/api/survey/me'),
-      ])
+      const graphRes = await client.GET('/api/learning/graph')
       if (cancelled) return
       if (!graphRes.data) { setLoadError('Failed to load your tracks. Please refresh.'); return }
 
       // Same filtering semantics as the live /learning page: assigned tracks,
       // assigned modules within them, prereq rows keyed on assigned modules
-      // (an unassigned prerequisite stays un-completable → locked).
+      // (an unassigned prerequisite stays un-completable → locked). Ordered by
+      // the maturity ladder [rank(required_level), sort_order] so General I →
+      // General II → tool tracks read top-to-bottom.
       const assignedTracks = graphRes.data.tracks
         .filter(t => t.assigned)
-        .sort((a, b) => a.sort_order - b.sort_order)
+        .sort((a, b) => trackRank(a) - trackRank(b) || a.sort_order - b.sort_order)
 
       const trackIds = new Set(assignedTracks.map(t => t.id))
       const assignedModules = graphRes.data.modules
@@ -157,13 +182,21 @@ export default function LearningPathNew() {
       setTracks(assignedTracks)
       setModulesMap(map)
       setPrereqMap(pMap)
-      setLevelCode(surveyRes.data?.score_level ?? null)
+      // Effective maturity (override- and progression-aware) — no separate
+      // /api/survey/me call; the graph carries the header level now.
+      setLevelCode(graphRes.data.maturity_level ?? null)
       setLoaded(true)
     }
 
     load()
     return () => { cancelled = true }
-  }, [userId])
+    // loadKey re-runs the fetch after an edit. Returning from a lesson remounts
+    // this page (React Router swaps /learning ↔ /learning/lesson/:id), so the
+    // graph reloads and unlocked_by_maturity is recomputed server-side — the
+    // next track unlocks itself with no client logic (the self-propelling
+    // ladder). `loaded` stays true across loadKey so the graph never flashes
+    // back to the spinner.
+  }, [userId, loadKey])
 
   /* ── Progress lookups ── */
   const moduleById = useMemo(() => {
@@ -184,6 +217,12 @@ export default function LearningPathNew() {
   }
   const firstCurrent = (mods: ModuleNode[]): ModuleNode | null =>
     mods.find(m => !isDone(m.id) && isUnlocked(m.id)) ?? null
+
+  // Maturity gate: a track (and, by inheritance, its modules/lessons) is locked
+  // when the caller's effective maturity is below its required_level. Admins
+  // bypass it, same as the prerequisite lock.
+  const isTrackLocked = (track: TrackNode): boolean =>
+    !isAdmin && !track.unlocked_by_maturity
 
   /* ── Level + header math ── */
   // Fallback to Explorer when no completed assessment exposes a level yet.
@@ -208,9 +247,14 @@ export default function LearningPathNew() {
       if (prev !== null) return prev
       const stored = readStoredOpenTrack(userId)
       if (stored === null) return null                                // explicitly collapsed
-      if (stored && tracks.some(t => t.id === stored)) return stored  // restore, if still valid
-      const active = tracks.find(t => firstCurrent(modulesMap[t.id] ?? []) !== null)
-      return (active ?? tracks[0]).id                                 // smart default (unchanged)
+      const storedTrack = stored ? tracks.find(t => t.id === stored) : undefined
+      if (storedTrack && !isTrackLocked(storedTrack)) return storedTrack.id  // restore, if still valid & unlocked
+      // Smart default: first unlocked track with something actionable, else the
+      // first unlocked track, else the first track (maturity-locked lanes never
+      // auto-open — they render inert).
+      const openable = tracks.filter(t => !isTrackLocked(t))
+      const active = openable.find(t => firstCurrent(modulesMap[t.id] ?? []) !== null)
+      return (active ?? openable[0] ?? tracks[0]).id
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loaded, tracks, userId])
@@ -220,7 +264,7 @@ export default function LearningPathNew() {
     const mods = openTrackId ? modulesMap[openTrackId] : undefined
     if (!openTrackId || !mods || mods.length === 0) return null
     const track = tracks.find(t => t.id === openTrackId)
-    const color = track?.color ?? FALLBACK_TRACK_COLOR
+    const color = track ? resolveTrackColor(track) : FALLBACK_TRACK_COLOR
     const ids = mods.map(m => m.id)
     const idSet = new Set(ids)
 
@@ -311,6 +355,22 @@ export default function LearningPathNew() {
       <AppNav backTo="/" title="Learning path" />
 
       <main style={s.main}>
+        {/* ── Admin edit-mode banner ── */}
+        <AnimatePresence>
+          {isAdmin && isEditMode && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2 }}
+              style={s.editBanner}
+            >
+              <span style={s.editDot} />
+              <span style={s.editBannerText}>
+                Edit mode — open a track and click a module to manage its lessons.
+              </span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Error state */}
         {loadError && <p style={s.errorText}>{loadError}</p>}
 
@@ -414,41 +474,67 @@ export default function LearningPathNew() {
             </div>
 
             {/* ── Track list ── */}
-            <p style={{ ...s.smallLabel, margin: '44px 0 14px' }}>your tracks</p>
+            <div style={s.tracksHeader}>
+              <p style={{ ...s.smallLabel, margin: 0 }}>your tracks</p>
+              {isAdmin && isEditMode && (
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button type="button" onClick={() => setShowAddTrack(true)} style={s.editBtnGhost}>
+                    + Add track
+                  </button>
+                  <button type="button" onClick={() => setShowAddModule(true)} style={s.editBtnSolid}>
+                    + Add module
+                  </button>
+                </div>
+              )}
+            </div>
             <div style={s.laneList}>
               {tracks.map(track => {
                 const mods = modulesMap[track.id] ?? []
-                const color = track.color ?? FALLBACK_TRACK_COLOR
+                const color = resolveTrackColor(track)
+                const maturityLocked = isTrackLocked(track)
+                const requiredLevel = levelByCode(track.required_level)
                 const done = mods.filter(m => isDone(m.id)).length
-                const next = firstCurrent(mods)
-                const open = openTrackId === track.id
-                const subtitle =
-                  `${done} of ${mods.length} modules` +
-                  (next ? ` · next: ${next.title}`
-                    : done === mods.length && mods.length > 0 ? ' · track complete' : ' · locked')
+                // A maturity-locked track has nothing actionable and never expands.
+                const next = maturityLocked ? null : firstCurrent(mods)
+                const open = !maturityLocked && openTrackId === track.id
+                const subtitle = maturityLocked
+                  ? `Unlocks at ${requiredLevel?.name ?? track.required_level}`
+                  : `${done} of ${mods.length} modules` +
+                    (next ? ` · next: ${next.title}`
+                      : done === mods.length && mods.length > 0 ? ' · track complete' : ' · locked')
+                // Grey ring/dots when maturity-locked (the whole lane reads inert).
+                const ringColor = maturityLocked ? '#C4C4C4' : color
 
                 return (
-                  <div key={track.id} style={s.lane}>
+                  <div key={track.id} style={{ ...s.lane, ...(maturityLocked ? s.laneLocked : {}) }}>
                     <button
                       type="button"
-                      className="lpn-lane-toggle"
+                      className={maturityLocked ? undefined : 'lpn-lane-toggle'}
+                      disabled={maturityLocked}
                       onClick={() => {
+                        if (maturityLocked) return
                         const nextOpen = open ? null : track.id
                         setOpenTrackId(nextOpen)
                         if (userId) writeStoredOpenTrack(userId, nextOpen)
                         setPopover(null)
                       }}
-                      style={{ ...s.laneToggle, background: open ? '#FDFCFB' : '#fff' }}
+                      style={{
+                        ...s.laneToggle,
+                        background: open ? '#FDFCFB' : '#fff',
+                        cursor: maturityLocked ? 'default' : 'pointer',
+                      }}
                     >
-                      <ProgressRing color={color} frac={mods.length ? done / mods.length : 0} />
+                      {maturityLocked
+                        ? <div style={s.laneLockCircle}><LockGlyph size={16} stroke="#fff" /></div>
+                        : <ProgressRing color={ringColor} frac={mods.length ? done / mods.length : 0} />}
                       <div style={s.laneTitleCol}>
-                        <span style={s.laneName}>{track.name}</span>
-                        <span style={s.laneSubtitle}>{subtitle}</span>
+                        <span style={{ ...s.laneName, color: maturityLocked ? '#B6B6B6' : '#3C3C3C' }}>{track.name}</span>
+                        <span style={{ ...s.laneSubtitle, ...(maturityLocked ? { color: requiredLevel?.color ?? '#8A8A8A', fontWeight: 700 } : {}) }}>{subtitle}</span>
                       </div>
                       <div style={s.laneDots}>
                         {mods.map(m => {
-                          const d = isDone(m.id)
-                          const u = isUnlocked(m.id)
+                          const d = !maturityLocked && isDone(m.id)
+                          const u = !maturityLocked && isUnlocked(m.id)
                           return <span key={m.id} style={{
                             ...s.laneDot,
                             background: d ? color : u ? '#fff' : '#EFEDEA',
@@ -456,13 +542,17 @@ export default function LearningPathNew() {
                           }} />
                         })}
                       </div>
-                      <motion.span
-                        animate={{ rotate: open ? 180 : 0 }}
-                        transition={{ duration: 0.2 }}
-                        style={s.chevron}
-                      >
-                        ▾
-                      </motion.span>
+                      {maturityLocked
+                        ? <span style={s.chevron}><LockGlyph size={15} stroke="#B6B6B6" /></span>
+                        : (
+                          <motion.span
+                            animate={{ rotate: open ? 180 : 0 }}
+                            transition={{ duration: 0.2 }}
+                            style={s.chevron}
+                          >
+                            ▾
+                          </motion.span>
+                        )}
                     </button>
 
                     <AnimatePresence initial={false}>
@@ -492,7 +582,10 @@ export default function LearningPathNew() {
                                 <div key={mod.id}>
                                   <motion.button
                                     type="button"
-                                    onClick={e => openPopover(mod, e.currentTarget)}
+                                    onClick={e => isEditMode
+                                      ? setEditingModule({ id: mod.id, title: mod.title })
+                                      : openPopover(mod, e.currentTarget)}
+                                    title={isEditMode ? `Edit lessons for: ${mod.title}` : undefined}
                                     whileHover={{ scale: 1.1 }}
                                     transition={{ duration: 0.16 }}
                                     style={{
@@ -501,12 +594,14 @@ export default function LearningPathNew() {
                                       top: y - NODE / 2,
                                       background: bg,
                                       opacity: unlocked ? 1 : 0.55,
-                                      boxShadow: current
-                                        ? '0 4px 16px rgba(196,40,40,.30)'
-                                        : '0 3px 10px rgba(0,0,0,.14)',
+                                      boxShadow: isEditMode
+                                        ? '0 0 0 3px rgba(59,201,188,.45), 0 3px 10px rgba(0,0,0,.16)'
+                                        : current
+                                          ? '0 4px 16px rgba(196,40,40,.30)'
+                                          : '0 3px 10px rgba(0,0,0,.14)',
                                     }}
                                   >
-                                    {current && (
+                                    {current && !isEditMode && (
                                       <span style={{ ...s.pulseRing, border: `2.5px solid ${color}` }} />
                                     )}
                                     {!unlocked ? <LockGlyph />
@@ -539,7 +634,7 @@ export default function LearningPathNew() {
         {popover && (() => {
           const { mod, anchor } = popover
           const track = tracks.find(t => t.id === mod.track_id)
-          const color = track?.color ?? FALLBACK_TRACK_COLOR
+          const color = track ? resolveTrackColor(track) : FALLBACK_TRACK_COLOR
           const unlocked = isUnlocked(mod.id)
           const done = isDone(mod.id)
           const completed = Math.min(mod.completed_lesson_count, mod.lesson_count)
@@ -615,6 +710,47 @@ export default function LearningPathNew() {
           )
         })()}
       </AnimatePresence>
+
+      {/* ── Admin edit-mode toggle (floating, bottom-right) ── */}
+      {isAdmin && (
+        <button
+          type="button"
+          onClick={() => { setIsEditMode(m => !m); setEditingModule(null); setPopover(null) }}
+          style={{
+            ...s.editToggle,
+            right: editingModule ? 448 : 28,
+            background: isEditMode ? '#3BC9BC' : '#fff',
+            border: isEditMode ? '2px solid #3BC9BC' : '1.5px solid #E2E2E2',
+            color: isEditMode ? '#fff' : '#3C3C3C',
+          }}
+        >
+          {isEditMode ? '✓ Editing' : 'Edit content'}
+        </button>
+      )}
+
+      {/* ── Lesson-management panel (edit mode, per module) ── */}
+      {isEditMode && editingModule && (
+        <ModulePanel
+          moduleId={editingModule.id}
+          moduleName={editingModule.title}
+          onClose={() => setEditingModule(null)}
+          onDeleted={() => { setEditingModule(null); reload() }}
+        />
+      )}
+
+      {/* ── Add track / module modals ── */}
+      {showAddTrack && (
+        <AddTrackModal
+          onClose={() => setShowAddTrack(false)}
+          onAdded={() => { setShowAddTrack(false); reload() }}
+        />
+      )}
+      {showAddModule && (
+        <AddModuleModal
+          onClose={() => setShowAddModule(false)}
+          onAdded={() => { setShowAddModule(false); reload() }}
+        />
+      )}
     </div>
   )
 }
@@ -698,6 +834,12 @@ const s = {
     border: '1px solid #E2E2E2', borderRadius: 16, background: '#fff',
     boxShadow: '0 1px 4px rgba(0,0,0,.05)', overflow: 'hidden',
   },
+  laneLocked: { background: '#FBFAF9', borderColor: '#ECEAE7', boxShadow: 'none' },
+  laneLockCircle: {
+    width: 44, height: 44, borderRadius: '50%', flexShrink: 0,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    background: '#C4C4C4',
+  },
   laneToggle: {
     width: '100%', display: 'flex', alignItems: 'center', gap: 16,
     padding: '16px 22px', border: 'none', cursor: 'pointer',
@@ -769,6 +911,37 @@ const s = {
     marginTop: 2, padding: '11px 18px', borderRadius: 8, border: 'none',
     fontFamily: 'var(--dlw-font-body)', fontWeight: 800, fontSize: 14,
   },
+  /* Admin edit mode */
+  tracksHeader: {
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    gap: 12, margin: '44px 0 14px', minHeight: 30,
+  },
+  editBanner: {
+    display: 'flex', alignItems: 'center', gap: 10,
+    background: '#F0FAF9', border: '1px solid #B2EBE6', borderRadius: 12,
+    padding: '11px 16px', marginBottom: 24,
+  },
+  editDot: { width: 8, height: 8, borderRadius: '50%', background: '#3BC9BC', flexShrink: 0 },
+  editBannerText: {
+    fontFamily: 'var(--dlw-font-body)', fontWeight: 600, fontSize: 13, color: '#1D7A52',
+  },
+  editBtnGhost: {
+    padding: '6px 14px', borderRadius: 999, border: '1.5px solid #3BC9BC',
+    background: '#fff', color: '#1D7A52', fontFamily: 'var(--dlw-font-body)',
+    fontWeight: 600, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap',
+  },
+  editBtnSolid: {
+    padding: '6px 14px', borderRadius: 999, border: 'none',
+    background: '#3BC9BC', color: '#fff', fontFamily: 'var(--dlw-font-body)',
+    fontWeight: 600, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap',
+  },
+  editToggle: {
+    position: 'fixed', bottom: 28, padding: '10px 22px', borderRadius: 999,
+    fontFamily: 'var(--dlw-font-body)', fontWeight: 600, fontSize: 14,
+    cursor: 'pointer', zIndex: 200, boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
+    transition: 'right 0.25s ease',
+  },
+
   errorText: { fontWeight: 300, fontSize: 14, color: '#C42828', textAlign: 'center', marginTop: 80 },
   emptyWrap: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, marginTop: 60 },
   emptyTitle: { fontWeight: 600, fontSize: 16, color: '#3C3C3C', margin: 0 },

@@ -609,20 +609,6 @@ export default function Assessment() {
   // ── Step renderers ──────────────────────────────────────────────────────────
 
   function renderIntro() {
-    // Events sit at the circle centres: 1/8, 3/8, 5/8, 7/8 of full width
-    const EVENTS = [
-      { label: 'Maturity assessment', pct: 12.5, color: '#EF463C' },
-      { label: 'Learning path',       pct: 37.5, color: '#D0607A' },
-      { label: 'Inspiration session', pct: 62.5, color: '#AB9BCB' },
-      { label: '1-to-1 session',      pct: 87.5, color: '#72C4BF' },
-    ]
-
-    const sectionLabel: CSSProperties = {
-      fontFamily: 'var(--dlw-font-ui)', fontWeight: 600, fontSize: 11,
-      letterSpacing: '0.14em', textTransform: 'uppercase',
-      color: '#8A8A8A', margin: '0 0 14px',
-    }
-
     return (
       <div>
         <p style={s.eyebrow}>Maturity assessment</p>
@@ -662,50 +648,7 @@ export default function Assessment() {
           </div>
         </div>
 
-        {/* ── Learning journey ── */}
-        <div style={{ marginBottom: 28 }}>
-          <p style={sectionLabel}>Learning journey</p>
-
-          {/* Arrow + event markers */}
-          <div style={{ position: 'relative', height: 54 }}>
-            {/* Gradient line */}
-            <div style={{
-              position: 'absolute', top: 6, left: 0, right: 10, height: 3,
-              background: 'linear-gradient(to right, #EF463C 30%, #AB9BCB 70%, #72C4BF)',
-              borderRadius: 2,
-            }} />
-            {/* Arrowhead */}
-            <div style={{
-              position: 'absolute', top: 0, right: 0,
-              width: 0, height: 0,
-              borderTop: '7px solid transparent',
-              borderBottom: '7px solid transparent',
-              borderLeft: '12px solid #72C4BF',
-            }} />
-
-            {/* Event dots + labels */}
-            {EVENTS.map(ev => (
-              <div key={ev.label} style={{
-                position: 'absolute', left: `${ev.pct}%`,
-                top: 0, transform: 'translateX(-50%)',
-                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
-              }}>
-                <div style={{
-                  width: 14, height: 14, borderRadius: '50%',
-                  background: ev.color, border: '2px solid #fff',
-                  flexShrink: 0,
-                }} />
-                <p style={{
-                  fontFamily: 'var(--dlw-font-body)', fontWeight: 600, fontSize: 10,
-                  color: ev.color, margin: 0, textAlign: 'center',
-                  whiteSpace: 'nowrap',
-                }}>{ev.label}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <p style={{ fontSize: 14, fontWeight: 300, color: '#8A8A8A', lineHeight: 1.65, margin: '0 0 32px' }}>
+        <p style={{ fontSize: 14, fontWeight: 300, color: '#8A8A8A', lineHeight: 1.65, margin: '32px 0 32px' }}>
           Everyone on this project starts from a different place and that is completely fine. By the end, <strong style={{ fontWeight: 600, color: '#101820' }}>Practitioner is the new baseline</strong> for the whole team. However, throughout the project <strong style={{ fontWeight: 600, color: '#101820' }}>everyone will be upskilled.</strong> Your learning path is built around where you are today, giving more advanced people more advanced modules.
         </p>
 

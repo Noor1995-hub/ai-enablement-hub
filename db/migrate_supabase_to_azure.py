@@ -54,7 +54,7 @@ TABLES: dict[str, list[str]] = {
         "is_active", "password_set", "password_hash", "external_id", "created_at",
         "updated_at",
     ],
-    "tracks": ["id", "name", "sort_order", "track_type", "color", "created_at"],
+    "tracks": ["id", "name", "sort_order", "track_type", "color", "required_level", "created_at"],
     "curricula": ["id", "track_id", "name", "created_at"],
     "modules": ["id", "track_id", "title", "description", "sort_order", "created_at"],
     "module_prerequisites": ["module_id", "prerequisite_module_id", "created_at"],
@@ -116,6 +116,22 @@ def transform_users(rows: list[dict]) -> list[dict]:
     return out
 
 
+def transform_tracks(rows: list[dict]) -> list[dict]:
+    """Derive the maturity-ladder `required_level` (added by the
+    maturity-gated-learning migration, NOT NULL). The baseline JSON stays
+    pre-split — every general track loads as Explorer here; the migration's
+    General I/II split later bumps General II to Practitioner. Adding the column
+    VALUE does not change row counts or PK-set hashes, so the verification gates
+    below still pass. See db/README.md for the re-seed replay procedure."""
+    out = []
+    for r in rows:
+        out.append({
+            **r,
+            "required_level": "integrator" if r["track_type"] == "tool" else "explore",
+        })
+    return out
+
+
 def pk_hash(rows: list[dict], keys: list[str]) -> str:
     ids = sorted(":".join(str(r[k]) for k in keys) for r in rows)
     return hashlib.md5(",".join(ids).encode()).hexdigest()
@@ -128,6 +144,7 @@ def main() -> None:
 
     data, manifest = load_snapshot()
     data["users"] = transform_users(data["users"])
+    data["tracks"] = transform_tracks(data["tracks"])
 
     print(f"Snapshot from {manifest['exported_at']} ({manifest['source']})")
     for t in TABLES:

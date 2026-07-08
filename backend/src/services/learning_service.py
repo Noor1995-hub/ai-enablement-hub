@@ -3,6 +3,7 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING, Any, Literal
 
+from src.core.constants import LEVEL_RANK
 from src.services.exceptions import NotFoundError
 
 if TYPE_CHECKING:
@@ -32,18 +33,31 @@ class LearningService:
         self._assignments = assignments
         self._progress = progress
 
-    async def graph(self, user_id: uuid.UUID) -> dict[str, Any]:
+    async def graph(self, user_id: uuid.UUID, effective_level: str | None = None) -> dict[str, Any]:
         """The one aggregate replacing LearningPath's legacy 7-query chain.
 
         lesson_count / completed_lesson_count only cover lessons ASSIGNED to
         the caller — the popup's "X of N lessons" is the learner's own
-        curriculum, not the module's full inventory."""
+        curriculum, not the module's full inventory.
+
+        `effective_level` is the caller's maturity (from MaturityService). Each
+        track gets `unlocked_by_maturity = effective_level covers required_level`;
+        modules inherit their track's flag. Maturity gates whole tracks;
+        prerequisites still gate modules *within* an unlocked track (frontend)."""
         tracks = await self._content.list_tracks()
         modules = await self._content.list_modules()
         prerequisites = await self._content.list_prerequisites()
         assigned_tracks = await self._assignments.track_ids_for_user(user_id)
         assigned_modules = await self._assignments.module_ids_for_user(user_id)
         lesson_counts = await self._assignments.assigned_lesson_counts_by_module(user_id)
+
+        caller_rank = LEVEL_RANK[effective_level] if effective_level is not None else None
+
+        def track_unlocked(required_level: str) -> bool:
+            return caller_rank is not None and LEVEL_RANK[required_level] <= caller_rank
+
+        track_unlock = {track.id: track_unlocked(track.required_level) for track in tracks}
+
         return {
             "tracks": [
                 {
@@ -53,6 +67,8 @@ class LearningService:
                     "track_type": track.track_type,
                     "color": track.color,
                     "assigned": track.id in assigned_tracks,
+                    "required_level": track.required_level,
+                    "unlocked_by_maturity": track_unlock[track.id],
                 }
                 for track in tracks
             ],
@@ -65,6 +81,7 @@ class LearningService:
                     "assigned": module.id in assigned_modules,
                     "lesson_count": lesson_counts.get(module.id, (0, 0))[0],
                     "completed_lesson_count": lesson_counts.get(module.id, (0, 0))[1],
+                    "unlocked_by_maturity": track_unlock.get(module.track_id, False),
                 }
                 for module in modules
             ],
@@ -75,6 +92,7 @@ class LearningService:
                 }
                 for prereq in prerequisites
             ],
+            "maturity_level": effective_level,
         }
 
     async def learning_status(self, user_id: uuid.UUID) -> LearningStatus:

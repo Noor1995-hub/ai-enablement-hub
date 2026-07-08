@@ -1,7 +1,14 @@
 import { useState, type CSSProperties } from 'react'
 import type { AdminLearning, AdminLearningUser, AdminSurvey, AdminUser, Track } from '../../types/domain'
 import { s } from './adminStyles'
+import { LevelBadge } from './adminHelpers'
 import SurveyResults from './SurveyResults'
+import { resolveTrackColor } from '../../lib/trackColors'
+import { LEVELS, levelByCode } from '../../lib/levels'
+
+// The three assignable pins (the scoring engine never produces 'multiplier',
+// which gates nothing — so it isn't offered as an override here).
+const PIN_LEVELS = LEVELS.filter(l => l.code !== 'multiplier')
 
 interface UserPanelProps {
   user: AdminUser | null
@@ -11,8 +18,10 @@ interface UserPanelProps {
   tracks: Track[]
   learningData: AdminLearning
   togglingItem: string | null
+  savingMaturity: boolean
   onToggleLearning: (action: 'track' | 'module' | 'lesson', userId: string, itemId: string, currentlyAssigned: boolean) => void
   onBulkAssign: (kind: 'tracks' | 'modules' | 'lessons', userId: string, groupId: string, ids: string[], assigned: boolean) => void
+  onSetMaturity: (userId: string, level: string | null) => void
   onClose: () => void
 }
 
@@ -32,10 +41,25 @@ const unassignAllBtn: CSSProperties = {
   ...addAllBtn, border: '1px dashed #E0C0C0', color: '#B04A4A',
 }
 
+const maturityBox: CSSProperties = {
+  marginTop: 18, padding: '14px 16px', background: '#FAFAF9',
+  border: '1px solid #F0EFED', borderRadius: 8,
+}
+
+const pinnedTag: CSSProperties = {
+  fontFamily: 'var(--dlw-font-ui)', fontWeight: 600, fontSize: 10,
+  letterSpacing: '0.08em', textTransform: 'uppercase',
+  background: '#EEF2FF', color: '#4B5CC4', padding: '2px 8px', borderRadius: 999,
+}
+
+const maturityHint: CSSProperties = {
+  fontSize: 11, fontWeight: 300, color: '#8A8A8A', margin: '8px 0 0', lineHeight: 1.5,
+}
+
 export default function UserPanel({
   user, survey, loadingPanel, learningUser,
-  tracks, learningData, togglingItem,
-  onToggleLearning, onBulkAssign, onClose,
+  tracks, learningData, togglingItem, savingMaturity,
+  onToggleLearning, onBulkAssign, onSetMaturity, onClose,
 }: UserPanelProps) {
   const [expandedTracks, setExpandedTracks] = useState<Set<string>>(new Set())
   const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set())
@@ -82,6 +106,37 @@ export default function UserPanel({
             ) : (
               <SurveyResults survey={survey} />
             )}
+
+            {/* Maturity level — pin (or fall back to the assessment). The pin is
+                only a starting point: completing modules can still raise the
+                effective level above it (never below what's earned). */}
+            <div style={maturityBox}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 10 }}>
+                <span style={s.surveyQLabel as CSSProperties}>Maturity level</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  {user.effective_maturity
+                    ? <LevelBadge level={user.effective_maturity} />
+                    : <span style={{ fontSize: 12, color: '#C4C4C4' }}>none yet</span>}
+                  {user.maturity_override && <span style={pinnedTag}>pinned</span>}
+                </span>
+              </div>
+              <select
+                style={{ ...s.select, ...(savingMaturity ? { opacity: 0.5, cursor: 'wait' } : {}) }}
+                disabled={savingMaturity}
+                value={user.maturity_override ?? ''}
+                onChange={e => onSetMaturity(user.id, e.target.value || null)}
+              >
+                <option value="">
+                  From assessment{survey?.score_level ? ` (${levelByCode(survey.score_level)?.name ?? survey.score_level})` : ''}
+                </option>
+                {PIN_LEVELS.map(l => (
+                  <option key={l.code} value={l.code}>Pin to {l.name}</option>
+                ))}
+              </select>
+              <p style={maturityHint}>
+                A pin sets the starting level; finishing a level’s modules still advances it.
+              </p>
+            </div>
           </div>
 
           {/* track assignment with inline module + lesson selection */}
@@ -137,7 +192,7 @@ export default function UserPanel({
                   <div key={track.id} style={{ borderBottom: '1px solid #F5F5F5' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        {track.color && <span style={{ width: 8, height: 8, borderRadius: '50%', background: track.color, flexShrink: 0 }} />}
+                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: resolveTrackColor(track), flexShrink: 0 }} />
                         <span style={{ fontSize: 14, fontWeight: 600, color: '#101820' }}>{track.name}</span>
                         <span style={{ fontSize: 10, color: '#C4C4C4', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'var(--dlw-font-ui)' }}>{track.track_type}</span>
                       </div>

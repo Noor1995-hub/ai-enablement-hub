@@ -24,6 +24,7 @@ from src.repositories.user_repository import UserRepository
 from src.services.admin_user_service import AdminUserService
 from src.services.content_service import ContentService
 from src.services.learning_service import LearningService
+from src.services.maturity_service import MaturityService
 from src.services.org_service import OrgService
 from src.services.survey_service import SurveyService
 from src.services.token_service import TokenService
@@ -34,6 +35,7 @@ __all__ = [
     "get_content_repository",
     "get_content_service",
     "get_learning_service",
+    "get_maturity_service",
     "get_org_repository",
     "get_org_service",
     "get_progress_repository",
@@ -72,8 +74,10 @@ def get_progress_repository(
 
 def get_survey_service(
     surveys: Annotated[SurveyRepository, Depends(get_survey_repository)],
+    content: Annotated[ContentRepository, Depends(get_content_repository)],
+    assignments: Annotated[AssignmentRepository, Depends(get_assignment_repository)],
 ) -> SurveyService:
-    return SurveyService(surveys)
+    return SurveyService(surveys, content, assignments)
 
 
 def get_org_service(org: Annotated[OrgRepository, Depends(get_org_repository)]) -> OrgService:
@@ -94,11 +98,21 @@ def get_content_service(
     return ContentService(content)
 
 
+def get_maturity_service(
+    users: Annotated[UserRepository, Depends(get_user_repository)],
+    surveys: Annotated[SurveyRepository, Depends(get_survey_repository)],
+    content: Annotated[ContentRepository, Depends(get_content_repository)],
+    assignments: Annotated[AssignmentRepository, Depends(get_assignment_repository)],
+) -> MaturityService:
+    return MaturityService(users, surveys, content, assignments)
+
+
 def get_admin_user_service(
     users: Annotated[UserRepository, Depends(get_user_repository)],
     org: Annotated[OrgRepository, Depends(get_org_repository)],
     assignments: Annotated[AssignmentRepository, Depends(get_assignment_repository)],
     content: Annotated[ContentRepository, Depends(get_content_repository)],
+    surveys: Annotated[SurveyRepository, Depends(get_survey_repository)],
     token_service: Annotated[TokenService, Depends(get_token_service)],
 ) -> AdminUserService:
-    return AdminUserService(users, org, assignments, content, token_service)
+    return AdminUserService(users, org, assignments, content, surveys, token_service)

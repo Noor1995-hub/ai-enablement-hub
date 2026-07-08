@@ -13,6 +13,10 @@ import type { ModuleNode, TrackNode } from '../types/domain'
 
 // Note: `col_offset` never existed in the live DB or in this page's buildGraph
 // (design-frontend §3's mention of it is stale); layout is pure rank/branch math.
+//
+// Parked at /learning/old (the redesign at /learning is the live learner page).
+// This page does NOT reflect the maturity-gated track locks (unlocked_by_maturity)
+// — it stays admin-only edit tooling, and admins bypass locks anyway.
 
 const R             = 20
 const STEP          = 99

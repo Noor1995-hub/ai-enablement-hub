@@ -96,7 +96,7 @@ button:focus:not(:focus-visible),
 .option-card:focus { outline: none; }
 
 /* Module cards in JourneyHome */
-.module-card:not(.is-locked):hover { border-color: var(--dlw-black) !important; box-shadow: 0 8px 24px -12px rgba(16,24,32,.22) !important; }
+.module-card:not(.is-locked):hover { border-color: var(--dlw-black) !important; box-shadow: 0 22px 44px -20px rgba(16,24,32,.36) !important; }
 .module-card:not(.is-locked):hover .module-card-action { color: var(--dlw-primary-red) !important; }
 
 /* Project cards in Admin */

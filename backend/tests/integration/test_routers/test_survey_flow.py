@@ -6,9 +6,17 @@ from typing import TYPE_CHECKING
 
 import pytest_asyncio
 
+from src.repositories.assignment_repository import AssignmentRepository
 from src.services.scoring import score_response
 from tests.fixtures.auth import auth_headers
-from tests.fixtures.factories import VALID_ANSWERS, create_user
+from tests.fixtures.factories import (
+    VALID_ANSWERS,
+    assign_track,
+    create_lesson,
+    create_module,
+    create_track,
+    create_user,
+)
 
 if TYPE_CHECKING:
     from httpx import AsyncClient
@@ -163,3 +171,66 @@ class TestComplete:
         stored = (await client.get("/api/survey/me", headers=headers)).json()
         assert stored["c5_rung"] is None
         assert "safe-use" not in (stored["mandatory_modules"] or [])
+
+
+class TestAutoAssignOnComplete:
+    """Completing the assessment seeds track/module/lesson assignments for every
+    track at or below the scored level (VALID_ANSWERS scores to practitioner)."""
+
+    async def test_assigns_tracks_at_or_below_level_with_modules_and_lessons(
+        self, client: AsyncClient, learner: User, test_settings: Settings, db_session: AsyncSession
+    ) -> None:
+        explore = await create_track(db_session, "General I", required_level="explore")
+        practitioner = await create_track(
+            db_session, "General II", required_level="practitioner", sort_order=1
+        )
+        integrator = await create_track(
+            db_session, "Tool", track_type="tool", required_level="integrator", sort_order=2
+        )
+        explore_module = await create_module(db_session, explore, "E-mod")
+        practitioner_module = await create_module(db_session, practitioner, "P-mod")
+        integrator_module = await create_module(db_session, integrator, "I-mod")
+        explore_lesson = await create_lesson(db_session, explore_module, "E-lesson")
+        integrator_lesson = await create_lesson(db_session, integrator_module, "I-lesson")
+
+        headers = auth_headers(learner, test_settings)
+        await client.put("/api/survey/me", json=VALID_ANSWERS, headers=headers)
+        assert (await client.post("/api/survey/complete", headers=headers)).status_code == 200
+
+        assignments = AssignmentRepository(db_session)
+        assert await assignments.track_ids_for_user(learner.id) == {explore.id, practitioner.id}
+        assert await assignments.module_ids_for_user(learner.id) == {
+            explore_module.id,
+            practitioner_module.id,
+        }
+        # Only the eligible tracks' lessons — the integrator lesson stays out.
+        assigned_lessons = await assignments.lesson_ids_for_user(learner.id)
+        assert explore_lesson.id in assigned_lessons
+        assert integrator_lesson.id not in assigned_lessons
+        assert integrator_module.id not in await assignments.module_ids_for_user(learner.id)
+
+    async def test_does_not_seed_when_user_already_has_an_assignment(
+        self, client: AsyncClient, learner: User, test_settings: Settings, db_session: AsyncSession
+    ) -> None:
+        explore = await create_track(db_session, "General I", required_level="explore")
+        integrator = await create_track(
+            db_session, "Tool", track_type="tool", required_level="integrator", sort_order=1
+        )
+        # An admin already assigned a track — the seeder must leave it untouched.
+        await assign_track(db_session, learner, integrator)
+
+        headers = auth_headers(learner, test_settings)
+        await client.put("/api/survey/me", json=VALID_ANSWERS, headers=headers)
+        assert (await client.post("/api/survey/complete", headers=headers)).status_code == 200
+
+        assignments = AssignmentRepository(db_session)
+        assert await assignments.track_ids_for_user(learner.id) == {integrator.id}
+        assert explore.id not in await assignments.track_ids_for_user(learner.id)
+
+    async def test_completes_cleanly_when_no_tracks_exist(
+        self, client: AsyncClient, learner: User, test_settings: Settings, db_session: AsyncSession
+    ) -> None:
+        headers = auth_headers(learner, test_settings)
+        await client.put("/api/survey/me", json=VALID_ANSWERS, headers=headers)
+        assert (await client.post("/api/survey/complete", headers=headers)).status_code == 200
+        assert await AssignmentRepository(db_session).track_ids_for_user(learner.id) == set()

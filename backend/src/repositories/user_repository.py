@@ -86,6 +86,10 @@ class UserRepository(AbstractUserRepository):
         user.role = role
         await self._session.commit()
 
+    async def set_maturity_override(self, user: User, level: str | None) -> None:
+        user.maturity_override = level
+        await self._session.commit()
+
     async def delete(self, user: User) -> None:
         await self._session.delete(user)
         await self._session.commit()

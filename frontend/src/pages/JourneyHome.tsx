@@ -26,7 +26,7 @@ const MODULES: ModuleDef[] = [
   {
     key: 'learning',
     title: 'My learning path',
-    desc: 'A set of components chosen for you, based on what your assessment revealed. Built to fit around a busy week.',
+    desc: 'A set of modules chosen for you, based on what your assessment revealed. Built to fit around a busy week.',
     icon: '/assets/icons/red/lightbulb.svg',
     route: '/learning',
   },
@@ -132,6 +132,11 @@ function BadgeCheckIcon() {
 /* ── Styles ── */
 // The old file's s.nav…s.dropdownDivider block is dead code (the nav is AppNav)
 // and is deliberately not ported (design-frontend.md §3, D2).
+// Signature dark hero (2026-07-08). Flip to false to fully revert to the old
+// all-white top: the nav goes light again, the hero text/tracker return to the
+// plain white layout — no other code changes needed.
+const DARK_HERO = false
+
 const s = {
   page: { minHeight: '100vh', background: '#fff', display: 'flex', flexDirection: 'column' },
 
@@ -153,10 +158,31 @@ const s = {
     color: '#8A8A8A', margin: '0 0 36px', maxWidth: '54ch',
   },
 
+  /* ── Dark hero (immersive: nav + welcome share one dark expanse) ── */
+  heroDark: {
+    width: '100%', flexShrink: 0,
+    background:
+      'radial-gradient(1100px 420px at 15% -30%, rgba(255,255,255,0.07), transparent 60%),' +
+      'radial-gradient(820px 420px at 100% -10%, rgba(239,70,60,0.08), transparent 60%),' +
+      '#6C6E72',
+  },
+  heroInner: { width: 'min(1080px, 100%)', margin: '0 auto', padding: '6px 40px 104px' },
+  eyebrowDark:  { color: '#FF8478' },
+  headingDark:  { color: '#FFFFFF' },
+  subtitleDark: { color: '#E3E4E7', margin: '0' },
+  /* Main sits flush under the dark hero so the tracker can straddle the seam. */
+  mainStraddle: { flex: 1, width: 'min(1080px, 100%)', margin: '0 auto', padding: '0 40px 60px' },
+
   /* Progress tracker */
   tracker: {
     border: '1px solid #E2E2E2', borderRadius: 12,
     padding: '22px 28px 26px', marginBottom: 36,
+    boxShadow: '0 16px 36px -20px rgba(16,24,32,0.30)',
+  },
+  /* Pulled up to float on the dark→white boundary, with a lift shadow. */
+  trackerStraddle: {
+    marginTop: -64, background: '#fff',
+    boxShadow: '0 22px 48px -24px rgba(16,24,32,0.38)',
   },
   trackerHeader: {
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -183,7 +209,7 @@ const s = {
   card: {
     border: '1px solid #E2E2E2', borderRadius: 12,
     padding: '24px 22px', display: 'flex', flexDirection: 'column',
-    background: '#fff', boxShadow: '0 1px 4px rgba(0,0,0,.05)',
+    background: '#fff', boxShadow: '0 16px 36px -20px rgba(16,24,32,0.30)',
     transition: 'border-color 180ms, box-shadow 180ms, transform 180ms',
     cursor: 'default',
   },
@@ -370,19 +396,34 @@ export default function JourneyHome() {
 
   const firstName = user?.first_name ?? ''
 
+  // Welcome copy, shared by the dark-hero and legacy-white layouts.
+  const hero = (dark: boolean) => (
+    <>
+      <p style={dark ? { ...s.eyebrow, ...s.eyebrowDark } : s.eyebrow}>your enablement journey</p>
+      <h1 style={dark ? { ...s.heading, ...s.headingDark } : s.heading}>Welcome{firstName ? `, ${firstName}.` : '.'}</h1>
+      <p style={dark ? { ...s.subtitle, ...s.subtitleDark } : s.subtitle}>
+        Here is where you are today, and what comes next on your path to working
+        confidently with AI. Pick up wherever you left off.
+      </p>
+    </>
+  )
+
   return (
     <div style={s.page}>
       <style>{`@keyframes jh-pulse { 0% { transform: scale(1); opacity: .5; } 70%, 100% { transform: scale(1.55); opacity: 0; } }`}</style>
-      <AppNav title="AI enablement hub" />
+
+      {DARK_HERO ? (
+        <header style={s.heroDark}>
+          <AppNav title="AI enablement hub" dark />
+          <div style={s.heroInner}>{hero(true)}</div>
+        </header>
+      ) : (
+        <AppNav title="AI enablement hub" />
+      )}
 
       {/* Main */}
-      <main style={s.main}>
-        <p style={s.eyebrow}>your enablement journey</p>
-        <h1 style={s.heading}>Welcome{firstName ? `, ${firstName}.` : '.'}</h1>
-        <p style={s.subtitle}>
-          Here is where you are today, and what comes next on your path to working
-          confidently with AI. Pick up wherever you left off.
-        </p>
+      <main style={DARK_HERO ? s.mainStraddle : s.main}>
+        {!DARK_HERO && hero(false)}
 
         {!loaded ? (
           // minHeight ≈ tracker + cards so the decorative bottom strip doesn't jump
@@ -392,7 +433,7 @@ export default function JourneyHome() {
         ) : (
           <>
         {/* Progress tracker */}
-        <div style={s.tracker}>
+        <div style={DARK_HERO ? { ...s.tracker, ...s.trackerStraddle } : s.tracker}>
           <div style={s.trackerHeader}>
             <span style={s.trackerLabel}>your progress</span>
             <span style={s.trackerPct}>{progress}% complete</span>

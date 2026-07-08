@@ -94,6 +94,7 @@ export default function Admin() {
   const [togglingRole, setTogglingRole] = useState<string | null>(null)
   const [generatingReset, setGeneratingReset] = useState<string | null>(null)
   const [resetLinks, setResetLinks] = useState<Record<string, ResetLinkEntry>>({})
+  const [savingMaturity, setSavingMaturity] = useState(false)
 
   useEffect(() => { loadCompanies() }, [loadCompanies])
 
@@ -288,6 +289,45 @@ export default function Admin() {
     setTogglingRole(null)
   }
 
+  /* ── maturity override (modelled on handleRoleToggle) ── */
+  async function handleSetMaturity(userId: string, level: string | null) {
+    const prevUsers = projectUsers
+    const prevPanel = panelUserData
+    setSavingMaturity(true)
+    // Optimistically reflect the pin (effective follows on the reconcile below).
+    const applyOverride = (u: AdminUser): AdminUser => ({
+      ...u, maturity_override: level, effective_maturity: level ?? u.effective_maturity,
+    })
+    setProjectUsers(prev => prev.map(u => (u.id === userId ? applyOverride(u) : u)))
+    setPanelUserData(p => (p && p.id === userId ? applyOverride(p) : p))
+    try {
+      const { error } = await client.PUT('/api/admin/users/{user_id}/maturity', {
+        params: { path: { user_id: userId } },
+        body: { level: level as 'explore' | 'practitioner' | 'integrator' | 'multiplier' | null },
+      })
+      if (error) {
+        setProjectUsers(prevUsers)
+        setPanelUserData(prevPanel)
+        setActionError(errorMessage(error, 'Failed to update maturity level.'))
+      } else if (selectedProject) {
+        // Reconcile effective_maturity authoritatively — completion can raise it
+        // above the pin, and clearing falls back to assessment + earned progression.
+        const { data } = await client.GET('/api/admin/users', {
+          params: { query: { project_id: selectedProject.id } },
+        })
+        if (data) {
+          setProjectUsers(data.users)
+          setPanelUserData(p => (p ? (data.users.find(u => u.id === p.id) ?? p) : p))
+        }
+      }
+    } catch {
+      setProjectUsers(prevUsers)
+      setPanelUserData(prevPanel)
+      setActionError('Network error.')
+    }
+    setSavingMaturity(false)
+  }
+
   async function handleDelete(userId: string) {
     setDeleting(userId)
     setConfirmDelete(null)
@@ -423,8 +463,10 @@ export default function Admin() {
           tracks={tracks}
           learningData={learningData}
           togglingItem={togglingItem}
+          savingMaturity={savingMaturity}
           onToggleLearning={toggleLearningItem}
           onBulkAssign={bulkAssignLearningItems}
+          onSetMaturity={handleSetMaturity}
           onClose={() => setPanelUserId(null)}
         />
       )}

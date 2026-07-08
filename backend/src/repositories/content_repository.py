@@ -24,9 +24,15 @@ class ContentRepository(AbstractContentRepository):
         return result.scalar_one_or_none()
 
     async def create_track(
-        self, name: str, track_type: str, color: str | None, sort_order: int
+        self, name: str, track_type: str, color: str | None, sort_order: int, required_level: str
     ) -> Track:
-        track = Track(name=name, track_type=track_type, color=color, sort_order=sort_order)
+        track = Track(
+            name=name,
+            track_type=track_type,
+            color=color,
+            sort_order=sort_order,
+            required_level=required_level,
+        )
         self._session.add(track)
         await self._session.commit()
         await self._session.refresh(track)

@@ -29,7 +29,13 @@ class User(Base):
     """
 
     __tablename__ = "users"
-    __table_args__ = (CheckConstraint("role IN ('admin', 'user')", name="role"),)
+    __table_args__ = (
+        CheckConstraint("role IN ('admin', 'user')", name="role"),
+        CheckConstraint(
+            "maturity_override IN ('explore', 'practitioner', 'integrator', 'multiplier')",
+            name="maturity_override",
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
@@ -56,6 +62,10 @@ class User(Base):
     )
     password_hash: Mapped[str | None] = mapped_column(Text, nullable=True)
     external_id: Mapped[str | None] = mapped_column(Text, nullable=True, unique=True)
+    # Admin maturity pin. NULL → maturity comes from the completed assessment's
+    # score_level. Only the *base* of the live effective-level computation — it
+    # never assigns content and can't demote below what the user has earned.
+    maturity_override: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

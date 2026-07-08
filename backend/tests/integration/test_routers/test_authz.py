@@ -153,6 +153,13 @@ _MATRIX: list[tuple[str, str, Any, Any, bool]] = [
         lambda s: {"role": "user"},
         True,
     ),
+    (
+        "maturity-put",
+        "PUT",
+        lambda s: f"/api/admin/users/{s.other.id}/maturity",
+        lambda s: {"level": "practitioner"},
+        True,
+    ),
     ("user-delete", "DELETE", lambda s: f"/api/admin/users/{s.other.id}", lambda s: None, True),
     (
         "assign-track",

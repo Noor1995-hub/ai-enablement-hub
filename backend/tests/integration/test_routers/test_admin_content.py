@@ -39,6 +39,7 @@ class TestTrackReads:
             "sort_order": 0,
             "track_type": "general",
             "color": "#abc",
+            "required_level": "explore",
         }
 
     async def test_track_modules_ordered(

@@ -25,6 +25,10 @@ class TrackNode(BaseModel):
     track_type: str
     color: str | None
     assigned: bool
+    required_level: str
+    # False when the caller's effective maturity is below required_level (or
+    # they have no maturity at all). Admins bypass this client-side.
+    unlocked_by_maturity: bool
 
 
 class ModuleNode(BaseModel):
@@ -35,6 +39,9 @@ class ModuleNode(BaseModel):
     assigned: bool
     lesson_count: int
     completed_lesson_count: int
+    # Inherited from the module's track — a module in a maturity-locked track is
+    # locked by inheritance (prerequisites still gate within an unlocked track).
+    unlocked_by_maturity: bool
 
 
 class PrerequisiteEdge(BaseModel):
@@ -46,6 +53,9 @@ class LearningGraphResponse(BaseModel):
     tracks: list[TrackNode]
     modules: list[ModuleNode]
     prerequisites: list[PrerequisiteEdge]
+    # The caller's effective maturity (override- and progression-aware), or null
+    # when they have no maturity yet. Drives the page's level header.
+    maturity_level: str | None
 
 
 class ModuleLessonItem(BaseModel):

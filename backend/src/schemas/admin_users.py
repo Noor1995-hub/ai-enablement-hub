@@ -21,6 +21,7 @@ __all__ = [
     "EmailStatus",
     "InviteRequest",
     "LinkResponse",
+    "MaturityOverrideRequest",
     "RoleUpdateRequest",
     "SurveyLevelsResponse",
     "UserSurveyResponse",
@@ -50,6 +51,11 @@ class AdminUserOut(BaseModel):
     assigned_track_ids: list[uuid.UUID]
     assigned_module_ids: list[uuid.UUID]
     assigned_lesson_ids: list[uuid.UUID]
+    # maturity_override = the admin pin (null = from assessment); effective =
+    # the resolved level (override or assessment, raised by completion). The
+    # admin table shows effective with a pin indicator when overridden.
+    maturity_override: str | None
+    effective_maturity: str | None
 
 
 class AdminUsersResponse(BaseModel):
@@ -79,6 +85,13 @@ class LinkResponse(BaseModel):
 
 class RoleUpdateRequest(BaseModel):
     role: Literal["admin", "user"]
+
+
+class MaturityOverrideRequest(BaseModel):
+    # null clears the pin (fall back to assessment + earned progression). Any of
+    # the four ladder levels may be pinned, including the aspirational
+    # `multiplier`; the assessment itself only ever yields the first three.
+    level: Literal["explore", "practitioner", "integrator", "multiplier"] | None
 
 
 class AssignmentRequest(BaseModel):

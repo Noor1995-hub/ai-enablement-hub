@@ -3,6 +3,7 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING, Any
 
+from src.core.constants import advance_level
 from src.services.exceptions import EmailAlreadyRegisteredError, NotFoundError
 
 if TYPE_CHECKING:
@@ -11,6 +12,7 @@ if TYPE_CHECKING:
         AbstractAssignmentRepository,
         AbstractContentRepository,
         AbstractOrgRepository,
+        AbstractSurveyRepository,
         AbstractUserRepository,
     )
     from src.services.token_service import TokenService
@@ -28,17 +30,20 @@ class AdminUserService:
         org: AbstractOrgRepository,
         assignments: AbstractAssignmentRepository,
         content: AbstractContentRepository,
+        surveys: AbstractSurveyRepository,
         token_service: TokenService,
     ) -> None:
         self._users = users
         self._org = org
         self._assignments = assignments
         self._content = content
+        self._surveys = surveys
         self._token_service = token_service
 
     async def list_users(self, project_id: uuid.UUID | None = None) -> list[dict[str, Any]]:
         rows = await self._users.list_with_org_names(project_id)
         track_map, module_map, lesson_map = await self._assignment_maps()
+        effective = await self._effective_maturity_map([user for user, _, _ in rows])
         return [
             {
                 "id": user.id,
@@ -56,9 +61,37 @@ class AdminUserService:
                 "assigned_track_ids": track_map.get(user.id, []),
                 "assigned_module_ids": module_map.get(user.id, []),
                 "assigned_lesson_ids": lesson_map.get(user.id, []),
+                "maturity_override": user.maturity_override,
+                "effective_maturity": effective.get(user.id),
             }
             for user, company_name, project_name in rows
         ]
+
+    async def _effective_maturity_map(self, users: list[User]) -> dict[uuid.UUID, str | None]:
+        """user_id → effective maturity, computed live via the shared ladder
+        walk (no MaturityService import — services never call services). Base =
+        override or a complete survey's score_level; None → no maturity."""
+        complete = await self._surveys.get_complete_levels([user.id for user in users])
+        bases = {user.id: user.maturity_override or complete.get(user.id) for user in users}
+        if not any(bases.values()):
+            return dict.fromkeys(bases, None)
+
+        tracks = await self._content.list_tracks()
+        modules = await self._content.list_modules()
+        track_level = {track.id: track.required_level for track in tracks}
+        module_level = {
+            module.id: track_level[module.track_id]
+            for module in modules
+            if module.track_id in track_level
+        }
+        result: dict[uuid.UUID, str | None] = {}
+        for user_id, base in bases.items():
+            if base is None:
+                result[user_id] = None
+                continue
+            counts = await self._assignments.assigned_lesson_counts_by_module(user_id)
+            result[user_id] = advance_level(base, module_level, counts)
+        return result
 
     async def invite(
         self, email: str, first_name: str, last_name: str, project_id: uuid.UUID

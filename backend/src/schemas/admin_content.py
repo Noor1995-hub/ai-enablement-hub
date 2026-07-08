@@ -34,6 +34,7 @@ class TrackOut(BaseModel):
     sort_order: int
     track_type: str
     color: str | None
+    required_level: str
 
 
 class TrackModuleOut(BaseModel):

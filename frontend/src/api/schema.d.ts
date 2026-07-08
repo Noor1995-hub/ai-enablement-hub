@@ -212,7 +212,7 @@ export interface paths {
         };
         /**
          * Get Journey
-         * @description JourneyHome's two legacy queries in one call; the DEFAULT_HIDDEN/LOCKED
+         * @description JourneyHome's legacy queries in one call; the DEFAULT_HIDDEN/LOCKED
          *     fallback now lives server-side (kills the old D4 duplication).
          */
         get: operations["get_journey_api_me_journey_get"];
@@ -280,7 +280,8 @@ export interface paths {
         /**
          * Get Learning Graph
          * @description One aggregate replacing LearningPath's legacy 7-query chain; `assigned`
-         *     flags are computed for the caller only.
+         *     flags are computed for the caller only. Per-track maturity locks come from
+         *     the caller's effective level (override + live progression).
          */
         get: operations["get_learning_graph_api_learning_graph_get"];
         put?: never;
@@ -513,6 +514,28 @@ export interface paths {
         head?: never;
         /** Update User Role */
         patch: operations["update_user_role_api_admin_users__user_id__patch"];
+        trace?: never;
+    };
+    "/api/admin/users/{user_id}/maturity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set User Maturity
+         * @description Pin (or clear, when level is null) the user's maturity override. This is
+         *     only the base of the live effective-maturity computation — it assigns no
+         *     content and cannot demote below a level the user has already completed.
+         */
+        put: operations["set_user_maturity_api_admin_users__user_id__maturity_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/admin/users/{user_id}/tracks/{track_id}": {
@@ -1040,6 +1063,10 @@ export interface components {
             assigned_module_ids: string[];
             /** Assigned Lesson Ids */
             assigned_lesson_ids: string[];
+            /** Maturity Override */
+            maturity_override: string | null;
+            /** Effective Maturity */
+            effective_maturity: string | null;
         };
         /** AdminUsersResponse */
         AdminUsersResponse: {
@@ -1201,6 +1228,8 @@ export interface components {
             modules: components["schemas"]["ModuleNode"][];
             /** Prerequisites */
             prerequisites: components["schemas"]["PrerequisiteEdge"][];
+            /** Maturity Level */
+            maturity_level: string | null;
         };
         /** LessonCreateRequest */
         LessonCreateRequest: {
@@ -1334,6 +1363,11 @@ export interface components {
             /** Refresh Token */
             refresh_token: string;
         };
+        /** MaturityOverrideRequest */
+        MaturityOverrideRequest: {
+            /** Level */
+            level: ("explore" | "practitioner" | "integrator" | "multiplier") | null;
+        };
         /** ModuleCreateRequest */
         ModuleCreateRequest: {
             /**
@@ -1393,6 +1427,8 @@ export interface components {
             lesson_count: number;
             /** Completed Lesson Count */
             completed_lesson_count: number;
+            /** Unlocked By Maturity */
+            unlocked_by_maturity: boolean;
         };
         /** ModuleOut */
         ModuleOut: {
@@ -1685,6 +1721,10 @@ export interface components {
             color: string | null;
             /** Assigned */
             assigned: boolean;
+            /** Required Level */
+            required_level: string;
+            /** Unlocked By Maturity */
+            unlocked_by_maturity: boolean;
         };
         /** TrackOut */
         TrackOut: {
@@ -1701,6 +1741,8 @@ export interface components {
             track_type: string;
             /** Color */
             color: string | null;
+            /** Required Level */
+            required_level: string;
         };
         /** UserProfileResponse */
         UserProfileResponse: {
@@ -2536,6 +2578,39 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["RoleUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_user_maturity_api_admin_users__user_id__maturity_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MaturityOverrideRequest"];
             };
         };
         responses: {

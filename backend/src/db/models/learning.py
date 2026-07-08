@@ -23,7 +23,12 @@ __all__ = ["Curriculum", "Lesson", "Module", "ModulePrerequisite", "Track"]
 
 class Track(Base):
     __tablename__ = "tracks"
-    __table_args__ = (CheckConstraint("track_type IN ('general', 'tool')", name="track_type"),)
+    __table_args__ = (
+        CheckConstraint("track_type IN ('general', 'tool')", name="track_type"),
+        CheckConstraint(
+            "required_level IN ('explore', 'practitioner', 'integrator')", name="required_level"
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
@@ -32,6 +37,10 @@ class Track(Base):
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
     track_type: Mapped[str] = mapped_column(Text, nullable=False)
     color: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Maturity gate: a track is unlocked iff the user's effective maturity is at
+    # least this level. General I → explore, General II → practitioner, all tool
+    # tracks → integrator (see the maturity-ladder migration).
+    required_level: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

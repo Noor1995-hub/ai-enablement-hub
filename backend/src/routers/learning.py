@@ -6,7 +6,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, status
 
 from src.core.dependencies.auth import get_current_user
-from src.core.dependencies.domain import get_learning_service
+from src.core.dependencies.domain import get_learning_service, get_maturity_service
 from src.db.models import User
 from src.schemas.learning import (
     LearningGraphResponse,
@@ -15,6 +15,7 @@ from src.schemas.learning import (
     ModuleLessonsResponse,
 )
 from src.services.learning_service import LearningService
+from src.services.maturity_service import MaturityService
 
 __all__ = ["router"]
 
@@ -22,15 +23,20 @@ router = APIRouter(prefix="/api", tags=["learning"])
 
 CurrentUserDep = Annotated[User, Depends(get_current_user)]
 LearningServiceDep = Annotated[LearningService, Depends(get_learning_service)]
+MaturityServiceDep = Annotated[MaturityService, Depends(get_maturity_service)]
 
 
 @router.get("/learning/graph", response_model=LearningGraphResponse)
 async def get_learning_graph(
-    user: CurrentUserDep, learning_service: LearningServiceDep
+    user: CurrentUserDep,
+    learning_service: LearningServiceDep,
+    maturity_service: MaturityServiceDep,
 ) -> LearningGraphResponse:
     """One aggregate replacing LearningPath's legacy 7-query chain; `assigned`
-    flags are computed for the caller only."""
-    return LearningGraphResponse(**await learning_service.graph(user.id))
+    flags are computed for the caller only. Per-track maturity locks come from
+    the caller's effective level (override + live progression)."""
+    effective = await maturity_service.effective_level(user)
+    return LearningGraphResponse(**await learning_service.graph(user.id, effective))
 
 
 @router.get("/modules/{module_id}/lessons", response_model=ModuleLessonsResponse)

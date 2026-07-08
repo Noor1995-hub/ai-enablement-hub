@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 const s = {
   nav:      { flexShrink: 0, zIndex: 20, background: '#fff', borderBottom: '1px solid #E2E2E2', display: 'flex', alignItems: 'center', padding: '0 40px', height: 64 },
   left:     { flex: '1 1 0', display: 'flex', alignItems: 'center', gap: 12 },
-  center:   { flex: '1 1 0', display: 'flex', justifyContent: 'center', fontFamily: 'var(--dlw-font-body)', fontWeight: 300, fontSize: 30, color: '#8A8A8A', pointerEvents: 'none' },
+  center:   { flex: '1 1 0', display: 'flex', justifyContent: 'center', fontFamily: 'var(--dlw-font-body)', fontWeight: 600, fontSize: 30, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#3C3C3C', pointerEvents: 'none' },
   right:    { flex: '1 1 0', position: 'relative', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10 },
   logo:     { height: 28, width: 'auto', display: 'block' },
   divider:  { width: 1, height: 20, background: '#E2E2E2', flexShrink: 0 },
@@ -25,9 +25,12 @@ interface AppNavProps {
   backLabel?: string
   leftExtra?: ReactNode
   rightExtra?: ReactNode
+  /** Render for a dark background (transparent bar, white logo + light text).
+   *  Used by the immersive dark hero on JourneyHome; safe to drop anywhere. */
+  dark?: boolean
 }
 
-export default function AppNav({ title, backTo, backLabel = '← Back to hub', leftExtra, rightExtra }: AppNavProps) {
+export default function AppNav({ title, backTo, backLabel = '← Back to hub', leftExtra, rightExtra, dark = false }: AppNavProps) {
   const { user, role, logout } = useAuth()
   const navigate = useNavigate()
   const { pathname } = useLocation()
@@ -53,27 +56,36 @@ export default function AppNav({ title, backTo, backLabel = '← Back to hub', l
   const initials  = firstName && lastName ? `${firstName[0]}${lastName[0]}` : '?'
   const showAdminLink = role === 'admin' && pathname !== '/admin'
 
+  // Dark-variant overrides — transparent bar so the hero background shows
+  // through; light logo/text. Everything else (dropdown, avatar) is unchanged.
+  const nav     = dark ? { ...s.nav, background: 'transparent', borderBottom: 'none' } : s.nav
+  const center  = dark ? { ...s.center, color: 'rgba(255,255,255,0.85)' } : s.center
+  const name    = dark ? { ...s.name, color: '#fff' } : s.name
+  const backBtn = dark ? { ...s.backBtn, color: 'rgba(255,255,255,0.7)' } : s.backBtn
+  const divider = dark ? { ...s.divider, background: 'rgba(255,255,255,0.22)' } : s.divider
+  const logoSrc = dark ? '/assets/logo/delaware-wordmark-white.svg' : '/assets/logo/delaware-wordmark.svg'
+
   return (
-    <nav style={s.nav}>
+    <nav style={nav}>
       <div style={s.left}>
-        <img style={s.logo} src="/assets/logo/delaware-wordmark.svg" alt="delaware" />
+        <img style={s.logo} src={logoSrc} alt="delaware" />
         {backTo && <>
-          <div style={s.divider} />
-          <button type="button" style={s.backBtn} onClick={() => navigate(backTo)}>
+          <div style={divider} />
+          <button type="button" style={backBtn} onClick={() => navigate(backTo)}>
             {backLabel}
           </button>
         </>}
         {leftExtra}
       </div>
 
-      {title && <span style={s.center}>{title}</span>}
+      {title && <span style={center}>{title}</span>}
 
       <div style={s.right}>
         {rightExtra}
         <div style={{ position: 'relative' }} ref={dropdownRef}>
           <button type="button" style={s.trigger} onClick={() => setDropdownOpen(o => !o)}>
             <div style={s.nameCol}>
-              <span style={s.name}>{firstName} {lastName}</span>
+              <span style={name}>{firstName} {lastName}</span>
             </div>
             <div style={s.avatar}>{initials}</div>
           </button>

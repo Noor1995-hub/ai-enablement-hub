@@ -198,7 +198,11 @@ export const s = {
     display: 'flex', justifyContent: 'flex-end',
   },
   panel: {
-    width: 560, maxWidth: '95vw', height: '100vh', background: '#fff',
+    // height:100% (not 100vh): the :root CSS zoom of 1.25 multiplies vh units,
+    // so 100vh renders ~125% of the screen and the last tracks fall below the
+    // fold, unreachable. The overlay is fixed/inset:0 and sized correctly, so
+    // filling it keeps the panel exactly one viewport tall and scrollable.
+    width: 560, maxWidth: '95vw', height: '100%', background: '#fff',
     borderLeft: '1px solid #E2E2E2', overflowY: 'auto', display: 'flex', flexDirection: 'column',
   },
   panelHeader: {

@@ -88,6 +88,10 @@ class AbstractUserRepository(ABC):
     async def update_role(self, user: User, role: str) -> None: ...
 
     @abstractmethod
+    async def set_maturity_override(self, user: User, level: str | None) -> None:
+        """Persist the admin maturity pin (None clears it back to assessment-based)."""
+
+    @abstractmethod
     async def delete(self, user: User) -> None:
         """Single DELETE; FK cascades wipe tokens/sessions/progress/survey."""
 
@@ -225,7 +229,7 @@ class AbstractContentRepository(ABC):
 
     @abstractmethod
     async def create_track(
-        self, name: str, track_type: str, color: str | None, sort_order: int
+        self, name: str, track_type: str, color: str | None, sort_order: int, required_level: str
     ) -> Track: ...
 
     @abstractmethod

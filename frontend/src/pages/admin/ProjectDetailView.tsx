@@ -5,6 +5,7 @@ import type { AdminUser, ComponentState, EmailStatus } from '../../types/domain'
 import type { ResetLinkEntry } from '../Admin'
 import { s, COMPONENT_KEYS, COMPONENT_LABELS } from './adminStyles'
 import { LevelBadge, Field, formatDate } from './adminHelpers'
+import { levelByCode } from '../../lib/levels'
 
 /*
  * Props are grouped into logical objects to keep the signature manageable.
@@ -267,9 +268,19 @@ export default function ProjectDetailView({
                       </span>
                     </td>
                     <td style={s.td}>
-                      {surveyLevels[u.id]
-                        ? <LevelBadge level={surveyLevels[u.id]} />
-                        : <span style={{ fontSize: 12, color: '#C4C4C4' }}>—</span>}
+                      {u.effective_maturity ? (
+                        <span
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                          title={u.maturity_override
+                            ? `Pinned by admin; assessed: ${surveyLevels[u.id] ? (levelByCode(surveyLevels[u.id])?.name ?? surveyLevels[u.id]) : 'not assessed'}`
+                            : undefined}
+                        >
+                          <LevelBadge level={u.effective_maturity} />
+                          {u.maturity_override && (
+                            <span style={{ fontSize: 11, color: '#4B5CC4' }} aria-label="Pinned by admin">📌</span>
+                          )}
+                        </span>
+                      ) : <span style={{ fontSize: 12, color: '#C4C4C4' }}>—</span>}
                     </td>
                     <td style={s.td}>
                       <button

@@ -7,7 +7,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from src.core.configs.settings import Settings
 from src.core.dependencies.auth import require_admin
-from src.core.dependencies.domain import get_admin_user_service, get_survey_service
+from src.core.dependencies.domain import (
+    get_admin_user_service,
+    get_maturity_service,
+    get_survey_service,
+)
 from src.core.dependencies.email import get_email_service
 from src.core.dependencies.ratelimit import get_rate_limiter
 from src.core.dependencies.settings import get_settings
@@ -24,12 +28,14 @@ from src.schemas.admin_users import (
     EmailStatus,
     InviteRequest,
     LinkResponse,
+    MaturityOverrideRequest,
     RoleUpdateRequest,
     SurveyLevelsResponse,
     UserSurveyResponse,
 )
 from src.services.admin_user_service import AdminUserService
 from src.services.email_service import EmailService
+from src.services.maturity_service import MaturityService
 from src.services.survey_service import SurveyService
 
 __all__ = ["router"]
@@ -37,6 +43,7 @@ __all__ = ["router"]
 router = APIRouter(prefix="/api/admin", tags=["admin:users"], dependencies=[Depends(require_admin)])
 
 AdminUserServiceDep = Annotated[AdminUserService, Depends(get_admin_user_service)]
+MaturityServiceDep = Annotated[MaturityService, Depends(get_maturity_service)]
 SurveyServiceDep = Annotated[SurveyService, Depends(get_survey_service)]
 SettingsDep = Annotated[Settings, Depends(get_settings)]
 RateLimiterDep = Annotated[RateLimiter, Depends(get_rate_limiter)]
@@ -134,6 +141,16 @@ async def update_user_role(
     user_id: uuid.UUID, body: RoleUpdateRequest, admin_user_service: AdminUserServiceDep
 ) -> None:
     await admin_user_service.set_role(user_id, body.role)
+
+
+@router.put("/users/{user_id}/maturity", status_code=status.HTTP_204_NO_CONTENT)
+async def set_user_maturity(
+    user_id: uuid.UUID, body: MaturityOverrideRequest, maturity_service: MaturityServiceDep
+) -> None:
+    """Pin (or clear, when level is null) the user's maturity override. This is
+    only the base of the live effective-maturity computation — it assigns no
+    content and cannot demote below a level the user has already completed."""
+    await maturity_service.set_override(user_id, body.level)
 
 
 @router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)

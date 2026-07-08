@@ -38,7 +38,12 @@ class ContentService:
     async def create_track(self, name: str, track_type: str, color: str | None) -> Track:
         max_sort = await self._content.max_track_sort_order()
         sort_order = (max_sort if max_sort is not None else -1) + 1
-        return await self._content.create_track(name.strip(), track_type, color, sort_order)
+        # Maturity gate for a new track: tool tracks require Integrator, general
+        # tracks Explorer (same rule the migration/seed apply to existing tracks).
+        required_level = "integrator" if track_type == "tool" else "explore"
+        return await self._content.create_track(
+            name.strip(), track_type, color, sort_order, required_level
+        )
 
     async def create_module(
         self,
