@@ -9,6 +9,8 @@ import CardGroupEditor from './editors/CardGroupEditor'
 import QuizEditor      from './editors/QuizEditor'
 import QuestionEditor  from './editors/QuestionEditor'
 import SpacerEditor    from './editors/SpacerEditor'
+import InteractiveEditor from './editors/InteractiveEditor'
+import TryItYourselfEditor from './editors/TryItYourselfEditor'
 
 // Exhaustively keyed on the discriminated union, mirroring LessonView's
 // RENDERERS map: an 8th block type breaks this at compile time.
@@ -25,6 +27,8 @@ const EDITORS: {
   [BLOCK_TYPES.QUIZ]:       QuizEditor,
   [BLOCK_TYPES.QUESTION]:   QuestionEditor,
   [BLOCK_TYPES.WHITESPACE]: SpacerEditor,
+  [BLOCK_TYPES.INTERACTIVE]: InteractiveEditor,
+  [BLOCK_TYPES.TRY_IT_YOURSELF]: TryItYourselfEditor,
 }
 
 const TYPE_ORDER: ContentBlock['type'][] = [
@@ -35,6 +39,8 @@ const TYPE_ORDER: ContentBlock['type'][] = [
   BLOCK_TYPES.QUIZ,
   BLOCK_TYPES.QUESTION,
   BLOCK_TYPES.WHITESPACE,
+  BLOCK_TYPES.INTERACTIVE,
+  BLOCK_TYPES.TRY_IT_YOURSELF,
 ]
 
 export interface EditedLesson {

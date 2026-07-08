@@ -4,10 +4,12 @@ import type {
   CardGroupBlock,
   ContentBlock,
   HeadingBlock,
+  InteractiveBlock,
   ParagraphBlock,
   QuestionBlock,
   QuizBlock,
   QuizQuestion,
+  TryItYourselfBlock,
   WhitespaceBlock,
 } from '../types/contentBlocks'
 
@@ -19,6 +21,8 @@ export const BLOCK_TYPES = {
   QUIZ: 'quiz',
   QUESTION: 'question',
   WHITESPACE: 'whitespace',
+  INTERACTIVE: 'interactive',
+  TRY_IT_YOURSELF: 'try_it_yourself',
 } as const
 
 export const BLOCK_LABELS: Record<ContentBlock['type'], string> = {
@@ -29,6 +33,8 @@ export const BLOCK_LABELS: Record<ContentBlock['type'], string> = {
   quiz: 'Quiz',
   question: 'Question',
   whitespace: 'Whitespace',
+  interactive: 'Predict / sort / spot-the-flaw',
+  try_it_yourself: 'Try it yourself',
 }
 
 export function createHeading(level: HeadingBlock['level'] = 2, text = ''): HeadingBlock {
@@ -69,6 +75,66 @@ export function createQuestion(prompt = ''): QuestionBlock {
   return { id: crypto.randomUUID(), type: BLOCK_TYPES.QUESTION, prompt }
 }
 
+// Defaults to sort mode; the editor's mode switch regenerates the shape below
+// when the author picks predict or spot-the-flaw instead (same "insert a
+// sensible default, customise after" flow as createQuiz/createCardGroup).
+export function createInteractive(): InteractiveBlock {
+  return {
+    id: crypto.randomUUID(),
+    type: BLOCK_TYPES.INTERACTIVE,
+    mode: 'sort',
+    prompt: '',
+    buckets: [
+      { id: crypto.randomUUID(), label: '' },
+      { id: crypto.randomUUID(), label: '' },
+    ],
+    items: [],
+  }
+}
+
+export function createSortMode(): InteractiveBlock {
+  return createInteractive()
+}
+
+export function createPredictMode(): InteractiveBlock {
+  return {
+    id: crypto.randomUUID(),
+    type: BLOCK_TYPES.INTERACTIVE,
+    mode: 'predict',
+    prompt: '',
+    options: [
+      { id: crypto.randomUUID(), label: '', reason: '' },
+      { id: crypto.randomUUID(), label: '', reason: '' },
+    ],
+    correctOptionId: '',
+  }
+}
+
+export function createSpotTheFlawMode(): InteractiveBlock {
+  return {
+    id: crypto.randomUUID(),
+    type: BLOCK_TYPES.INTERACTIVE,
+    mode: 'spot_the_flaw',
+    prompt: '',
+    example: '',
+    candidates: [],
+  }
+}
+
+export function createTryItYourself(): TryItYourselfBlock {
+  return {
+    id: crypto.randomUUID(),
+    type: BLOCK_TYPES.TRY_IT_YOURSELF,
+    task: '',
+    material: '',
+    steps: [
+      { id: crypto.randomUUID(), label: 'Prompt A', text: '' },
+      { id: crypto.randomUUID(), label: 'Prompt B', text: '' },
+    ],
+    whatToNotice: '',
+  }
+}
+
 export const BLOCK_FACTORIES: Record<ContentBlock['type'], () => ContentBlock> = {
   [BLOCK_TYPES.HEADING]: () => createHeading(),
   [BLOCK_TYPES.PARAGRAPH]: () => createParagraph(),
@@ -77,4 +143,6 @@ export const BLOCK_FACTORIES: Record<ContentBlock['type'], () => ContentBlock> =
   [BLOCK_TYPES.QUIZ]: () => createQuiz(),
   [BLOCK_TYPES.QUESTION]: () => createQuestion(),
   [BLOCK_TYPES.WHITESPACE]: () => createWhitespace(),
+  [BLOCK_TYPES.INTERACTIVE]: () => createInteractive(),
+  [BLOCK_TYPES.TRY_IT_YOURSELF]: () => createTryItYourself(),
 }
