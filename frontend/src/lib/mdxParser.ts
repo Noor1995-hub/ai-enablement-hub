@@ -1,4 +1,4 @@
-import type { ContentBlock } from '../types/contentBlocks'
+import type { ContentBlock, InteractiveBlock, TryItYourselfBlock } from '../types/contentBlocks'
 import {
   createCallout,
   createCardGroup,
@@ -8,6 +8,15 @@ import {
   createWhitespace,
 } from './contentBlocks'
 
+// Inverse of blocksToMdx's encodeBlock: base64 → the original block verbatim
+// (top-level and nested ids preserved, so bucketId/correctOptionId references
+// still resolve after the round-trip).
+function decodeBlock<T>(data: string): T {
+  const binary = atob(data)
+  const bytes = Uint8Array.from(binary, (ch) => ch.charCodeAt(0))
+  return JSON.parse(new TextDecoder().decode(bytes)) as T
+}
+
 /**
  * Parses a raw MDX string into a content_blocks array compatible with the lesson editor.
  *
@@ -15,6 +24,7 @@ import {
  *   - <Cards data='[...]' />  or  <Cards data={`[...]`} />
  *   - <Quiz data='[...]' />   or  <Quiz data={`[...]`} />
  *   - <Spacer size="sm|md|lg" />
+ *   - <Interactive data="<base64>" /> and <TryItYourself data="<base64>" />
  *   - Markdown headings (# / ## / ###)
  *   - Blockquotes (> text)
  *   - Plain paragraphs
@@ -24,8 +34,9 @@ export function parseMdxToBlocks(mdx: string): ContentBlock[] {
 
   const blocks: ContentBlock[] = []
 
-  // Split on self-closing <Cards .../>, <Quiz .../>, and <Spacer .../> tags
-  const segments = mdx.split(/(<(?:Cards|Quiz|Spacer)\s[^>]*?\/>)/g)
+  // Split on self-closing component tags (base64 payloads contain no `>`, so
+  // the [^>] tag matcher stays intact for Interactive/TryItYourself too)
+  const segments = mdx.split(/(<(?:Cards|Quiz|Spacer|Interactive|TryItYourself)\s[^>]*?\/>)/g)
 
   for (const seg of segments) {
     const cardsMatch = seg.match(/^<Cards\s+data='([^']*)'/)
@@ -56,6 +67,26 @@ export function parseMdxToBlocks(mdx: string): ContentBlock[] {
     const spacerMatch = seg.match(/^<Spacer\s+size="(sm|md|lg)"/)
     if (spacerMatch) {
       blocks.push(createWhitespace(spacerMatch[1] as 'sm' | 'md' | 'lg'))
+      continue
+    }
+
+    const interactiveMatch = seg.match(/^<Interactive\s+data="([^"]*)"/)
+    if (interactiveMatch) {
+      try {
+        blocks.push(decodeBlock<InteractiveBlock>(interactiveMatch[1]))
+      } catch {
+        // malformed payload — skip
+      }
+      continue
+    }
+
+    const tryItMatch = seg.match(/^<TryItYourself\s+data="([^"]*)"/)
+    if (tryItMatch) {
+      try {
+        blocks.push(decodeBlock<TryItYourselfBlock>(tryItMatch[1]))
+      } catch {
+        // malformed payload — skip
+      }
       continue
     }
 
