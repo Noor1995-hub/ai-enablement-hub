@@ -8,7 +8,9 @@ import type { ContentBlock } from '../types/contentBlocks'
  *    text must not already start with `>` or it will be doubled on re-import.
  *  - card_group / quiz: serialised as raw JSON inside <Cards /> / <Quiz /> tags;
  *    any special characters in card/question text are not escaped.
- *  - question: has no MDX form (matches the old app, which dropped it too).
+ *  - question / interactive / try_it_yourself: no MDX form — dropped on
+ *    serialise (question matches the old app; interactive/try_it_yourself are
+ *    block-editor-only and have no round-trippable text representation).
  */
 export function blocksToMdx(blocks: ContentBlock[] | null | undefined): string {
   if (!blocks?.length) return ''
@@ -38,6 +40,8 @@ export function blocksToMdx(blocks: ContentBlock[] | null | undefined): string {
           return `<Spacer size="${block.size ?? 'md'}" />`
 
         case 'question':
+        case 'interactive':
+        case 'try_it_yourself':
           return ''
 
         default: {
