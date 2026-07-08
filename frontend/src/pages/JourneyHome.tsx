@@ -59,7 +59,20 @@ const BADGE: Partial<Record<ModuleState, BadgeDef>> = {
   done:        { label: 'Completed',   bg: '#EDFAF4', color: '#1D7A52' },
   in_progress: { label: 'In progress', bg: '#FEFCE8', color: '#A16207' },
   available:   { label: 'Not started', bg: '#F5F5F5', color: '#8A8A8A' },
-  locked:      { label: 'Not started', bg: '#F5F5F5', color: '#8A8A8A' },
+  locked:      { label: 'Locked',      bg: '#F1EFEC', color: '#9A958F' },
+}
+
+const BEING_BUILT_BADGE: BadgeDef = { label: 'Being built', bg: '#EFF6FF', color: '#2563EB' }
+
+/** Resolve the badge for a component, applying the "Being built" override
+ *  (learning locked while the assessment is done) over the plain Locked pill.
+ *  Used by BOTH the stepper status text and the card pill so they stay in sync. */
+function resolveBadge(key: ComponentKey, states: Record<ComponentKey, ModuleState>): BadgeDef {
+  const state = states[key]
+  if (key === 'learning' && state === 'locked' && states['assessment'] === 'done') {
+    return BEING_BUILT_BADGE
+  }
+  return BADGE[state] ?? BADGE.locked!
 }
 
 const ACTION_LABEL: Partial<Record<ModuleState, string | null>> = {
@@ -103,6 +116,15 @@ function LockIcon({ size = 14 }: { size?: number }) {
       stroke="currentColor" strokeWidth="1.4">
       <rect x="3" y="7" width="10" height="7" rx="1.5" />
       <path d="M5 7V5a3 3 0 0 1 6 0v2" />
+    </svg>
+  )
+}
+// Small check for the "Completed" pill — inherits the badge's text color.
+function BadgeCheckIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 18 18" fill="none"
+      stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3.5 9.5l3.5 3.5 7.5-8" />
     </svg>
   )
 }
@@ -151,18 +173,18 @@ const s = {
   },
   stepper: { display: 'flex', alignItems: 'flex-start' },
   stepItem: { display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 },
-  stepConnector: { flex: 1, height: 2, marginTop: 19, background: '#E2E2E2', alignSelf: 'auto' },
+  stepConnector: { flex: 1, height: 4, marginTop: 22, background: '#EAEAEA', borderRadius: 999, transition: 'background 320ms ease' },
   stepConnectorDone: { background: '#EF463C' },
-  stepLabel: { marginTop: 10, fontFamily: 'var(--dlw-font-body)', fontWeight: 600, fontSize: 13, color: '#3C3C3C', textAlign: 'center' },
-  stepStatus: { marginTop: 3, fontSize: 12, fontWeight: 300, textAlign: 'center' },
+  stepLabel: { marginTop: 12, fontFamily: 'var(--dlw-font-body)', fontWeight: 700, fontSize: 13, color: '#101820', textAlign: 'center' },
+  stepStatus: { marginTop: 3, fontSize: 12, fontWeight: 600, textAlign: 'center' },
 
   /* Cards */
   cards: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 18 },
   card: {
     border: '1px solid #E2E2E2', borderRadius: 12,
     padding: '24px 22px', display: 'flex', flexDirection: 'column',
-    background: '#fff', boxShadow: 'none',
-    transition: 'border-color 180ms, box-shadow 180ms',
+    background: '#fff', boxShadow: '0 1px 4px rgba(0,0,0,.05)',
+    transition: 'border-color 180ms, box-shadow 180ms, transform 180ms',
     cursor: 'default',
   },
   cardLocked: { background: '#FAFAF9', border: '1px solid #ECECEC' },
@@ -199,31 +221,46 @@ const s = {
     border: 'none', cursor: 'pointer', padding: 0,
     transition: 'color 180ms',
   },
-  cardLockNote: {
-    display: 'inline-flex', alignItems: 'center', gap: 6,
-    fontSize: 12, fontWeight: 400, color: '#B6B6B6',
-  },
 } satisfies Record<string, CSSProperties>
 
 function StepNode({ state }: { state: NodeState }) {
   const nodeBase: CSSProperties = {
-    width: 40, height: 40, borderRadius: '50%',
+    position: 'relative', width: 44, height: 44, borderRadius: '50%',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     flexShrink: 0, transition: 'all 180ms',
   }
   if (state === 'done') {
-    return <div style={{ ...nodeBase, background: '#EF463C', border: '2px solid #EF463C' }}><CheckIcon /></div>
+    return (
+      <div style={{
+        ...nodeBase,
+        background: 'radial-gradient(circle at 32% 30%, #F2685F, #EF463C)',
+        boxShadow: '0 4px 12px rgba(239,70,60,.28)',
+      }}>
+        <CheckIcon />
+      </div>
+    )
   }
   if (state === 'active') {
     return (
-      <div style={{ ...nodeBase, background: '#fff', border: '2px solid #EF463C' }}>
+      <div style={{
+        ...nodeBase, background: '#fff', border: '2.5px solid #EF463C',
+        boxShadow: '0 2px 8px rgba(239,70,60,.18)',
+      }}>
+        {/* pulsing ring, same accent as the learning-path current node */}
+        <span style={{
+          position: 'absolute', inset: -5, borderRadius: '50%',
+          border: '2.5px solid #EF463C', animation: 'jh-pulse 1.9s ease-out infinite',
+          pointerEvents: 'none',
+        }} />
         <div style={{ width: 12, height: 12, borderRadius: '50%', background: '#EF463C' }} />
       </div>
     )
   }
-  return <div style={{ ...nodeBase, background: '#fff', border: '2px solid #E2E2E2' }}>
-    <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#E2E2E2' }} />
-  </div>
+  return (
+    <div style={{ ...nodeBase, background: '#fff', border: '2px solid #E2E2E2' }}>
+      <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#E2E2E2' }} />
+    </div>
+  )
 }
 
 interface ModuleCardProps {
@@ -231,30 +268,37 @@ interface ModuleCardProps {
   state: ModuleState
   meta: string
   onAction: () => void
-  badgeOverride?: BadgeDef
+  badge: BadgeDef
 }
 
-function ModuleCard({ mod, state, meta, onAction, badgeOverride }: ModuleCardProps) {
-  const badge = badgeOverride ?? BADGE[state] ?? BADGE.locked!
+function ModuleCard({ mod, state, meta, onAction, badge }: ModuleCardProps) {
   const actionLabel = ACTION_LABEL[state]
+  const locked = state === 'locked'
+  const showLock = badge.label === 'Locked' // not shown once "Being built" overrides it
 
   return (
-    <div className="module-card" style={{ ...s.card, cursor: actionLabel ? 'pointer' : 'default' }} onClick={actionLabel ? onAction : undefined}>
+    <div
+      className={`module-card${locked ? ' is-locked' : ''}`}
+      style={{ ...s.card, ...(locked ? s.cardLocked : {}), cursor: actionLabel ? 'pointer' : 'default' }}
+      onClick={actionLabel ? onAction : undefined}
+    >
       <div style={s.cardTop}>
-        <div style={s.iconWrap}>
-          <img style={s.icon} src={mod.icon} alt="" />
+        <div style={{ ...s.iconWrap, ...(locked ? s.iconWrapLocked : {}) }}>
+          <img style={{ ...s.icon, ...(locked ? s.iconLocked : {}) }} src={mod.icon} alt="" />
         </div>
-        <span style={{ ...s.badge, background: badge.bg, color: badge.color }}>
+        <span style={{ ...s.badge, background: badge.bg, color: badge.color, gap: 5 }}>
+          {state === 'done' && <BadgeCheckIcon />}
+          {showLock && <LockIcon size={12} />}
           {badge.label}
         </span>
       </div>
 
-      <p style={s.cardTitle}>{mod.title}</p>
+      <p style={{ ...s.cardTitle, ...(locked ? s.cardTitleLocked : {}) }}>{mod.title}</p>
       <p style={s.cardDesc}>{mod.desc}</p>
 
       <div style={s.cardFoot}>
         <span style={s.cardMeta}>{meta}</span>
-        {actionLabel ? (
+        {actionLabel && (
           <button
             type="button"
             className="module-card-action"
@@ -263,8 +307,6 @@ function ModuleCard({ mod, state, meta, onAction, badgeOverride }: ModuleCardPro
           >
             {actionLabel} ›
           </button>
-        ) : (
-          <span style={s.cardLockNote}><LockIcon /> locked</span>
         )}
       </div>
     </div>
@@ -307,6 +349,14 @@ export default function JourneyHome() {
           if (data.survey_status === 'complete') resolved[mod.key] = 'done'
           else if (data.survey_status === 'in_progress') resolved[mod.key] = 'in_progress'
           else resolved[mod.key] = locked ? 'locked' : 'available'
+        } else if (mod.key === 'learning') {
+          // Locked/being-built takes precedence (the card is inert); otherwise
+          // reflect real lesson progress so the pill moves to In progress once a
+          // lesson is completed, and Completed once every assigned lesson is done.
+          if (locked) resolved[mod.key] = 'locked'
+          else if (data.learning_status === 'complete') resolved[mod.key] = 'done'
+          else if (data.learning_status === 'in_progress') resolved[mod.key] = 'in_progress'
+          else resolved[mod.key] = 'available'
         } else {
           resolved[mod.key] = locked ? 'locked' : 'available'
         }
@@ -322,6 +372,7 @@ export default function JourneyHome() {
 
   return (
     <div style={s.page}>
+      <style>{`@keyframes jh-pulse { 0% { transform: scale(1); opacity: .5; } 70%, 100% { transform: scale(1.55); opacity: 0; } }`}</style>
       <AppNav title="AI enablement hub" />
 
       {/* Main */}
@@ -350,8 +401,10 @@ export default function JourneyHome() {
             {MODULES.filter(mod => states[mod.key] !== 'hidden').map((mod, i, visible) => {
               const nodeState = NODE_STATE[states[mod.key]] ?? 'upcoming'
               const prevDone = i > 0 && states[visible[i - 1].key] === 'done'
-              const statusText = BADGE[states[mod.key]]?.label ?? ''
-              const statusColor = BADGE[states[mod.key]]?.color ?? '#8A8A8A'
+              // Same resolved badge as the card pill, so the two never disagree.
+              const stepBadge = resolveBadge(mod.key, states)
+              const statusText = stepBadge.label
+              const statusColor = stepBadge.color
               return (
                 <React.Fragment key={mod.key}>
                   {i > 0 && (
@@ -370,22 +423,16 @@ export default function JourneyHome() {
 
         {/* Component cards */}
         <div style={s.cards}>
-          {MODULES.filter(mod => states[mod.key] !== 'hidden').map(mod => {
-            const beingBuilt =
-              mod.key === 'learning' &&
-              states['learning'] === 'locked' &&
-              states['assessment'] === 'done'
-            return (
-              <ModuleCard
-                key={mod.key}
-                mod={mod}
-                state={states[mod.key]}
-                meta={MODULE_META[mod.key]}
-                onAction={() => navigate(mod.route)}
-                badgeOverride={beingBuilt ? { label: 'Being built', bg: '#EFF6FF', color: '#2563EB' } : undefined}
-              />
-            )
-          })}
+          {MODULES.filter(mod => states[mod.key] !== 'hidden').map(mod => (
+            <ModuleCard
+              key={mod.key}
+              mod={mod}
+              state={states[mod.key]}
+              meta={MODULE_META[mod.key]}
+              onAction={() => navigate(mod.route)}
+              badge={resolveBadge(mod.key, states)}
+            />
+          ))}
         </div>
           </>
         )}

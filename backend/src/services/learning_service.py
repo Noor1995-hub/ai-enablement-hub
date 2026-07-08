@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from src.services.exceptions import NotFoundError
 
@@ -13,7 +13,9 @@ if TYPE_CHECKING:
         AbstractProgressRepository,
     )
 
-__all__ = ["LearningService"]
+__all__ = ["LearningService", "LearningStatus"]
+
+LearningStatus = Literal["not_started", "in_progress", "complete"]
 
 
 class LearningService:
@@ -74,6 +76,21 @@ class LearningService:
                 for prereq in prerequisites
             ],
         }
+
+    async def learning_status(self, user_id: uuid.UUID) -> LearningStatus:
+        """Overall learning-path status for JourneyHome's card, over the caller's
+        ASSIGNED lessons only (a completed LessonProgress row == a done lesson,
+        the same definition the graph's completed_lesson_count uses):
+        not_started until the first lesson is completed, complete once every
+        assigned lesson is done, in_progress in between."""
+        counts = await self._assignments.assigned_lesson_counts_by_module(user_id)
+        total = sum(count for count, _ in counts.values())
+        done = sum(completed for _, completed in counts.values())
+        if total == 0 or done == 0:
+            return "not_started"
+        if done >= total:
+            return "complete"
+        return "in_progress"
 
     async def module_lessons(self, user_id: uuid.UUID, module_id: uuid.UUID) -> dict[str, Any]:
         """Lessons of a module with per-lesson completion and per-caller

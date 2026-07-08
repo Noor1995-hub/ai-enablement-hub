@@ -3,7 +3,17 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from tests.fixtures.auth import auth_headers
-from tests.fixtures.factories import create_company, create_project, create_survey, create_user
+from tests.fixtures.factories import (
+    assign_lesson,
+    complete_lesson,
+    create_company,
+    create_lesson,
+    create_module,
+    create_project,
+    create_survey,
+    create_track,
+    create_user,
+)
 
 if TYPE_CHECKING:
     from httpx import AsyncClient
@@ -56,6 +66,7 @@ class TestJourney:
                 "interview": {"hidden": False, "locked": True},
             },
             "survey_status": "not_started",
+            "learning_status": "not_started",
         }
 
     async def test_defaults_for_project_without_settings_rows(
@@ -119,4 +130,39 @@ class TestJourney:
         assert response.status_code == 200
         assert (await client.get("/api/me/journey", headers=headers)).json()[
             "survey_status"
+        ] == "complete"
+
+    async def test_learning_status_progression(
+        self, client: AsyncClient, db_session: AsyncSession, test_settings: Settings
+    ) -> None:
+        user = await create_user(db_session, email="journey-learning@example.com")
+        headers = auth_headers(user, test_settings)
+
+        track = await create_track(db_session)
+        module = await create_module(db_session, track)
+        lesson_a = await create_lesson(db_session, module, "A", sort_order=0)
+        lesson_b = await create_lesson(db_session, module, "B", sort_order=1)
+
+        # No assigned lessons yet → not started.
+        assert (await client.get("/api/me/journey", headers=headers)).json()[
+            "learning_status"
+        ] == "not_started"
+
+        # Assigned but nothing completed → still not started.
+        await assign_lesson(db_session, user, lesson_a)
+        await assign_lesson(db_session, user, lesson_b)
+        assert (await client.get("/api/me/journey", headers=headers)).json()[
+            "learning_status"
+        ] == "not_started"
+
+        # One of two assigned lessons completed → in progress.
+        await complete_lesson(db_session, user, lesson_a)
+        assert (await client.get("/api/me/journey", headers=headers)).json()[
+            "learning_status"
+        ] == "in_progress"
+
+        # Every assigned lesson completed → complete.
+        await complete_lesson(db_session, user, lesson_b)
+        assert (await client.get("/api/me/journey", headers=headers)).json()[
+            "learning_status"
         ] == "complete"

@@ -35,6 +35,22 @@ const POPOVER_W = 330
 
 const FALLBACK_TRACK_COLOR = '#C42828'
 
+/* ── Persisted open lane (per user; multiple people share a browser) ── */
+const OPEN_TRACK_KEY = (userId: string) => `hub.learning.openTrack.${userId}`
+
+// undefined = no stored preference; null = explicitly collapsed; string = track id
+function readStoredOpenTrack(userId: string): string | null | undefined {
+  try {
+    const raw = localStorage.getItem(OPEN_TRACK_KEY(userId))
+    if (raw === null) return undefined
+    return raw === '' ? null : raw
+  } catch { return undefined }
+}
+
+function writeStoredOpenTrack(userId: string, value: string | null): void {
+  try { localStorage.setItem(OPEN_TRACK_KEY(userId), value ?? '') } catch { /* ignore */ }
+}
+
 function lighten(hex: string, amt: number): string {
   const n = parseInt(hex.slice(1), 16)
   const r = Math.min(255, (n >> 16) + amt)
@@ -184,16 +200,20 @@ export default function LearningPathNew() {
   const overallPct = Math.round(((levelIdx + levelFraction) / LEVELS.length) * 100)
   const levelPct = Math.round(levelFraction * 100)
 
-  /* ── Default open lane: first track with something actionable ── */
+  /* ── Default open lane: restore the learner's last choice, else the first
+        track with something actionable ── */
   useEffect(() => {
-    if (!loaded || tracks.length === 0) return
+    if (!loaded || tracks.length === 0 || !userId) return
     setOpenTrackId(prev => {
       if (prev !== null) return prev
+      const stored = readStoredOpenTrack(userId)
+      if (stored === null) return null                                // explicitly collapsed
+      if (stored && tracks.some(t => t.id === stored)) return stored  // restore, if still valid
       const active = tracks.find(t => firstCurrent(modulesMap[t.id] ?? []) !== null)
-      return (active ?? tracks[0]).id
+      return (active ?? tracks[0]).id                                 // smart default (unchanged)
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loaded, tracks])
+  }, [loaded, tracks, userId])
 
   /* ── Expanded-lane layout (real prerequisite DAG, left→right) ── */
   const laneLayout = useMemo((): LaneLayout | null => {
@@ -412,7 +432,12 @@ export default function LearningPathNew() {
                     <button
                       type="button"
                       className="lpn-lane-toggle"
-                      onClick={() => { setOpenTrackId(open ? null : track.id); setPopover(null) }}
+                      onClick={() => {
+                        const nextOpen = open ? null : track.id
+                        setOpenTrackId(nextOpen)
+                        if (userId) writeStoredOpenTrack(userId, nextOpen)
+                        setPopover(null)
+                      }}
                       style={{ ...s.laneToggle, background: open ? '#FDFCFB' : '#fff' }}
                     >
                       <ProgressRing color={color} frac={mods.length ? done / mods.length : 0} />

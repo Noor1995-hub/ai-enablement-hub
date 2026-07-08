@@ -1187,6 +1187,11 @@ export interface components {
              * @enum {string}
              */
             survey_status: "not_started" | "in_progress" | "complete";
+            /**
+             * Learning Status
+             * @enum {string}
+             */
+            learning_status: "not_started" | "in_progress" | "complete";
         };
         /** LearningGraphResponse */
         LearningGraphResponse: {
