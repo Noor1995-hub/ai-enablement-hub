@@ -4647,13 +4647,13 @@
    },
    {
     "id": "96f7b6fb-eb06-4230-ba66-2501602ead9b",
-    "level": 2,
     "text": "What Cowork actually is",
-    "type": "heading"
+    "type": "heading",
+    "level": 2
    },
    {
     "id": "58f45b44-f310-4bcc-b22f-9f79127d7080",
-    "text": "Claude Cowork is a desktop application that runs on your laptop instead of in a browser tab. You bring it up with a keyboard shortcut from wherever you happen to be working, and it can read the files and folders on your machine that you give it access to, and look at what is on your screen when you ask it to. The model underneath is the same Claude you have used in the browser. What changes is its reach. It can work with what is already in front of you, without you copying anything in.",
+    "text": "Claude Cowork is Claude with reach beyond the conversation. It started as a desktop application and has since expanded to the browser and to mobile, so you are not tied to one device to use it. On desktop, you bring it up with a keyboard shortcut from wherever you happen to be working, and it can read the files and folders on your machine that you give it access to, and look at what is on your screen when you ask it to. The model underneath is the same Claude you have used in the browser. What changes is its reach. It can work with what is already in front of you, without you copying anything in.",
     "type": "paragraph"
    },
    {
@@ -4663,9 +4663,9 @@
    },
    {
     "id": "935a2a54-542e-4460-8890-fd7b38d82012",
-    "level": 2,
     "text": "Where it beats plain chat",
-    "type": "heading"
+    "type": "heading",
+    "level": 2
    },
    {
     "id": "84a3a766-0bc7-4d3d-8b6d-5ed54bfcf905",
@@ -4679,34 +4679,34 @@
    },
    {
     "id": "0512970f-5c4d-4ec9-9411-18084b025a23",
-    "level": 2,
     "text": "How it sits alongside Claude.ai",
-    "type": "heading"
+    "type": "heading",
+    "level": 2
    },
    {
     "id": "7d4f3da8-3cf8-4d19-8459-dc5b9a2dfc34",
-    "text": "Cowork does not replace Claude.ai in the browser. They share a model, and both keep your Projects and your history. The real difference is where each one lives and what it can reach.",
+    "text": "Cowork does not replace Claude.ai. They share a model, and both keep your Projects and your history. Cowork now runs on desktop, in the browser, and on mobile (the browser and mobile versions are in beta), so the real difference is not which device you are on. It is what each one can reach.",
     "type": "paragraph"
    },
    {
+    "id": "23c4236e-cea2-45d7-813a-6bf87a04209d",
+    "type": "card_group",
     "cards": [
      {
-      "body": "A tab you open when you need it. You upload or paste in whatever Claude should see. It is well suited to long, focused sessions and holds a full conversation and your Projects.",
-      "title": "Claude.ai in the browser"
+      "body": "You upload or paste in whatever Claude should see. It is well suited to long, focused sessions and holds a full conversation and your Projects.",
+      "title": "Claude.ai, plain chat"
      },
      {
-      "body": "A native app you call up with a keyboard shortcut from any application. It works with the local files you give it access to and can look at what is on your screen when you ask, so it fits quick, in-context jobs across the tools you already have open.",
-      "title": "Claude Cowork on the desktop"
+      "body": "Reaches beyond the conversation: on desktop it works with local files you give it access to and can look at what is on your screen when you ask. It fits quick, in-context jobs across the tools you already have open, rather than ones you copy in.",
+      "title": "Claude Cowork"
      }
-    ],
-    "id": "23c4236e-cea2-45d7-813a-6bf87a04209d",
-    "type": "card_group"
+    ]
    },
    {
     "id": "d7456a81-d9b3-4cbf-bf9d-ccf9ca294902",
-    "level": 2,
     "text": "When to stay in the browser",
-    "type": "heading"
+    "type": "heading",
+    "level": 2
    },
    {
     "id": "1b160061-4651-4e07-a933-761e2bf55381",
@@ -4715,42 +4715,42 @@
    },
    {
     "id": "907ba93a-385f-48a2-bb8f-45081f778975",
+    "type": "quiz",
     "questions": [
      {
+      "q": "You need to assemble a grant application from five separate files already saved on your laptop: a previous submission, a budget spreadsheet, and three supporting documents. You would rather not copy each one into a chat by hand. Which tool fits best?",
       "correct": 1,
-      "explanation": "Cowork can read the files where they sit, so you point it at them rather than pasting each document in turn.",
       "options": [
        "Claude.ai in a browser tab, with each file pasted in one at a time",
        "Claude Cowork on the desktop",
        "A fresh browser conversation for each document",
        "The browser, because a spreadsheet cannot be read either way"
       ],
-      "q": "You need to assemble a grant application from five separate files already saved on your laptop: a previous submission, a budget spreadsheet, and three supporting documents. You would rather not copy each one into a chat by hand. Which tool fits best?"
+      "explanation": "Cowork can read the files where they sit, so you point it at them rather than pasting each document in turn."
      },
      {
+      "q": "What is the main thing that distinguishes Claude Cowork from a plain Claude.ai chat?",
       "correct": 1,
-      "explanation": "The model is the same. Cowork differs by reading what is already in front of you, which removes the copy-paste step.",
       "options": [
        "It runs on a more capable model",
        "It reads your screen and local files without copy-pasting",
        "It is the only version that keeps Projects and history",
        "It works with no internet connection"
       ],
-      "q": "What is the main thing that distinguishes Claude Cowork from using Claude in a browser?"
+      "explanation": "The model is the same. Cowork differs by reading what is already in front of you, which removes the copy-paste step."
      },
      {
+      "q": "When does a long piece of work still belong in Claude.ai in the browser rather than in Cowork?",
       "correct": 2,
-      "explanation": "Cowork shines on quick, in-context jobs. A long, deep working session is still well served by the browser and its full conversation history.",
       "options": [
        "Summarising the PDF you currently have open",
        "Drafting a reply to the email in front of you",
        "A long, focused session structuring a proposal from a blank page",
        "Reading a spreadsheet stored on your laptop"
       ],
-      "q": "When does a long piece of work still belong in Claude.ai in the browser rather than in Cowork?"
+      "explanation": "Cowork shines on quick, in-context jobs. A long, deep working session is still well served by the browser and its full conversation history."
      }
-    ],
-    "type": "quiz"
+    ]
    },
    {
     "id": "de968eeb-84a9-4b97-ae78-2469073ea23b",
@@ -9563,14 +9563,56 @@
    },
    {
     "id": "f45bfdb5-bf0c-4b9e-b73b-167edb3babce",
-    "level": 2,
     "text": "It reads your space, not the open web",
-    "type": "heading"
+    "type": "heading",
+    "level": 2
    },
    {
     "id": "b7b642b3-d795-4096-bcf0-91d85b6de251",
     "text": "The thing that makes these features useful is where they look. A general chatbot answers from its training. The AI in Confluence answers from your content: the pages, spaces, and comments you already have permission to see. This is the grounding idea you met in the general track, applied to a knowledge base. When you ask for a summary of a project space, you get a summary of your project, not a plausible-sounding guess about projects in general.\n\nThat also sets the boundary. If something was never written down, or lives in a space you cannot open, the AI cannot see it either. It works with the knowledge your team captured.",
     "type": "paragraph"
+   },
+   {
+    "id": "4bbd222f-78f0-4674-9e00-f6f224926d77",
+    "mode": "sort",
+    "type": "interactive",
+    "items": [
+     {
+      "id": "839e2608-a57f-405a-95e3-2b2fc07f21f3",
+      "text": "Turn 40 scattered pages into a two-paragraph status digest",
+      "reason": "This is exactly the summarise job the lesson describes, drafted from pages that already exist.",
+      "bucketId": "8e286ad0-229c-4872-9755-ce2895022599"
+     },
+     {
+      "id": "c00f5608-a8ba-4b1d-9f9a-253b8980a0e3",
+      "text": "Find the onboarding runbook you cannot remember the title of",
+      "reason": "Plain-language search over pages you already have permission to see.",
+      "bucketId": "8e286ad0-229c-4872-9755-ce2895022599"
+     },
+     {
+      "id": "55a45085-db4e-4f23-a0d3-81ff38ee32f3",
+      "text": "Recall a decision that was only ever discussed out loud, never written up",
+      "reason": "It only works from what was captured. Nothing written down means nothing to draw on.",
+      "bucketId": "b5b94b08-add4-48d1-af6d-9d6c97480b90"
+     },
+     {
+      "id": "71e7a828-1195-463a-bc02-e288aeab5e9c",
+      "text": "Summarise a space you do not have permission to open",
+      "reason": "It only draws on content within your existing access, never the open web or restricted spaces.",
+      "bucketId": "b5b94b08-add4-48d1-af6d-9d6c97480b90"
+     }
+    ],
+    "prompt": "Sort each scenario into what the AI can help with, and what it cannot.",
+    "buckets": [
+     {
+      "id": "8e286ad0-229c-4872-9755-ce2895022599",
+      "label": "AI can help"
+     },
+     {
+      "id": "b5b94b08-add4-48d1-af6d-9d6c97480b90",
+      "label": "AI cannot help"
+     }
+    ]
    },
    {
     "id": "a7ad5f9e-ca9d-4257-8b80-6cf8669dadf7",
@@ -9579,9 +9621,9 @@
    },
    {
     "id": "b95975a1-7400-493a-9d40-006beb3c8463",
-    "level": 2,
     "text": "The example worth holding onto",
-    "type": "heading"
+    "type": "heading",
+    "level": 2
    },
    {
     "id": "146517bb-6ff0-4a24-8a8a-cc87d69bfeba",
@@ -9590,11 +9632,13 @@
    },
    {
     "id": "5e8858f8-d9e1-4b05-8cf3-f31da11f1bca",
-    "level": 2,
     "text": "The shape of the jobs",
-    "type": "heading"
+    "type": "heading",
+    "level": 2
    },
    {
+    "id": "72e35d5a-474a-4e14-ad5c-468676e05c19",
+    "type": "card_group",
     "cards": [
      {
       "body": "Locate a page or answer buried in a space by asking a plain-language question about what it contains.",
@@ -9607,14 +9651,8 @@
      {
       "body": "Start a new page from material that already exists, such as turning a set of notes into a written-up decision record.",
       "title": "Draft"
-     },
-     {
-      "body": "Catch up on what changed in a space so a status update reflects recent activity.",
-      "title": "Keep current"
      }
-    ],
-    "id": "72e35d5a-474a-4e14-ad5c-468676e05c19",
-    "type": "card_group"
+    ]
    },
    {
     "id": "2366a79c-9a45-459a-b158-c0c8fd0c67b7",
@@ -9623,9 +9661,9 @@
    },
    {
     "id": "6675d0c0-7f14-4562-9f90-3a77d5cd01be",
-    "level": 2,
     "text": "What it does not do",
-    "type": "heading"
+    "type": "heading",
+    "level": 2
    },
    {
     "id": "ab0d6ffe-1ad4-4a8f-99ad-6fdbed9b0d0b",
@@ -9639,45 +9677,45 @@
    },
    {
     "id": "b57d3311-9342-4b4f-bbc5-a7159de9edf7",
-    "level": 2,
     "text": "Check yourself",
-    "type": "heading"
+    "type": "heading",
+    "level": 2
    },
    {
     "id": "76e4c838-7707-4ab2-81d5-b44b2d2e6ee5",
+    "type": "quiz",
     "questions": [
      {
+      "q": "A colleague forwards you an AI-generated summary. It reads cleanly and looks polished. What should you do before relying on it?",
       "correct": 0,
-      "explanation": "The features are grounded on your Confluence content within your existing permissions, which is what makes the answers specific to your work.",
       "options": [
-       "The pages, spaces, and comments you already have permission to see",
-       "The open web plus a general knowledge base",
-       "Only the pages you personally created"
+       "Check it against the source pages, since fluent wording is not evidence it is correct",
+       "Trust it, since a clean summary is unlikely to contain errors",
+       "Forward it on as-is to save time, since it already looks authoritative"
       ],
-      "q": "What does the AI in Confluence draw on when it answers?"
+      "explanation": "A clean, confident-sounding summary can still carry a wrong date or a dropped dependency, so checking it against the source pages is the habit that catches it."
      },
      {
+      "q": "A steering group wants the state of a busy project space without reading it. What is the AI a good fit for here?",
       "correct": 0,
-      "explanation": "Summarising a sprawling space into a digest is the core use case, but the output is a draft you verify, not a finished fact.",
       "options": [
        "Producing a first-draft status digest from the pages that you then check and correct",
        "Deciding on its own which blockers matter and sending the update for you",
        "Guaranteeing a fully accurate summary that needs no review"
       ],
-      "q": "A steering group wants the state of a busy project space without reading it. What is the AI a good fit for here?"
+      "explanation": "Summarising a sprawling space into a digest is the core use case, but the output is a draft you verify, not a finished fact."
      },
      {
+      "q": "Something important was discussed verbally and never written on any page. Can the AI include it in a summary?",
       "correct": 0,
-      "explanation": "The features work from what your team wrote down and what your permissions allow, so knowledge that was never recorded stays invisible to them.",
       "options": [
        "No, because it can only work from content that was captured and that you can access",
        "Yes, it infers the missing context from similar projects",
        "Yes, as long as the space is large enough"
       ],
-      "q": "Something important was discussed verbally and never written on any page. Can the AI include it in a summary?"
+      "explanation": "The features work from what your team wrote down and what your permissions allow, so knowledge that was never recorded stays invisible to them."
      }
-    ],
-    "type": "quiz"
+    ]
    }
   ],
   "created_at": "2026-07-03T13:15:27.360527+00:00",
@@ -9700,9 +9738,9 @@
    },
    {
     "id": "6689d3e3-b334-470b-9aac-fc68d24c38cf",
-    "level": 2,
     "text": "Search: finding the buried runbook",
-    "type": "heading"
+    "type": "heading",
+    "level": 2
    },
    {
     "id": "7f719da7-7a33-4c8b-9fd7-6f276e7c70d1",
@@ -9711,9 +9749,9 @@
    },
    {
     "id": "07c7146e-3baf-4589-8a22-a81d9348ed0f",
-    "level": 2,
     "text": "Summarise: getting the gist without reading it all",
-    "type": "heading"
+    "type": "heading",
+    "level": 2
    },
    {
     "id": "7c986533-848b-40fa-8bbc-97f798c30831",
@@ -9722,14 +9760,41 @@
    },
    {
     "id": "0a63ffee-3dae-4f0c-88d9-643ade97fe06",
-    "text": "A cross-page summary can pull from pages you would not normally think about, including ones with tighter permissions than the space you are sitting in. Confluence is built so the AI only draws on content you already have access to, but a summary strips away the surrounding context, so restricted material can surface in a plain paragraph without the usual \"this page is restricted\" signal. Before you paste an AI summary somewhere wider, such as an open page or a chat, check that everything in it is genuinely shareable with that audience.",
+    "text": "A cross-page summary is built from pages you already have permission to see. Confluence will not surface anything from a page or a space you cannot open yourself, so a summary cannot leak restricted content the way the raw idea of \"reading across pages\" might suggest. The real risk is different: a summary strips away each page's own context, so a stale figure, a superseded decision, or a dropped caveat can end up sitting in one confident paragraph with nothing to flag that it has gone out of date. Before you paste an AI summary somewhere wider, such as an open page or a chat, check the claims that carry weight against the source pages, not just whether the content is shareable.",
     "type": "callout"
    },
    {
+    "id": "5451804c-eeb9-47c2-84a2-e4b99880ddd4",
+    "mode": "spot_the_flaw",
+    "type": "interactive",
+    "prompt": "This cross-page status summary is about to be pasted into a company-wide update. Spot the planted problem.",
+    "example": "Project Atlas is on track for its Q3 release. The vendor procurement blocker was resolved last sprint, and the new onboarding flow is in final QA.",
+    "candidates": [
+     {
+      "id": "d137fc1e-4dcd-47d0-aaa7-4261f320534e",
+      "text": "Project Atlas is on track for its Q3 release",
+      "isFlaw": false,
+      "reason": "General project status, easy to check against the space."
+     },
+     {
+      "id": "b5575ed1-19f6-47b0-94e1-318e85c33834",
+      "text": "The vendor procurement blocker was resolved last sprint",
+      "isFlaw": true,
+      "reason": "The page reporting this was last updated before the blocker actually cleared. A cross-page summary strips away each page's own context, including how current it is, so a stale status can read as settled fact. This is the real risk the lesson warns about, not a permissions leak."
+     },
+     {
+      "id": "220530b7-dec7-468f-afda-1b2c949084b4",
+      "text": "The new onboarding flow is in final QA",
+      "isFlaw": false,
+      "reason": "General project status, nothing to flag."
+     }
+    ]
+   },
+   {
     "id": "77d16f99-bd3c-4b14-8944-ca704a718a3e",
-    "level": 2,
     "text": "Draft: writing the meeting-notes page",
-    "type": "heading"
+    "type": "heading",
+    "level": 2
    },
    {
     "id": "cd9cce5b-a18e-464c-91d9-7e6af3a0727e",
@@ -9742,6 +9807,8 @@
     "type": "whitespace"
    },
    {
+    "id": "d7b07d9d-457e-48fe-ba39-6c1157dbad03",
+    "type": "card_group",
     "cards": [
      {
       "body": "Ask in plain language across pages you can access. Returns a direct answer with links. Open the source before acting on it.",
@@ -9755,15 +9822,13 @@
       "body": "Turn rough notes into a structured page in the editor. Always a first pass. You confirm the facts, names, and decisions.",
       "title": "Draft"
      }
-    ],
-    "id": "d7b07d9d-457e-48fe-ba39-6c1157dbad03",
-    "type": "card_group"
+    ]
    },
    {
     "id": "cec93871-79bc-418b-99ca-41e1a4843582",
-    "level": 2,
     "text": "The one rule that ties all three together",
-    "type": "heading"
+    "type": "heading",
+    "level": 2
    },
    {
     "id": "6eb503a8-8f71-4c14-a4e6-23e4d8ad3dd0",
@@ -9772,42 +9837,41 @@
    },
    {
     "id": "05797b1e-932d-4cdc-a604-671b239dda9c",
+    "type": "quiz",
     "questions": [
      {
-      "correct": 1,
-      "explanation": "The AI stays within your own access, but a summary strips the restriction signals, so partly-permissioned content can surface in plain text before you share it wider.",
+      "q": "The AI-assisted search returns a confident, direct answer with a link to a source page. What should you do before acting on it?",
+      "correct": 0,
       "options": [
-       "Nothing, because the AI can only read pages you already have access to",
-       "That nothing in the summary comes from a restricted page unsuitable for a wider audience",
-       "That the summary is under a certain word count",
-       "That every source page was created in the last month"
+       "Open the linked source page and confirm it actually says that",
+       "Act on the answer immediately, since it already cites a source",
+       "Ignore the source link, since the summary already did the reading for you"
       ],
-      "q": "You ask Confluence to summarise the progress of a project across many pages, then want to paste that summary into an open, company-wide page. What should you check first?"
+      "explanation": "The answer is a pointer to the truth, not the truth itself, so opening the source page before acting on it is the habit that catches a misread."
      },
      {
+      "q": "The draft feature produces a clean meeting-notes page listing an action owner you do not recognise. What is the right response?",
       "correct": 2,
-      "explanation": "A draft is a first pass. The AI can invent a plausible owner it was never given, so you confirm names and decisions against the real event.",
       "options": [
        "Publish it, since the AI formatted it confidently",
        "Assume the name is correct because it read your notes",
        "Check it against what actually happened in the meeting before publishing",
        "Delete the whole draft and start again by hand"
       ],
-      "q": "The draft feature produces a clean meeting-notes page listing an action owner you do not recognise. What is the right response?"
+      "explanation": "A draft is a first pass. The AI can invent a plausible owner it was never given, so you confirm names and decisions against the real event."
      },
      {
+      "q": "You cannot find the AI search or summarise controls anywhere in your Confluence. What is the most likely explanation?",
       "correct": 2,
-      "explanation": "Availability of the AI features depends on your plan and admin configuration, so a missing icon usually means they are not switched on rather than a fault with your account.",
       "options": [
        "The features have been removed from Confluence entirely",
        "Your account is too new to use them",
        "The features are not enabled for your instance, which is an admin setting",
        "You need to summarise a page before search will appear"
       ],
-      "q": "You cannot find the AI search or summarise controls anywhere in your Confluence. What is the most likely explanation?"
+      "explanation": "Availability of the AI features depends on your plan and admin configuration, so a missing icon usually means they are not switched on rather than a fault with your account."
      }
-    ],
-    "type": "quiz"
+    ]
    }
   ],
   "created_at": "2026-07-03T13:16:00.752166+00:00",
