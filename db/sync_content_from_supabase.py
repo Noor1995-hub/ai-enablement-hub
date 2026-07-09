@@ -147,6 +147,19 @@ def main() -> None:
 
     with psycopg.connect(owner_dsn()) as conn:
         cur = conn.cursor()
+        # Sentinel: the frozen Supabase snapshot predates the maturity split
+        # (migration b4e5f6a7c8d9). Applying it against the post-split live DB would
+        # rename "General I" back to "General", move the split modules' track_id back,
+        # and DELETE prerequisite edges the snapshot lacks — silently unwinding the
+        # migration. Refuse to --apply once General II exists.
+        if args.apply:
+            cur.execute("SELECT count(*) FROM tracks WHERE name = 'General II'")
+            if cur.fetchone()[0]:
+                sys.exit(
+                    "REFUSING TO APPLY: a 'General II' track exists, so the maturity split "
+                    "(migration b4e5f6a7c8d9) is live. Applying the stale Supabase snapshot "
+                    "would unwind it. Run without --apply to inspect the plan."
+                )
         summary = {}
         summary["tracks"] = plan_and_apply(cur, "tracks", TRACK_FIELDS, args.apply)
         summary["modules"] = plan_and_apply(cur, "modules", MODULE_FIELDS, args.apply)

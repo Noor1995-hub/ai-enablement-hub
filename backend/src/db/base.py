@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Any
-
 from sqlalchemy import MetaData
 from sqlalchemy.orm import DeclarativeBase
 
@@ -18,6 +16,3 @@ NAMING_CONVENTION = {
 
 class Base(DeclarativeBase):
     metadata = MetaData(naming_convention=NAMING_CONVENTION)
-
-    def to_dict(self) -> dict[str, Any]:
-        return {c.name: getattr(self, c.name) for c in self.__table__.columns}

@@ -20,7 +20,7 @@ dependencies = [
     # required by PyJWT for RS256 id_token verification.
     "httpx~=0.28",
     "cryptography~=45.0",
-    "azure-communication-email>=1.1.0",
+    "azure-communication-email~=1.1",
 ]
 
 [project.optional-dependencies]

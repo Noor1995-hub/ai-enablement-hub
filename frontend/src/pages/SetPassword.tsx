@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { client, errorMessage } from '../api/client'
 import { setTokens } from '../api/tokens'
 import { useAuth } from '../contexts/AuthContext'
+import Spinner from '../components/Spinner'
 import type { InviteInfo } from '../types/domain'
 
 // Reworked from the old two-step (supabase.auth.updateUser + complete-password-setup):
@@ -76,20 +77,6 @@ const s = {
     color: '#8A8A8A', lineHeight: 1.6,
   },
 } satisfies Record<string, CSSProperties>
-
-function Spinner() {
-  return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-        <circle cx="16" cy="16" r="13" stroke="#E2E2E2" strokeWidth="3" />
-        <circle cx="16" cy="16" r="13" stroke="#EF463C" strokeWidth="3"
-          strokeDasharray="40 44" strokeLinecap="round"
-          style={{ transformOrigin: '50% 50%', animation: 'spin 0.9s linear infinite' }} />
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-      </svg>
-    </div>
-  )
-}
 
 interface InputFieldProps {
   id: string
@@ -196,7 +183,7 @@ export default function SetPassword() {
     ...(!canSubmit || loading ? s.btnDisabled : {}),
   }
 
-  if (linkState === 'checking') return <Spinner />
+  if (linkState === 'checking') return <Spinner fullPage />
 
   if (linkState !== 'ok') {
     return (

@@ -34,7 +34,6 @@ export default function QuizBlock({ block, onComplete }: QuizBlockProps) {
 
   useEffect(() => {
     if (phase === 'results' && allCorrect) {
-      window.dispatchEvent(new CustomEvent('quiz-complete'))
       onComplete?.()
     }
   }, [phase, allCorrect, onComplete])

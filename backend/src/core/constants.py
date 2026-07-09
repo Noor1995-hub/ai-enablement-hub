@@ -16,7 +16,6 @@ __all__ = [
     "LEVEL_ORDER",
     "LEVEL_RANK",
     "advance_level",
-    "next_level",
 ]
 
 COMPONENTS = ("assessment", "learning", "interview")

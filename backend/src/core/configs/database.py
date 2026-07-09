@@ -17,7 +17,11 @@ class DatabaseSettings(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    protocol: DatabaseProtocol = DatabaseProtocol.SQLITE
+    # Defaults to PostgreSQL (the only protocol this app runs on — asyncpg is a
+    # main dep, dev/test/prod are all Azure PG). A missing DATABASE__ config
+    # therefore fails loudly at URL resolution (password required) instead of
+    # silently booting on a throwaway local SQLite file.
+    protocol: DatabaseProtocol = DatabaseProtocol.POSTGRESQL
     host: str = ""
     port: int = 5432
     username: str = ""

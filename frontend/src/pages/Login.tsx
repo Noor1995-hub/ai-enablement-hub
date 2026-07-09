@@ -139,6 +139,12 @@ function MicrosoftIcon() {
   )
 }
 
+// Entra sign-in is code-complete but BLOCKED on the one-time IT admin consent —
+// showing the button would walk users into a broken Microsoft consent wall
+// (AADSTS "Beheerdersgoedkeuring vereist"). Hard-off until consent lands; then
+// flip to true (or delete this) to let /api/auth/methods drive it again.
+const ENTRA_LOGIN_ENABLED = false
+
 // Friendly messages for the ?error= codes the backend's Entra callback
 // redirects with (a top-level navigation can't carry a JSON error body).
 const ENTRA_ERRORS: Record<string, string> = {
@@ -288,7 +294,7 @@ export default function Login() {
 
               {error && <div style={s.errorBox}>{error}</div>}
 
-              {entraEnabled && (
+              {entraEnabled && ENTRA_LOGIN_ENABLED && (
                 <>
                   <div style={s.divider}>
                     <div style={s.dividerLine} />

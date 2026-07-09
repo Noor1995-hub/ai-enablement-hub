@@ -59,6 +59,30 @@ class AssignmentRepository(AbstractAssignmentRepository):
         )
         return {row[0]: (row[1], row[2]) for row in result.all()}
 
+    async def assigned_lesson_counts_by_module_for_users(
+        self, user_ids: list[uuid.UUID]
+    ) -> dict[uuid.UUID, dict[uuid.UUID, tuple[int, int]]]:
+        counts: dict[uuid.UUID, dict[uuid.UUID, tuple[int, int]]] = {}
+        if not user_ids:
+            return counts
+        result = await self._session.execute(
+            select(
+                UserLesson.user_id, Lesson.module_id, func.count(), func.count(LessonProgress.id)
+            )
+            .select_from(UserLesson)
+            .join(Lesson, Lesson.id == UserLesson.lesson_id)
+            .outerjoin(
+                LessonProgress,
+                (LessonProgress.user_id == UserLesson.user_id)
+                & (LessonProgress.lesson_id == UserLesson.lesson_id),
+            )
+            .where(UserLesson.user_id.in_(user_ids))
+            .group_by(UserLesson.user_id, Lesson.module_id)
+        )
+        for user_id, module_id, assigned, completed in result.all():
+            counts.setdefault(user_id, {})[module_id] = (assigned, completed)
+        return counts
+
     async def set_user_track(self, user_id: uuid.UUID, track_id: uuid.UUID, assigned: bool) -> None:
         if assigned:
             stmt = (

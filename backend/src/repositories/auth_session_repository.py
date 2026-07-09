@@ -31,12 +31,19 @@ class AuthSessionRepository(AbstractAuthSessionRepository):
         )
         return result.scalar_one_or_none()
 
-    async def revoke(self, auth_session: AuthSession) -> None:
+    async def revoke(self, auth_session: AuthSession) -> bool:
         now = datetime.now(UTC)
-        auth_session.revoked_at = now
-        auth_session.last_used_at = now
+        result = await self._session.execute(
+            update(AuthSession)
+            .where(AuthSession.id == auth_session.id, AuthSession.revoked_at.is_(None))
+            .values(revoked_at=now, last_used_at=now)
+        )
         await self._session.commit()
-        await self._session.refresh(auth_session)
+        revoked = cast("CursorResult[Any]", result).rowcount == 1
+        if revoked:
+            auth_session.revoked_at = now  # keep the passed ORM instance consistent
+            auth_session.last_used_at = now
+        return revoked
 
     async def revoke_all_for_user(self, user_id: uuid.UUID) -> None:
         await self._session.execute(

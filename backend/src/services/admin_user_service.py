@@ -15,14 +15,17 @@ if TYPE_CHECKING:
         AbstractSurveyRepository,
         AbstractUserRepository,
     )
-    from src.services.token_service import TokenService
 
 __all__ = ["AdminUserService"]
 
 
 class AdminUserService:
     """Admin user directory: listing, invites, reset links, roles, deletion,
-    and track/module assignment — everything behind require_admin."""
+    and track/module assignment — everything behind require_admin.
+
+    Token issuance (invite/reset) is deliberately NOT done here: this service
+    only creates/looks up the user, and the router mints the action token via
+    TokenService — services never call other services."""
 
     def __init__(
         self,
@@ -31,14 +34,12 @@ class AdminUserService:
         assignments: AbstractAssignmentRepository,
         content: AbstractContentRepository,
         surveys: AbstractSurveyRepository,
-        token_service: TokenService,
     ) -> None:
         self._users = users
         self._org = org
         self._assignments = assignments
         self._content = content
         self._surveys = surveys
-        self._token_service = token_service
 
     async def list_users(self, project_id: uuid.UUID | None = None) -> list[dict[str, Any]]:
         rows = await self._users.list_with_org_names(project_id)
@@ -84,42 +85,35 @@ class AdminUserService:
             for module in modules
             if module.track_id in track_level
         }
+        scored_ids = [user_id for user_id, base in bases.items() if base is not None]
+        counts_by_user = await self._assignments.assigned_lesson_counts_by_module_for_users(
+            scored_ids
+        )
         result: dict[uuid.UUID, str | None] = {}
         for user_id, base in bases.items():
             if base is None:
                 result[user_id] = None
                 continue
-            counts = await self._assignments.assigned_lesson_counts_by_module(user_id)
-            result[user_id] = advance_level(base, module_level, counts)
+            result[user_id] = advance_level(base, module_level, counts_by_user.get(user_id, {}))
         return result
 
     async def invite(
         self, email: str, first_name: str, last_name: str, project_id: uuid.UUID
-    ) -> tuple[User, str]:
-        """Create the user row and a single-use invite token; returns the raw
-        token (the router turns it into `{app_url}/invite/{token}`)."""
+    ) -> User:
+        """Create the invited user row; the router mints the invite token."""
         normalised = email.strip().lower()
         if await self._users.get_by_email(normalised) is not None:
             raise EmailAlreadyRegisteredError
         project = await self._org.get_project(project_id)
         if project is None:
             raise NotFoundError("Project")
-        user = await self._users.create(
+        return await self._users.create(
             email=normalised,
             first_name=first_name.strip(),
             last_name=last_name.strip(),
             company_id=project.company_id,
             project_id=project.id,
         )
-        raw_token = await self._token_service.issue_action_token(user, "invite")
-        return user, raw_token
-
-    async def reset_link(self, user_id: uuid.UUID) -> tuple[User, str]:
-        user = await self._users.get_by_id(user_id)
-        if user is None:
-            raise NotFoundError("User")
-        raw_token = await self._token_service.issue_action_token(user, "reset")
-        return user, raw_token
 
     async def set_role(self, user_id: uuid.UUID, role: str) -> None:
         user = await self._users.get_by_id(user_id)

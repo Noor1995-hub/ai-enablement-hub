@@ -4,7 +4,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, cast
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 
 from src.db.models import AuthToken
 from src.repositories.base import AbstractAuthTokenRepository
@@ -33,10 +33,18 @@ class AuthTokenRepository(AbstractAuthTokenRepository):
         )
         return result.scalar_one_or_none()
 
-    async def consume(self, token: AuthToken) -> None:
-        token.consumed_at = datetime.now(UTC)
+    async def consume(self, token: AuthToken) -> bool:
+        now = datetime.now(UTC)
+        result = await self._session.execute(
+            update(AuthToken)
+            .where(AuthToken.id == token.id, AuthToken.consumed_at.is_(None))
+            .values(consumed_at=now)
+        )
         await self._session.commit()
-        await self._session.refresh(token)
+        consumed = cast("CursorResult[Any]", result).rowcount == 1
+        if consumed:
+            token.consumed_at = now  # keep the passed ORM instance consistent
+        return consumed
 
     async def delete_unconsumed(self, user_id: uuid.UUID, purpose: str | None = None) -> None:
         stmt = delete(AuthToken).where(

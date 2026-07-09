@@ -1,25 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { client } from '../api/client'
+import Spinner from '../components/Spinner'
 
 // The URL token IS the credential now (single-use, validated without being
 // consumed): instead of exchanging /invite/:id for a stored Supabase action
 // link, we peek GET /api/auth/invite/{token} and hand the same token to
 // /set-password (design-frontend.md §2).
-
-function Spinner() {
-  return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-        <circle cx="16" cy="16" r="13" stroke="#E2E2E2" strokeWidth="3" />
-        <circle cx="16" cy="16" r="13" stroke="#EF463C" strokeWidth="3"
-          strokeDasharray="40 44" strokeLinecap="round"
-          style={{ transformOrigin: '50% 50%', animation: 'spin 0.9s linear infinite' }} />
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-      </svg>
-    </div>
-  )
-}
 
 type Status = 'loading' | 'invalid' | 'expired' | 'error'
 
@@ -61,7 +48,7 @@ export default function InviteRedirect() {
     }
   }, [id, navigate])
 
-  if (status === 'loading') return <Spinner />
+  if (status === 'loading') return <Spinner fullPage />
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

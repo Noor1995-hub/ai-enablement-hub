@@ -140,6 +140,11 @@ def pk_hash(rows: list[dict], keys: list[str]) -> str:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--check-only", action="store_true")
+    parser.add_argument(
+        "--i-understand-this-truncates-prod",
+        action="store_true",
+        help="required to actually TRUNCATE+reload; without it the script refuses to write",
+    )
     args = parser.parse_args()
 
     data, manifest = load_snapshot()
@@ -158,8 +163,31 @@ def main() -> None:
         print("--check-only: no writes performed.")
         return
 
+    # DESTRUCTIVE PATH GUARD. Cutover is complete — Azure is the sole authoritative
+    # DB. This script TRUNCATEs all app tables (plus auth_tokens/auth_sessions) and
+    # reloads a frozen, stale snapshot, which would erase every post-cutover content
+    # edit, set password, and learner-progress row. It must not run casually.
+    if not args.i_understand_this_truncates_prod:
+        sys.exit(
+            "REFUSING TO WRITE: this TRUNCATEs+reloads the live DB and destroys all "
+            "post-cutover data. Re-run with --check-only to verify the snapshot, or "
+            "--i-understand-this-truncates-prod to force the destructive reload."
+        )
+
     failures: list[str] = []
     with psycopg.connect(owner_dsn()) as conn:
+        # Sentinel: if any user has set a password, real usage has started on this DB
+        # (migration resets everyone to password_set=false), so a reload here is
+        # almost certainly a mistake. Refuse even with the force flag.
+        sentinel = conn.cursor()
+        sentinel.execute("SELECT count(*) FROM users WHERE password_set")
+        in_use = sentinel.fetchone()[0]
+        if in_use:
+            sys.exit(
+                f"REFUSING TO WRITE: {in_use} user(s) have password_set=true — this DB is "
+                "in live use post-cutover. Reloading the Supabase snapshot would destroy real "
+                "data. If you truly must reseed, drop the passwords manually first."
+            )
         with conn.transaction():
             cur = conn.cursor()
             truncate_list = ", ".join(f'"{t}"' for t in TABLES) + ", auth_tokens, auth_sessions"

@@ -7,7 +7,6 @@ import Assessment from './pages/Assessment'
 import AuthCallback from './pages/AuthCallback'
 import InviteRedirect from './pages/InviteRedirect'
 import JourneyHome from './pages/JourneyHome'
-import LearningPath from './pages/LearningPath'
 import LearningPathNew from './pages/LearningPathNew'
 import LessonPage from './pages/LessonPage'
 import Login from './pages/Login'
@@ -65,10 +64,9 @@ function AppRoutes() {
           : <Admin />
       } />
       <Route path="/assessment" element={session ? <Assessment /> : <Navigate to="/login" replace />} />
-      {/* Redesign promoted to the working page 2026-07-08; the previous graph
-          page is parked at /learning/old (admin edit mode still lives there). */}
+      {/* Redesign is the working page; it carries the admin edit mode too. The
+          old graph page (/learning/old) + ModulePopup were removed 2026-07-09. */}
       <Route path="/learning" element={session ? <LearningPathNew /> : <Navigate to="/login" replace />} />
-      <Route path="/learning/old" element={session ? <LearningPath /> : <Navigate to="/login" replace />} />
       <Route path="/learning/lesson/:lessonId" element={session ? <LessonPage /> : <Navigate to="/login" replace />} />
       <Route path="/interview" element={session ? <ComingSoon /> : <Navigate to="/login" replace />} />
       <Route path="/invite/:id" element={<InviteRedirect />} />

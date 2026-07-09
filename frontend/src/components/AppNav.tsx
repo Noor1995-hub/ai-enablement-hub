@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 const s = {
   nav:      { flexShrink: 0, zIndex: 20, background: '#fff', borderBottom: '1px solid #E2E2E2', display: 'flex', alignItems: 'center', padding: '0 40px', height: 64 },
   left:     { flex: '1 1 0', display: 'flex', alignItems: 'center', gap: 12 },
-  center:   { flex: '1 1 0', display: 'flex', justifyContent: 'center', fontFamily: 'var(--dlw-font-body)', fontWeight: 600, fontSize: 30, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#3C3C3C', pointerEvents: 'none' },
+  center:   { flex: '1 1 0', display: 'flex', justifyContent: 'center', fontFamily: 'var(--dlw-font-body)', fontWeight: 700, fontSize: 30, textTransform: 'capitalize', color: '#8A8A8A', pointerEvents: 'none' },
   right:    { flex: '1 1 0', position: 'relative', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10 },
   logo:     { height: 28, width: 'auto', display: 'block' },
   divider:  { width: 1, height: 20, background: '#E2E2E2', flexShrink: 0 },

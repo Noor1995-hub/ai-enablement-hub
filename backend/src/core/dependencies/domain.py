@@ -12,7 +12,6 @@ from typing import Annotated
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.core.dependencies.auth import get_token_service
 from src.core.dependencies.database import get_session
 from src.core.dependencies.user import get_user_repository
 from src.repositories.assignment_repository import AssignmentRepository
@@ -27,7 +26,6 @@ from src.services.learning_service import LearningService
 from src.services.maturity_service import MaturityService
 from src.services.org_service import OrgService
 from src.services.survey_service import SurveyService
-from src.services.token_service import TokenService
 
 __all__ = [
     "get_admin_user_service",
@@ -113,6 +111,5 @@ def get_admin_user_service(
     assignments: Annotated[AssignmentRepository, Depends(get_assignment_repository)],
     content: Annotated[ContentRepository, Depends(get_content_repository)],
     surveys: Annotated[SurveyRepository, Depends(get_survey_repository)],
-    token_service: Annotated[TokenService, Depends(get_token_service)],
 ) -> AdminUserService:
-    return AdminUserService(users, org, assignments, content, surveys, token_service)
+    return AdminUserService(users, org, assignments, content, surveys)

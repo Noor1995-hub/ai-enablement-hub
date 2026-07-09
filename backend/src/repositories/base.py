@@ -111,8 +111,10 @@ class AbstractAuthTokenRepository(ABC):
     async def get_by_hash(self, token_hash: str) -> AuthToken | None: ...
 
     @abstractmethod
-    async def consume(self, token: AuthToken) -> None:
-        """Mark the token used (consumed_at = now)."""
+    async def consume(self, token: AuthToken) -> bool:
+        """Atomically mark the token used (consumed_at = now) only if it was not
+        already consumed. Returns True if this call consumed it, False if a
+        concurrent request beat us to it (enforces single-use under races)."""
 
     @abstractmethod
     async def delete_unconsumed(self, user_id: uuid.UUID, purpose: str | None = None) -> None:
@@ -138,8 +140,10 @@ class AbstractAuthSessionRepository(ABC):
     async def get_by_hash(self, token_hash: str) -> AuthSession | None: ...
 
     @abstractmethod
-    async def revoke(self, auth_session: AuthSession) -> None:
-        """Set revoked_at (and last_used_at) = now."""
+    async def revoke(self, auth_session: AuthSession) -> bool:
+        """Atomically set revoked_at (and last_used_at) = now only if the session
+        was not already revoked. Returns True if this call revoked it, False if a
+        concurrent refresh/logout beat us to it (enforces single-use rotation)."""
 
     @abstractmethod
     async def revoke_all_for_user(self, user_id: uuid.UUID) -> None: ...
@@ -342,6 +346,13 @@ class AbstractAssignmentRepository(ABC):
         self, user_id: uuid.UUID
     ) -> dict[uuid.UUID, tuple[int, int]]:
         """module_id → (assigned lessons, assigned-and-completed lessons)."""
+
+    @abstractmethod
+    async def assigned_lesson_counts_by_module_for_users(
+        self, user_ids: list[uuid.UUID]
+    ) -> dict[uuid.UUID, dict[uuid.UUID, tuple[int, int]]]:
+        """Batched variant: user_id → {module_id → (assigned, completed)} for many
+        users in ONE query (avoids the per-user N+1 on the admin directory)."""
 
     @abstractmethod
     async def set_user_track(self, user_id: uuid.UUID, track_id: uuid.UUID, assigned: bool) -> None:

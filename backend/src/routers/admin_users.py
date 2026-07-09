@@ -6,7 +6,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from src.core.configs.settings import Settings
-from src.core.dependencies.auth import require_admin
+from src.core.dependencies.auth import get_token_service, require_admin
 from src.core.dependencies.domain import (
     get_admin_user_service,
     get_maturity_service,
@@ -37,12 +37,14 @@ from src.services.admin_user_service import AdminUserService
 from src.services.email_service import EmailService
 from src.services.maturity_service import MaturityService
 from src.services.survey_service import SurveyService
+from src.services.token_service import TokenService
 
 __all__ = ["router"]
 
 router = APIRouter(prefix="/api/admin", tags=["admin:users"], dependencies=[Depends(require_admin)])
 
 AdminUserServiceDep = Annotated[AdminUserService, Depends(get_admin_user_service)]
+TokenServiceDep = Annotated[TokenService, Depends(get_token_service)]
 MaturityServiceDep = Annotated[MaturityService, Depends(get_maturity_service)]
 SurveyServiceDep = Annotated[SurveyService, Depends(get_survey_service)]
 SettingsDep = Annotated[Settings, Depends(get_settings)]
@@ -92,6 +94,7 @@ async def list_users(
 async def create_invite(
     body: InviteRequest,
     admin_user_service: AdminUserServiceDep,
+    token_service: TokenServiceDep,
     settings: SettingsDep,
     limiter: RateLimiterDep,
     email_service: EmailServiceDep,
@@ -101,9 +104,10 @@ async def create_invite(
     always returned as the admin's manual fallback."""
     if limiter.is_limited(f"invite:{body.email.strip().lower()}"):
         raise _RATE_LIMITED
-    user, raw_token = await admin_user_service.invite(
+    user = await admin_user_service.invite(
         body.email, body.first_name, body.last_name, body.project_id
     )
+    raw_token = await token_service.issue_action_token(user, "invite")
     link = _invite_link(settings, raw_token)
     email_status: EmailStatus = (
         await _email_the_link(
@@ -119,6 +123,7 @@ async def create_invite(
 async def create_reset_link(
     user_id: uuid.UUID,
     admin_user_service: AdminUserServiceDep,
+    token_service: TokenServiceDep,
     settings: SettingsDep,
     limiter: RateLimiterDep,
     email_service: EmailServiceDep,
@@ -128,7 +133,7 @@ async def create_reset_link(
     user = await admin_user_service.get_user(user_id)
     if limiter.is_limited(f"reset:{user.email}"):
         raise _RATE_LIMITED
-    _, raw_token = await admin_user_service.reset_link(user_id)
+    raw_token = await token_service.issue_action_token(user, "reset")
     link = _invite_link(settings, raw_token)
     email_status = await _email_the_link(
         email_service, purpose="reset", to=user.email, first_name=user.first_name, link=link

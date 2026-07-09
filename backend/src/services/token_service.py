@@ -84,7 +84,10 @@ class TokenService:
         user = await self._users.get_by_id(auth_session.user_id)
         if user is None or not user.is_active:
             raise InvalidSessionError
-        await self._sessions.revoke(auth_session)
+        # Rotation must win exactly once: if a concurrent refresh already revoked
+        # this session, do not mint a second pair.
+        if not await self._sessions.revoke(auth_session):
+            raise InvalidSessionError
         return await self.issue_pair(user)
 
     async def revoke_session(self, raw_refresh: str) -> None:
@@ -128,7 +131,10 @@ class TokenService:
         self, raw: str, purposes: tuple[str, ...] = _ACTION_PURPOSES
     ) -> tuple[AuthToken, User]:
         token, user = await self.peek_action_token(raw, purposes)
-        await self._tokens.consume(token)
+        # Single-use under races: if a concurrent redemption already consumed it,
+        # treat this call as if the token were never valid.
+        if not await self._tokens.consume(token):
+            raise TokenNotFoundError
         return token, user
 
     # -- entra login codes ---------------------------------------------------

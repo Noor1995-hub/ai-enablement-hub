@@ -141,6 +141,18 @@ class TestRefreshPair:
         with pytest.raises(InvalidSessionError):
             await service.refresh_pair("deactivated")
 
+    async def test_lost_rotation_race_issues_no_new_pair(self) -> None:
+        # A concurrent refresh already revoked the session between our read and
+        # our conditional revoke (revoke returns False): must not mint a pair.
+        service, users, _, sessions = make_service()
+        user = make_user()
+        sessions.get_by_hash.return_value = make_session_row(user.id)
+        users.get_by_id.return_value = user
+        sessions.revoke.return_value = False
+        with pytest.raises(InvalidSessionError):
+            await service.refresh_pair("raced")
+        sessions.create.assert_not_awaited()
+
 
 class TestRevokeSession:
     async def test_active_session_is_revoked(self) -> None:
@@ -238,6 +250,17 @@ class TestPeekAndConsume:
 
         assert await service.consume_action_token("raw") == (row, user)
         tokens.consume.assert_awaited_once_with(row)
+
+    async def test_lost_consume_race_not_found(self) -> None:
+        # A concurrent redemption consumed the token between our peek and our
+        # conditional consume (consume returns False): single-use holds.
+        service, users, tokens, _ = make_service()
+        user = make_user()
+        tokens.get_by_hash.return_value = make_token_row(user.id)
+        users.get_by_id.return_value = user
+        tokens.consume.return_value = False
+        with pytest.raises(TokenNotFoundError):
+            await service.consume_action_token("raced")
 
 
 class TestRevokeAllForUser:
