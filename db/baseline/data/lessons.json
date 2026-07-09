@@ -1950,7 +1950,7 @@
   "content_blocks": [
    {
     "id": "278bfcb5-2085-43e7-926e-cea101652cae",
-    "text": "You have three vendor contracts open in three tabs, and someone needs to know by this afternoon where their payment terms and notice periods actually differ. You could read all three end to end and build the comparison by hand. Or you could hand the PDFs to Claude and let it do the first pass while you check the parts that matter. This lesson is about the second option: getting documents into a conversation, working with long ones, and reasoning across a whole set at once.\n\nThe previous lesson set up Projects for context that persists. This one is narrower and more practical. It is about the documents themselves, and the tool-specific challenge is real: a single PDF is easy, but a set of them, some long, is where people either save an afternoon or quietly give up and go back to reading by hand.",
+    "text": "You have three vendor contracts open in three tabs, and someone needs to know by this afternoon where their payment terms and notice periods actually differ. You could read all three end to end and build the comparison by hand. Or you could hand the PDFs to Claude and let it do the first pass while you check the parts that matter. This lesson is about the second option: getting documents into a conversation, working with long ones, and reasoning across a whole set at once.\n\nA couple of lessons back, \"Projects and persistent context\" set up context that persists. This one is narrower and more practical. It is about the documents themselves, and the tool-specific challenge is real: a single PDF is easy, but a set of them, some long, is where people either save an afternoon or quietly give up and go back to reading by hand.",
     "type": "paragraph"
    },
    {
@@ -2227,29 +2227,29 @@
   "content_blocks": [
    {
     "id": "1e90484c-ad1e-446a-a2d9-ebc1a080c4ca",
-    "text": "Expense approvals make a good first real flow because everyone recognises the friction. A claim comes in, someone has to notice it is over the limit, work out who signs it off, email that person, then remember to nudge them three days later when nothing has come back. Every one of those steps is a place the process quietly stalls. In this lesson you build a flow that handles all of them: it watches for new expense claims, checks the amount against a threshold, routes the ones that need sign-off to the claimant's own manager, and chases a reply if the approval goes quiet.",
+    "text": "Kit gets forgotten. It goes out, the due-back date passes, and unless someone happens to notice, it just does not come back. In this lesson you build a flow that watches the kit tracker for anything overdue and chases it automatically: it checks the list once a day, emails the borrower on anything overdue, and tells the kit owner too if a reminder gets ignored.",
     "type": "paragraph"
    },
    {
     "id": "4262bd7f-bdf7-4514-92f2-5d7f8e3add1f",
-    "level": 2,
     "text": "Scope it before you open the designer",
-    "type": "heading"
+    "type": "heading",
+    "level": 2
    },
    {
     "id": "6af53c23-bb0b-45df-a4b8-dc92f526f170",
-    "text": "Get four things concrete first, because they decide how the flow is built. Where do the claims arrive? What is the amount that triggers an approval? Who approves? And what should happen on an approve versus a reject?\n\nFor this build, assume claims land as items in a SharePoint list with an Amount column and the claimant recorded on each item. The trigger, the routing, the approval, and the notifications here all use standard connectors, so no premium licence is involved. Governing which connectors are allowed to sit in the same flow is the next lesson.\n\nEven if you never approve anyone's expenses yourself, you almost certainly own a process with this exact shape: an intake that needs checking and then routing to the right person. Build this one and you can rebuild it for that.",
+    "text": "Get three things concrete first. What counts as overdue? How often should the flow check? And what happens if a reminder gets ignored?\n\nFor this build: an item is overdue when its Due back date has passed and its Status is still Out (the five columns from your first build). The flow checks once a day. And if the borrower has not returned the item within a week of the first reminder, the kit owner gets looped in too, so this does not rely on the borrower alone.\n\nThis is the same shape as a lot of quiet admin you already own: a licence nearing renewal, an invoice sitting unpaid, a review nobody has booked. Build this once and you can rebuild it for any of those.",
     "type": "paragraph"
    },
    {
     "id": "acbddcec-68b7-4582-86db-1d542f71b8ed",
-    "level": 2,
     "text": "Set the trigger",
-    "type": "heading"
+    "type": "heading",
+    "level": 2
    },
    {
     "id": "9bab0b85-bab2-47c1-9c83-9bff15161d3a",
-    "text": "Sign in at make.powerautomate.com and create a new automated cloud flow from blank. In the trigger search, choose the SharePoint trigger When an item is created, then point it at your site and list.\n\nThis is an automated flow, so it listens and fires the moment a claim is added. Nobody has to remember to start it, which is the whole reason to automate an intake rather than run it by hand.",
+    "text": "Sign in at make.powerautomate.com and create a new scheduled cloud flow from blank. Choose the Recurrence trigger, set it to run once a day, and pick a sensible time, for example 8am.\n\nThis is a scheduled flow rather than one that reacts to a single item changing. Nothing has to happen for it to fire; it just checks the whole list on its own timetable, which is exactly right for a question like \"what is overdue today\" that depends on the current date, not on one record being edited.",
     "type": "paragraph"
    },
    {
@@ -2259,89 +2259,89 @@
    },
    {
     "id": "48498c3a-5442-4f22-9e75-2cb53c08f650",
-    "level": 2,
-    "text": "Check the amount against the threshold",
-    "type": "heading"
+    "text": "Find what's overdue",
+    "type": "heading",
+    "level": 2
    },
    {
     "id": "2fc39830-6b88-40b0-bc43-5678af50b89e",
-    "text": "The trigger fires on every new claim, so the threshold has to be a decision inside the flow. Add a Condition action straight after the trigger. On the left, insert the Amount value from the trigger using the dynamic content list. Set the operator to is greater than, and enter your threshold, say 500.\n\nThe condition splits the run into two branches. Everything that needs sign-off goes in the If yes branch. The If no branch can auto-approve small claims or simply do nothing.",
+    "text": "Add a Get items action (SharePoint) pointed at your kit tracker list, and use its Filter Query to ask for exactly the rows you care about: Status eq 'Out' and DueBack lt '@{utcNow()}'. That single query does the checking for you; the flow never has to loop over items that are not overdue.\n\nEverything after this step runs once per row the filter returns, using an Apply to each.",
     "type": "paragraph"
    },
    {
     "id": "13814c63-588a-4510-bc45-5a31106d532a",
-    "level": 2,
-    "text": "Route to the right manager",
-    "type": "heading"
+    "text": "Send the reminder",
+    "type": "heading",
+    "level": 2
    },
    {
     "id": "edf546e6-9d19-4652-84a7-ee0ec4ccbf85",
-    "text": "In the If yes branch, add the Office 365 Users action Get manager (V2) and feed it the claimant's email from the trigger. This resolves that person's manager from your directory when the flow runs, so you are not hard-coding a name that goes stale the moment someone changes team.",
+    "text": "Inside the Apply to each, add a Send an email action (Office 365 Outlook). Address it to the Borrower field from the current item, and use the item name and due-back date in the message so the email is specific rather than a generic nag: \"The demo kit was due back on 4 March and is still showing as out. Please return it or let the team know.\"",
     "type": "paragraph"
    },
    {
     "id": "57ad6935-ff97-4137-ac00-db07ba97215a",
-    "text": "Get manager only works if the manager field is populated in your directory. If it is blank for someone, the action returns nothing and the approval has nowhere to go. Check your people records before you rely on this for routing.",
+    "text": "If Due back is ever left blank when an item goes out, the filter has nothing to compare and that item never surfaces as overdue. Make setting the date part of checking an item out, not an optional extra.",
     "type": "callout"
    },
    {
     "id": "1d535593-ab22-49b1-93eb-69ad927d3561",
-    "level": 2,
-    "text": "Send the approval and act on the outcome",
-    "type": "heading"
+    "text": "Escalate when it stays overdue",
+    "type": "heading",
+    "level": 2
    },
    {
     "id": "9e9cc8b6-f9ec-438b-ab55-9d3b90355a53",
-    "text": "Add the Approvals action Start and wait for an approval. Pick an approval type (Approve/Reject, first to respond is the simplest). Give it a Title, put the manager email that Get manager returns into Assigned to, and use Details to summarise the claim: who submitted it, how much, and what for.\n\nThis action pauses the flow until the manager responds, and they can respond from email, Teams, or the Power Automate app. After it, add another Condition on the approval Outcome being Approve, and in each branch do the follow-through: update the status on the SharePoint item and email the claimant the result. One response from the manager triggers every downstream step at once, so the whole tail of the process runs without you touching it again.",
+    "text": "A single reminder is easy to ignore. Still inside the loop, add a Condition that compares Due back against a week ago: Due back is less than @{addDays(utcNow(), -7)}. When that is true, send a second email, this time to the kit owner, naming the item, the borrower, and how many days overdue it is. A borrower gets nudged straight away; a genuinely stuck item gets a second set of eyes on it without you checking the list by hand.",
     "type": "paragraph"
    },
    {
+    "id": "f4d15063-4dd3-40ed-aaa4-7f47e3e23ba2",
+    "type": "card_group",
     "cards": [
      {
-      "body": "When an item is created (SharePoint). An automated trigger that fires the moment a claim is added, with no one starting it.",
+      "body": "Recurrence, once a day. Fires on a schedule rather than reacting to one item changing.",
       "title": "Trigger"
      },
      {
-      "body": "Compares the claim amount to your threshold. Only claims over it enter the approval branch.",
-      "title": "Condition"
+      "body": "Get items with a filter query for Status eq 'Out' and an overdue Due back. Returns exactly the rows that need attention.",
+      "title": "Find overdue"
      },
      {
-      "body": "Get manager (V2) resolves the approver, then Start and wait for an approval sends the request and pauses until they respond.",
-      "title": "Route and approve"
+      "body": "Apply to each overdue row: email the borrower, and add the kit owner once it has been overdue more than a week.",
+      "title": "Remind and escalate"
      },
      {
-      "body": "SharePoint, Office 365 Users, Approvals, and Outlook. All standard, so this build needs no premium licence.",
+      "body": "SharePoint and Office 365 Outlook. Both standard, so this build needs no premium licence.",
       "title": "Connectors used"
      }
-    ],
-    "id": "f4d15063-4dd3-40ed-aaa4-7f47e3e23ba2",
-    "type": "card_group"
+    ]
    },
    {
     "id": "898345d8-b22c-4b8e-b425-18a3e8942eba",
-    "level": 2,
-    "text": "Chase a stalled approval",
-    "type": "heading"
+    "text": "Keep the cadence sane",
+    "type": "heading",
+    "level": 2
    },
    {
     "id": "85f53a54-2477-4bff-a74f-542e083c3555",
-    "text": "Approvals go quiet, and this is where the tool has a specific trap. Start and wait for an approval will wait by default, and a single flow run is subject to a 30-day limit, so leaving an approval open indefinitely is not something to rely on. Set the wait yourself. In the action settings, give it a Timeout as a duration, for example three days. If the manager has not answered in that window, the action times out and you can add a follow-up step, set to run on that timeout, that sends a reminder or escalates to the next manager up.",
+    "text": "This flow runs every day and will happily email the same borrower every single day an item stays overdue. For a kit tracker that is usually fine, a daily nudge is the point, but if you reuse this pattern somewhere a daily email would be too much, add a Last reminded column and only send when it is empty or old enough, so people are not trained to ignore their own reminders.",
     "type": "paragraph"
    },
    {
     "id": "feaa31af-3cf7-402d-be71-54b86eabc530",
-    "text": "A flow that fails or times out silently is worse than the manual process, because everyone assumes the claim is handled when it is not. Add a failure notification to yourself before you switch the flow on, not after the first claim goes missing.",
+    "text": "A scheduled flow that fails silently is worse than no flow at all, because everyone assumes overdue kit is being chased when it is not. Add a failure notification to yourself before you switch this on, not after the first overdue item goes unnoticed for a month.",
     "type": "callout"
    },
    {
     "id": "86b3aa79-ced0-42c6-9d4e-d82647340871",
-    "level": 2,
     "text": "Verify before you switch it on",
-    "type": "heading"
+    "type": "heading",
+    "level": 2
    },
    {
     "id": "66d48a39-9088-453f-99cc-2e6ca2c2a63a",
-    "text": "Use the Test option and submit two realistic claims: one under the threshold and one over it. Then watch the run history, which shows each step, the data that passed through it, and exactly where anything failed.\n\nCheck three things. The under-threshold claim skips the approval branch. The over-threshold claim reaches the correct manager. And the outcome writes back to the record. Then deliberately leave one approval unanswered past the timeout to confirm the chase actually fires. A flow that works on the happy path but never gets tested on the stalled path is the one that embarrasses you later.",
+    "text": "Use the Test option and run the flow manually rather than waiting for tomorrow's recurrence. Before you do, edit one test record in the kit tracker so its Due back date is in the past and its Status is still Out, then run the flow and confirm the borrower's email arrives.\n\nThen push that same test record's due-back date more than a week into the past, run the flow again, and confirm the kit owner's escalation email also arrives. Check the run history for both runs so you can see exactly which rows the filter matched.",
     "type": "paragraph"
    },
    {
@@ -2351,53 +2351,53 @@
    },
    {
     "id": "a90bdbc6-d2f2-4567-9654-0c23da2a8fb7",
-    "level": 2,
     "text": "What you built",
-    "type": "heading"
+    "type": "heading",
+    "level": 2
    },
    {
     "id": "e3cc5aad-9cfe-4cf4-93a3-a1dd37e24cbb",
-    "text": "You now have the shape every flow reuses: a trigger, a condition, actions, and the connectors that reach your systems. Swap the expense claim for a leave request, a new-supplier form, or a document sign-off and the skeleton is the same.\n\nThink about one stalled hand-off on your own work. What is the trigger, what is the check, who is the approver, and what has to happen when they go quiet? That is the flow you build next.",
+    "text": "You now have the shape every scheduled flow reuses: a recurring trigger, a filtered query for the records that qualify, and an action for each one that matches, with an escalation path for the ones that do not resolve themselves. Swap the overdue kit for a licence nearing renewal, an invoice sitting unpaid, or a review nobody has booked, and the skeleton is the same.\n\nThink about one thing on your own list that quietly goes stale if nobody checks it. What counts as overdue, how often should it be checked, and who needs to know if it stays that way? That is the flow you build next.",
     "type": "paragraph"
    },
    {
     "id": "3abf6418-036b-40c3-806e-65d5de00bae3",
+    "type": "quiz",
     "questions": [
      {
+      "q": "Why use a Recurrence trigger instead of a trigger that fires when an item is created or changed?",
       "correct": 0,
-      "explanation": "The trigger fires on every new item. A Condition comparing the amount to your threshold splits the run so only the larger claims reach the approval step.",
       "options": [
-       "In a Condition action straight after the trigger, so only claims over the amount enter the approval branch",
-       "In the SharePoint list itself, which decides which items are sent to Power Automate",
-       "In the Start and wait for an approval action, which only sends when the amount is high enough",
-       "In the flow name, which tags it as a high-value approval flow"
+       "Whether an item is overdue depends on today's date, not on one record being edited, so the flow needs to check the whole list on its own schedule",
+       "Recurrence triggers are the only ones that support SharePoint lists",
+       "A trigger on item creation cannot read the Due back column",
+       "Scheduled flows do not need a connection to run under"
       ],
-      "q": "The flow triggers on every new claim, but you only want claims above 500 to go for sign-off. Where does the threshold check belong?"
+      "explanation": "Overdue status changes with the calendar, not with an edit event, so a scheduled check of the whole list is the right shape, unlike a trigger tied to one item changing."
      },
      {
+      "q": "Where does the Get items filter query 'Status eq 'Out' and DueBack lt utcNow()' do its work?",
       "correct": 0,
-      "explanation": "Approvals wait by default and a run is subject to a 30-day limit. Setting a timeout lets you catch a stalled approval and send a reminder or escalate instead of leaving it open.",
       "options": [
-       "A single flow run cannot last beyond 30 days, and an open approval can stall, so a timeout lets you chase or escalate",
-       "Without a timeout the Approvals connector becomes premium and needs a paid licence",
-       "The timeout is what sends the approval request to the manager in the first place",
-       "A timeout value is required or the flow will not save"
+       "It returns only the overdue rows up front, so the rest of the flow only has to act on items that actually need a reminder",
+       "It deletes items from the list once they are returned",
+       "It sends the reminder email directly, without an Apply to each",
+       "It only works if the list has fewer than ten items"
       ],
-      "q": "Why give the Start and wait for an approval action an explicit timeout?"
+      "explanation": "The filter query does the checking. Everything downstream, the Apply to each and the escalation condition, only ever sees rows that are genuinely overdue."
      },
      {
+      "q": "Why send the escalation email to the kit owner only after an item has been overdue for more than a week, rather than on every run?",
       "correct": 0,
-      "explanation": "Get manager (V2) reads the manager from your directory at run time, so routing stays correct as people change roles, as long as the manager field is populated.",
       "options": [
-       "The Get manager (V2) action, which resolves the manager from your directory when the flow runs",
-       "A manually maintained mapping table in SharePoint that you update each time someone changes team",
-       "The approval action, which infers the manager from the size of the claim",
-       "A premium HR connector that has to be licensed per user"
+       "A single missed reminder is not yet a problem; escalating only once it persists avoids looping in the owner on every ordinary late return",
+       "Power Automate cannot send two different emails from the same flow",
+       "The kit owner's email address is only available a week after the item goes out",
+       "Escalation is required by the connector licence after seven days"
       ],
-      "q": "The flow should send each claim to the manager of the claimant without you maintaining a list of names. What handles this?"
+      "explanation": "The condition on how long an item has been overdue is what separates a borrower who is a day late from one who has genuinely gone quiet, so the owner only gets pulled in when it is actually worth their attention."
      }
-    ],
-    "type": "quiz"
+    ]
    }
   ],
   "created_at": "2026-07-03T12:52:35.713143+00:00",
@@ -6730,7 +6730,7 @@
   "content_blocks": [
    {
     "id": "c8044b95-db8f-4bd0-8b3d-14b06152c1b2",
-    "text": "In the previous lesson, \"What Copilot Studio is and when to build an agent,\" you decided a conversational agent was the right fit for a job. Now you build one. This walkthrough takes a single realistic task from an empty canvas to a working, tested agent, so you can see the whole shape before you try it on a job of your own.\n\nThe task: an agent that answers the questions a new IT starter asks in their first week, grounded on the onboarding documentation your organisation already keeps in SharePoint.",
+    "text": "In the previous lesson, \"What Copilot Studio is and when to build an agent,\" you learned what makes a question worth building an agent for. Now put that to work on a different recurring question. This walkthrough takes a single realistic task from an empty canvas to a working, tested agent, so you can see the whole shape before you try it on a job of your own.\n\nThe task: an agent that answers the questions a new IT starter asks in their first week, grounded on the onboarding documentation your organisation already keeps in SharePoint.",
     "type": "paragraph"
    },
    {
@@ -7634,68 +7634,68 @@
   "content_blocks": [
    {
     "id": "2b4f1c85-0cd9-4190-8701-98aa8fa9f69f",
-    "text": "You have a real job in mind now, so build it. The task for this lesson is a small app that lets someone on a site log a safety observation from their phone, note what they saw, attach a photo, and have it land in a shared list the safety team already watches. It is a good first canvas app: one clear user, one data source, a handful of screens. This walks you through it end to end, and it flags the one thing that most often breaks first-time apps.",
+    "text": "Your kit tracker already works, but right now the only way to flag a damaged or lost item is a stray comment to whoever is nearby. This lesson extends the app you already generated with a phone-friendly screen: whoever has an item can flag it as damaged or lost, add a note, and attach a photo, so the kit owner finds out properly instead of by accident. It is a good next canvas-app skill: extending a generated app with a new screen, not starting from a blank one.",
     "type": "paragraph"
    },
    {
     "id": "efb1efda-a0b5-4626-9e84-f49706e9412a",
-    "level": 2,
     "text": "Pick and scope before you open the tool",
-    "type": "heading"
+    "type": "heading",
+    "level": 2
    },
    {
     "id": "51ca7a29-fb23-44df-945b-9790b51fa95c",
-    "text": "A well-scoped canvas app has three to seven screens, one or two data sources, and simple create-and-read logic. Our observation app fits that comfortably: a list of recent observations, a form to add a new one, and a confirmation. One role, one list.\n\nWrite down the fields before you build anything. For a safety observation that is roughly: what was seen, where, how serious, who logged it, when, and a photo. Those become the columns in your list, and everything downstream depends on getting them right first.",
+    "text": "A well-scoped addition to a canvas app touches one new screen and one or two new columns, not a rebuild. This one fits comfortably: a Flag issue screen reached from an item's details, a note field, a photo, and two new Status options.\n\nWrite down the fields before you touch anything. On top of the five columns from your first build, you need a Condition note (what's wrong) and a Photo. Those become new columns on the same list, not a new list.",
     "type": "paragraph"
    },
    {
     "id": "bc65a2f5-af75-4f95-8ff0-d1e35c7e84d9",
-    "text": "Resist the urge to add \"just one more thing\" at this stage. An app that logs observations is useful on Monday. An app that also assigns actions, tracks closure, and emails managers is a different, much larger project. Ship the small one first.",
+    "text": "Resist the urge to redesign the whole tracker while you are in there. This lesson adds one capability: flagging an issue with a photo. A bigger rework, approval routing, reporting, is its own project. Ship the small addition first.",
     "type": "callout"
    },
    {
     "id": "9a34ec61-41a8-4420-a0b0-20cb4be65140",
-    "level": 2,
-    "text": "Build the list first, then the app",
-    "type": "heading"
+    "text": "Extend the list first, then the app",
+    "type": "heading",
+    "level": 2
    },
    {
     "id": "735c5d7a-8fc7-4a6e-bfb5-a199fb9d1a3e",
-    "text": "The data comes before the interface. Create a list in SharePoint (or Microsoft Lists, which is the same list) with the columns you wrote down. Use the column types SharePoint gives you: single line of text for the description, a choice column for severity, a date column, a person column for who logged it.\n\nWith the list in place, the fastest no-code route is to let Power Apps generate the app from it. Sign in to make.powerapps.com, select **Start with data**, choose **SharePoint**, enter your site URL, connect, then pick your observations list and select **Create app**.\n\nPower Apps Studio opens with a working three-screen app already built against your list.",
+    "text": "The data comes before the interface, same as your first build. Open the kit tracker SharePoint list and add two columns: Condition note (single line of text) and Photo. While you are there, add Damaged and Lost as two more options on the Status choice column, alongside Out and Returned.\n\nThen open the app Power Apps generated from this list back in your first build. You are extending an existing app, not generating a new one, so open it in Power Apps Studio and add a new, blank screen. Name it Flag issue.",
     "type": "paragraph"
    },
    {
+    "id": "00b62b45-d8af-4cd8-9e1d-a34924d75b9e",
+    "type": "card_group",
     "cards": [
      {
-      "body": "A scrollable gallery of every observation in the list. This is what the safety team lands on.",
-      "title": "Browse screen"
+      "body": "The gallery of every item, already built in your first build. Add a button on each row that opens the details screen.",
+      "title": "Browse screen (already built)"
      },
      {
-      "body": "One observation shown in full, opened by tapping an item in the gallery.",
-      "title": "Details screen"
+      "body": "One item shown in full, already built. Add a Flag an issue button here that navigates to your new screen.",
+      "title": "Details screen (already built)"
      },
      {
-      "body": "The form for logging a new observation or correcting an existing one. This is the screen a site worker uses most.",
-      "title": "Edit screen"
+      "body": "The new screen. A short form: condition note, a photo, and buttons for Mark as damaged or Mark as lost, each setting Status accordingly on submit.",
+      "title": "Flag issue screen (new)"
      }
-    ],
-    "id": "00b62b45-d8af-4cd8-9e1d-a34924d75b9e",
-    "type": "card_group"
+    ]
    },
    {
     "id": "03aee6d3-a084-4121-8983-997192200d3d",
-    "text": "That generated app is a working, connected starting point rather than a blank canvas. You shape it from here instead of building from nothing, which saves you most of the setup.",
+    "text": "You are shaping an app that already works rather than building from nothing, which is most of what makes this fast. The new screen is the only genuinely new surface.",
     "type": "paragraph"
    },
    {
     "id": "de33b3df-f5c0-4038-9278-c15e09e1249c",
-    "level": 2,
-    "text": "Shape the screens for a phone",
-    "type": "heading"
+    "text": "Shape the new screen for a phone",
+    "type": "heading",
+    "level": 2
    },
    {
     "id": "47a3005a-0c61-4a6f-8f34-72bde946415d",
-    "text": "Two changes make this genuinely usable on site. First, add photo capture to the edit screen. Power Apps has an Add picture control that lets someone take a photo with the phone camera or choose an existing one; drop it onto the edit form and bind it to your list so the image saves with the record.\n\nSecond, trim the edit form to only the fields a worker fills in. Remove anything auto-set (the logger and the timestamp can be filled by a formula rather than typed) so the person on site sees the shortest form that does the job.",
+    "text": "Two things make the Flag issue screen genuinely usable on site. First, add photo capture. Power Apps has an Add picture control that lets someone take a photo with the phone camera or choose an existing one; drop it onto the new screen and bind it to the Photo column so the image saves with the item's record.\n\nSecond, keep the two buttons doing one job each. Mark as damaged and Mark as lost should each write the Condition note text, the photo, and the matching Status value back to the same list item, then navigate back to the details screen so the person can see it took effect.",
     "type": "paragraph"
    },
    {
@@ -7705,39 +7705,39 @@
    },
    {
     "id": "a7a97ec5-9a66-408b-9d9b-798cca2baec4",
-    "text": "The generated form already saves records for you when someone submits it, so you do not need to write formula logic for a basic version. If you later want a field set automatically, that is where Power Fx (Excel-style formulas placed directly on a control) comes in, but a working first app does not require it.",
+    "text": "Setting Status, the note, and the photo on the correct list item when a button is pressed needs a small Power Fx formula on each button's OnSelect, along the lines of Patch(KitTracker, ThisItem, {Status: \"Damaged\", ConditionNote: TextInput1.Text, Photo: AddPicture1.Photo}). It is a few lines, not a program, and it is the first formula this track has asked you to write directly rather than relying on a generated default.",
     "type": "paragraph"
    },
    {
     "id": "face0621-2aba-4aff-a725-a1adb835bd07",
-    "level": 2,
     "text": "Verify it, and watch for the trap",
-    "type": "heading"
+    "type": "heading",
+    "level": 2
    },
    {
     "id": "84b0eb91-f466-477f-9286-723518c7d298",
-    "text": "Preview the app inside the studio, log a test observation, and check the record actually appears in your SharePoint list. Then open it on a phone through the Power Apps mobile app and log one for real, photo and all. Testing on the device it will be used on is not optional for a mobile app.\n\nHere is the tool-specific trap, and you met its name in your first build: delegation. Your app will look perfect in testing with a dozen records and then quietly return incomplete results once the list grows to thousands. For large lists, Power Apps only processes records up to a set limit unless your filter and sort functions are ones the data source can handle itself, and when a formula is not delegable it shows a yellow warning icon on it.",
+    "text": "Preview the app inside the studio, flag a test item as damaged, and check the record actually updates in your SharePoint list: Status, Condition note, and Photo all present. Then open it on a phone through the Power Apps mobile app and flag one for real, photo and all. Testing on the device it will be used on is not optional for a mobile screen.\n\nHere is the tool-specific trap, and you met its name in your first build: delegation. Your browse screen will look perfect in testing with a dozen items and then quietly return incomplete results once the tracker grows to thousands. For large lists, Power Apps only processes records up to a set limit unless your filter and sort functions are ones the data source can handle itself, and when a formula is not delegable it shows a yellow warning icon on it.",
     "type": "paragraph"
    },
    {
     "id": "f1746ead-a117-4d82-a35b-3b1f2a3d04be",
-    "text": "Treat that yellow delegation warning as a real signal, not a cosmetic one. On a list that stays small it rarely bites. On one that grows, it means records past the limit are silently dropped from what your app shows, and nobody notices until a real observation goes missing.",
+    "text": "Treat that yellow delegation warning as a real signal, not a cosmetic one. On a list that stays small it rarely bites. On one that grows, it means records past the limit are silently dropped from what your app shows, and nobody notices until a genuinely damaged item goes missing from the view.",
     "type": "callout"
    },
    {
     "id": "e8cd6d75-fc0d-4742-9eb4-96082b4bf8a1",
-    "text": "For a safety log that could accumulate for years, keep your gallery filters simple and delegable, or plan to move to a data source with broader delegation support if the volume climbs.",
+    "text": "For a kit tracker that could grow well past a single team, keep your gallery filters simple and delegable, or plan to move to a data source with broader delegation support if the volume climbs.",
     "type": "paragraph"
    },
    {
     "id": "808ae866-9697-4d78-9bbd-fdd50e80a6da",
-    "level": 2,
     "text": "Publish, share, reflect",
-    "type": "heading"
+    "type": "heading",
+    "level": 2
    },
    {
     "id": "924bfa3f-1efc-45a5-b0b4-2256d25bc263",
-    "text": "When it works, save and publish from the studio, then share it with the site team or a security group. Embedding the app as a tab in the Microsoft Teams channel the team already uses is the most practical option for internal tools, because sign-in is handled and nobody has a new URL to remember.\n\nThen reflect on the loop you just ran: you picked a real task, scoped it to one list and a few screens, generated and shaped the app, and verified it on the actual device. That loop is the same whatever the app does. The judgment that matters is not clicking through the studio; it is scoping tightly enough that the app stays maintainable and spotting the delegation limit before it costs you a record.",
+    "text": "When it works, save and republish from the studio, so the whole team gets the new screen without you sending a new link. It already sits wherever you shared the original app, including a Teams tab if you embedded it there.\n\nThen reflect on the loop you just ran: you extended a real, working app with one new capability, scoped to a single screen and two columns, and verified it on the actual device before trusting it. That loop, extend rather than rebuild, is usually the faster and safer one once an app is already in use.",
     "type": "paragraph"
    },
    {
@@ -7747,46 +7747,46 @@
    },
    {
     "id": "8cc1442f-d21d-4efd-ab4f-d1f8e047b96e",
+    "type": "quiz",
     "questions": [
      {
+      "q": "Your kit tracker's browse screen works perfectly in testing with 15 items. Months later, some flagged items are missing from the view, and the list now holds about 4,000 items. What is the most likely cause?",
       "correct": 1,
-      "explanation": "This is the classic delegation problem: a filter the data source cannot handle itself only processes records up to the app limit, and anything past that is silently dropped.",
       "options": [
        "The SharePoint list has hit its maximum row limit",
        "A non-delegable filter is only processing records up to the app limit, so the rest are excluded",
        "The connection to SharePoint has expired and needs re-authenticating",
        "The Power Apps mobile app cannot display more than a few hundred records"
       ],
-      "q": "Your observation app works perfectly in testing with 15 records. Months later, the safety team reports that some observations are missing from the browse screen. The list now holds about 4,000 records. What is the most likely cause?"
+      "explanation": "This is the classic delegation problem: a filter the data source cannot handle itself only processes records up to the app limit, and anything past that is silently dropped."
      },
      {
+      "q": "The Flag issue screen only writes to your existing SharePoint kit tracker and is shared with internal staff. What licensing does it require?",
       "correct": 1,
-      "explanation": "SharePoint is a standard connector included with Microsoft 365, so a canvas app built on it and shared internally needs no premium licence.",
       "options": [
        "Power Apps Premium for every user, because it captures photos",
        "Only the Microsoft 365 licence most staff already have, because SharePoint is a standard connector",
-       "A per-app plan for each person who logs an observation",
-       "Dataverse capacity, because the app writes new records"
+       "A per-app plan for each person who flags an item",
+       "Dataverse capacity, because the app writes updates"
       ],
-      "q": "The safety app connects only to a SharePoint list and is shared with internal staff. What licensing does it require?"
+      "explanation": "SharePoint is a standard connector included with Microsoft 365, so a canvas app built on it and shared internally needs no premium licence, whether it creates records or updates existing ones."
      },
      {
-      "correct": 1,
-      "explanation": "Embedding in a Teams tab means sign-in is handled through Microsoft 365 and the app sits where the team already works, with no new URL to remember.",
+      "q": "Why does setting Status, the note, and the photo on a button press need a Power Fx formula here, when the rest of the app so far has not?",
+      "correct": 0,
       "options": [
-       "Publish it as a standalone site with its own custom web address",
-       "Embed it as a tab in the Microsoft Teams channel the team already uses",
-       "Email a link generated by a separate automation each morning",
-       "Restrict it to a SharePoint admin page and grant access on request"
+       "A generated form saves its own fields automatically, but a custom action on a button, updating a specific item from a specific screen, has to be written explicitly",
+       "Power Apps cannot save photos without a formula anywhere in the app",
+       "Formulas are only needed once a list passes the delegation limit",
+       "The generated screens do not support any user input"
       ],
-      "q": "You have finished the app and want the site team to reach it with the least friction. Which deployment fits best?"
+      "explanation": "The generated browse, details, and edit screens save through their own built-in logic. A custom screen and button you added yourself needs its action written out, which is where a short Patch formula comes in."
      }
-    ],
-    "type": "quiz"
+    ]
    },
    {
     "id": "f50e49e6-8fa8-456b-beb8-211167842e47",
-    "text": "This app is deliberately half a solution. Logging observations is the front end; what happens to a serious one after it is logged is automation. The next lesson combines this app with a Power Automate flow so a high-severity observation routes to the right person without anyone chasing it.",
+    "text": "This still leaves a gap. Anyone can check out any item right now, including the ones you can now flag as high-value or repeatedly damaged. The next lesson adds one more layer: certain items need a manager's sign-off before they leave the building, and that sign-off is a Power Automate flow working together with this app for the first time in this track.",
     "type": "callout"
    }
   ],
@@ -7800,7 +7800,7 @@
   "content_blocks": [
    {
     "id": "7f055870-d880-43fe-aa68-f1098d326d9c",
-    "text": "Until now you have built the two halves apart. In Band 2 you made a flow that ran on its own, in \"Automating a process with Power Automate,\" and in the last lesson, \"Building a no-code app with Power Apps,\" you built an app that stood on its own. This capstone joins them. You are going to build a small system where an app captures something and an automation acts on it. The interesting work is the seam between them.\n\nThe task is a training request. Someone fills in a short app: what course, why, roughly what it costs. The moment they submit, a flow picks it up, sends it to their manager for approval, and emails the requester the outcome. No one copies anything from one place to another. This is what separates owning two tools from running a platform.",
+    "text": "Until now you have built the pieces of the kit tracker apart. In Band 2 you made a flow that ran on its own, in \"Automating a process with Power Automate,\" chasing overdue items on a schedule. In the last lesson, \"Building a no-code app with Power Apps,\" you extended the app to flag damaged or lost items. This capstone joins app and flow for the first time: the app captures a request, and the automation decides what happens to it.\n\nThe task: certain items, the demo kit, anything above a value you set, need a manager's sign-off before they can leave the building. Someone requests to check one out through the app: which item, why, how long. The moment they submit, if the item needs sign-off, a flow routes it to their manager for approval and emails them the outcome. No one copies anything from one place to another. This is what separates owning two tools from running a platform.",
     "type": "paragraph"
    },
    {
@@ -7811,28 +7811,28 @@
    },
    {
     "id": "1cf90b4d-7d43-4c90-81e1-a0e62613dc54",
-    "text": "Choose something in your own work that has a capture step and a routing step. A training request works because it has both: a person supplies information, then that information needs to travel to someone else and come back with a decision. Expense pre-approval, equipment requests, and access requests all share the shape.\n\nAvoid anything where the decision has real legal or financial weight for a first build. You want a process where a wrong route or a missed notification is an annoyance, not an incident. Training requests sit comfortably there.",
+    "text": "Choose something in your own work that has a capture step and a routing step. A checkout sign-off works because it has both: a person supplies information, then that information needs to travel to someone else and come back with a decision. Expense pre-approval, equipment loans, and access requests all share the shape.\n\nAvoid anything where the decision has real legal or financial weight for a first build. You want a process where a wrong route or a missed notification is an annoyance, not an incident. A kit sign-off sits comfortably there.",
     "type": "paragraph"
    },
    {
     "id": "b03ef7f9-75d9-4410-ac9d-79c21106bfdd",
-    "text": "Scope it: design the shared table first",
+    "text": "Scope it: extend the shared table first",
     "type": "heading",
     "level": 2
    },
    {
     "id": "aed6a29c-eaf7-4185-a1c8-7615965780a5",
-    "text": "Here is the part that separates a platform from two disconnected toys. The app and the flow do not talk to each other directly. They meet in a data source, and that data source is the contract between them. Get it right before you build either half.\n\nSketch the fields the whole system needs, not just the ones the form shows. For the training request you need what the requester types (course name, reason, estimated cost, their manager) and what the flow writes back (a status, and maybe a decision note). The status field is the channel: the app sets it to Pending on submit, the flow changes it to Approved or Rejected, and the app reads it back so the requester can see where things stand.",
+    "text": "Here is the part that separates a platform from two disconnected toys. The app and the flow do not talk to each other directly. They meet in a data source, and that data source is the contract between them. Get it right before you touch either half.\n\nRather than building a new table from scratch, extend the kit tracker list itself, the same one from your first build. Add a Sign-off status column (choice: Not required, Pending, Approved, Rejected) and a Requested by column. The status field is the channel: the app sets it to Pending on submit for an item that needs sign-off, the flow changes it to Approved or Rejected, and the app reads it back so the borrower can see where things stand.",
     "type": "paragraph"
    },
    {
     "id": "dc04ba6d-ed90-45ae-b121-58cc5478b7a1",
-    "text": "Design the status field as a fixed choice set (Pending, Approved, Rejected), not free text. Both halves read and write it, and a typo like \"Aproved\" that the flow never matches is the kind of bug that only shows up in front of a real requester.",
+    "text": "Design Sign-off status as a fixed choice set (Not required, Pending, Approved, Rejected), not free text. Both halves read and write it, and a typo like \"Aproved\" that the flow never matches is the kind of bug that only shows up in front of a real borrower.",
     "type": "callout"
    },
    {
     "id": "5d6b64ef-44c9-444c-bab8-c2873e4170bc",
-    "text": "Create this table once, in a data source both tools can reach. In Power Platform that is typically a Dataverse table or a SharePoint list. Whichever you pick, create it before you open Power Apps or Power Automate, because both will point at it.",
+    "text": "Add the columns to the same kit tracker list before you open Power Apps or Power Automate, because both will point at it. This is the payoff of having kept everything in one table from the start: there is nothing new to wire up, only two columns to add to something that already works.",
     "type": "paragraph"
    },
    {
@@ -7848,7 +7848,7 @@
    },
    {
     "id": "3858f97e-f2e8-433d-89ed-b1df2b2680fe",
-    "text": "Build the capture app against that table, the same way you did in the previous lesson, \"Building a no-code app with Power Apps.\" Bind the form to the shared table. Show the fields the requester fills in, and set the status field to Pending automatically on submit rather than asking the person to choose it. They should never see or set their own approval status.\n\nKeep the app honest about what it does not control. The requester submits and then waits; the app cannot show an outcome that has not happened yet. A simple read-only view of their past requests with the current status is enough, and it is the payoff for wiring the status field through both halves.",
+    "text": "Add a Request checkout screen to the same app you extended in the previous lesson, \"Building a no-code app with Power Apps.\" Let the borrower pick an item, state why and for how long, and submit. On submit, the screen sets Sign-off status to Pending if the item is flagged as needing sign-off, or leaves it Not required and marks the item straight out otherwise. The borrower should never see or set their own sign-off status.\n\nKeep the app honest about what it does not control. Once a request is Pending, the borrower waits; the app cannot show a decision that has not happened yet. A simple read-only view of their own requests with the current status is enough, and it is the payoff for wiring Sign-off status through both halves.",
     "type": "paragraph"
    },
    {
@@ -7859,12 +7859,12 @@
    },
    {
     "id": "a4beb791-758e-427f-be35-c13be3d2bbec",
-    "text": "Now the flow. Its trigger is the seam: it should fire when a new row lands in the shared table, so submitting the app is what starts the automation. In Power Automate this is a \"when a new item is created\" style trigger pointed at the same table the app writes to.\n\nThe middle of the flow is an approval. Power Automate has a built-in approval action that sends a request to a named person and waits for their response before continuing. Feed it the manager captured on the request. When the response comes back, the flow writes the outcome to the status field and sends the requester an email with the result.",
+    "text": "Now the flow. Because you are extending the same list rather than writing to a fresh table, the trigger has to watch for changes, not new rows: use \"When an item is created or modified\" pointed at the kit tracker, then add a Condition that only continues when Sign-off status equals Pending. That condition is what stops the flow reacting to every ordinary edit, including its own.\n\nThe middle of the flow is an approval. Power Automate has a built-in approval action that sends a request to a named person and waits for their response before continuing. Feed it the manager for this borrower. When the response comes back, the flow writes Approved or Rejected to Sign-off status, sets the item's own Status to Out and fills in Date out on an approval, and emails the borrower the result.",
     "type": "paragraph"
    },
    {
     "id": "e97cc9d7-850e-497b-b3c8-cf3b79bf0ab4",
-    "text": "If your flow triggers on any change to a row and also writes back to that same row, it can trigger itself in a loop. Trigger on creation only, or add a condition so the flow ignores rows that already have a decision. Test this before you leave it running; a loop can fire a lot of approvals fast.",
+    "text": "A flow that triggers on any change to a row and also writes back to that same row can trigger itself in a loop, and here you are triggering on modified rows deliberately, so the guard matters even more than usual. The Sign-off status condition is what prevents that: once the flow's own write sets the status away from Pending, the next trigger for that row finds the condition false and stops. Test this before you leave it running; a loop can fire a lot of approvals fast.",
     "type": "callout"
    },
    {
@@ -7875,7 +7875,7 @@
    },
    {
     "id": "0fa8bbfd-12e3-4ef7-9a80-d8a74bbb5724",
-    "text": "Do not test the app and the flow separately and call it done. The whole reason you built this is the handoff, so verify the handoff. Submit a real request through the app using a test account, then watch the flow run history to confirm it triggered, check the approval actually reached the manager, respond to it, and confirm both the email arrived and the status updated back in the app.\n\nRun the rejection path too, not just the happy one. A system that only works when everyone says yes is half-tested. Reject a request and confirm the requester is told clearly, and that the app reflects Rejected rather than sitting on Pending.",
+    "text": "Do not test the app and the flow separately and call it done. The whole reason you built this is the handoff, so verify the handoff. Submit a real checkout request through the app for an item flagged as needing sign-off, using a test account, then watch the flow run history to confirm it triggered, check the approval actually reached the manager, respond to it, and confirm both the email arrived and the item's Status and Sign-off status updated back in the app.\n\nRun the rejection path too, not just the happy one. A system that only works when everyone says yes is half-tested. Reject a request and confirm the borrower is told clearly, and that the item stays available rather than sitting on Pending. Also request an item that does not need sign-off and confirm it checks straight out with no approval step at all.",
     "type": "paragraph"
    },
    {
@@ -7888,19 +7888,19 @@
     "type": "card_group",
     "cards": [
      {
-      "body": "Requester submits the form. The app creates a row and sets status to Pending. It never sets the outcome itself.",
+      "body": "Borrower submits the request. The app sets Sign-off status to Pending for flagged items. It never sets the outcome itself.",
       "title": "App writes"
      },
      {
-      "body": "A new row starts the flow. It reads the manager and sends the approval, then waits for a response.",
+      "body": "A row modified to Pending starts the flow. It reads the manager and sends the approval, then waits for a response.",
       "title": "Flow triggers"
      },
      {
-      "body": "On response, the flow sets status to Approved or Rejected and emails the requester the result.",
+      "body": "On response, the flow sets Sign-off status to Approved or Rejected, updates Status and Date out on approval, and emails the borrower.",
       "title": "Flow writes back"
      },
      {
-      "body": "The requester sees the updated status in their view. Nobody copied anything between the two tools.",
+      "body": "The borrower sees the updated status in their view. Nobody copied anything between the two tools.",
       "title": "App reads back"
      }
     ]
@@ -7913,7 +7913,7 @@
    },
    {
     "id": "734742a5-8674-49b8-b3db-e0961c8209c0",
-    "text": "The lesson title calls this a combined solution for a reason. In Power Platform a solution is a container that holds the app and the flow together, along with the table if you built it in Dataverse, so they move and deploy as a unit rather than loose pieces someone has to reassemble. Building your capstone inside one solution from the start means you can hand the whole system to someone else, or promote it from a test environment to a live one, without leaving a half behind.",
+    "text": "The lesson title calls this a combined solution for a reason. In Power Platform a solution is a container that holds the app and the flow together, along with the table if you built it in Dataverse, so they move and deploy as a unit rather than loose pieces someone has to reassemble. Building your capstone inside one solution from here on means you can hand the whole system to someone else, or promote it from a test environment to a live one, without leaving a half behind.",
     "type": "paragraph"
    },
    {
@@ -7924,7 +7924,7 @@
    },
    {
     "id": "fa6424b5-983b-4b50-a821-5b44b3f579fc",
-    "text": "Step back and notice what the integration actually required. The hard part was not building an app or building a flow; you could already do both. It was agreeing the shared table up front so the two halves spoke the same language, and being disciplined about which half owns which field. The app owns what the requester says. The flow owns the decision. The status field is where they meet.\n\nThat pattern travels. Any time a capture step needs to trigger a routed decision and report back, it is the same three moves: a shared table, a trigger on the write, and a status the automation owns and the app reads. Even with no one reporting to you, you have just built something that used to need a person forwarding emails, and you can point it at the next manual handoff on your own list.",
+    "text": "Step back and notice what the integration actually required. The hard part was not building an app or building a flow; you could already do both. It was extending one shared table so the two halves spoke the same language, and being disciplined about which half owns which field. The app owns what the borrower asks for. The flow owns the decision. Sign-off status is where they meet.\n\nThat pattern travels. Any time a capture step needs to trigger a routed decision and report back, it is the same three moves: a shared table, a trigger on the write, and a status the automation owns and the app reads. You started this track with a flat list of who has what. You are finishing it with a kit tracker that flags problems, chases the overdue, and gates the items that need a decision before they go out the door, all as one system.",
     "type": "paragraph"
    },
    {
@@ -7940,10 +7940,10 @@
        "They must use the same premium connector licence",
        "They run inside the same browser tab at the same time"
       ],
-      "explanation": "The two tools do not call each other. They meet at a shared table: the app writes a row, and that write is what starts the flow."
+      "explanation": "The two tools do not call each other. They meet at a shared table: the app writes Sign-off status to Pending, and that write is what starts the flow."
      },
      {
-      "q": "Why design the status field as a fixed choice set before building either half?",
+      "q": "Why design Sign-off status as a fixed choice set before building either half?",
       "correct": 0,
       "options": [
        "Both halves read and write it, so a mismatched value silently breaks the handoff",
@@ -7951,21 +7951,21 @@
        "Power Automate cannot read text fields at all",
        "It is the only field type approvals accept"
       ],
-      "explanation": "The status is the channel between the app and the flow. If the values do not match exactly, the flow never recognises them and the requester is left on Pending."
+      "explanation": "The status is the channel between the app and the flow. If the values do not match exactly, the flow never recognises them and the borrower is left on Pending."
      },
      {
-      "q": "Your flow fires on any change to a row and also writes the decision back to that row. What is the risk?",
+      "q": "The flow triggers on \"created or modified\" and also writes back to the same row. What stops it looping?",
       "correct": 0,
       "options": [
-       "The flow can trigger itself in a loop when it writes back",
+       "The condition that only continues when Sign-off status equals Pending, so the flow's own write (setting it away from Pending) stops the next trigger from re-entering",
        "The app will refuse to open the table",
        "The approval email will be sent in plain text only",
-       "The status field will reset to blank each night"
+       "Sign-off status resets to blank each night"
       ],
-      "explanation": "A write-back on a trigger that fires on every change can re-trigger the same flow. Trigger on creation only, or add a condition that skips rows already decided."
+      "explanation": "A trigger that fires on any change and also writes back can re-trigger itself. The Pending-only condition is what breaks the loop, since the flow's own write moves the row out of the state the condition checks for."
      },
      {
-      "q": "Why build the training-request app and flow inside one Power Platform solution from the start, rather than as two separate pieces?",
+      "q": "Why build the checkout sign-off app and flow inside one Power Platform solution from here on, rather than as two separate pieces?",
       "correct": 0,
       "options": [
        "A solution packages the app, flow, and table together so the whole system moves and deploys as one unit",
@@ -7979,7 +7979,7 @@
    },
    {
     "id": "bb5b4da8-d831-4ebd-8c25-e84f1707722a",
-    "text": "You have now built the two things this track teaches, working together as a platform rather than side by side. That is the capstone.",
+    "text": "You have now built the two things this track teaches, working together as a platform rather than side by side, on the same kit tracker you started with. That is the capstone.",
     "type": "paragraph"
    }
   ],
