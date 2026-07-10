@@ -1,258 +1,282 @@
 [
- {
-  "created_at": "2026-06-30T09:56:19.957179+00:00",
-  "description": null,
-  "id": "4712ef55-9474-442c-9ef6-febbcf81ef8b",
-  "sort_order": 2,
-  "title": "Power apps use case build",
-  "track_id": "872d6dee-a902-48f0-970f-8ccabd625f0b"
- },
- {
-  "created_at": "2026-06-30T09:56:19.957179+00:00",
-  "description": null,
-  "id": "c7ccc6d0-2bc1-4976-b9cc-d70b12a4a3f2",
-  "sort_order": 2,
-  "title": "Power automate use case build",
-  "track_id": "872d6dee-a902-48f0-970f-8ccabd625f0b"
- },
- {
-  "created_at": "2026-06-30T09:56:19.957179+00:00",
-  "description": null,
-  "id": "b5693f1f-8170-482c-98fd-221f023f8e9f",
-  "sort_order": 1,
-  "title": "Github copilot",
-  "track_id": "ba2023f5-a75d-408c-a6a6-d1e841fc7d65"
- },
- {
-  "created_at": "2026-06-30T09:56:19.957179+00:00",
-  "description": null,
-  "id": "a9c95f6b-cf61-424b-89ed-9574ec5365ab",
-  "sort_order": 10,
-  "title": "Intro",
-  "track_id": "1a810a92-dce9-4f6f-88e6-b73d63cf65fa"
- },
- {
-  "created_at": "2026-06-30T09:56:19.957179+00:00",
-  "description": null,
-  "id": "5dc847ae-d15b-4c54-8a9e-bc1d8b31fb1d",
-  "sort_order": 30,
-  "title": "How AI works",
-  "track_id": "1a810a92-dce9-4f6f-88e6-b73d63cf65fa"
- },
- {
-  "created_at": "2026-06-30T09:56:19.957179+00:00",
-  "description": null,
-  "id": "7868c1d8-53bc-48ec-9c36-cd4fa4cad6df",
-  "sort_order": 40,
-  "title": "How to prompt well",
-  "track_id": "1a810a92-dce9-4f6f-88e6-b73d63cf65fa"
- },
- {
-  "created_at": "2026-06-30T09:56:19.957179+00:00",
-  "description": null,
-  "id": "8a22da4a-0ce3-4d8f-8713-c5a6ab7082bb",
-  "sort_order": 60,
-  "title": "Integrating AI into your work",
-  "track_id": "1a810a92-dce9-4f6f-88e6-b73d63cf65fa"
- },
- {
-  "created_at": "2026-06-30T09:56:19.957179+00:00",
-  "description": null,
-  "id": "e2202cbc-e26f-4ed6-a178-27fcdd85abce",
-  "sort_order": 70,
-  "title": "Apply it: your first AI-assisted task",
-  "track_id": "1a810a92-dce9-4f6f-88e6-b73d63cf65fa"
- },
- {
-  "created_at": "2026-07-02T12:05:17.9254+00:00",
-  "description": null,
-  "id": "84571f6e-43d8-48ce-91c8-916f84dc9ecc",
-  "sort_order": 20,
-  "title": "What AI is",
-  "track_id": "1a810a92-dce9-4f6f-88e6-b73d63cf65fa"
- },
- {
-  "created_at": "2026-07-02T12:05:17.9254+00:00",
-  "description": null,
-  "id": "2b509c09-62fb-483b-a1f2-72bd23def106",
-  "sort_order": 50,
-  "title": "Using AI safely and sensibly",
-  "track_id": "1a810a92-dce9-4f6f-88e6-b73d63cf65fa"
- },
- {
-  "created_at": "2026-07-02T12:05:17.9254+00:00",
-  "description": null,
-  "id": "4e9f8450-5bbe-47f8-a014-ce3cc41f19d0",
-  "sort_order": 80,
-  "title": "From foundation to tools",
-  "track_id": "1a810a92-dce9-4f6f-88e6-b73d63cf65fa"
- },
- {
-  "created_at": "2026-06-30T09:56:19.957179+00:00",
-  "description": null,
-  "id": "2a6a37fd-c325-40fc-b13b-301922b40a87",
-  "sort_order": 10,
-  "title": "Claude chat · Get started",
-  "track_id": "85d19d82-6175-4bbb-a763-5a251ef47cca"
- },
- {
-  "created_at": "2026-07-03T12:22:58.102759+00:00",
-  "description": null,
-  "id": "6702e37f-57f5-4964-a07b-0fd85a702b90",
-  "sort_order": 20,
-  "title": "Claude chat · Use it well",
-  "track_id": "85d19d82-6175-4bbb-a763-5a251ef47cca"
- },
- {
-  "created_at": "2026-06-30T09:56:19.957179+00:00",
-  "description": null,
-  "id": "5f328480-648c-4776-b997-6a5ce0f1e8dd",
-  "sort_order": 30,
-  "title": "Claude Cowork",
-  "track_id": "85d19d82-6175-4bbb-a763-5a251ef47cca"
- },
- {
-  "created_at": "2026-06-30T09:56:19.957179+00:00",
-  "description": null,
-  "id": "376c929c-627e-461f-bd8d-6568e80772ff",
-  "sort_order": 30,
-  "title": "Claude Code",
-  "track_id": "85d19d82-6175-4bbb-a763-5a251ef47cca"
- },
- {
-  "created_at": "2026-06-30T09:56:19.957179+00:00",
-  "description": null,
-  "id": "fc875da2-3627-4025-b262-3734d4473b1c",
-  "sort_order": 40,
-  "title": "Claude use case build",
-  "track_id": "85d19d82-6175-4bbb-a763-5a251ef47cca"
- },
- {
-  "created_at": "2026-06-30T09:56:19.957179+00:00",
-  "description": null,
-  "id": "df5e335a-3649-41fd-834a-6d89d7ec20dc",
-  "sort_order": 10,
-  "title": "Copilot chat · Get started",
-  "track_id": "ba2023f5-a75d-408c-a6a6-d1e841fc7d65"
- },
- {
-  "created_at": "2026-07-03T12:40:13.065537+00:00",
-  "description": null,
-  "id": "c48b2b7e-1d2e-43de-b946-0889986f0320",
-  "sort_order": 20,
-  "title": "Copilot chat · Use it well",
-  "track_id": "ba2023f5-a75d-408c-a6a6-d1e841fc7d65"
- },
- {
-  "created_at": "2026-06-30T09:56:19.957179+00:00",
-  "description": null,
-  "id": "4c7d6bb9-f75f-4975-b7d1-1fe124ba39a5",
-  "sort_order": 30,
-  "title": "Copilot Studio",
-  "track_id": "ba2023f5-a75d-408c-a6a6-d1e841fc7d65"
- },
- {
-  "created_at": "2026-06-30T09:56:19.957179+00:00",
-  "description": null,
-  "id": "7f0b7e90-296e-4a37-be4d-67aa749e6c57",
-  "sort_order": 40,
-  "title": "Copilot use case build",
-  "track_id": "ba2023f5-a75d-408c-a6a6-d1e841fc7d65"
- },
- {
-  "created_at": "2026-06-30T09:56:19.957179+00:00",
-  "description": null,
-  "id": "d5ae3492-6658-407c-8cc8-73814c7f0fb3",
-  "sort_order": 10,
-  "title": "Power Platform",
-  "track_id": "872d6dee-a902-48f0-970f-8ccabd625f0b"
- },
- {
-  "created_at": "2026-06-30T09:56:19.957179+00:00",
-  "description": null,
-  "id": "d37a0582-47d7-4867-a36e-e5f5d3a84d4d",
-  "sort_order": 20,
-  "title": "Power Automate",
-  "track_id": "872d6dee-a902-48f0-970f-8ccabd625f0b"
- },
- {
-  "created_at": "2026-06-30T09:56:19.957179+00:00",
-  "description": null,
-  "id": "f399c825-1591-465e-812f-04b62cfe75a1",
-  "sort_order": 20,
-  "title": "Power Apps",
-  "track_id": "872d6dee-a902-48f0-970f-8ccabd625f0b"
- },
- {
-  "created_at": "2026-06-30T09:56:19.957179+00:00",
-  "description": null,
-  "id": "31abeb40-9d8d-4a23-ac7a-cda2114a19ed",
-  "sort_order": 30,
-  "title": "Use case build",
-  "track_id": "872d6dee-a902-48f0-970f-8ccabd625f0b"
- },
- {
-  "created_at": "2026-06-30T09:56:19.957179+00:00",
-  "description": null,
-  "id": "212c5eb0-4f41-4838-9e88-13aa5c5f2bb6",
-  "sort_order": 10,
-  "title": "Obsidian · Get started",
-  "track_id": "46b282b3-ac2f-4c67-b9fb-98bede87ed57"
- },
- {
-  "created_at": "2026-07-03T12:56:32.601682+00:00",
-  "description": null,
-  "id": "b9d1fff2-890b-4788-ae25-de47aeb50282",
-  "sort_order": 20,
-  "title": "Obsidian · Use it well",
-  "track_id": "46b282b3-ac2f-4c67-b9fb-98bede87ed57"
- },
- {
-  "created_at": "2026-06-30T09:56:19.957179+00:00",
-  "description": null,
-  "id": "e00e4419-4171-42e6-aae3-817cfd4cd636",
-  "sort_order": 30,
-  "title": "Vault build",
-  "track_id": "46b282b3-ac2f-4c67-b9fb-98bede87ed57"
- },
- {
-  "created_at": "2026-06-30T15:46:42.280845+00:00",
-  "description": "Introduction to Loveable",
-  "id": "b69b14e4-baf6-42f4-9ee1-5541b2dbb289",
-  "sort_order": 10,
-  "title": "Lovable · Get started",
-  "track_id": "0d7a66eb-af81-4cbf-952e-7990898e9006"
- },
- {
-  "created_at": "2026-07-03T13:07:28.592898+00:00",
-  "description": null,
-  "id": "1f675cd9-0562-403c-bc3b-01a7a50658bd",
-  "sort_order": 20,
-  "title": "Lovable · Use it well",
-  "track_id": "0d7a66eb-af81-4cbf-952e-7990898e9006"
- },
- {
-  "created_at": "2026-07-03T13:07:28.592898+00:00",
-  "description": null,
-  "id": "de7ac38b-af1e-4c0d-817b-a284743b7816",
-  "sort_order": 30,
-  "title": "Lovable build",
-  "track_id": "0d7a66eb-af81-4cbf-952e-7990898e9006"
- },
- {
-  "created_at": "2026-06-30T15:46:42.280845+00:00",
-  "description": "Introduction to Confluence",
-  "id": "90b21ac1-96f7-4b3c-b688-c4fd43b99f8c",
-  "sort_order": 10,
-  "title": "Confluence AI · Get started",
-  "track_id": "92ab2f9b-6317-4ddd-8cff-261515ffe7ba"
- },
- {
-  "created_at": "2026-07-01T14:05:54.739032+00:00",
-  "description": null,
-  "id": "bfa0b638-6554-413b-997f-0d96b978dbd0",
-  "sort_order": 20,
-  "title": "Confluence AI · Use it well",
-  "track_id": "92ab2f9b-6317-4ddd-8cff-261515ffe7ba"
- }
+  {
+    "created_at": "2026-06-30T09:56:19.957179+00:00",
+    "description": null,
+    "id": "a9c95f6b-cf61-424b-89ed-9574ec5365ab",
+    "sort_order": 10,
+    "title": "Intro",
+    "track_id": "1a810a92-dce9-4f6f-88e6-b73d63cf65fa"
+  },
+  {
+    "created_at": "2026-07-02T12:05:17.9254+00:00",
+    "description": null,
+    "id": "84571f6e-43d8-48ce-91c8-916f84dc9ecc",
+    "sort_order": 20,
+    "title": "What AI is",
+    "track_id": "1a810a92-dce9-4f6f-88e6-b73d63cf65fa"
+  },
+  {
+    "created_at": "2026-06-30T09:56:19.957179+00:00",
+    "description": null,
+    "id": "5dc847ae-d15b-4c54-8a9e-bc1d8b31fb1d",
+    "sort_order": 30,
+    "title": "How AI works",
+    "track_id": "1a810a92-dce9-4f6f-88e6-b73d63cf65fa"
+  },
+  {
+    "created_at": "2026-06-30T09:56:19.957179+00:00",
+    "description": null,
+    "id": "7868c1d8-53bc-48ec-9c36-cd4fa4cad6df",
+    "sort_order": 40,
+    "title": "How to prompt well",
+    "track_id": "1a810a92-dce9-4f6f-88e6-b73d63cf65fa"
+  },
+  {
+    "created_at": "2026-07-02T12:05:17.9254+00:00",
+    "description": null,
+    "id": "2b509c09-62fb-483b-a1f2-72bd23def106",
+    "sort_order": 50,
+    "title": "Using AI safely and sensibly",
+    "track_id": "1a810a92-dce9-4f6f-88e6-b73d63cf65fa"
+  },
+  {
+    "created_at": "2026-06-30T09:56:19.957179+00:00",
+    "description": null,
+    "id": "8a22da4a-0ce3-4d8f-8713-c5a6ab7082bb",
+    "sort_order": 60,
+    "title": "Integrating AI into your work",
+    "track_id": "f7e6d5c4-b3a2-4190-8f00-0000000000e2"
+  },
+  {
+    "created_at": "2026-06-30T09:56:19.957179+00:00",
+    "description": null,
+    "id": "e2202cbc-e26f-4ed6-a178-27fcdd85abce",
+    "sort_order": 70,
+    "title": "Apply it: your first AI-assisted task",
+    "track_id": "f7e6d5c4-b3a2-4190-8f00-0000000000e2"
+  },
+  {
+    "created_at": "2026-07-02T12:05:17.9254+00:00",
+    "description": null,
+    "id": "4e9f8450-5bbe-47f8-a014-ce3cc41f19d0",
+    "sort_order": 80,
+    "title": "From foundation to tools",
+    "track_id": "f7e6d5c4-b3a2-4190-8f00-0000000000e2"
+  },
+  {
+    "created_at": "2026-06-30T09:56:19.957179+00:00",
+    "description": null,
+    "id": "df5e335a-3649-41fd-834a-6d89d7ec20dc",
+    "sort_order": 10,
+    "title": "Copilot chat · Get started",
+    "track_id": "ba2023f5-a75d-408c-a6a6-d1e841fc7d65"
+  },
+  {
+    "created_at": "2026-07-03T12:40:13.065537+00:00",
+    "description": null,
+    "id": "c48b2b7e-1d2e-43de-b946-0889986f0320",
+    "sort_order": 20,
+    "title": "Copilot chat · Use it well",
+    "track_id": "ba2023f5-a75d-408c-a6a6-d1e841fc7d65"
+  },
+  {
+    "created_at": "2026-06-30T09:56:19.957179+00:00",
+    "description": null,
+    "id": "4c7d6bb9-f75f-4975-b7d1-1fe124ba39a5",
+    "sort_order": 30,
+    "title": "Copilot Studio",
+    "track_id": "ba2023f5-a75d-408c-a6a6-d1e841fc7d65"
+  },
+  {
+    "created_at": "2026-06-30T09:56:19.957179+00:00",
+    "description": null,
+    "id": "7f0b7e90-296e-4a37-be4d-67aa749e6c57",
+    "sort_order": 40,
+    "title": "Copilot use case build",
+    "track_id": "ba2023f5-a75d-408c-a6a6-d1e841fc7d65"
+  },
+  {
+    "created_at": "2026-06-30T09:56:19.957179+00:00",
+    "description": null,
+    "id": "d5ae3492-6658-407c-8cc8-73814c7f0fb3",
+    "sort_order": 10,
+    "title": "Power Platform",
+    "track_id": "872d6dee-a902-48f0-970f-8ccabd625f0b"
+  },
+  {
+    "created_at": "2026-06-30T09:56:19.957179+00:00",
+    "description": null,
+    "id": "d37a0582-47d7-4867-a36e-e5f5d3a84d4d",
+    "sort_order": 20,
+    "title": "Power Automate",
+    "track_id": "872d6dee-a902-48f0-970f-8ccabd625f0b"
+  },
+  {
+    "created_at": "2026-06-30T09:56:19.957179+00:00",
+    "description": null,
+    "id": "f399c825-1591-465e-812f-04b62cfe75a1",
+    "sort_order": 20,
+    "title": "Power Apps",
+    "track_id": "872d6dee-a902-48f0-970f-8ccabd625f0b"
+  },
+  {
+    "created_at": "2026-06-30T09:56:19.957179+00:00",
+    "description": null,
+    "id": "31abeb40-9d8d-4a23-ac7a-cda2114a19ed",
+    "sort_order": 30,
+    "title": "Use case build",
+    "track_id": "872d6dee-a902-48f0-970f-8ccabd625f0b"
+  },
+  {
+    "created_at": "2026-06-30T15:46:42.280845+00:00",
+    "description": "Introduction to Loveable",
+    "id": "b69b14e4-baf6-42f4-9ee1-5541b2dbb289",
+    "sort_order": 10,
+    "title": "Lovable · Get started",
+    "track_id": "0d7a66eb-af81-4cbf-952e-7990898e9006"
+  },
+  {
+    "created_at": "2026-07-03T13:07:28.592898+00:00",
+    "description": null,
+    "id": "1f675cd9-0562-403c-bc3b-01a7a50658bd",
+    "sort_order": 20,
+    "title": "Lovable · Use it well",
+    "track_id": "0d7a66eb-af81-4cbf-952e-7990898e9006"
+  },
+  {
+    "created_at": "2026-07-03T13:07:28.592898+00:00",
+    "description": null,
+    "id": "de7ac38b-af1e-4c0d-817b-a284743b7816",
+    "sort_order": 30,
+    "title": "Lovable build",
+    "track_id": "0d7a66eb-af81-4cbf-952e-7990898e9006"
+  },
+  {
+    "created_at": "2026-06-30T09:56:19.957179+00:00",
+    "description": null,
+    "id": "2a6a37fd-c325-40fc-b13b-301922b40a87",
+    "sort_order": 10,
+    "title": "Claude chat · Get started",
+    "track_id": "85d19d82-6175-4bbb-a763-5a251ef47cca"
+  },
+  {
+    "created_at": "2026-07-03T12:22:58.102759+00:00",
+    "description": null,
+    "id": "6702e37f-57f5-4964-a07b-0fd85a702b90",
+    "sort_order": 20,
+    "title": "Claude chat · Use it well",
+    "track_id": "85d19d82-6175-4bbb-a763-5a251ef47cca"
+  },
+  {
+    "created_at": "2026-06-30T09:56:19.957179+00:00",
+    "description": null,
+    "id": "376c929c-627e-461f-bd8d-6568e80772ff",
+    "sort_order": 30,
+    "title": "Claude Code",
+    "track_id": "85d19d82-6175-4bbb-a763-5a251ef47cca"
+  },
+  {
+    "created_at": "2026-06-30T09:56:19.957179+00:00",
+    "description": null,
+    "id": "5f328480-648c-4776-b997-6a5ce0f1e8dd",
+    "sort_order": 30,
+    "title": "Claude Cowork",
+    "track_id": "85d19d82-6175-4bbb-a763-5a251ef47cca"
+  },
+  {
+    "created_at": "2026-06-30T09:56:19.957179+00:00",
+    "description": null,
+    "id": "fc875da2-3627-4025-b262-3734d4473b1c",
+    "sort_order": 40,
+    "title": "Claude use case build",
+    "track_id": "85d19d82-6175-4bbb-a763-5a251ef47cca"
+  },
+  {
+    "created_at": "2026-06-30T09:56:19.957179+00:00",
+    "description": null,
+    "id": "212c5eb0-4f41-4838-9e88-13aa5c5f2bb6",
+    "sort_order": 10,
+    "title": "Obsidian · Get started",
+    "track_id": "46b282b3-ac2f-4c67-b9fb-98bede87ed57"
+  },
+  {
+    "created_at": "2026-07-03T12:56:32.601682+00:00",
+    "description": null,
+    "id": "b9d1fff2-890b-4788-ae25-de47aeb50282",
+    "sort_order": 20,
+    "title": "Obsidian · Use it well",
+    "track_id": "46b282b3-ac2f-4c67-b9fb-98bede87ed57"
+  },
+  {
+    "created_at": "2026-06-30T09:56:19.957179+00:00",
+    "description": null,
+    "id": "e00e4419-4171-42e6-aae3-817cfd4cd636",
+    "sort_order": 30,
+    "title": "Vault build",
+    "track_id": "46b282b3-ac2f-4c67-b9fb-98bede87ed57"
+  },
+  {
+    "created_at": "2026-06-30T15:46:42.280845+00:00",
+    "description": "Introduction to Confluence",
+    "id": "90b21ac1-96f7-4b3c-b688-c4fd43b99f8c",
+    "sort_order": 10,
+    "title": "Confluence AI · Get started",
+    "track_id": "92ab2f9b-6317-4ddd-8cff-261515ffe7ba"
+  },
+  {
+    "created_at": "2026-07-01T14:05:54.739032+00:00",
+    "description": null,
+    "id": "bfa0b638-6554-413b-997f-0d96b978dbd0",
+    "sort_order": 20,
+    "title": "Confluence AI · Use it well",
+    "track_id": "92ab2f9b-6317-4ddd-8cff-261515ffe7ba"
+  },
+  {
+    "created_at": null,
+    "description": null,
+    "id": "e22825e8-1d8a-47f5-9a48-2507c26a9d99",
+    "sort_order": 21,
+    "title": "Confluence AI build",
+    "track_id": "92ab2f9b-6317-4ddd-8cff-261515ffe7ba"
+  },
+  {
+    "created_at": null,
+    "description": null,
+    "id": "01cad6e6-31c0-42e2-96ed-ac3b25d87d63",
+    "sort_order": 0,
+    "title": "Get started with GitHub Copilot",
+    "track_id": "7ce46ab6-f619-4183-a592-2404e50b8c10"
+  },
+  {
+    "created_at": null,
+    "description": null,
+    "id": "15c8c5f8-acfd-41fb-8edc-4da7defa1fd8",
+    "sort_order": 1,
+    "title": "Agentic engineering practices",
+    "track_id": "7ce46ab6-f619-4183-a592-2404e50b8c10"
+  },
+  {
+    "created_at": null,
+    "description": null,
+    "id": "1081d6f8-e935-4659-8c75-3d1b092012d9",
+    "sort_order": 2,
+    "title": "Claude Code, in depth",
+    "track_id": "7ce46ab6-f619-4183-a592-2404e50b8c10"
+  },
+  {
+    "created_at": null,
+    "description": null,
+    "id": "92842e56-dab0-4474-92ee-64f7b0d23d1d",
+    "sort_order": 3,
+    "title": "Building on Claude (API + MCP)",
+    "track_id": "7ce46ab6-f619-4183-a592-2404e50b8c10"
+  },
+  {
+    "created_at": null,
+    "description": null,
+    "id": "3d1dce60-5ddd-45b0-ac43-948b2c55c0e4",
+    "sort_order": 4,
+    "title": "Capstone",
+    "track_id": "7ce46ab6-f619-4183-a592-2404e50b8c10"
+  }
 ]
