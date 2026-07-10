@@ -47,6 +47,7 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncEngine
 
     from src.core.configs.auth import AuthSettings
+    from src.core.configs.storage import StorageSettings
 
 __all__ = ["app"]
 
@@ -119,14 +120,24 @@ app.add_middleware(
     max_age=86400,
 )
 
+
 # Ported from the old app's vercel.json headers. style-src needs 'unsafe-inline'
 # (framer-motion inline styles) and fonts.googleapis.com (index.css @imports it).
-_CSP = (
-    "default-src 'self'; script-src 'self'; "
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
-    "font-src 'self' https://fonts.gstatic.com; "
-    "img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'"
-)
+# img-src/media-src additionally allow the lesson-media blob endpoint once
+# storage is configured. frame-src is always present (embeds don't need
+# storage) — the sharepoint host is broad on purpose; tighten it to the
+# delaware tenant host once a real Stream embed URL confirms it.
+def _build_csp(storage: StorageSettings | None) -> str:
+    blob_endpoint = f" {storage.blob_endpoint}" if storage is not None else ""
+    return (
+        "default-src 'self'; script-src 'self'; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src 'self' https://fonts.gstatic.com; "
+        f"img-src 'self' data:{blob_endpoint}; connect-src 'self'; frame-ancestors 'none'; "
+        f"media-src 'self'{blob_endpoint}; "
+        "frame-src https://www.youtube-nocookie.com https://player.vimeo.com "
+        "https://*.sharepoint.com"
+    )
 
 
 @app.middleware("http")
@@ -141,7 +152,11 @@ async def security_headers(request: Request, call_next: RequestResponseEndpoint)
     path = request.url.path
     # Swagger UI at /docs loads its JS/CSS from cdn.jsdelivr.net — exempt it.
     if not path.startswith(("/docs", "/redoc")):
-        h["Content-Security-Policy"] = _CSP
+        # Resolved the same way FastAPI's dependency injection would (honoring
+        # dependency_overrides), so tests can swap settings without an app
+        # factory/reimport — plain middleware doesn't go through Depends().
+        settings = request.app.dependency_overrides.get(get_settings, get_settings)()
+        h["Content-Security-Policy"] = _build_csp(settings.storage)
     if path.startswith("/assets/"):
         # Files directly under /assets/ are Vite hash-named bundles; subdirs
         # (icons/, images/, logo/) come from public/ un-hashed and must NOT

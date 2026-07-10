@@ -5,16 +5,24 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
+import pytest_asyncio
+from httpx import ASGITransport, AsyncClient
+
+from src.core.dependencies.database import get_session
+from src.core.dependencies.settings import get_settings
 from src.core.security import hash_token, new_opaque_token
 from src.db.models import AuthSession, AuthToken
+from src.main import app
 from src.repositories.auth_session_repository import AuthSessionRepository
 from src.repositories.auth_token_repository import AuthTokenRepository
 from src.repositories.user_repository import UserRepository
 from src.services.token_service import TokenService
 from tests.fixtures.factories import create_user
+from tests.fixtures.media import TEST_STORAGE
 
 if TYPE_CHECKING:
-    from httpx import AsyncClient
+    from collections.abc import AsyncGenerator
+
     from sqlalchemy.ext.asyncio import AsyncSession
 
     from src.core.configs.settings import Settings
@@ -139,3 +147,49 @@ class TestCors:
             },
         )
         assert "access-control-allow-origin" not in response.headers
+
+
+@pytest_asyncio.fixture
+async def storage_client(
+    db_session: AsyncSession, test_settings: Settings
+) -> AsyncGenerator[AsyncClient]:
+    """Same as conftest's `client` fixture, but with lesson-media storage
+    configured — exercises the CSP builder's storage-aware branch (test_settings
+    otherwise pins storage=None to stay hermetic). The CSP is computed fresh per
+    request from `request.app.dependency_overrides`-aware settings resolution,
+    so this override is enough; no app factory/reimport needed."""
+    storage_settings = test_settings.model_copy(update={"storage": TEST_STORAGE})
+
+    async def _override_session() -> AsyncGenerator[AsyncSession]:
+        yield db_session
+
+    app.dependency_overrides[get_session] = _override_session
+    app.dependency_overrides[get_settings] = lambda: storage_settings
+    client = AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver")
+    try:
+        yield client
+    finally:
+        await client.aclose()
+        app.dependency_overrides.clear()
+
+
+class TestContentSecurityPolicy:
+    async def test_default_csp_has_frame_src_and_no_blob_endpoint(
+        self, client: AsyncClient
+    ) -> None:
+        response = await client.get("/api/health")
+        csp = response.headers["content-security-policy"]
+        assert "img-src 'self' data:;" in csp
+        assert "media-src 'self';" in csp
+        assert (
+            "frame-src https://www.youtube-nocookie.com https://player.vimeo.com "
+            "https://*.sharepoint.com"
+        ) in csp
+
+    async def test_storage_configured_adds_blob_endpoint_to_img_and_media_src(
+        self, storage_client: AsyncClient
+    ) -> None:
+        response = await storage_client.get("/api/health")
+        csp = response.headers["content-security-policy"]
+        assert f"img-src 'self' data: {TEST_STORAGE.blob_endpoint};" in csp
+        assert f"media-src 'self' {TEST_STORAGE.blob_endpoint};" in csp
