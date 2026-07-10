@@ -29,8 +29,10 @@ class StorageSettings(BaseModel):
 
     # Derived from connection_string by _parse_connection_string below; these
     # defaults are placeholders only, always overwritten at construction.
+    # account_key is SecretStr so it never prints in repr()/logs (architecture
+    # rule: secrets stay secret); SAS generation reads .get_secret_value().
     account_name: str = ""
-    account_key: str = ""
+    account_key: SecretStr = SecretStr("")
     blob_endpoint: str = ""
 
     @field_validator("sas_ttl_hours")
@@ -56,12 +58,12 @@ class StorageSettings(BaseModel):
 
         account_name = parts.get("AccountName")
         account_key = parts.get("AccountKey")
-        missing = [
-            name
-            for name, value in (("AccountName", account_name), ("AccountKey", account_key))
-            if not value
-        ]
-        if missing:
+        if not account_name or not account_key:
+            missing = [
+                name
+                for name, value in (("AccountName", account_name), ("AccountKey", account_key))
+                if not value
+            ]
             msg = f"STORAGE__CONNECTION_STRING is missing {' and '.join(missing)}"
             raise ValueError(msg)
 
@@ -73,6 +75,6 @@ class StorageSettings(BaseModel):
         # Fields are frozen; this is the one place they're ever written, right
         # after validation, so downstream code only ever sees the parsed form.
         object.__setattr__(self, "account_name", account_name)
-        object.__setattr__(self, "account_key", account_key)
+        object.__setattr__(self, "account_key", SecretStr(account_key))
         object.__setattr__(self, "blob_endpoint", endpoint.rstrip("/"))
         return self

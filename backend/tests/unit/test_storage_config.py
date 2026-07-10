@@ -23,8 +23,13 @@ class TestConnectionStringParsing:
     def test_valid_conn_string_parses_account_fields(self) -> None:
         settings = _settings(_CONN_STRING)
         assert settings.account_name == "myaccount"
-        assert settings.account_key == "fakekeybase64=="
+        assert settings.account_key.get_secret_value() == "fakekeybase64=="
         assert settings.blob_endpoint == "https://myaccount.blob.core.windows.net"
+
+    def test_account_key_is_not_leaked_by_repr_or_str(self) -> None:
+        settings = _settings(_CONN_STRING)
+        for dump in (repr(settings), str(settings)):
+            assert "fakekeybase64==" not in dump
 
     def test_explicit_blob_endpoint_wins_and_trailing_slash_is_stripped(self) -> None:
         conn = (
@@ -47,7 +52,7 @@ class TestConnectionStringParsing:
     def test_account_key_with_equals_padding_parsed_intact(self) -> None:
         conn = "AccountName=myaccount;AccountKey=abc123+/def==;EndpointSuffix=core.windows.net"
         settings = _settings(conn)
-        assert settings.account_key == "abc123+/def=="
+        assert settings.account_key.get_secret_value() == "abc123+/def=="
 
     def test_missing_account_name_raises_naming_it(self) -> None:
         conn = "AccountKey=key123;EndpointSuffix=core.windows.net"
