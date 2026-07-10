@@ -22,6 +22,7 @@ from src.repositories.auth_token_repository import AuthTokenRepository
 from src.repositories.user_repository import UserRepository
 from src.routers import (
     admin_content,
+    admin_media,
     admin_org,
     admin_users,
     auth,
@@ -30,7 +31,13 @@ from src.routers import (
     me,
     survey,
 )
-from src.services.exceptions import ConflictError, DomainError, NotFoundError
+from src.services.exceptions import (
+    ConflictError,
+    DomainError,
+    NotFoundError,
+    PayloadTooLargeError,
+    UnsupportedMediaTypeError,
+)
 from src.services.scoring import ScoringError
 from src.services.token_service import TokenService
 
@@ -154,6 +161,7 @@ app.include_router(learning.router)
 app.include_router(admin_org.router)
 app.include_router(admin_users.router)
 app.include_router(admin_content.router)
+app.include_router(admin_media.router)
 
 # Single error shape for the frontend: {"error": {"code", "message"[, "fields"]}}
 _ERROR_CODES = {
@@ -163,6 +171,8 @@ _ERROR_CODES = {
     404: "not_found",
     409: "conflict",
     410: "gone",
+    413: "payload_too_large",
+    415: "unsupported_media_type",
     422: "validation_error",
     429: "rate_limited",
 }
@@ -206,6 +216,18 @@ async def domain_error_handler(request: Request, exc: DomainError) -> JSONRespon
 @app.exception_handler(ScoringError)
 async def scoring_error_handler(request: Request, exc: ScoringError) -> JSONResponse:
     return _error_response(422, exc.message)
+
+
+@app.exception_handler(UnsupportedMediaTypeError)
+async def unsupported_media_type_handler(
+    request: Request, exc: UnsupportedMediaTypeError
+) -> JSONResponse:
+    return _error_response(415, exc.message)
+
+
+@app.exception_handler(PayloadTooLargeError)
+async def payload_too_large_handler(request: Request, exc: PayloadTooLargeError) -> JSONResponse:
+    return _error_response(413, exc.message)
 
 
 @app.exception_handler(RequestValidationError)

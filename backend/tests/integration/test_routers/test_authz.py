@@ -13,9 +13,14 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 import pytest_asyncio
+from httpx import ASGITransport, AsyncClient
 
+from src.core.dependencies.database import get_session
+from src.core.dependencies.settings import get_settings
+from src.core.dependencies.storage import get_media_service
 from src.core.security import create_access_token
 from src.main import app
+from src.services.media_service import MediaService
 from tests.fixtures.auth import auth_headers, bearer
 from tests.fixtures.factories import (
     assign_lesson,
@@ -30,9 +35,11 @@ from tests.fixtures.factories import (
     create_track,
     create_user,
 )
+from tests.fixtures.media import TEST_STORAGE, RecordingUploader
 
 if TYPE_CHECKING:
-    from httpx import AsyncClient
+    from collections.abc import AsyncGenerator
+
     from sqlalchemy.ext.asyncio import AsyncSession
 
     from src.core.configs.settings import Settings
@@ -299,6 +306,70 @@ async def test_matrix(
         method, path, json=body, headers=auth_headers(seed.admin, test_settings)
     )
     assert as_admin.status_code not in (401, 403, 500), f"admin {method} {path}"
+
+
+@pytest_asyncio.fixture
+async def media_client(
+    db_session: AsyncSession, test_settings: Settings
+) -> AsyncGenerator[AsyncClient]:
+    """POST /api/admin/media can't be a plain _MATRIX row above (multipart,
+    not JSON) and needs the feature actually configured — otherwise even the
+    admin case would incidentally "pass" the not-in-(401,403,500) check via
+    the storage-unset 404 without exercising authz at all. Mirrors
+    test_admin_media.py's media_client."""
+    service = MediaService(
+        RecordingUploader(),
+        account_name=TEST_STORAGE.account_name,
+        account_key=TEST_STORAGE.account_key.get_secret_value(),
+        blob_endpoint=TEST_STORAGE.blob_endpoint,
+        container=TEST_STORAGE.container,
+        sas_ttl_hours=TEST_STORAGE.sas_ttl_hours,
+    )
+
+    async def _override_session() -> AsyncGenerator[AsyncSession]:
+        yield db_session
+
+    app.dependency_overrides[get_session] = _override_session
+    app.dependency_overrides[get_settings] = lambda: test_settings
+    app.dependency_overrides[get_media_service] = lambda: service
+    client = AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver")
+    try:
+        yield client
+    finally:
+        await client.aclose()
+        app.dependency_overrides.clear()
+
+
+class TestMediaUploadAuthz:
+    """POST /api/admin/media, same assertions as an admin_only _MATRIX row
+    (anonymous -> 401 unauthorized, non-admin -> 403 forbidden, admin ->
+    succeeds), with the media feature configured via the DI override."""
+
+    _FILES = {"file": ("photo.png", b"data", "image/png")}
+
+    async def test_anonymous_is_401(self, media_client: AsyncClient) -> None:
+        response = await media_client.post("/api/admin/media", files=self._FILES)
+        assert response.status_code == 401
+        assert response.json()["error"]["code"] == "unauthorized"
+
+    async def test_non_admin_is_403(
+        self, media_client: AsyncClient, db_session: AsyncSession, test_settings: Settings
+    ) -> None:
+        user = await create_user(db_session, email="media-authz-user@example.com")
+        response = await media_client.post(
+            "/api/admin/media", files=self._FILES, headers=auth_headers(user, test_settings)
+        )
+        assert response.status_code == 403
+        assert response.json()["error"]["code"] == "forbidden"
+
+    async def test_admin_succeeds(
+        self, media_client: AsyncClient, db_session: AsyncSession, test_settings: Settings
+    ) -> None:
+        admin = await create_user(db_session, email="media-authz-admin@example.com", role="admin")
+        response = await media_client.post(
+            "/api/admin/media", files=self._FILES, headers=auth_headers(admin, test_settings)
+        )
+        assert response.status_code == 201
 
 
 class TestIronRule:

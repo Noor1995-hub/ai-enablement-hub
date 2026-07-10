@@ -13,10 +13,12 @@ __all__ = [
     "InvalidSessionError",
     "LessonSetMismatchError",
     "NotFoundError",
+    "PayloadTooLargeError",
     "SurveyAlreadyCompleteError",
     "SurveyNotInProgressError",
     "TokenExpiredError",
     "TokenNotFoundError",
+    "UnsupportedMediaTypeError",
 ]
 
 
@@ -99,3 +101,17 @@ class LessonSetMismatchError(DomainError):
 
     def __init__(self) -> None:
         super().__init__("lesson_ids must contain exactly the module's lesson ids")
+
+
+class UnsupportedMediaTypeError(DomainError):
+    """Uploaded file's content type is not an allowed image/video type. → 415"""
+
+    def __init__(self, content_type: str) -> None:
+        super().__init__(f"Unsupported media type: {content_type or 'unknown'}")
+
+
+class PayloadTooLargeError(DomainError):
+    """Uploaded file exceeds the max size allowed for its media kind. → 413"""
+
+    def __init__(self, max_bytes: int) -> None:
+        super().__init__(f"File exceeds the maximum allowed size of {max_bytes} bytes")
