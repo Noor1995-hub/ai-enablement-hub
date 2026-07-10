@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, status
 
 from src.core.dependencies.auth import get_current_user, require_admin
 from src.core.dependencies.domain import get_content_service
+from src.core.dependencies.storage import get_media_service
 from src.db.models import Lesson, Module, Track
 from src.schemas.admin_content import (
     LessonCreateRequest,
@@ -21,6 +22,7 @@ from src.schemas.admin_content import (
     TrackOut,
 )
 from src.services.content_service import ContentService
+from src.services.media_service import MediaService
 
 __all__ = ["router"]
 
@@ -28,6 +30,7 @@ __all__ = ["router"]
 router = APIRouter(prefix="/api", tags=["content"])
 
 ContentServiceDep = Annotated[ContentService, Depends(get_content_service)]
+MediaServiceDep = Annotated[MediaService | None, Depends(get_media_service)]
 
 
 @router.get("/tracks", response_model=list[TrackOut], dependencies=[Depends(get_current_user)])
@@ -102,10 +105,28 @@ async def create_lesson(body: LessonCreateRequest, content_service: ContentServi
     dependencies=[Depends(require_admin)],
 )
 async def update_lesson(
-    lesson_id: uuid.UUID, body: LessonUpdateRequest, content_service: ContentServiceDep
-) -> Lesson:
-    """LessonPage MDX editor save (title and/or content_blocks)."""
-    return await content_service.update_lesson(lesson_id, body.model_dump(exclude_unset=True))
+    lesson_id: uuid.UUID,
+    body: LessonUpdateRequest,
+    content_service: ContentServiceDep,
+    media: MediaServiceDep,
+) -> Lesson | LessonOut:
+    """LessonPage editor save (title and/or content_blocks; both the
+    block-editor and the MDX-editor UI save through this one endpoint).
+
+    ContentService.update_lesson always strips ephemeral SAS urls before
+    persisting; when storage is configured the response is stamped so the
+    editor's just-saved view has working urls (contract consistency with
+    GET) — the DB write itself is unaffected."""
+    lesson = await content_service.update_lesson(lesson_id, body.model_dump(exclude_unset=True))
+    if media is None:
+        return lesson
+    return LessonOut(
+        id=lesson.id,
+        module_id=lesson.module_id,
+        title=lesson.title,
+        sort_order=lesson.sort_order,
+        content_blocks=media.stamp_blocks(lesson.content_blocks),
+    )
 
 
 @router.delete(

@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, status
 
 from src.core.dependencies.auth import get_current_user
 from src.core.dependencies.domain import get_learning_service, get_maturity_service
+from src.core.dependencies.storage import get_media_service
 from src.db.models import User
 from src.schemas.learning import (
     LearningGraphResponse,
@@ -16,6 +17,7 @@ from src.schemas.learning import (
 )
 from src.services.learning_service import LearningService
 from src.services.maturity_service import MaturityService
+from src.services.media_service import MediaService
 
 __all__ = ["router"]
 
@@ -24,6 +26,7 @@ router = APIRouter(prefix="/api", tags=["learning"])
 CurrentUserDep = Annotated[User, Depends(get_current_user)]
 LearningServiceDep = Annotated[LearningService, Depends(get_learning_service)]
 MaturityServiceDep = Annotated[MaturityService, Depends(get_maturity_service)]
+MediaServiceDep = Annotated[MediaService | None, Depends(get_media_service)]
 
 
 @router.get("/learning/graph", response_model=LearningGraphResponse)
@@ -50,11 +53,22 @@ async def get_module_lessons(
 
 @router.get("/lessons/{lesson_id}", response_model=LessonDetailResponse)
 async def get_lesson(
-    lesson_id: uuid.UUID, user: CurrentUserDep, learning_service: LearningServiceDep
+    lesson_id: uuid.UUID,
+    user: CurrentUserDep,
+    learning_service: LearningServiceDep,
+    media: MediaServiceDep,
 ) -> LessonDetailResponse:
     """Lesson + module + caller's answers + next destination in one response
-    (collapses LessonPage's sequential prefetch chain, fixes legacy B4)."""
-    return LessonDetailResponse(**await learning_service.lesson_detail(user.id, lesson_id))
+    (collapses LessonPage's sequential prefetch chain, fixes legacy B4).
+
+    content_blocks gets fresh SAS urls stamped onto image/blob-video blocks
+    when storage is configured. Response-only: `media.stamp_blocks` returns a
+    new list, so rebinding the aggregate dict's key never assigns back onto
+    the lesson ORM object/JSONB attribute."""
+    payload = await learning_service.lesson_detail(user.id, lesson_id)
+    if media is not None:
+        payload["content_blocks"] = media.stamp_blocks(payload["content_blocks"])
+    return LessonDetailResponse(**payload)
 
 
 @router.put("/lessons/{lesson_id}/progress", status_code=status.HTTP_204_NO_CONTENT)

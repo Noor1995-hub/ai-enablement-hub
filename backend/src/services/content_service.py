@@ -8,6 +8,7 @@ from src.services.exceptions import (
     LessonSetMismatchError,
     NotFoundError,
 )
+from src.services.media_blocks import strip_ephemeral
 
 if TYPE_CHECKING:
     from src.db.models import Lesson, Module, Track
@@ -98,6 +99,11 @@ class ContentService:
         lesson = await self._content.get_lesson(lesson_id)
         if lesson is None:
             raise NotFoundError("Lesson")
+        if "content_blocks" in values:
+            # Ephemeral SAS urls (stamped on read) must never persist, even
+            # when storage is unconfigured — the editor may echo a stale one
+            # back verbatim, and stale urls in the JSONB would go stale forever.
+            values = {**values, "content_blocks": strip_ephemeral(values["content_blocks"])}
         return await self._content.update_lesson(lesson, values)
 
     async def delete_lesson(self, lesson_id: uuid.UUID) -> None:
