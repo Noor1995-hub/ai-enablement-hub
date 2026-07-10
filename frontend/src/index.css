@@ -112,6 +112,10 @@ button:focus:not(:focus-visible),
 .btn-red { transition: background 180ms; }
 .btn-red:hover:not(:disabled) { background: var(--dlw-primary-red) !important; }
 
+/* Solid CTAs whose base is already primary-red (lesson page) — hover lightens to dot-red */
+.lesson-cta { transition: background 150ms; }
+.lesson-cta:hover:not(:disabled) { background: var(--dlw-dot-red) !important; }
+
 .btn-red-dark { transition: background 180ms; }
 .btn-red-dark:hover:not(:disabled) { background: var(--dlw-sub-red-2) !important; }
 

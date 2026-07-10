@@ -11,6 +11,7 @@ export default function HeadingBlock({ block }: { block: HeadingBlockType }) {
       fontFamily: 'var(--dlw-font-body)',
       fontWeight: 700,
       fontSize,
+      letterSpacing: block.level === 3 ? undefined : '-0.01em',
       color: '#101820',
       lineHeight: 1.25,
       margin: '0 0 12px',

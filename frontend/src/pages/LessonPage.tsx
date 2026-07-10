@@ -164,7 +164,7 @@ export default function LessonPage() {
 
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F9F9F8' }}>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff' }}>
         <p style={{ fontFamily: 'var(--dlw-font-body)', fontWeight: 300, fontSize: 15, color: '#8A8A8A' }}>Loading…</p>
       </div>
     )
@@ -184,7 +184,15 @@ export default function LessonPage() {
   const activeMode = editMode ? 'edit' : mdxMode ? 'mdx' : 'view'
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F9F9F8', fontFamily: 'var(--dlw-font-body)', display: 'flex', flexDirection: 'column' }}>
+    <div style={{
+      // Edit/MDX modes pin the page to the viewport so preview and editor scroll
+      // independently. inset:0 (not height:100vh) — vh units disagree with the
+      // baked-in :root zoom across Chromium versions, zero offsets never do.
+      ...(activeMode === 'view'
+        ? { minHeight: '100vh' }
+        : { position: 'fixed' as const, inset: 0, overflow: 'hidden' }),
+      background: '#fff', fontFamily: 'var(--dlw-font-body)', display: 'flex', flexDirection: 'column',
+    }}>
 
       <AppNav
         backTo={backUrl}
@@ -213,12 +221,12 @@ export default function LessonPage() {
         {activeMode === 'edit' ? (
           /* Edit mode: live preview left + block editor right */
           <>
-            <div style={{ flex: 1, overflowY: 'auto', borderRight: '1px solid #E2E2E2', background: '#F9F9F8' }}>
+            <div style={{ flex: 1, overflowY: 'auto', borderRight: '1px solid #E2E2E2', background: '#fff' }}>
               <div style={{ maxWidth: 760, margin: '0 auto', padding: '48px 40px' }}>
-                <p style={{ fontFamily: 'var(--dlw-font-ui)', fontWeight: 600, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#8A8A8A', margin: '0 0 20px' }}>
+                <p style={{ fontFamily: 'var(--dlw-font-ui)', fontWeight: 600, fontSize: 11, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#EF463C', margin: '0 0 14px' }}>
                   {lesson.module.title}
                 </p>
-                <h1 style={{ fontFamily: 'var(--dlw-font-body)', fontWeight: 700, fontSize: 36, color: '#101820', margin: '0 0 36px', lineHeight: 1.15 }}>
+                <h1 style={{ fontFamily: 'var(--dlw-font-body)', fontWeight: 700, fontSize: 38, lineHeight: 1.15, letterSpacing: '-0.015em', color: '#101820', margin: '0 0 32px' }}>
                   {lesson.title}
                 </h1>
                 <LessonView blocks={blocks} />
@@ -236,12 +244,12 @@ export default function LessonPage() {
         ) : activeMode === 'mdx' ? (
           /* MDX import mode: rendered preview left + MDX textarea right */
           <>
-            <div style={{ flex: 1, overflowY: 'auto', borderRight: '1px solid #E2E2E2', background: '#F9F9F8' }}>
+            <div style={{ flex: 1, overflowY: 'auto', borderRight: '1px solid #E2E2E2', background: '#fff' }}>
               <div style={{ maxWidth: 760, margin: '0 auto', padding: '48px 40px' }}>
-                <p style={{ fontFamily: 'var(--dlw-font-ui)', fontWeight: 600, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#8A8A8A', margin: '0 0 20px' }}>
+                <p style={{ fontFamily: 'var(--dlw-font-ui)', fontWeight: 600, fontSize: 11, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#EF463C', margin: '0 0 14px' }}>
                   {lesson.module.title}
                 </p>
-                <h1 style={{ fontFamily: 'var(--dlw-font-body)', fontWeight: 700, fontSize: 36, color: '#101820', margin: '0 0 36px', lineHeight: 1.15 }}>
+                <h1 style={{ fontFamily: 'var(--dlw-font-body)', fontWeight: 700, fontSize: 38, lineHeight: 1.15, letterSpacing: '-0.015em', color: '#101820', margin: '0 0 32px' }}>
                   {lesson.title}
                 </h1>
                 {mdxBlocks.length > 0
@@ -323,7 +331,7 @@ export default function LessonPage() {
               overflowY: 'auto',
             }}>
               <div style={{ padding: '24px 20px 16px', borderBottom: '1px solid #F0EFED' }}>
-                <p style={{ margin: 0, fontFamily: 'var(--dlw-font-ui)', fontWeight: 600, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.14em', color: '#8A8A8A' }}>
+                <p style={{ margin: 0, fontFamily: 'var(--dlw-font-ui)', fontWeight: 600, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.14em', color: '#8A8A8A' }}>
                   Module
                 </p>
                 <p style={{ margin: '4px 0 0', fontFamily: 'var(--dlw-font-body)', fontWeight: 700, fontSize: 13, color: '#101820', lineHeight: 1.3 }}>
@@ -338,20 +346,21 @@ export default function LessonPage() {
                     <button
                       key={l.id}
                       onClick={() => !isCurrent && navigate(`/learning/lesson/${l.id}`)}
+                      className={isCurrent ? undefined : 'menu-item-hover'}
                       style={{
                         display: 'flex', alignItems: 'flex-start', gap: 10,
                         width: '100%', textAlign: 'left',
                         padding: '10px 16px 10px 20px',
-                        background: isCurrent ? '#FEF2F2' : 'none',
+                        background: isCurrent ? 'var(--dlw-red-tint)' : 'none',
                         border: 'none',
-                        borderLeft: `3px solid ${isCurrent ? '#C42828' : 'transparent'}`,
+                        borderLeft: `3px solid ${isCurrent ? '#EF463C' : 'transparent'}`,
                         cursor: isCurrent ? 'default' : 'pointer',
                         fontFamily: 'var(--dlw-font-body)',
                       }}
                     >
                       <span style={{
                         width: 20, height: 20, borderRadius: '50%', flexShrink: 0, marginTop: 1,
-                        background: isDone ? '#C42828' : isCurrent ? '#101820' : '#E2E2E2',
+                        background: isDone ? '#EF463C' : isCurrent ? '#101820' : '#E2E2E2',
                         color: (isDone || isCurrent) ? '#fff' : '#8A8A8A',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         fontSize: 9, fontWeight: 700,
@@ -372,26 +381,30 @@ export default function LessonPage() {
             </aside>
 
             {/* Lesson content */}
-            <main ref={contentRef} style={{ flex: 1, overflowY: 'auto', padding: '48px 40px' }}>
+            <main ref={contentRef} style={{ flex: 1, overflowY: 'auto', padding: '44px 40px 90px' }}>
               <div style={{ maxWidth: 720, margin: '0 auto' }}>
 
-                <h1 style={{ fontFamily: 'var(--dlw-font-body)', fontWeight: 700, fontSize: 36, color: '#101820', margin: '0 0 36px', lineHeight: 1.15 }}>
+                <p style={{ fontFamily: 'var(--dlw-font-ui)', fontWeight: 600, fontSize: 11, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#EF463C', margin: '0 0 14px' }}>
+                  {lesson.module.title}
+                </p>
+                <h1 style={{ fontFamily: 'var(--dlw-font-body)', fontWeight: 700, fontSize: 38, lineHeight: 1.15, letterSpacing: '-0.015em', color: '#101820', margin: '0 0 32px' }}>
                   {lesson.title}
                 </h1>
 
                 <LessonView blocks={blocks} onQuizComplete={onQuizComplete} answers={answers} onAnswerChange={handleAnswerChange} />
 
                 {!hasQuiz || quizDone ? (
-                  <div style={{ marginTop: 48, paddingTop: 24, borderTop: '1px solid #E2E2E2' }}>
+                  <div style={{ marginTop: 48, paddingTop: 24, borderTop: '1px solid #F0EFED' }}>
                     <button
                       onClick={markCompleteAndAdvance}
                       disabled={completed || completing}
+                      className={completed ? undefined : 'lesson-cta'}
                       style={{
-                        padding: '12px 32px', borderRadius: 999,
-                        background: completed ? '#E8F5E9' : '#C42828',
-                        border: completed ? '1.5px solid #A5D6A7' : 'none',
-                        color: completed ? '#2E7D32' : '#fff',
-                        fontFamily: 'var(--dlw-font-body)', fontWeight: 600, fontSize: 15,
+                        padding: '11px 18px', borderRadius: 8,
+                        background: completed ? '#EDFAF4' : '#C42828',
+                        border: 'none',
+                        color: completed ? '#1D7A52' : '#fff',
+                        fontFamily: 'var(--dlw-font-body)', fontWeight: 800, fontSize: 14,
                         cursor: completed ? 'default' : 'pointer',
                         transition: 'background 0.2s, color 0.2s',
                       }}
@@ -405,7 +418,7 @@ export default function LessonPage() {
                     )}
                   </div>
                 ) : (
-                  <div style={{ marginTop: 48, paddingTop: 24, borderTop: '1px solid #E2E2E2' }}>
+                  <div style={{ marginTop: 48, paddingTop: 24, borderTop: '1px solid #F0EFED' }}>
                     <p style={{ fontFamily: 'var(--dlw-font-body)', fontWeight: 300, fontSize: 14, color: '#8A8A8A' }}>
                       Complete the quiz above to continue.
                     </p>

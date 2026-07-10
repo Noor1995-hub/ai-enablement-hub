@@ -73,6 +73,7 @@ export default function QuizBlock({ block, onComplete }: QuizBlockProps) {
     background: '#fff',
     border: '1px solid #E2E2E2',
     borderRadius: 12,
+    boxShadow: '0 1px 4px rgba(0,0,0,.05)',
     padding: '24px 28px',
     margin: '0 0 24px',
   }
@@ -83,7 +84,7 @@ export default function QuizBlock({ block, onComplete }: QuizBlockProps) {
         <h2 style={{ fontFamily: 'var(--dlw-font-body)', fontWeight: 700, fontSize: 18, color: '#101820', margin: '0 0 4px' }}>
           Quiz results
         </h2>
-        <p style={{ fontFamily: 'var(--dlw-font-body)', fontWeight: 700, fontSize: 36, color: '#3BC9BC', margin: '0 0 4px' }}>
+        <p style={{ fontFamily: 'var(--dlw-font-body)', fontWeight: 700, fontSize: 36, color: allCorrect ? '#1D7A52' : '#C42828', margin: '0 0 4px' }}>
           {score}/{shuffledQuestions.length}
         </p>
         <p style={{ fontFamily: 'var(--dlw-font-body)', fontWeight: 300, fontSize: 14, color: '#8A8A8A', margin: '0 0 20px' }}>
@@ -99,9 +100,9 @@ export default function QuizBlock({ block, onComplete }: QuizBlockProps) {
               <div key={i} style={{
                 display: 'flex', gap: 12, padding: '10px 14px',
                 borderRadius: 8,
-                background: correct ? '#F0FAF9' : '#FEF2F2',
+                background: correct ? '#EDFAF4' : '#FEF2F2',
               }}>
-                <span style={{ fontWeight: 700, flexShrink: 0, color: correct ? '#3BC9BC' : '#C42828' }}>
+                <span style={{ fontWeight: 700, flexShrink: 0, color: correct ? '#1D7A52' : '#C42828' }}>
                   {correct ? '✓' : '✗'}
                 </span>
                 <div>
@@ -120,14 +121,14 @@ export default function QuizBlock({ block, onComplete }: QuizBlockProps) {
         </div>
 
         {allCorrect ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#3BC9BC', fontFamily: 'var(--dlw-font-body)', fontWeight: 600, fontSize: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#1D7A52', fontFamily: 'var(--dlw-font-body)', fontWeight: 600, fontSize: 14 }}>
             <span>✓</span> All correct — scroll down to continue
           </div>
         ) : (
-          <button onClick={handleRetake} style={{
+          <button onClick={handleRetake} className="btn-ghost" style={{
             padding: '10px 22px', borderRadius: 999,
-            border: '1.5px solid #3BC9BC', background: 'none',
-            color: '#3BC9BC', fontFamily: 'var(--dlw-font-body)', fontWeight: 600, fontSize: 14,
+            border: '1.5px solid #E2E2E2', background: '#fff',
+            color: '#3C3C3C', fontFamily: 'var(--dlw-font-body)', fontWeight: 600, fontSize: 14,
             cursor: 'pointer',
           }}>
             Retake quiz
@@ -159,7 +160,7 @@ export default function QuizBlock({ block, onComplete }: QuizBlockProps) {
           let bg = '#fff', border = '1px solid #E2E2E2', color = '#3C3C3C'
 
           if (showFeedback) {
-            if (isCorrectOpt)      { bg = '#F0FAF9'; border = '1.5px solid #3BC9BC'; color = '#1D7A52' }
+            if (isCorrectOpt)      { bg = '#EDFAF4'; border = '1.5px solid #1D7A52'; color = '#1D7A52' }
             else if (isSelected)   { bg = '#FEF2F2'; border = '1.5px solid #C42828'; color = '#991B1B' }
             else                   { border = '1px solid #F0EFED'; color = '#B0B0B0' }
           }
@@ -181,7 +182,7 @@ export default function QuizBlock({ block, onComplete }: QuizBlockProps) {
       {showFeedback && q.explanation && (
         <div style={{
           padding: '12px 16px', borderRadius: 8, marginBottom: 16,
-          background: selectedOption === q.correct ? '#F0FAF9' : '#FEF2F2',
+          background: selectedOption === q.correct ? '#EDFAF4' : '#FEF2F2',
           color: selectedOption === q.correct ? '#1D7A52' : '#991B1B',
         }}>
           <p style={{ fontFamily: 'var(--dlw-font-body)', fontWeight: 600, fontSize: 13, margin: '0 0 4px' }}>
@@ -194,10 +195,10 @@ export default function QuizBlock({ block, onComplete }: QuizBlockProps) {
       )}
 
       {showFeedback && (
-        <button onClick={handleNext} style={{
-          padding: '10px 22px', borderRadius: 999,
-          background: '#3BC9BC', border: 'none', color: '#fff',
-          fontFamily: 'var(--dlw-font-body)', fontWeight: 600, fontSize: 14,
+        <button onClick={handleNext} className="lesson-cta" style={{
+          padding: '11px 18px', borderRadius: 8,
+          background: '#C42828', border: 'none', color: '#fff',
+          fontFamily: 'var(--dlw-font-body)', fontWeight: 800, fontSize: 14,
           cursor: 'pointer',
         }}>
           {isLast ? 'See results' : 'Next question →'}

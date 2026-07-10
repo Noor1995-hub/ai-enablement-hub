@@ -10,6 +10,7 @@ const card: CSSProperties = {
   background: '#fff',
   border: '1px solid #E2E2E2',
   borderRadius: 12,
+  boxShadow: '0 1px 4px rgba(0,0,0,.05)',
   padding: '24px 28px',
   margin: '0 0 24px',
 }
@@ -43,9 +44,9 @@ const promptStyle: CSSProperties = {
 const retryButtonStyle: CSSProperties = {
   padding: '10px 22px',
   borderRadius: 999,
-  border: '1.5px solid #3BC9BC',
-  background: 'none',
-  color: '#3BC9BC',
+  border: '1.5px solid #E2E2E2',
+  background: '#fff',
+  color: '#3C3C3C',
   fontFamily: 'var(--dlw-font-body)',
   fontWeight: 600,
   fontSize: 14,
@@ -53,13 +54,13 @@ const retryButtonStyle: CSSProperties = {
 }
 
 const checkButtonStyle: CSSProperties = {
-  padding: '10px 22px',
-  borderRadius: 999,
-  background: '#3BC9BC',
+  padding: '11px 18px',
+  borderRadius: 8,
+  background: '#C42828',
   border: 'none',
   color: '#fff',
   fontFamily: 'var(--dlw-font-body)',
-  fontWeight: 600,
+  fontWeight: 800,
   fontSize: 14,
   cursor: 'pointer',
 }
@@ -111,7 +112,7 @@ function SortMode({ block }: { block: Extract<InteractiveBlockType, { mode: 'sor
             <div key={item.id} style={{
               padding: '12px 16px', borderRadius: 8,
               border: '1px solid #E2E2E2',
-              background: correct ? '#F0FAF9' : wrong ? '#FEF2F2' : '#FAFAFA',
+              background: correct ? '#EDFAF4' : wrong ? '#FEF2F2' : '#FAFAFA',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'nowrap' }}>
                 <p style={{ fontFamily: 'var(--dlw-font-body)', fontSize: 14, color: '#101820', margin: 0, fontWeight: 500, flex: '1 1 auto', minWidth: 0 }}>
@@ -129,8 +130,8 @@ function SortMode({ block }: { block: Extract<InteractiveBlockType, { mode: 'sor
                         onClick={() => assign(item.id, bucket.id)}
                         style={{
                           padding: '6px 14px', borderRadius: 999,
-                          border: selected ? '1.5px solid #3BC9BC' : '1px solid #E2E2E2',
-                          background: selected ? '#3BC9BC' : '#fff',
+                          border: selected ? '1.5px solid #101820' : '1px solid #E2E2E2',
+                          background: selected ? '#101820' : '#fff',
                           color: selected ? '#fff' : '#3C3C3C',
                           fontFamily: 'var(--dlw-font-body)', fontSize: 13, fontWeight: 600,
                           cursor: checked ? 'default' : 'pointer',
@@ -156,9 +157,9 @@ function SortMode({ block }: { block: Extract<InteractiveBlockType, { mode: 'sor
       )}
 
       {checked ? (
-        <button type="button" onClick={reset} style={retryButtonStyle}>Try again</button>
+        <button type="button" onClick={reset} className="btn-ghost" style={retryButtonStyle}>Try again</button>
       ) : (
-        <button type="button" onClick={() => setChecked(true)} disabled={!allAssigned} style={{ ...checkButtonStyle, opacity: allAssigned ? 1 : 0.5, cursor: allAssigned ? 'pointer' : 'default' }}>
+        <button type="button" onClick={() => setChecked(true)} disabled={!allAssigned} className="lesson-cta" style={{ ...checkButtonStyle, opacity: allAssigned ? 1 : 0.5, cursor: allAssigned ? 'pointer' : 'default' }}>
           Check
         </button>
       )}
@@ -185,7 +186,7 @@ function PredictMode({ block }: { block: Extract<InteractiveBlockType, { mode: '
           let bg = '#fff', border = '1px solid #E2E2E2', color = '#3C3C3C'
 
           if (picked) {
-            if (isCorrectOpt)     { bg = '#F0FAF9'; border = '1.5px solid #3BC9BC'; color = '#1D7A52' }
+            if (isCorrectOpt)     { bg = '#EDFAF4'; border = '1.5px solid #1D7A52'; color = '#1D7A52' }
             else if (isPicked)    { bg = '#FEF2F2'; border = '1.5px solid #C42828'; color = '#991B1B' }
             else                  { border = '1px solid #F0EFED'; color = '#B0B0B0' }
           }
@@ -215,7 +216,7 @@ function PredictMode({ block }: { block: Extract<InteractiveBlockType, { mode: '
         })}
       </div>
 
-      {picked && <button type="button" onClick={reset} style={retryButtonStyle}>Predict again</button>}
+      {picked && <button type="button" onClick={reset} className="btn-ghost" style={retryButtonStyle}>Predict again</button>}
     </div>
   )
 }
@@ -247,7 +248,7 @@ function SpotTheFlawMode({ block }: { block: Extract<InteractiveBlockType, { mod
           let bg = '#fff', border = '1px solid #E2E2E2', color = '#3C3C3C'
 
           if (picked) {
-            if (candidate.isFlaw)      { bg = '#F0FAF9'; border = '1.5px solid #3BC9BC'; color = '#1D7A52' }
+            if (candidate.isFlaw)      { bg = '#EDFAF4'; border = '1.5px solid #1D7A52'; color = '#1D7A52' }
             else if (isPicked)         { bg = '#FEF2F2'; border = '1.5px solid #C42828'; color = '#991B1B' }
             else                       { border = '1px solid #F0EFED'; color = '#B0B0B0' }
           }
@@ -277,7 +278,7 @@ function SpotTheFlawMode({ block }: { block: Extract<InteractiveBlockType, { mod
         })}
       </div>
 
-      {picked && <button type="button" onClick={reset} style={retryButtonStyle}>Try again</button>}
+      {picked && <button type="button" onClick={reset} className="btn-ghost" style={retryButtonStyle}>Try again</button>}
     </div>
   )
 }

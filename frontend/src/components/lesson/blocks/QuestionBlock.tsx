@@ -13,6 +13,7 @@ export default function QuestionBlock({ block, answer, onAnswerChange }: Questio
       background: '#fff',
       border: '1px solid #E2E2E2',
       borderRadius: 12,
+      boxShadow: '0 1px 4px rgba(0,0,0,.05)',
       padding: '24px 28px',
       margin: '0 0 24px',
     }}>

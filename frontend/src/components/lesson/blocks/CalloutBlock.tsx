@@ -4,9 +4,11 @@ import { renderInline } from './renderInline'
 export default function CalloutBlock({ block }: { block: CalloutBlockType }) {
   return (
     <div style={{
-      borderLeft: '4px solid #C42828',
       background: '#fff',
-      borderRadius: '0 10px 10px 0',
+      border: '1px solid #E2E2E2',
+      borderLeft: '4px solid #C42828',
+      borderRadius: 12,
+      boxShadow: '0 1px 4px rgba(0,0,0,.05)',
       padding: '16px 20px',
       margin: '0 0 16px',
     }}>

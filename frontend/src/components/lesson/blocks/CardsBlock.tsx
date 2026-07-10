@@ -1,6 +1,8 @@
 import type { Card, CardGroupBlock } from '../../../types/contentBlocks'
 
-const BORDER_COLORS = ['#C42828', '#3BC9BC', '#7B5EA7']
+// Brand red/teal/purple + the Practitioner level rose (lib/levels.ts) so a
+// four-card group gets four distinct accents.
+const BORDER_COLORS = ['#C42828', '#72C4BF', '#AB9BCB', '#EE7684']
 
 // Real content_blocks JSON contains an older card shape with what/useCase/tools
 // instead of body; the renderer supports both, exactly like the old app.
@@ -10,12 +12,11 @@ export default function CardsBlock({ block }: { block: CardGroupBlock }) {
   const cards: LegacyCard[] = block.cards ?? []
   if (!cards.length) return null
 
-  const cols = cards.length === 2 ? 2 : Math.min(cards.length, 3)
-
   return (
     <div style={{
+      // One row per group: grid stretch keeps every card the same height.
       display: 'grid',
-      gridTemplateColumns: `repeat(${cols}, 1fr)`,
+      gridTemplateColumns: `repeat(${cards.length}, minmax(0, 1fr))`,
       gap: 16,
       margin: '0 0 24px',
     }}>
@@ -23,8 +24,9 @@ export default function CardsBlock({ block }: { block: CardGroupBlock }) {
         <div key={card.id ?? i} style={{
           background: '#fff',
           border: '1px solid #E2E2E2',
-          borderLeft: `4px solid ${BORDER_COLORS[i % 3]}`,
-          borderRadius: '0 10px 10px 0',
+          borderLeft: `4px solid ${BORDER_COLORS[i % BORDER_COLORS.length]}`,
+          borderRadius: 12,
+          boxShadow: '0 1px 4px rgba(0,0,0,.05)',
           padding: '18px 20px',
         }}>
           <h3 style={{
