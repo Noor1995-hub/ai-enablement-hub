@@ -58,6 +58,19 @@ export function blocksToMdx(blocks: ContentBlock[] | null | undefined): string {
         case 'try_it_yourself':
           return `<TryItYourself data="${encodeBlock(block)}" />`
 
+        // Strip the ephemeral SAS `url` before encoding — it's re-stamped on read
+        // and must never be persisted. (encodeBlock → JSON.stringify drops the
+        // `url: undefined` key.) blob_path is the only persisted image locator.
+        case 'image':
+          return `<Image data="${encodeBlock({ ...block, url: undefined })}" />`
+
+        // Same for a blob-sourced video; an embed video's `url` IS persisted data
+        // (the normalized provider embed URL) so it is kept as-is.
+        case 'video':
+          return block.source === 'blob'
+            ? `<Video data="${encodeBlock({ ...block, url: undefined })}" />`
+            : `<Video data="${encodeBlock(block)}" />`
+
         case 'question':
           return ''
 

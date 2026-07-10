@@ -69,6 +69,27 @@ export type TryItYourselfBlock = {
   whatToNotice: string
 }
 
+// Image / video media blocks. `url` is EPHEMERAL: the backend stamps a fresh
+// SAS `url` onto image and blob-sourced video blocks at read time and strips it
+// again on write, so `blob_path` is the only persisted locator for uploads. An
+// embed video carries no blob — its `url` is a normalized provider embed URL and
+// IS persisted data. One `video` type with a `source` discriminator (precedent:
+// interactive.mode); embed↔upload is an editor toggle, not two block types.
+export type ImageBlock = {
+  id: string
+  type: 'image'
+  blob_path: string          // ONLY persisted locator, e.g. "images/6f0c….png"
+  alt: string
+  caption?: string
+  width?: number             // % of content column, 25–100; absent = 100
+  url?: string               // EPHEMERAL — backend-stamped SAS, stripped on write
+}
+
+export type VideoBlock = { id: string; type: 'video'; caption?: string } & (
+  | { source: 'embed'; url: string }                     // persisted embed URL
+  | { source: 'blob'; blob_path: string; url?: string }  // url EPHEMERAL
+)
+
 export type ContentBlock =
   | HeadingBlock
   | ParagraphBlock
@@ -79,5 +100,7 @@ export type ContentBlock =
   | WhitespaceBlock
   | InteractiveBlock
   | TryItYourselfBlock
+  | ImageBlock
+  | VideoBlock
 
 export type ContentBlockType = ContentBlock['type']

@@ -11,6 +11,8 @@ import QuestionEditor  from './editors/QuestionEditor'
 import SpacerEditor    from './editors/SpacerEditor'
 import InteractiveEditor from './editors/InteractiveEditor'
 import TryItYourselfEditor from './editors/TryItYourselfEditor'
+import ImageEditor      from './editors/ImageEditor'
+import VideoEditor      from './editors/VideoEditor'
 
 // Exhaustively keyed on the discriminated union, mirroring LessonView's
 // RENDERERS map: an 8th block type breaks this at compile time.
@@ -29,6 +31,8 @@ const EDITORS: {
   [BLOCK_TYPES.WHITESPACE]: SpacerEditor,
   [BLOCK_TYPES.INTERACTIVE]: InteractiveEditor,
   [BLOCK_TYPES.TRY_IT_YOURSELF]: TryItYourselfEditor,
+  [BLOCK_TYPES.IMAGE]:      ImageEditor,
+  [BLOCK_TYPES.VIDEO]:      VideoEditor,
 }
 
 const TYPE_ORDER: ContentBlock['type'][] = [
@@ -41,6 +45,8 @@ const TYPE_ORDER: ContentBlock['type'][] = [
   BLOCK_TYPES.WHITESPACE,
   BLOCK_TYPES.INTERACTIVE,
   BLOCK_TYPES.TRY_IT_YOURSELF,
+  BLOCK_TYPES.IMAGE,
+  BLOCK_TYPES.VIDEO,
 ]
 
 export interface EditedLesson {

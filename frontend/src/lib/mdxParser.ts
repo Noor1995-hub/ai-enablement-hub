@@ -1,4 +1,4 @@
-import type { ContentBlock, InteractiveBlock, TryItYourselfBlock } from '../types/contentBlocks'
+import type { ContentBlock, ImageBlock, InteractiveBlock, TryItYourselfBlock, VideoBlock } from '../types/contentBlocks'
 import {
   createCallout,
   createCardGroup,
@@ -36,7 +36,7 @@ export function parseMdxToBlocks(mdx: string): ContentBlock[] {
 
   // Split on self-closing component tags (base64 payloads contain no `>`, so
   // the [^>] tag matcher stays intact for Interactive/TryItYourself too)
-  const segments = mdx.split(/(<(?:Cards|Quiz|Spacer|Interactive|TryItYourself)\s[^>]*?\/>)/g)
+  const segments = mdx.split(/(<(?:Cards|Quiz|Spacer|Interactive|TryItYourself|Image|Video)\s[^>]*?\/>)/g)
 
   for (const seg of segments) {
     const cardsMatch = seg.match(/^<Cards\s+data='([^']*)'/)
@@ -84,6 +84,28 @@ export function parseMdxToBlocks(mdx: string): ContentBlock[] {
     if (tryItMatch) {
       try {
         blocks.push(decodeBlock<TryItYourselfBlock>(tryItMatch[1]))
+      } catch {
+        // malformed payload — skip
+      }
+      continue
+    }
+
+    const imageMatch = seg.match(/^<Image\s+data="([^"]*)"/)
+    if (imageMatch) {
+      try {
+        // No ephemeral `url` in the payload (stripped on serialise); the backend
+        // re-stamps a SAS on the next read.
+        blocks.push(decodeBlock<ImageBlock>(imageMatch[1]))
+      } catch {
+        // malformed payload — skip
+      }
+      continue
+    }
+
+    const videoMatch = seg.match(/^<Video\s+data="([^"]*)"/)
+    if (videoMatch) {
+      try {
+        blocks.push(decodeBlock<VideoBlock>(videoMatch[1]))
       } catch {
         // malformed payload — skip
       }

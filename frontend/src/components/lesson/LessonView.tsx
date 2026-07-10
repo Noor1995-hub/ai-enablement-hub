@@ -9,6 +9,8 @@ import QuestionBlock  from './blocks/QuestionBlock'
 import SpacerBlock    from './blocks/SpacerBlock'
 import InteractiveBlock from './blocks/InteractiveBlock'
 import TryItYourselfBlock from './blocks/TryItYourselfBlock'
+import ImageBlock    from './blocks/ImageBlock'
+import VideoBlock    from './blocks/VideoBlock'
 
 interface BlockExtraProps {
   onComplete?: () => void
@@ -30,6 +32,8 @@ const RENDERERS: {
   whitespace: SpacerBlock,
   interactive: InteractiveBlock,
   try_it_yourself: TryItYourselfBlock,
+  image:      ImageBlock,
+  video:      VideoBlock,
 }
 
 interface LessonViewProps {

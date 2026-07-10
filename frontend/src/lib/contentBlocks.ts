@@ -4,12 +4,14 @@ import type {
   CardGroupBlock,
   ContentBlock,
   HeadingBlock,
+  ImageBlock,
   InteractiveBlock,
   ParagraphBlock,
   QuestionBlock,
   QuizBlock,
   QuizQuestion,
   TryItYourselfBlock,
+  VideoBlock,
   WhitespaceBlock,
 } from '../types/contentBlocks'
 
@@ -23,6 +25,8 @@ export const BLOCK_TYPES = {
   WHITESPACE: 'whitespace',
   INTERACTIVE: 'interactive',
   TRY_IT_YOURSELF: 'try_it_yourself',
+  IMAGE: 'image',
+  VIDEO: 'video',
 } as const
 
 export const BLOCK_LABELS: Record<ContentBlock['type'], string> = {
@@ -35,6 +39,8 @@ export const BLOCK_LABELS: Record<ContentBlock['type'], string> = {
   whitespace: 'Whitespace',
   interactive: 'Predict / sort / spot-the-flaw',
   try_it_yourself: 'Try it yourself',
+  image: 'Image',
+  video: 'Video',
 }
 
 export function createHeading(level: HeadingBlock['level'] = 2, text = ''): HeadingBlock {
@@ -135,6 +141,18 @@ export function createTryItYourself(): TryItYourselfBlock {
   }
 }
 
+// Empty blob_path/alt — the author fills these in the editor after uploading.
+export function createImage(): ImageBlock {
+  return { id: crypto.randomUUID(), type: BLOCK_TYPES.IMAGE, blob_path: '', alt: '' }
+}
+
+// Defaults to an empty embed URL; the editor's source toggle swaps to the
+// upload (blob) variant when the author picks it instead (same "insert a
+// sensible default, customise after" flow as createInteractive).
+export function createVideo(): VideoBlock {
+  return { id: crypto.randomUUID(), type: BLOCK_TYPES.VIDEO, source: 'embed', url: '' }
+}
+
 export const BLOCK_FACTORIES: Record<ContentBlock['type'], () => ContentBlock> = {
   [BLOCK_TYPES.HEADING]: () => createHeading(),
   [BLOCK_TYPES.PARAGRAPH]: () => createParagraph(),
@@ -145,4 +163,6 @@ export const BLOCK_FACTORIES: Record<ContentBlock['type'], () => ContentBlock> =
   [BLOCK_TYPES.WHITESPACE]: () => createWhitespace(),
   [BLOCK_TYPES.INTERACTIVE]: () => createInteractive(),
   [BLOCK_TYPES.TRY_IT_YOURSELF]: () => createTryItYourself(),
+  [BLOCK_TYPES.IMAGE]: () => createImage(),
+  [BLOCK_TYPES.VIDEO]: () => createVideo(),
 }
