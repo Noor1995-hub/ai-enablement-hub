@@ -7,6 +7,7 @@ from src.core.configs.auth import AuthSettings
 from src.core.configs.database import DatabaseSettings
 from src.core.configs.email import EmailSettings
 from src.core.configs.entra import EntraSettings
+from src.core.configs.storage import StorageSettings
 
 __all__ = ["Settings"]
 
@@ -20,6 +21,8 @@ class Settings(BaseSettings):
     entra: EntraSettings | None = None
     # None = invite/reset emails disabled (admin shares links manually).
     email: EmailSettings | None = None
+    # None = lesson-media upload/serving disabled (feature not wired up yet).
+    storage: StorageSettings | None = None
 
     model_config = SettingsConfigDict(
         frozen=True,

@@ -74,11 +74,13 @@ def _reset_rate_limiter() -> Generator[None]:
 
 @pytest.fixture(scope="session")
 def test_settings() -> Settings:
-    # email=None explicitly: keeps tests hermetic (and away from real ACS)
-    # even once the developer's backend/.env carries EMAIL__* values.
+    # email=None/storage=None explicitly: keeps tests hermetic (and away from
+    # real ACS/Blob Storage) even once the developer's backend/.env carries
+    # EMAIL__*/STORAGE__* values.
     return Settings(
         auth=AuthSettings(jwt_secret=SecretStr("integration-test-jwt-secret-0123456789")),
         email=None,
+        storage=None,
     )
 
 

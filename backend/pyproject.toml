@@ -21,6 +21,10 @@ dependencies = [
     "httpx~=0.28",
     "cryptography~=45.0",
     "azure-communication-email~=1.1",
+    # Lesson media: private Blob Storage container + read-time SAS URLs.
+    "azure-storage-blob~=12.24",
+    # Multipart form parsing for the (upcoming) media upload endpoint.
+    "python-multipart~=0.0.20",
 ]
 
 [project.optional-dependencies]

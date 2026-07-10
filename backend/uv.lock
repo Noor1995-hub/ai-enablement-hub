@@ -10,6 +10,7 @@ dependencies = [
     { name = "alembic" },
     { name = "asyncpg" },
     { name = "azure-communication-email" },
+    { name = "azure-storage-blob" },
     { name = "bcrypt" },
     { name = "cryptography" },
     { name = "email-validator" },
@@ -18,6 +19,7 @@ dependencies = [
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "pyjwt" },
+    { name = "python-multipart" },
     { name = "sqlalchemy" },
     { name = "uvicorn", extra = ["standard"] },
 ]
@@ -42,6 +44,7 @@ requires-dist = [
     { name = "alembic", specifier = "~=1.18" },
     { name = "asyncpg", specifier = "~=0.30" },
     { name = "azure-communication-email", specifier = "~=1.1" },
+    { name = "azure-storage-blob", specifier = "~=12.24" },
     { name = "bcrypt", specifier = "~=4.2" },
     { name = "cryptography", specifier = "~=45.0" },
     { name = "email-validator", specifier = "~=2.2" },
@@ -56,6 +59,7 @@ requires-dist = [
     { name = "pytest", marker = "extra == 'dev'", specifier = "~=8.3" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = "~=1.0" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = "~=6.0" },
+    { name = "python-multipart", specifier = "~=0.0.20" },
     { name = "ruff", marker = "extra == 'dev'", specifier = "~=0.11" },
     { name = "sqlalchemy", specifier = "~=2.0" },
     { name = "uvicorn", extras = ["standard"], specifier = "~=0.44" },
@@ -172,6 +176,21 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/a6/f3/b416179e408990df5db0d516283022dde0f5d0111d98c1a848e41853e81c/azure_core-1.41.0.tar.gz", hash = "sha256:f46ff5dfcd230f25cf1c19e8a34b8dc08a337b2503e268bb600a16c00db8ad5a", size = 381042, upload-time = "2026-05-07T23:30:54.302Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/5b/db/325c6d7312d2200251c52323878281045aaffcb5586612296484e4280eaa/azure_core-1.41.0-py3-none-any.whl", hash = "sha256:522b4011e8180b1a3dcd2024396a4e7fe9ac37fb8597db47163d230b5efe892d", size = 220920, upload-time = "2026-05-07T23:30:56.357Z" },
+]
+
+[[package]]
+name = "azure-storage-blob"
+version = "12.30.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "azure-core" },
+    { name = "cryptography" },
+    { name = "isodate" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/3b/48/84a820d898267f662b5c06f7cd76fdb8a9e272b44aa9376cef3ec0f6a294/azure_storage_blob-12.30.0.tar.gz", hash = "sha256:2cd74d4d5731e5eb6b8d5c5056ee115a5e88f8fdf22517b739836fda685018be", size = 618229, upload-time = "2026-06-08T11:45:35.575Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5e/0b/e106f0fd7fa785867d9ffcc47dc9e6237c0e58f51058473b777487a98edc/azure_storage_blob-12.30.0-py3-none-any.whl", hash = "sha256:d415ac50b67a8da6b3ae7e9f1014b1b55cd7aafa0b8d4ca9b380568dc7360423", size = 435610, upload-time = "2026-06-08T11:45:37.213Z" },
 ]
 
 [[package]]
@@ -888,6 +907,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/82/ed/0301aeeac3e5353ef3d94b6ec08bbcabd04a72018415dcb29e588514bba8/python_dotenv-1.2.2.tar.gz", hash = "sha256:2c371a91fbd7ba082c2c1dc1f8bf89ca22564a087c2c287cd9b662adde799cf3", size = 50135, upload-time = "2026-03-01T16:00:26.196Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/0b/d7/1959b9648791274998a9c3526f6d0ec8fd2233e4d4acce81bbae76b44b2a/python_dotenv-1.2.2-py3-none-any.whl", hash = "sha256:1d8214789a24de455a8b8bd8ae6fe3c6b69a5e3d64aa8a8e5d68e694bbcb285a", size = 22101, upload-time = "2026-03-01T16:00:25.09Z" },
+]
+
+[[package]]
+name = "python-multipart"
+version = "0.0.32"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/5b/42/55c32bb9b12693c092ad250a0e82edb5b31ddeda6eb772de5f308b3804ad/python_multipart-0.0.32.tar.gz", hash = "sha256:be54b7f3fa167bb83e4fcd936b887b708f4e57fe75911c02aebf53efaf8d938e", size = 46881, upload-time = "2026-06-04T16:18:58.647Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e1/04/e8135ebd1ad02c56ec633277529b2602ff99ff634be76cdba5744cf554fd/python_multipart-0.0.32-py3-none-any.whl", hash = "sha256:ff6d3f776f16878c894e52e107296ffc890e913c611b1a4ec6c44e2821fe2e23", size = 30042, upload-time = "2026-06-04T16:18:57.319Z" },
 ]
 
 [[package]]
