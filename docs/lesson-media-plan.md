@@ -105,8 +105,9 @@ export type VideoBlock = { id: string; type: 'video'; caption?: string } & (
   a QUANTIZED validity window so URLs are stable and browser-cacheable within a window (a
   `start = now−15min` design yields a byte-different signature per request — images re-download
   on every lesson visit and a 300 MB video never caches): start = most recent midnight UTC,
-  expiry = start + 48 h (default `sas_ttl_hours: int = 48`, min 25 so a fetch just before
-  midnight stays valid ≥ 24 h; clock skew covered because start is always in the past). Same
+  expiry = start + 48 h (default `sas_ttl_hours: int = 48` → worst-case ≥ 24 h remaining
+  validity for a fetch just before midnight; hard floor 25 → worst case ≥ 1 h; clock skew
+  covered because start is always in the past). Same
   security posture, one signature per blob per day. New `UnsupportedMediaTypeError` /
   `PayloadTooLargeError` in `services/exceptions.py` → 415/413 handlers + `_ERROR_CODES` entries
   in `main.py`.
