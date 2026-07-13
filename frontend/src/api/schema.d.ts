@@ -324,6 +324,11 @@ export interface paths {
          * Get Lesson
          * @description Lesson + module + caller's answers + next destination in one response
          *     (collapses LessonPage's sequential prefetch chain, fixes legacy B4).
+         *
+         *     content_blocks gets fresh SAS urls stamped onto image/blob-video blocks
+         *     when storage is configured. Response-only: `media.stamp_blocks` returns a
+         *     new list, so rebinding the aggregate dict's key never assigns back onto
+         *     the lesson ORM object/JSONB attribute.
          */
         get: operations["get_lesson_api_lessons__lesson_id__get"];
         put?: never;
@@ -843,7 +848,13 @@ export interface paths {
         head?: never;
         /**
          * Update Lesson
-         * @description LessonPage MDX editor save (title and/or content_blocks).
+         * @description LessonPage editor save (title and/or content_blocks; both the
+         *     block-editor and the MDX-editor UI save through this one endpoint).
+         *
+         *     ContentService.update_lesson always strips ephemeral SAS urls before
+         *     persisting; when storage is configured the response is stamped so the
+         *     editor's just-saved view has working urls (contract consistency with
+         *     GET) — the DB write itself is unaffected.
          */
         patch: operations["update_lesson_api_admin_lessons__lesson_id__patch"];
         trace?: never;
@@ -863,6 +874,32 @@ export interface paths {
          */
         put: operations["reorder_lessons_api_admin_modules__module_id__lessons_order_put"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/media": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload Media
+         * @description Multipart field `file`. Content-Length is checked against the largest
+         *     per-kind limit (300 MiB, video) BEFORE the body is read at all; the
+         *     service's own per-kind check against the actual spooled size remains
+         *     authoritative, and the body is streamed to blob storage (never read into
+         *     memory). A declarative `file: UploadFile = File(...)` parameter can't be
+         *     used here: FastAPI parses the whole multipart body before any Depends()
+         *     runs, which would defeat the fast-fail.
+         */
+        post: operations["upload_media_api_admin_media_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1367,6 +1404,21 @@ export interface components {
         MaturityOverrideRequest: {
             /** Level */
             level: ("explore" | "practitioner" | "integrator" | "multiplier") | null;
+        };
+        /**
+         * MediaUploadOut
+         * @description `url` is a freshly-stamped SAS for instant admin-side preview; it is
+         *     never persisted (the lesson stores `blob_path` only).
+         */
+        MediaUploadOut: {
+            /** Blob Path */
+            blob_path: string;
+            /** Url */
+            url: string;
+            /** Content Type */
+            content_type: string;
+            /** Size Bytes */
+            size_bytes: number;
         };
         /** ModuleCreateRequest */
         ModuleCreateRequest: {
@@ -3188,6 +3240,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_media_api_admin_media_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaUploadOut"];
                 };
             };
         };
