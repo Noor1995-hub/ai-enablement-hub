@@ -25,6 +25,8 @@ properties:
         value: "__JWT_SECRET__"
       - name: acs-connection-string
         value: "__ACS_CONNECTION_STRING__"
+      - name: storage-connection-string
+        value: "__STORAGE_CONNECTION_STRING__"
   template:
     containers:
       - name: ai-enablement-hub
@@ -59,6 +61,8 @@ properties:
             secretRef: acs-connection-string
           - name: EMAIL__SENDER_ADDRESS
             value: "hub@c07b8f9c-80df-4e8a-9fb1-5671cfd049a5.azurecomm.net"
+          - name: STORAGE__CONNECTION_STRING
+            secretRef: storage-connection-string
         probes:
           # startup.py runs `alembic upgrade head` BEFORE uvicorn binds :8000,
           # so nothing answers until migrations finish - budget ~240s.

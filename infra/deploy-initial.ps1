@@ -31,12 +31,19 @@ $jwt = [Convert]::ToBase64String($bytes).TrimEnd('=').Replace('+', '-').Replace(
 $acsConn = (& $az rest --method post --url "https://management.azure.com/subscriptions/e2b785b0-d93d-4c19-9537-4f752f759cb1/resourceGroups/imaginemore-playground/providers/Microsoft.Communication/communicationServices/imaginemore-playground-acs/listKeys?api-version=2023-04-01" --query primaryConnectionString -o tsv)
 if (-not $acsConn) { throw "could not read the ACS connection string" }
 
+# Storage connection string for lesson-media uploads/SAS. Storage accounts
+# have a dedicated az CLI command for this (unlike ACS above, no listKeys
+# REST call needed).
+$storageConn = (& $az storage account show-connection-string --name aienablementhubmedia --resource-group imaginemore-playground --query connectionString -o tsv)
+if (-not $storageConn) { throw "could not read the storage account connection string" }
+
 $yaml = [IO.File]::ReadAllText((Join-Path $PSScriptRoot "containerapp.yaml"), [Text.UTF8Encoding]::new($false))
 $yaml = $yaml.Replace("__ACR_PASSWORD__", $acrPwd)
 $yaml = $yaml.Replace("__DB_PASSWORD__", $dbPwd)
 $yaml = $yaml.Replace("__ALEMBIC_DATABASE_URL__", $alembicUrl)
 $yaml = $yaml.Replace("__JWT_SECRET__", $jwt)
 $yaml = $yaml.Replace("__ACS_CONNECTION_STRING__", $acsConn)
+$yaml = $yaml.Replace("__STORAGE_CONNECTION_STRING__", $storageConn)
 $yaml = $yaml.Replace("__TAG__", $Tag)
 
 # az parses the yaml with the system codepage on Windows - keep it pure ASCII.
