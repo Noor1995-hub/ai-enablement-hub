@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime, timedelta
-from typing import Any, NamedTuple, Protocol
+from io import SEEK_END, SEEK_SET
+from typing import Any, BinaryIO, NamedTuple, Protocol
 
 from azure.storage.blob import BlobSasPermissions, ContentSettings, generate_blob_sas
 from starlette.concurrency import run_in_threadpool
@@ -56,6 +57,18 @@ def _classify(content_type: str) -> tuple[str, str, int]:
     raise UnsupportedMediaTypeError(content_type)
 
 
+def _stream_length(stream: BinaryIO) -> int:
+    """Actual byte length of a seekable stream, measured by seeking to the end
+    — never by reading it into memory (reading would negate the whole point of
+    streaming the >1 MiB spooled upload off disk). Restores the cursor after."""
+    current = stream.tell()
+    try:
+        stream.seek(0, SEEK_END)
+        return stream.tell()
+    finally:
+        stream.seek(current, SEEK_SET)
+
+
 class MediaService:
     """Validated image/video upload to a private Blob Storage container, plus
     read-only SAS URL generation for lesson content_blocks (the stamping/
@@ -78,19 +91,32 @@ class MediaService:
         self._container = container
         self._sas_ttl_hours = sas_ttl_hours
 
-    async def upload(self, *, content_type: str, data: bytes) -> UploadedMedia:
+    async def upload(
+        self, *, content_type: str, stream: BinaryIO, size: int | None = None
+    ) -> UploadedMedia:
+        # Content type first, so an unsupported upload is rejected (415) before
+        # the body is measured or streamed anywhere.
         kind, ext, max_bytes = _classify(content_type)
-        # Authoritative size check: the actual (spooled) bytes, never the
-        # client-supplied Content-Length header.
-        if len(data) > max_bytes:
+        # Authoritative size check on the ACTUAL upload bytes, never a
+        # client-supplied Content-Length. `size` is the multipart parser's own
+        # byte count (Starlette's UploadFile.size), a trusted fast path; when it
+        # is absent we measure the spooled stream by seeking — which, unlike
+        # reading, keeps the >1 MiB-to-disk spool from being pulled into RAM.
+        actual_size = size if size is not None else _stream_length(stream)
+        if actual_size > max_bytes:
             raise PayloadTooLargeError(max_bytes)
 
         blob_path = f"{kind}s/{uuid.uuid4().hex}{ext}"
         blob_client = self._uploader.get_blob_client(self._container, blob_path)
-        # The SDK's BlobClient is sync — never run it on the event loop.
+        # Upload the spooled file object itself (not its bytes) so a large video
+        # stays on disk. Rewind first: the size check (or the parser) may have
+        # left the cursor at EOF. The SDK's BlobClient is sync — never on the
+        # event loop.
+        stream.seek(0)
         await run_in_threadpool(
             blob_client.upload_blob,
-            data,
+            stream,
+            length=actual_size,
             overwrite=False,
             content_settings=ContentSettings(content_type=content_type),
         )
@@ -98,7 +124,7 @@ class MediaService:
             blob_path=blob_path,
             url=self.sas_url(blob_path),
             content_type=content_type,
-            size_bytes=len(data),
+            size_bytes=actual_size,
         )
 
     def sas_url(self, blob_path: str) -> str:

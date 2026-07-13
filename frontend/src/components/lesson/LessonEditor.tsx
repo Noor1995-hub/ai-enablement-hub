@@ -106,17 +106,20 @@ export default function LessonEditor({ lesson, onSave, onLiveChange }: LessonEdi
   async function save() {
     setSaving(true)
     setError(null)
-    const { error: err } = await client.PATCH('/api/admin/lessons/{lesson_id}', {
+    const { data, error: err } = await client.PATCH('/api/admin/lessons/{lesson_id}', {
       params: { path: { lesson_id: lesson.id } },
       body: { title, content_blocks: blocks },
     })
 
     setSaving(false)
-    if (err) {
+    if (err || !data) {
       setError(errorMessage(err, 'Failed to save.'))
     } else {
       setDirty(false)
-      onSave?.({ title, content_blocks: blocks })
+      // Hand up the backend's stamped content_blocks (the write strips
+      // ephemeral SAS urls; the response re-stamps them) so the just-saved
+      // preview shows working media instead of placeholders.
+      onSave?.({ title: data.title, content_blocks: data.content_blocks as ContentBlock[] })
     }
   }
 

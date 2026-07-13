@@ -29,6 +29,7 @@ class UploadCall:
     container: str
     blob: str
     data: bytes
+    length: int | None
     overwrite: bool | None
     content_type: str | None
 
@@ -41,17 +42,23 @@ class _FakeBlobClient:
 
     def upload_blob(
         self,
-        data: bytes,
+        data: Any,
         *,
+        length: int | None = None,
         overwrite: bool | None = None,
         content_settings: Any = None,
         **kwargs: Any,
     ) -> None:
+        # Production hands upload_blob the spooled multipart file object (a
+        # stream), not bytes; read it here so tests can still assert on the
+        # real uploaded content and prove the stream was rewound.
+        content = bytes(data) if isinstance(data, bytes | bytearray) else data.read()
         self._calls.append(
             UploadCall(
                 container=self._container,
                 blob=self._blob,
-                data=data,
+                data=content,
+                length=length,
                 overwrite=overwrite,
                 content_type=getattr(content_settings, "content_type", None),
             )

@@ -20,6 +20,9 @@ const VIMEO_HOSTS = new Set(['vimeo.com', 'www.vimeo.com', 'player.vimeo.com'])
 // YouTube video ids are 11 chars from a URL-safe alphabet; Vimeo ids are numeric.
 const YOUTUBE_ID = /^[A-Za-z0-9_-]{11}$/
 const VIMEO_ID = /^\d+$/
+// Vimeo unlisted-video privacy hash (the `h` in vimeo.com/{id}/{hash}); a short
+// alphanumeric token. Anything else is treated as "no hash" rather than a reject.
+const VIMEO_HASH = /^[A-Za-z0-9]+$/
 
 // Pull the src out of a pasted `<iframe … src="…" …>` snippet (single or double
 // quoted). Returns null when there is no iframe/src to extract.
@@ -69,17 +72,27 @@ export function normalizeEmbedUrl(input: string): string | null {
     return id && YOUTUBE_ID.test(id) ? `https://www.youtube-nocookie.com/embed/${id}` : null
   }
 
-  // ── Vimeo: vimeo.com/{id} or player.vimeo.com/video/{id} ────────────────────
+  // ── Vimeo: vimeo.com/{id}[/{hash}] or player.vimeo.com/video/{id}[?h=hash] ───
   if (VIMEO_HOSTS.has(host)) {
     const parts = segments(url)
-    const id = host === 'player.vimeo.com'
-      ? (parts[0] === 'video' ? parts[1] ?? null : null)
-      : parts[0] ?? null
-    return id && VIMEO_ID.test(id) ? `https://player.vimeo.com/video/${id}` : null
+    // player: /video/{id}[/{hash}]; plain: /{id}[/{hash}] where the second
+    // path segment is the unlisted-video privacy hash.
+    const [id, pathHash] = host === 'player.vimeo.com'
+      ? (parts[0] === 'video' ? [parts[1] ?? null, parts[2] ?? null] : [null, null])
+      : [parts[0] ?? null, parts[1] ?? null]
+    if (!id || !VIMEO_ID.test(id)) return null
+    // Preserve the privacy hash (path form for vimeo.com, ?h= for a pasted
+    // player URL) — dropping it yields an embed that refuses to play.
+    const hash = pathHash ?? url.searchParams.get('h')
+    return hash && VIMEO_HASH.test(hash)
+      ? `https://player.vimeo.com/video/${id}?h=${hash}`
+      : `https://player.vimeo.com/video/${id}`
   }
 
   // ── MS Stream / SharePoint: any https *.sharepoint.com …embed.aspx, as-is ───
-  if (host === 'sharepoint.com' || host.endsWith('.sharepoint.com')) {
+  // Subdomain required: the CSP wildcard `https://*.sharepoint.com` does NOT
+  // match the bare apex, so accepting it here would only render CSP-blocked.
+  if (host.endsWith('.sharepoint.com')) {
     if (url.protocol === 'https:' && url.pathname.toLowerCase().includes('embed.aspx')) {
       return url.toString()
     }

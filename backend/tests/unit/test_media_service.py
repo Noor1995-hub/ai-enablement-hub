@@ -8,6 +8,7 @@ from __future__ import annotations
 import re
 import uuid
 from datetime import UTC, datetime
+from io import BytesIO
 from urllib.parse import parse_qs, urlparse
 
 import pytest
@@ -82,10 +83,11 @@ class TestSasUrl:
 class TestUploadValidation:
     async def test_png_upload_returns_images_prefixed_blob_path(self) -> None:
         service, _ = _service()
-        result = await service.upload(content_type="image/png", data=b"\x89PNG fake bytes")
+        content = b"\x89PNG fake bytes"
+        result = await service.upload(content_type="image/png", stream=BytesIO(content))
         assert re.fullmatch(rf"images/{_UUID_HEX}\.png", result.blob_path)
         assert result.content_type == "image/png"
-        assert result.size_bytes == len(b"\x89PNG fake bytes")
+        assert result.size_bytes == len(content)
         assert result.url == service.sas_url(result.blob_path)
 
     @pytest.mark.parametrize(
@@ -101,19 +103,19 @@ class TestUploadValidation:
     )
     async def test_extension_is_mapped_from_content_type(self, content_type: str, ext: str) -> None:
         service, _ = _service()
-        result = await service.upload(content_type=content_type, data=b"data")
+        result = await service.upload(content_type=content_type, stream=BytesIO(b"data"))
         assert result.blob_path.endswith(ext)
 
     async def test_video_upload_returns_videos_prefixed_blob_path(self) -> None:
         service, _ = _service()
-        result = await service.upload(content_type="video/mp4", data=b"fake mp4 bytes")
+        result = await service.upload(content_type="video/mp4", stream=BytesIO(b"fake mp4 bytes"))
         assert re.fullmatch(rf"videos/{_UUID_HEX}\.mp4", result.blob_path)
 
     async def test_blob_name_is_never_derived_from_a_filename(self) -> None:
         """upload() takes no filename parameter at all — the name is always
         kind/uuid4().hex + mapped extension."""
         service, _ = _service()
-        result = await service.upload(content_type="image/png", data=b"data")
+        result = await service.upload(content_type="image/png", stream=BytesIO(b"data"))
         assert "malicious" not in result.blob_path
         # The path segment (sans extension) must be exactly a uuid4 hex digest.
         name = result.blob_path.removeprefix("images/").removesuffix(".png")
@@ -121,30 +123,62 @@ class TestUploadValidation:
 
     async def test_upload_is_called_with_overwrite_false_and_content_settings(self) -> None:
         service, uploader = _service()
-        await service.upload(content_type="image/png", data=b"data")
+        await service.upload(content_type="image/png", stream=BytesIO(b"data"))
         [call] = uploader.calls
         assert call.overwrite is False
         assert call.content_type == "image/png"
         assert call.data == b"data"
 
+    async def test_upload_streams_full_content_with_length(self) -> None:
+        """The spooled stream (not a bytes copy) is handed to the SDK with an
+        explicit length; the recorded content proves it was rewound and fully
+        readable from position 0."""
+        service, uploader = _service()
+        content = b"\x00\x01\x02 body of the upload"
+        await service.upload(content_type="image/png", stream=BytesIO(content))
+        [call] = uploader.calls
+        assert call.data == content
+        assert call.length == len(content)
+
+    async def test_upload_rewinds_a_stream_left_at_eof(self) -> None:
+        """size=None forces the service to measure the stream by seeking to the
+        end; it must rewind before uploading so no bytes are lost."""
+        service, uploader = _service()
+        content = b"already-read stream contents"
+        stream = BytesIO(content)
+        stream.read()  # leave the cursor at EOF
+        result = await service.upload(content_type="video/mp4", stream=stream, size=None)
+        [call] = uploader.calls
+        assert call.data == content
+        assert result.size_bytes == len(content)
+
     @pytest.mark.parametrize("content_type", ["text/plain", "image/svg+xml", "application/pdf", ""])
     async def test_unsupported_content_type_is_rejected(self, content_type: str) -> None:
         service, uploader = _service()
         with pytest.raises(UnsupportedMediaTypeError):
-            await service.upload(content_type=content_type, data=b"data")
+            await service.upload(content_type=content_type, stream=BytesIO(b"data"))
         assert uploader.calls == []
 
     async def test_oversize_image_is_rejected(self) -> None:
         service, uploader = _service()
         oversize = b"x" * (10 * 1024 * 1024 + 1)
         with pytest.raises(PayloadTooLargeError):
-            await service.upload(content_type="image/png", data=oversize)
+            await service.upload(content_type="image/png", stream=BytesIO(oversize))
+        assert uploader.calls == []
+
+    async def test_oversize_is_rejected_by_measured_stream_when_size_absent(self) -> None:
+        """With no size hint the check falls back to measuring the actual
+        spooled stream — that measurement stays authoritative."""
+        service, uploader = _service()
+        oversize = b"x" * (10 * 1024 * 1024 + 1)
+        with pytest.raises(PayloadTooLargeError):
+            await service.upload(content_type="image/png", stream=BytesIO(oversize), size=None)
         assert uploader.calls == []
 
     async def test_image_at_exact_max_size_is_accepted(self) -> None:
         service, _ = _service()
         exactly_max = b"x" * (10 * 1024 * 1024)
-        result = await service.upload(content_type="image/png", data=exactly_max)
+        result = await service.upload(content_type="image/png", stream=BytesIO(exactly_max))
         assert result.size_bytes == 10 * 1024 * 1024
 
     async def test_oversize_video_is_rejected(self) -> None:
@@ -152,7 +186,7 @@ class TestUploadValidation:
         # One byte over the 300 MiB video cap.
         oversize = b"x" * (300 * 1024 * 1024 + 1)
         with pytest.raises(PayloadTooLargeError):
-            await service.upload(content_type="video/mp4", data=oversize)
+            await service.upload(content_type="video/mp4", stream=BytesIO(oversize))
         assert uploader.calls == []
 
     async def test_image_sized_video_is_not_rejected_by_the_image_cap(self) -> None:
@@ -160,7 +194,7 @@ class TestUploadValidation:
         proves the size limit is chosen by the upload's own kind."""
         service, _ = _service()
         data = b"x" * (11 * 1024 * 1024)
-        result = await service.upload(content_type="video/mp4", data=data)
+        result = await service.upload(content_type="video/mp4", stream=BytesIO(data))
         assert result.size_bytes == 11 * 1024 * 1024
 
 

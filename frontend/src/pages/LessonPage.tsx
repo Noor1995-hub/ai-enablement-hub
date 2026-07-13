@@ -150,13 +150,16 @@ export default function LessonPage() {
     const newBlocks = parseMdxToBlocks(mdxText)
     setMdxSaving(true)
     setMdxError(null)
-    const { error } = await client.PATCH('/api/admin/lessons/{lesson_id}', {
+    const { data, error } = await client.PATCH('/api/admin/lessons/{lesson_id}', {
       params: { path: { lesson_id: lesson.id } },
       body: { content_blocks: newBlocks },
     })
     setMdxSaving(false)
-    if (error) { setMdxError(errorMessage(error, 'Failed to save.')); return }
-    setLesson(l => (l ? { ...l, content_blocks: newBlocks } : l))
+    if (error || !data) { setMdxError(errorMessage(error, 'Failed to save.')); return }
+    // Use the backend's stamped content_blocks, not the locally parsed ones:
+    // the write strips ephemeral SAS urls, so the parsed blocks would render
+    // media as placeholders until a reload. The response is re-stamped.
+    setLesson(l => (l ? { ...l, content_blocks: data.content_blocks } : l))
     setMdxMode(false)
     setMdxText('')
     setEditMode(true)

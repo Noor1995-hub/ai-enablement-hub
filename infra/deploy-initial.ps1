@@ -1,6 +1,6 @@
 # One-time creation of the ai-enablement-hub Container App.
 # Prereqs: image already pushed (deploy.ps1 or `az acr build`), backend\.env present.
-# Redeploys afterwards use ..\deploy.ps1 — never this script (it would need the
+# Redeploys afterwards use ..\deploy.ps1 - never this script (it would need the
 # secrets again; `az containerapp update` preserves them).
 param(
     [Parameter(Mandatory = $true)][string]$Tag
@@ -20,7 +20,7 @@ $dbPwd = ($envLines | Where-Object { $_ -match "^DATABASE__PASSWORD=" }) -replac
 $alembicUrl = ($envLines | Where-Object { $_ -match "^ALEMBIC_DATABASE_URL=" }) -replace "^ALEMBIC_DATABASE_URL=", ""
 if (-not $dbPwd -or -not $alembicUrl) { throw "backend\.env is missing DATABASE__PASSWORD or ALEMBIC_DATABASE_URL" }
 
-# Fresh prod JWT secret — deliberately NOT the dev one (rotating it later kills
+# Fresh prod JWT secret - deliberately NOT the dev one (rotating it later kills
 # all sessions but breaks nothing else).
 $bytes = New-Object byte[] 48
 [Security.Cryptography.RNGCryptoServiceProvider]::new().GetBytes($bytes)
@@ -33,9 +33,14 @@ if (-not $acsConn) { throw "could not read the ACS connection string" }
 
 # Storage connection string for lesson-media uploads/SAS. Storage accounts
 # have a dedicated az CLI command for this (unlike ACS above, no listKeys
-# REST call needed).
+# REST call needed). Unlike the DB/ACS secrets, storage is OPTIONAL here: this
+# is a DR/rebuild script and the media storage account may not exist yet. When
+# the lookup fails we WARN and ship the app with media disabled rather than
+# aborting the whole create. An empty STORAGE__CONNECTION_STRING is NOT a safe
+# fallback - "" fails StorageSettings validation at startup and the app won't
+# boot - so the storage secret and its env-var are OMITTED entirely instead
+# (settings.storage stays None, exactly like the pre-media build).
 $storageConn = (& $az storage account show-connection-string --name aienablementhubmedia --resource-group imaginemore-playground --query connectionString -o tsv)
-if (-not $storageConn) { throw "could not read the storage account connection string" }
 
 $yaml = [IO.File]::ReadAllText((Join-Path $PSScriptRoot "containerapp.yaml"), [Text.UTF8Encoding]::new($false))
 $yaml = $yaml.Replace("__ACR_PASSWORD__", $acrPwd)
@@ -43,7 +48,16 @@ $yaml = $yaml.Replace("__DB_PASSWORD__", $dbPwd)
 $yaml = $yaml.Replace("__ALEMBIC_DATABASE_URL__", $alembicUrl)
 $yaml = $yaml.Replace("__JWT_SECRET__", $jwt)
 $yaml = $yaml.Replace("__ACS_CONNECTION_STRING__", $acsConn)
-$yaml = $yaml.Replace("__STORAGE_CONNECTION_STRING__", $storageConn)
+if ($storageConn) {
+    $yaml = $yaml.Replace("__STORAGE_CONNECTION_STRING__", $storageConn)
+} else {
+    Write-Warning "Storage account 'aienablementhubmedia' not found - creating the app with lesson media DISABLED. Provision the account and redeploy to enable it."
+    # Strip the storage secret entry and the STORAGE__CONNECTION_STRING env-var
+    # so no unresolved placeholder or empty secret survives (regex tolerates
+    # LF or CRLF; each pattern matches exactly its two-line block + newline).
+    $yaml = [regex]::Replace($yaml, '[^\r\n]*- name: storage-connection-string\r?\n[^\r\n]*value: "__STORAGE_CONNECTION_STRING__"\r?\n', '')
+    $yaml = [regex]::Replace($yaml, '[^\r\n]*- name: STORAGE__CONNECTION_STRING\r?\n[^\r\n]*secretRef: storage-connection-string\r?\n', '')
+}
 $yaml = $yaml.Replace("__TAG__", $Tag)
 
 # az parses the yaml with the system codepage on Windows - keep it pure ASCII.

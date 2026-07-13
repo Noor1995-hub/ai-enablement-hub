@@ -90,7 +90,10 @@ class TestUploadHappyPath:
         assert TEST_STORAGE.container in data["url"]
         [call] = uploader.calls
         assert call.blob == data["blob_path"]
+        # Streamed end to end: the SDK received the real bytes plus an explicit
+        # length, and nothing was read into memory in the router.
         assert call.data == content
+        assert call.length == len(content)
         assert call.overwrite is False
 
     async def test_mp4_upload_returns_201_with_videos_blob_path(
