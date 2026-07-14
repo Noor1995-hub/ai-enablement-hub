@@ -7,6 +7,7 @@ import { parseMdxToBlocks } from '../lib/mdxParser'
 import { blocksToMdx } from '../lib/blocksToMdx'
 import LessonView from '../components/lesson/LessonView'
 import LessonEditor, { type EditedLesson } from '../components/lesson/LessonEditor'
+import LessonFeedback from '../components/LessonFeedback'
 import type { ContentBlock } from '../types/contentBlocks'
 import type { LessonDetail, ModuleLessonItem } from '../types/domain'
 
@@ -429,6 +430,7 @@ export default function LessonPage() {
                 )}
               </div>
             </main>
+            <LessonFeedback lessonId={lesson.id} lessonTitle={lesson.title} />
           </>
         )}
       </div>
