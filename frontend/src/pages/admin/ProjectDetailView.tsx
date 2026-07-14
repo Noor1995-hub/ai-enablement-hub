@@ -5,6 +5,7 @@ import type { AdminUser, ComponentState, EmailStatus } from '../../types/domain'
 import type { ResetLinkEntry } from '../Admin'
 import { s, COMPONENT_KEYS, COMPONENT_LABELS } from './adminStyles'
 import { LevelBadge, Field, formatDate } from './adminHelpers'
+import BulkInviteModal from './BulkInviteModal'
 import { levelByCode } from '../../lib/levels'
 
 /*
@@ -95,6 +96,7 @@ export default function ProjectDetailView({
   const [inviteEmailStatus, setInviteEmailStatus] = useState<EmailStatus>('disabled')
   const [copied, setCopied] = useState(false)
   const [inviteOpen, setInviteOpen] = useState(false)
+  const [bulkOpen, setBulkOpen] = useState(false)
 
   const valid = inviteForm.email.includes('@') && inviteForm.first_name.trim() && inviteForm.last_name.trim()
 
@@ -156,6 +158,13 @@ export default function ProjectDetailView({
           onClick={() => { setInviteOpen(o => !o); setFormMsg(null); setInviteLink(null) }}
         >
           {inviteOpen ? '× Cancel' : '+ Add participant'}
+        </button>
+        <button
+          type="button"
+          style={{ ...s.submitBtn, fontSize: 13, padding: '9px 20px', background: '#101820' }}
+          onClick={() => setBulkOpen(true)}
+        >
+          ⇪ Bulk invite (CSV)
         </button>
       </div>
 
@@ -400,6 +409,15 @@ export default function ProjectDetailView({
           </table>
         )}
       </div>
+
+      {bulkOpen && (
+        <BulkInviteModal
+          projectId={project.id}
+          projectName={project.name}
+          onClose={() => setBulkOpen(false)}
+          onCommitted={() => onProjectRefresh?.()}
+        />
+      )}
     </div>
   )
 }
