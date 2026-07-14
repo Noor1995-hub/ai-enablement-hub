@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import logging
 import uuid
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 
 from src.core.configs.settings import Settings
 from src.core.dependencies.auth import get_token_service, require_admin
@@ -16,12 +17,16 @@ from src.core.dependencies.email import get_email_service
 from src.core.dependencies.ratelimit import get_rate_limiter
 from src.core.dependencies.settings import get_settings
 from src.core.ratelimit import RateLimiter
+from src.db.models import User
 from src.schemas.admin_users import (
     AdminLearningResponse,
     AdminSurveyOut,
     AdminUserOut,
     AdminUsersResponse,
     AssignmentRequest,
+    BulkInviteReport,
+    BulkInviteRow,
+    BulkInviteSummary,
     BulkLessonAssignmentRequest,
     BulkModuleAssignmentRequest,
     BulkTrackAssignmentRequest,
@@ -35,6 +40,8 @@ from src.schemas.admin_users import (
 )
 from src.services.admin_user_service import AdminUserService
 from src.services.email_service import EmailService
+from src.services.exceptions import PayloadTooLargeError
+from src.services.invite_csv import MAX_INVITE_CSV_BYTES, build_preview, parse_invite_csv
 from src.services.maturity_service import MaturityService
 from src.services.survey_service import SurveyService
 from src.services.token_service import TokenService
@@ -42,6 +49,8 @@ from src.services.token_service import TokenService
 __all__ = ["router"]
 
 router = APIRouter(prefix="/api/admin", tags=["admin:users"], dependencies=[Depends(require_admin)])
+
+logger = logging.getLogger(__name__)
 
 AdminUserServiceDep = Annotated[AdminUserService, Depends(get_admin_user_service)]
 TokenServiceDep = Annotated[TokenService, Depends(get_token_service)]
@@ -117,6 +126,89 @@ async def create_invite(
         else "skipped"
     )
     return LinkResponse(link=link, email_status=email_status)
+
+
+@router.post("/invites/bulk", response_model=BulkInviteReport)
+async def create_bulk_invites(
+    admin: Annotated[User, Depends(require_admin)],
+    admin_user_service: AdminUserServiceDep,
+    token_service: TokenServiceDep,
+    settings: SettingsDep,
+    limiter: RateLimiterDep,
+    email_service: EmailServiceDep,
+    file: Annotated[UploadFile, File()],
+    project_id: Annotated[uuid.UUID, Form()],
+    dry_run: Annotated[bool, Form()] = False,
+) -> BulkInviteReport:
+    """Bulk-invite from a CSV (first_name,last_name,email). dry_run=true parses,
+    validates and dedups against existing users, creating nothing — the admin's
+    preview. dry_run=false additionally creates the valid users, mints their
+    invite tokens and emails the links. Existing emails are skipped; a failed
+    email leaves the user created (recover via the per-user reset link). The
+    uploaded file is never persisted."""
+    if file.size is not None and file.size > MAX_INVITE_CSV_BYTES:
+        raise PayloadTooLargeError(MAX_INVITE_CSV_BYTES)
+    raw = await file.read()
+    if len(raw) > MAX_INVITE_CSV_BYTES:
+        raise PayloadTooLargeError(MAX_INVITE_CSV_BYTES)
+
+    await admin_user_service.ensure_project(project_id)  # 404 early, even on dry_run
+    parsed = parse_invite_csv(raw)  # InvalidCsvError → 400
+    existing = await admin_user_service.existing_emails(
+        [r.email for r in parsed if r.error is None]
+    )
+    preview = build_preview(parsed, existing)
+
+    if not dry_run:
+        if limiter.is_limited(f"bulk_invite:{admin.id}"):
+            raise _RATE_LIMITED
+        valid_rows = [p for p in preview if p.status == "valid"]
+        created = await admin_user_service.create_invited_users(
+            project_id, [(p.first_name, p.last_name, p.email) for p in valid_rows]
+        )
+        created_by_email = {u.email: u for u in created}
+        for p in valid_rows:
+            user = created_by_email.get(p.email)
+            if user is None:  # raced: created concurrently between preview and commit
+                p.status, p.detail = "duplicate", "already registered"
+                continue
+            raw_token = await token_service.issue_action_token(user, "invite")
+            link = _invite_link(settings, raw_token)
+            email_status = await _email_the_link(
+                email_service,
+                purpose="invite",
+                to=user.email,
+                first_name=user.first_name,
+                link=link,
+            )
+            if email_status == "failed":
+                p.status, p.detail = "email_failed", "user created — email could not be sent"
+            else:
+                p.status, p.detail = "created", None
+        logger.info(
+            "bulk invite: admin=%s project=%s created=%d duplicates=%d invalid=%d email_failed=%d",
+            admin.id,
+            project_id,
+            sum(p.status == "created" for p in preview),
+            sum(p.status == "duplicate" for p in preview),
+            sum(p.status == "invalid" for p in preview),
+            sum(p.status == "email_failed" for p in preview),
+        )
+
+    summary = BulkInviteSummary(
+        total_rows=len(preview),
+        valid=sum(p.status == "valid" for p in preview),
+        duplicates=sum(p.status == "duplicate" for p in preview),
+        invalid=sum(p.status == "invalid" for p in preview),
+        created=sum(p.status == "created" for p in preview),
+        email_failed=sum(p.status == "email_failed" for p in preview),
+    )
+    return BulkInviteReport(
+        dry_run=dry_run,
+        project_id=project_id,
+        summary=summary,
+        rows=[BulkInviteRow(**vars(p)) for p in preview],
+    )
 
 
 @router.post("/users/{user_id}/reset-link", response_model=LinkResponse)

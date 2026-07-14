@@ -15,6 +15,9 @@ __all__ = [
     "AdminUserOut",
     "AdminUsersResponse",
     "AssignmentRequest",
+    "BulkInviteReport",
+    "BulkInviteRow",
+    "BulkInviteSummary",
     "BulkLessonAssignmentRequest",
     "BulkModuleAssignmentRequest",
     "BulkTrackAssignmentRequest",
@@ -81,6 +84,33 @@ EmailStatus = Literal["sent", "failed", "disabled", "skipped"]
 class LinkResponse(BaseModel):
     link: str
     email_status: EmailStatus
+
+
+class BulkInviteRow(BaseModel):
+    row_number: int
+    first_name: str
+    last_name: str
+    email: str
+    # preview: valid | duplicate | invalid ; commit turns each "valid" into
+    # "created" or "email_failed".
+    status: Literal["valid", "duplicate", "invalid", "created", "email_failed"]
+    detail: str | None = None
+
+
+class BulkInviteSummary(BaseModel):
+    total_rows: int
+    valid: int
+    duplicates: int
+    invalid: int
+    created: int  # 0 on dry_run
+    email_failed: int  # 0 on dry_run
+
+
+class BulkInviteReport(BaseModel):
+    dry_run: bool
+    project_id: uuid.UUID
+    summary: BulkInviteSummary
+    rows: list[BulkInviteRow]
 
 
 class RoleUpdateRequest(BaseModel):
