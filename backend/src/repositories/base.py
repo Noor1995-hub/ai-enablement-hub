@@ -14,6 +14,7 @@ if TYPE_CHECKING:
         AuthSession,
         AuthToken,
         Company,
+        Feedback,
         Lesson,
         LessonProgress,
         Module,
@@ -33,6 +34,7 @@ __all__ = [
     "AbstractAuthSessionRepository",
     "AbstractAuthTokenRepository",
     "AbstractContentRepository",
+    "AbstractFeedbackRepository",
     "AbstractOrgRepository",
     "AbstractProgressRepository",
     "AbstractSurveyRepository",
@@ -315,6 +317,16 @@ class AbstractContentRepository(ABC):
     @abstractmethod
     async def set_lesson_orders(self, orders: list[tuple[uuid.UUID, int]]) -> None:
         """Assign sort_order per lesson id in one transaction (batch reorder)."""
+
+
+class AbstractFeedbackRepository(ABC):
+    """feedback — free-text lesson feedback (one row per submission)."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    @abstractmethod
+    async def create(self, user_id: uuid.UUID, lesson_id: uuid.UUID, message: str) -> Feedback: ...
 
 
 class AbstractAssignmentRepository(ABC):
