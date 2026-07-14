@@ -9,6 +9,7 @@ __all__ = [
     "EntraExchangeError",
     "EntraUserNotFoundError",
     "InvalidCredentialsError",
+    "InvalidCsvError",
     "InvalidRequestError",
     "InvalidSessionError",
     "LessonSetMismatchError",
@@ -94,6 +95,11 @@ class SurveyNotInProgressError(ConflictError):
 
 class InvalidRequestError(DomainError):
     """Structurally valid request that references the wrong thing. → 400"""
+
+
+class InvalidCsvError(DomainError):
+    """The uploaded CSV cannot be processed as a whole (bad encoding, empty,
+    missing a required column, or too many rows). → 400"""
 
 
 class LessonSetMismatchError(DomainError):
