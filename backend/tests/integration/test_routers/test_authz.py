@@ -96,6 +96,13 @@ _MATRIX: list[tuple[str, str, Any, Any, bool]] = [
     ),
     ("lesson", "GET", lambda s: f"/api/lessons/{s.lesson.id}", lambda s: None, False),
     (
+        "feedback",
+        "POST",
+        lambda s: "/api/feedback",
+        lambda s: {"lesson_id": str(s.lesson.id), "message": "Great lesson"},
+        False,
+    ),
+    (
         "progress",
         "PUT",
         lambda s: f"/api/lessons/{s.lesson.id}/progress",

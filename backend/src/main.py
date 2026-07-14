@@ -27,6 +27,7 @@ from src.routers import (
     admin_users,
     auth,
     auth_entra,
+    feedback,
     learning,
     me,
     survey,
@@ -177,6 +178,7 @@ app.include_router(admin_org.router)
 app.include_router(admin_users.router)
 app.include_router(admin_content.router)
 app.include_router(admin_media.router)
+app.include_router(feedback.router)
 
 # Single error shape for the frontend: {"error": {"code", "message"[, "fields"]}}
 _ERROR_CODES = {
