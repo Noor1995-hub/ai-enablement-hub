@@ -33,7 +33,7 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
 
-@pytest_asyncio.fixture
+@pytest.fixture
 def admin_user_service(db_session: AsyncSession) -> AdminUserService:
     return AdminUserService(
         UserRepository(db_session),

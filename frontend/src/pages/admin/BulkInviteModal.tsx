@@ -73,7 +73,7 @@ export default function BulkInviteModal({ projectId, projectName, onClose, onCom
 
   const sum = report?.summary
   return (
-    <div style={overlay} onClick={onClose}>
+    <div style={overlay} onClick={() => { if (phase !== 'previewing' && phase !== 'committing') onClose() }}>
       <div style={modal} onClick={(e) => e.stopPropagation()}>
         <div style={s.tableHeader}>
           <p style={s.tableTitle}>Bulk invite to {projectName}</p>

@@ -74,7 +74,7 @@ export async function bulkInvite(
   } catch {
     body = null
   }
-  if (!res.ok) {
+  if (!res.ok || !body || typeof body !== 'object') {
     throw new BulkInviteError(res.status, errorMessage(body, 'Bulk invite failed. Please try again.'))
   }
   return body as BulkInviteReport
