@@ -20,6 +20,12 @@ class UserRepository(AbstractUserRepository):
         result = await self._session.execute(select(User).where(User.email == email))
         return result.scalar_one_or_none()
 
+    async def emails_in(self, emails: list[str]) -> set[str]:
+        if not emails:
+            return set()
+        result = await self._session.execute(select(User.email).where(User.email.in_(emails)))
+        return set(result.scalars().all())
+
     async def get_by_external_id(self, external_id: str) -> User | None:
         result = await self._session.execute(select(User).where(User.external_id == external_id))
         return result.scalar_one_or_none()

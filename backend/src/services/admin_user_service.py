@@ -115,6 +115,41 @@ class AdminUserService:
             project_id=project.id,
         )
 
+    async def existing_emails(self, emails: list[str]) -> set[str]:
+        """Subset of the given (normalized) emails that already have a user row."""
+        return await self._users.emails_in(emails)
+
+    async def ensure_project(self, project_id: uuid.UUID) -> None:
+        """Raise NotFoundError if the project does not exist (bulk-invite preflight)."""
+        if await self._org.get_project(project_id) is None:
+            raise NotFoundError("Project")
+
+    async def create_invited_users(
+        self, project_id: uuid.UUID, rows: list[tuple[str, str, str]]
+    ) -> list[User]:
+        """Create one invited user per (first_name, last_name, email) row, all
+        bound to the project (404 if unknown). Emails already taken — e.g.
+        created between the admin's preview and confirm — are skipped. Returns
+        the users actually created, in input order; the router mints each one an
+        invite token (services never call services)."""
+        project = await self._org.get_project(project_id)
+        if project is None:
+            raise NotFoundError("Project")
+        created: list[User] = []
+        for first_name, last_name, email in rows:
+            if await self._users.get_by_email(email) is not None:
+                continue
+            created.append(
+                await self._users.create(
+                    email=email,
+                    first_name=first_name,
+                    last_name=last_name,
+                    company_id=project.company_id,
+                    project_id=project.id,
+                )
+            )
+        return created
+
     async def set_role(self, user_id: uuid.UUID, role: str) -> None:
         user = await self._users.get_by_id(user_id)
         if user is None:

@@ -51,6 +51,11 @@ class AbstractUserRepository(ABC):
     async def get_by_email(self, email: str) -> User | None: ...
 
     @abstractmethod
+    async def emails_in(self, emails: list[str]) -> set[str]:
+        """Which of the given (normalized) emails already have a user row
+        (bulk-invite dedup)."""
+
+    @abstractmethod
     async def get_by_external_id(self, external_id: str) -> User | None:
         """Lookup by the linked Entra ID object id (oid claim)."""
 
