@@ -17,8 +17,10 @@ export default function LessonFeedback({
   const [message, setMessage] = useState('')
   const [status, setStatus]   = useState<Status>('idle')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const sendGenRef = useRef(0)
 
   function close() {
+    sendGenRef.current += 1
     setOpen(false)
     setMessage('')
     setStatus('idle')
@@ -38,10 +40,12 @@ export default function LessonFeedback({
   async function send() {
     const trimmed = message.trim()
     if (!trimmed || status === 'sending') return
+    const gen = sendGenRef.current
     setStatus('sending')
     const { error } = await client.POST('/api/feedback', {
       body: { lesson_id: lessonId, message: trimmed },
     })
+    if (sendGenRef.current !== gen) return
     setStatus(error ? 'error' : 'sent')
   }
 
