@@ -3,14 +3,14 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator
 
 __all__ = ["FeedbackCreate", "FeedbackResponse"]
 
 
 class FeedbackCreate(BaseModel):
     lesson_id: uuid.UUID
-    message: str = Field(max_length=4000)
+    message: str
 
     @field_validator("message")
     @classmethod
@@ -18,6 +18,9 @@ class FeedbackCreate(BaseModel):
         stripped = value.strip()
         if not stripped:
             msg = "message must not be empty"
+            raise ValueError(msg)
+        if len(stripped) > 4000:
+            msg = "message must be at most 4000 characters"
             raise ValueError(msg)
         return stripped
 
