@@ -16,11 +16,19 @@
 // - White page, red caps eyebrow + bold title header (second mockup's style).
 // - Overall bar = one continuous 4-color fill with level checkpoint dots;
 //   levels below the assessed level count as complete (Practitioner = 25%).
-// - Below it, a solid bar for progress within the current level.
 // - Core trunk gets no special treatment ("can be skipped"): the general
 //   track renders as a normal row; locking still follows real prerequisites.
 // - Tracks are collapsible lanes; the expanded lane draws the track's real
 //   prerequisite DAG left-to-right (same rank algorithm as the live page).
+//
+// Level group headers (2026-07-14): the lane list is grouped under per-level
+// section headers — a journey-bar-style checkpoint dot (border always in the
+// level color so the color↔level mapping survives the locked state), level
+// name + tagline, and that level's own progress bar/counts. The old top-panel
+// "{level} progress" bar moved into these headers; the panel keeps the level
+// card + overall journey bar. Levels passed via assessment show ACTUAL module
+// progress (the dot carries "passed", the bar agrees with the lanes). Spec:
+// docs/superpowers/specs/2026-07-14-learning-path-level-headers-design.md
 
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
@@ -114,6 +122,12 @@ interface LaneEdge { id: string; d: string; stroke: string; dash: string }
 interface LaneLayout { nodes: LaneNode[]; edges: LaneEdge[]; height: number; width: number }
 
 interface PopoverState { mod: ModuleNode; anchor: DOMRect }
+
+/* ── Per-level content aggregate (drives the group headers + overall bar) ── */
+interface LevelStats { modulesTotal: number; modulesDone: number; lessonsTotal: number; lessonsDone: number }
+const EMPTY_LEVEL_STATS: LevelStats = { modulesTotal: 0, modulesDone: 0, lessonsTotal: 0, lessonsDone: 0 }
+const lessonFraction = (st: LevelStats): number =>
+  st.lessonsTotal > 0 ? st.lessonsDone / st.lessonsTotal : 0
 
 export default function LearningPathNew() {
   const navigate = useNavigate()
@@ -211,6 +225,11 @@ export default function LearningPathNew() {
   }
   const isUnlocked = (id: string): boolean => {
     if (isAdmin) return true // same bypass as the live page
+    // Maturity lock is inherited from the track (server-computed per module):
+    // a maturity-locked module is never unlocked, whatever its prerequisites.
+    // This keeps modules of an expanded locked track reading as locked, even
+    // the first one that has no prerequisites.
+    if (moduleById.get(id)?.unlocked_by_maturity === false) return false
     const preds = prereqMap.get(id)
     if (!preds || preds.length === 0) return true
     return preds.every(isDone)
@@ -229,15 +248,52 @@ export default function LearningPathNew() {
   const levelIdx = Math.max(0, LEVELS.findIndex(l => l.code === levelCode))
   const level = LEVELS[levelIdx]
 
-  const allModules = useMemo(() => Object.values(modulesMap).flat(), [modulesMap])
-  const lessonsTotal = allModules.reduce((s, m) => s + m.lesson_count, 0)
-  const lessonsDone = allModules.reduce((s, m) => s + Math.min(m.completed_lesson_count, m.lesson_count), 0)
-  const levelFraction = lessonsTotal > 0 ? lessonsDone / lessonsTotal : 0
-  const modulesDone = allModules.filter(m => isDone(m.id)).length
+  // Progress is aggregated PER maturity level. A module's level is its track's
+  // required_level, so each level-group header (and the current-level term of
+  // the overall bar) counts only modules in tracks at that level. This mirrors
+  // the server's advance_level (it clears one rung over the modules AT that
+  // level), so no bar is diluted by other levels' tracks. Header text counts
+  // modules; the bar fraction is lesson-based — the same split the old single
+  // "{level} progress" bar used.
+  const trackLevelById = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const t of tracks) m.set(t.id, t.required_level)
+    return m
+  }, [tracks])
+  const levelStats = useMemo(() => {
+    const stats = new Map<string, LevelStats>()
+    for (const mods of Object.values(modulesMap)) {
+      for (const m of mods) {
+        const code = trackLevelById.get(m.track_id)
+        if (!code) continue
+        let st = stats.get(code)
+        if (!st) { st = { ...EMPTY_LEVEL_STATS }; stats.set(code, st) }
+        st.modulesTotal += 1
+        if (m.lesson_count > 0 && m.completed_lesson_count >= m.lesson_count) st.modulesDone += 1
+        st.lessonsTotal += m.lesson_count
+        st.lessonsDone += Math.min(m.completed_lesson_count, m.lesson_count)
+      }
+    }
+    return stats
+  }, [modulesMap, trackLevelById])
+  const levelFraction = lessonFraction(levelStats.get(level.code) ?? EMPTY_LEVEL_STATS)
 
-  // Levels below the assessed one count as complete (design decision).
+  // Each level below the current one is a whole completed segment (levelIdx); the
+  // current level's fraction fills its own segment; locked higher levels are 0.
   const overallPct = Math.round(((levelIdx + levelFraction) / LEVELS.length) * 100)
-  const levelPct = Math.round(levelFraction * 100)
+
+  // Contiguous runs of equal required_level over the ladder-sorted track list —
+  // each run renders as one level group (header + lanes). Unknown levels sort
+  // last (trackRank) and keep their raw code as the group key.
+  const trackGroups = useMemo(() => {
+    const groups: { levelCode: string; tracks: TrackNode[] }[] = []
+    for (const t of tracks) {
+      const last = groups[groups.length - 1]
+      if (last && last.levelCode === t.required_level) last.tracks.push(t)
+      else groups.push({ levelCode: t.required_level, tracks: [t] })
+    }
+    return groups
+  }, [tracks])
 
   /* ── Default open lane: restore the learner's last choice, else the first
         track with something actionable ── */
@@ -248,7 +304,7 @@ export default function LearningPathNew() {
       const stored = readStoredOpenTrack(userId)
       if (stored === null) return null                                // explicitly collapsed
       const storedTrack = stored ? tracks.find(t => t.id === stored) : undefined
-      if (storedTrack && !isTrackLocked(storedTrack)) return storedTrack.id  // restore, if still valid & unlocked
+      if (storedTrack) return storedTrack.id  // restore whatever was open (locked tracks are previewable too)
       // Smart default: first unlocked track with something actionable, else the
       // first unlocked track, else the first track (maturity-locked lanes never
       // auto-open — they render inert).
@@ -340,7 +396,6 @@ export default function LearningPathNew() {
   }
 
   const firstName = user?.first_name ?? ''
-  const fullName = user ? `${user.first_name} ${user.last_name}`.trim() : ''
 
   /* ── Render ── */
   return (
@@ -381,7 +436,7 @@ export default function LearningPathNew() {
             <h1 style={s.heading}>Your learning path{firstName ? `, ${firstName}` : ''}.</h1>
             <p style={s.subtitle}>
               Based on your maturity assessment, these tracks are tailored to where
-              you are today. Work through them at your own pace — each module
+              you are today. Work through them at your own pace each module
               builds on the last.
             </p>
           </>
@@ -410,8 +465,6 @@ export default function LearningPathNew() {
                 <p style={s.smallLabel}>current level</p>
                 <p style={{ ...s.levelName, color: level.color }}>{level.name}</p>
                 <p style={{ ...s.levelTagline, color: level.color }}>{level.tagline}</p>
-                <p style={{ ...s.smallLabel, marginTop: 22 }}>tailored for</p>
-                <p style={s.tailoredName}>{fullName || '—'}</p>
               </div>
 
               <div style={s.barsCol}>
@@ -459,17 +512,6 @@ export default function LearningPathNew() {
                     )
                   })}
                 </div>
-
-                {/* Current-level bar */}
-                <div style={{ ...s.barHeader, marginTop: 26 }}>
-                  <span style={s.smallLabel}>{level.name} progress</span>
-                  <span style={{ ...s.barValue, color: level.color }}>
-                    {modulesDone} of {allModules.length} modules · {levelPct}%
-                  </span>
-                </div>
-                <div style={s.levelTrack}>
-                  <div style={{ ...s.levelFill, width: `${levelPct}%`, background: level.color }} />
-                </div>
               </div>
             </div>
 
@@ -488,138 +530,179 @@ export default function LearningPathNew() {
               )}
             </div>
             <div style={s.laneList}>
-              {tracks.map(track => {
-                const mods = modulesMap[track.id] ?? []
-                const color = resolveTrackColor(track)
-                const maturityLocked = isTrackLocked(track)
-                const requiredLevel = levelByCode(track.required_level)
-                const done = mods.filter(m => isDone(m.id)).length
-                // A maturity-locked track has nothing actionable and never expands.
-                const next = maturityLocked ? null : firstCurrent(mods)
-                const open = !maturityLocked && openTrackId === track.id
-                const subtitle = maturityLocked
-                  ? `Unlocks at ${requiredLevel?.name ?? track.required_level}`
-                  : `${done} of ${mods.length} modules` +
-                    (next ? ` · next: ${next.title}`
-                      : done === mods.length && mods.length > 0 ? ' · track complete' : ' · locked')
-                // Grey ring/dots when maturity-locked (the whole lane reads inert).
-                const ringColor = maturityLocked ? '#C4C4C4' : color
-
+              {trackGroups.map((group, gIdx) => {
+                // Header state mirrors the overall bar's checkpoints (passed /
+                // current / future) — but the dot border keeps the level color
+                // even for future levels: the header's job is the color↔level
+                // mapping. The bar shows ACTUAL content progress, so a level
+                // passed via assessment reads passed-dot + honest 0% (agrees
+                // with its lanes, invites revisiting skipped content).
+                const groupLevel = levelByCode(group.levelCode)
+                const groupIdx = LEVELS.findIndex(l => l.code === group.levelCode)
+                const groupColor = groupLevel?.color ?? FALLBACK_TRACK_COLOR
+                const stats = levelStats.get(group.levelCode) ?? EMPTY_LEVEL_STATS
+                const groupPct = Math.round(lessonFraction(stats) * 100)
+                const passed = groupIdx !== -1 &&
+                  (groupIdx < levelIdx || (groupIdx === levelIdx && lessonFraction(stats) >= 1))
+                const isCurrent = !passed && groupIdx === levelIdx
                 return (
-                  <div key={track.id} style={{ ...s.lane, ...(maturityLocked ? s.laneLocked : {}) }}>
-                    <button
-                      type="button"
-                      className={maturityLocked ? undefined : 'lpn-lane-toggle'}
-                      disabled={maturityLocked}
-                      onClick={() => {
-                        if (maturityLocked) return
-                        const nextOpen = open ? null : track.id
-                        setOpenTrackId(nextOpen)
-                        if (userId) writeStoredOpenTrack(userId, nextOpen)
-                        setPopover(null)
-                      }}
-                      style={{
-                        ...s.laneToggle,
-                        background: open ? '#FDFCFB' : '#fff',
-                        cursor: maturityLocked ? 'default' : 'pointer',
-                      }}
-                    >
-                      {maturityLocked
-                        ? <div style={s.laneLockCircle}><LockGlyph size={16} stroke="#fff" /></div>
-                        : <ProgressRing color={ringColor} frac={mods.length ? done / mods.length : 0} />}
-                      <div style={s.laneTitleCol}>
-                        <span style={{ ...s.laneName, color: maturityLocked ? '#B6B6B6' : '#3C3C3C' }}>{track.name}</span>
-                        <span style={{ ...s.laneSubtitle, ...(maturityLocked ? { color: requiredLevel?.color ?? '#8A8A8A', fontWeight: 700 } : {}) }}>{subtitle}</span>
-                      </div>
-                      <div style={s.laneDots}>
-                        {mods.map(m => {
-                          const d = !maturityLocked && isDone(m.id)
-                          const u = !maturityLocked && isUnlocked(m.id)
-                          return <span key={m.id} style={{
-                            ...s.laneDot,
-                            background: d ? color : u ? '#fff' : '#EFEDEA',
-                            border: `1.5px solid ${d || u ? color : '#D6D6D6'}`,
-                          }} />
-                        })}
-                      </div>
-                      {maturityLocked
-                        ? <span style={s.chevron}><LockGlyph size={15} stroke="#B6B6B6" /></span>
-                        : (
-                          <motion.span
-                            animate={{ rotate: open ? 180 : 0 }}
-                            transition={{ duration: 0.2 }}
-                            style={s.chevron}
-                          >
-                            ▾
-                          </motion.span>
+                  <div key={`${group.levelCode}:${gIdx}`} style={{ ...s.laneList, marginTop: gIdx > 0 ? 14 : 0 }}>
+                    <div>
+                      <div style={s.levelHeaderRow}>
+                        <span style={{
+                          ...s.levelHeaderDot,
+                          borderColor: groupColor,
+                          background: passed ? groupColor : '#fff',
+                        }}>
+                          {passed && <CheckGlyph size={10} />}
+                          {isCurrent && <span style={{ width: 6, height: 6, borderRadius: '50%', background: groupColor }} />}
+                        </span>
+                        <span style={{ ...s.levelHeaderName, color: groupColor, fontWeight: isCurrent ? 800 : 600 }}>
+                          {groupLevel?.name ?? group.levelCode}
+                        </span>
+                        {groupLevel && <span style={s.levelHeaderTagline}>· {groupLevel.tagline}</span>}
+                        {groupLevel && (
+                          <span style={{ ...s.barValue, color: groupColor, marginLeft: 'auto' }}>
+                            {stats.modulesDone} of {stats.modulesTotal} modules · {groupPct}%
+                          </span>
                         )}
-                    </button>
-
-                    <AnimatePresence initial={false}>
-                      {open && laneLayout && (
-                        <motion.div
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: laneLayout.height, opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          transition={{ duration: 0.28, ease: [0.4, 0, 0.2, 1] }}
-                          style={s.laneBody}
-                        >
-                          <div style={{ position: 'relative', height: laneLayout.height, width: laneLayout.width, minWidth: '100%' }}>
-                            <svg width={laneLayout.width} height={laneLayout.height} style={s.laneSvg}>
-                              {laneLayout.edges.map(e => (
-                                <path key={e.id} d={e.d} fill="none" stroke={e.stroke}
-                                  strokeWidth="2.5" strokeDasharray={e.dash} strokeLinecap="round" />
-                              ))}
-                            </svg>
-                            {laneLayout.nodes.map(({ mod, x, y, index }) => {
-                              const done = isDone(mod.id)
-                              const unlocked = isUnlocked(mod.id)
-                              const current = firstCurrent(mods)?.id === mod.id
-                              const bg = !unlocked
-                                ? 'radial-gradient(circle at 32% 30%, #D6D6D6, #ADADAD)'
-                                : `radial-gradient(circle at 32% 30%, ${lighten(color, done ? 35 : 55)}, ${color})`
-                              return (
-                                <div key={mod.id}>
-                                  <motion.button
-                                    type="button"
-                                    onClick={e => isEditMode
-                                      ? setEditingModule({ id: mod.id, title: mod.title })
-                                      : openPopover(mod, e.currentTarget)}
-                                    title={isEditMode ? `Edit lessons for: ${mod.title}` : undefined}
-                                    whileHover={{ scale: 1.1 }}
-                                    transition={{ duration: 0.16 }}
-                                    style={{
-                                      ...s.node,
-                                      left: x - NODE / 2,
-                                      top: y - NODE / 2,
-                                      background: bg,
-                                      opacity: unlocked ? 1 : 0.55,
-                                      boxShadow: isEditMode
-                                        ? '0 0 0 3px rgba(59,201,188,.45), 0 3px 10px rgba(0,0,0,.16)'
-                                        : current
-                                          ? '0 4px 16px rgba(196,40,40,.30)'
-                                          : '0 3px 10px rgba(0,0,0,.14)',
-                                    }}
-                                  >
-                                    {current && !isEditMode && (
-                                      <span style={{ ...s.pulseRing, border: `2.5px solid ${color}` }} />
-                                    )}
-                                    {!unlocked ? <LockGlyph />
-                                      : done ? <CheckGlyph />
-                                      : <span style={s.nodeNumber}>{index}</span>}
-                                  </motion.button>
-                                  <div style={{ ...s.nodeLabel, left: x - 63, top: y + NODE / 2 + 8 }}>
-                                    <span style={{ ...s.nodeTitle, color: unlocked ? '#3C3C3C' : '#B6B6B6' }}>
-                                      {mod.title}
-                                    </span>
-                                  </div>
-                                </div>
-                              )
-                            })}
-                          </div>
-                        </motion.div>
+                      </div>
+                      {groupLevel && (
+                        <div style={s.levelHeaderBar}>
+                          <div style={{ ...s.levelHeaderBarFill, width: `${groupPct}%`, background: groupColor }} />
+                        </div>
                       )}
-                    </AnimatePresence>
+                    </div>
+                    {group.tracks.map(track => {
+                      const mods = modulesMap[track.id] ?? []
+                      const color = resolveTrackColor(track)
+                      const maturityLocked = isTrackLocked(track)
+                      const requiredLevel = levelByCode(track.required_level)
+                      const done = mods.filter(m => isDone(m.id)).length
+                      // A maturity-locked track has no actionable "next", but it
+                      // can still be expanded to preview its (locked) modules.
+                      const next = maturityLocked ? null : firstCurrent(mods)
+                      const open = openTrackId === track.id
+                      const subtitle = maturityLocked
+                        ? `Unlocks at ${requiredLevel?.name ?? track.required_level}`
+                        : `${done} of ${mods.length} modules` +
+                          (next ? ` · next: ${next.title}`
+                            : done === mods.length && mods.length > 0 ? ' · track complete' : ' · locked')
+                      // Grey ring/dots when maturity-locked (the whole lane reads inert).
+                      const ringColor = maturityLocked ? '#C4C4C4' : color
+
+                      return (
+                        <div key={track.id} style={{ ...s.lane, ...(maturityLocked ? s.laneLocked : {}) }}>
+                          <button
+                            type="button"
+                            className="lpn-lane-toggle"
+                            onClick={() => {
+                              const nextOpen = open ? null : track.id
+                              setOpenTrackId(nextOpen)
+                              if (userId) writeStoredOpenTrack(userId, nextOpen)
+                              setPopover(null)
+                            }}
+                            style={{
+                              ...s.laneToggle,
+                              background: open ? '#FDFCFB' : '#fff',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {maturityLocked
+                              ? <div style={s.laneLockCircle}><LockGlyph size={16} stroke="#fff" /></div>
+                              : <ProgressRing color={ringColor} frac={mods.length ? done / mods.length : 0} />}
+                            <div style={s.laneTitleCol}>
+                              <span style={{ ...s.laneName, color: maturityLocked ? '#B6B6B6' : '#3C3C3C' }}>{track.name}</span>
+                              <span style={{ ...s.laneSubtitle, ...(maturityLocked ? { color: requiredLevel?.color ?? '#8A8A8A', fontWeight: 700 } : {}) }}>{subtitle}</span>
+                            </div>
+                            <div style={s.laneDots}>
+                              {mods.map(m => {
+                                const d = !maturityLocked && isDone(m.id)
+                                const u = !maturityLocked && isUnlocked(m.id)
+                                return <span key={m.id} style={{
+                                  ...s.laneDot,
+                                  background: d ? color : u ? '#fff' : '#EFEDEA',
+                                  border: `1.5px solid ${d || u ? color : '#D6D6D6'}`,
+                                }} />
+                              })}
+                            </div>
+                            <motion.span
+                              animate={{ rotate: open ? 180 : 0 }}
+                              transition={{ duration: 0.2 }}
+                              style={s.chevron}
+                            >
+                              ▾
+                            </motion.span>
+                          </button>
+
+                          <AnimatePresence initial={false}>
+                            {open && laneLayout && (
+                              <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: laneLayout.height, opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: 0.28, ease: [0.4, 0, 0.2, 1] }}
+                                style={s.laneBody}
+                              >
+                                <div style={{ position: 'relative', height: laneLayout.height, width: laneLayout.width, minWidth: '100%' }}>
+                                  <svg width={laneLayout.width} height={laneLayout.height} style={s.laneSvg}>
+                                    {laneLayout.edges.map(e => (
+                                      <path key={e.id} d={e.d} fill="none" stroke={e.stroke}
+                                        strokeWidth="2.5" strokeDasharray={e.dash} strokeLinecap="round" />
+                                    ))}
+                                  </svg>
+                                  {laneLayout.nodes.map(({ mod, x, y, index }) => {
+                                    const done = isDone(mod.id)
+                                    const unlocked = isUnlocked(mod.id)
+                                    const current = firstCurrent(mods)?.id === mod.id
+                                    const bg = !unlocked
+                                      ? 'radial-gradient(circle at 32% 30%, #D6D6D6, #ADADAD)'
+                                      : `radial-gradient(circle at 32% 30%, ${lighten(color, done ? 35 : 55)}, ${color})`
+                                    return (
+                                      <div key={mod.id}>
+                                        <motion.button
+                                          type="button"
+                                          onClick={e => isEditMode
+                                            ? setEditingModule({ id: mod.id, title: mod.title })
+                                            : openPopover(mod, e.currentTarget)}
+                                          title={isEditMode ? `Edit lessons for: ${mod.title}` : undefined}
+                                          whileHover={{ scale: 1.1 }}
+                                          transition={{ duration: 0.16 }}
+                                          style={{
+                                            ...s.node,
+                                            left: x - NODE / 2,
+                                            top: y - NODE / 2,
+                                            background: bg,
+                                            opacity: unlocked ? 1 : 0.55,
+                                            boxShadow: isEditMode
+                                              ? '0 0 0 3px rgba(59,201,188,.45), 0 3px 10px rgba(0,0,0,.16)'
+                                              : current
+                                                ? '0 4px 16px rgba(196,40,40,.30)'
+                                                : '0 3px 10px rgba(0,0,0,.14)',
+                                          }}
+                                        >
+                                          {current && !isEditMode && (
+                                            <span style={{ ...s.pulseRing, border: `2.5px solid ${color}` }} />
+                                          )}
+                                          {!unlocked ? <LockGlyph />
+                                            : done ? <CheckGlyph />
+                                            : <span style={s.nodeNumber}>{index}</span>}
+                                        </motion.button>
+                                        <div style={{ ...s.nodeLabel, left: x - 63, top: y + NODE / 2 + 8 }}>
+                                          <span style={{ ...s.nodeTitle, color: unlocked ? '#3C3C3C' : '#B6B6B6' }}>
+                                            {mod.title}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+                      )
+                    })}
                   </div>
                 )
               })}
@@ -684,10 +767,20 @@ export default function LearningPathNew() {
                     <div style={{ ...s.popBarFill, width: `${pct}%`, background: color }} />
                   </div>
                   {done ? (
-                    <div style={s.popDoneRow}>
-                      <span style={{ ...s.popDoneBadge, background: color }}><CheckGlyph size={12} /></span>
-                      module completed
-                    </div>
+                    <button
+                      type="button"
+                      className="lpn-cta"
+                      disabled={ctaLoading}
+                      onClick={() => startModule(mod.id)}
+                      style={{
+                        ...s.popCta,
+                        background: '#C42828',
+                        color: '#fff',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {ctaLoading ? 'Loading…' : 'Review module →'}
+                    </button>
                   ) : (
                     <button
                       type="button"
@@ -779,7 +872,8 @@ const s = {
   /* Progress panel */
   panel: {
     border: '1px solid #E2E2E2', borderRadius: 12,
-    padding: '26px 30px', display: 'flex', gap: 32, flexWrap: 'wrap',
+    padding: '22px 30px', display: 'flex', gap: 32, flexWrap: 'wrap',
+    alignItems: 'center',
   },
   levelCard: {
     flexShrink: 0, minWidth: 180, paddingRight: 32,
@@ -797,10 +891,6 @@ const s = {
   levelTagline: {
     fontFamily: 'var(--dlw-font-ui)', fontWeight: 600,
     fontSize: 12.5, margin: 0, opacity: 0.85,
-  },
-  tailoredName: {
-    fontFamily: 'var(--dlw-font-body)', fontWeight: 700,
-    fontSize: 15, color: '#101820', margin: '5px 0 0',
   },
   barsCol: { flex: '1 1 420px', minWidth: 340, paddingTop: 2 },
   barHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 },
@@ -825,8 +915,27 @@ const s = {
     position: 'absolute', transform: 'translateX(-50%)', whiteSpace: 'nowrap',
     fontFamily: 'var(--dlw-font-ui)', fontSize: 11.5,
   },
-  levelTrack: { position: 'relative', height: 8, borderRadius: 999, background: '#F5F5F5', overflow: 'hidden' },
-  levelFill: { position: 'absolute', left: 0, top: 0, bottom: 0, borderRadius: 999, transition: 'width .4s ease' },
+  /* Level group headers (lane list) */
+  levelHeaderRow: { display: 'flex', alignItems: 'center', gap: 8, padding: '0 2px' },
+  levelHeaderDot: {
+    width: 18, height: 18, borderRadius: '50%', boxSizing: 'border-box',
+    borderWidth: 2, borderStyle: 'solid', flexShrink: 0,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    boxShadow: '0 1px 3px rgba(0,0,0,.12)',
+  },
+  levelHeaderName: {
+    fontFamily: 'var(--dlw-font-ui)', fontSize: 11.5,
+    letterSpacing: '0.14em', textTransform: 'uppercase',
+  },
+  levelHeaderTagline: { fontFamily: 'var(--dlw-font-ui)', fontSize: 11.5, fontWeight: 600, color: '#8A8A8A' },
+  levelHeaderBar: {
+    position: 'relative', height: 5, borderRadius: 999,
+    background: '#F5F5F5', overflow: 'hidden', marginTop: 8,
+  },
+  levelHeaderBarFill: {
+    position: 'absolute', left: 0, top: 0, bottom: 0, borderRadius: 999,
+    transition: 'width .4s ease',
+  },
 
   /* Track lanes */
   laneList: { display: 'flex', flexDirection: 'column', gap: 14 },
@@ -886,7 +995,7 @@ const s = {
   popTrackDot: { width: 10, height: 10, borderRadius: '50%' },
   popTrackName: {
     fontFamily: 'var(--dlw-font-ui)', fontSize: 11.5, fontWeight: 800,
-    color: '#8A8A8A', textTransform: 'lowercase', letterSpacing: '0.04em',
+    color: '#8A8A8A', letterSpacing: '0.04em',
   },
   popTitle: { fontSize: 19, fontWeight: 800, color: '#101820', lineHeight: 1.25, margin: 0 },
   popLockedNote: {
@@ -899,14 +1008,6 @@ const s = {
   },
   popBarTrack: { height: 8, borderRadius: 999, background: '#F5F5F5', overflow: 'hidden' },
   popBarFill: { height: '100%', borderRadius: 999, transition: 'width .3s ease' },
-  popDoneRow: {
-    display: 'flex', alignItems: 'center', gap: 8,
-    fontSize: 13, fontWeight: 800, color: '#3C3C3C',
-  },
-  popDoneBadge: {
-    width: 22, height: 22, borderRadius: '50%',
-    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-  },
   popCta: {
     marginTop: 2, padding: '11px 18px', borderRadius: 8, border: 'none',
     fontFamily: 'var(--dlw-font-body)', fontWeight: 800, fontSize: 14,
