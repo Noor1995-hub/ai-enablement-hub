@@ -4,7 +4,7 @@
       {
         "id": "68738e02-4e9e-45ca-8250-3446de4ed84e",
         "text": "This path is here to make you effective with AI at work, fast and without the guesswork. By the end you will know what to hand off, what to check, and what to keep for yourself.",
-        "type": "callout"
+        "type": "kicker"
       },
       {
         "id": "f56a4625-1f20-470c-a979-adca12ca3fd4",
@@ -134,7 +134,7 @@
       {
         "id": "589e0111-8ca3-4180-9baf-e0e481ba72cb",
         "text": "You hand AI the all-hands script, skim the first paragraph, and it sounds like you on a good day. The reflex is to forward it and get on with something else. That reflex is what this lesson is about.",
-        "type": "callout"
+        "type": "kicker"
       },
       {
         "id": "9dc2ee43-4361-401e-af24-c4a47cab6409",
@@ -253,7 +253,7 @@
       {
         "id": "4559dd75-8496-4bdb-891a-84faf7a770e9",
         "text": "Older software could only find, sort, and count what already existed. Generative AI writes something new on demand: a draft, a summary, a plan that did not exist a moment ago.",
-        "type": "callout"
+        "type": "kicker"
       },
       {
         "id": "85a0f863-b9ae-41e2-840b-36ba3f41c17f",
@@ -363,7 +363,7 @@
       {
         "id": "32872b2f-f143-4420-987d-16379c6be7ac",
         "text": "When someone asks \"can AI do this?\", the honest answer is another question: which model, and how capable is it?",
-        "type": "callout"
+        "type": "kicker"
       },
       {
         "id": "b8551e0b-ea17-4e69-bf1e-c58c92538232",
@@ -682,7 +682,7 @@
       {
         "id": "ea7418b1-3e22-4deb-87c5-2b82c35aa9bf",
         "text": "Every AI tool works inside two hard limits: how it chops your text into pieces, and how much of it the model can hold at once. Knowing where those limits sit helps you get a reliable answer instead of one built on material the model can no longer see.",
-        "type": "callout"
+        "type": "kicker"
       },
       {
         "id": "5424e36d-b4da-40ff-82ff-d95e6dd13d9e",
@@ -1079,7 +1079,7 @@
       {
         "id": "ceecae1d-46f0-48ce-99b7-1e0e69be7997",
         "text": "Say you ask an AI to update the risk register for a project you run. One version drafts from the notes you paste in. Another opens the tracker itself, reads the past fortnight, spots a supplier delay slipping from amber to red, and flags two mitigations already overdue. Same request, very different reach.",
-        "type": "callout"
+        "type": "kicker"
       },
       {
         "id": "1d5ed516-cd68-478b-aee4-0f7bc31617e1",
@@ -1663,7 +1663,7 @@
       {
         "id": "fcc24415-b45b-49b4-b356-6d18d8ee1d3a",
         "text": "You have hired someone who starts in two weeks, and you want a real onboarding plan: week one, who they meet, what good looks like by month one. A model gives you a usable first pass in about a minute. Whether you bin that pass or send it comes down to a handful of deliberate moves in the prompt.",
-        "type": "callout"
+        "type": "kicker"
       },
       {
         "id": "1d1d2e5c-0569-4cf6-9762-c2ed60394e99",
@@ -2882,7 +2882,7 @@
       {
         "id": "1a032e61-d700-4a3e-a0be-e432839de92a",
         "text": "A colleague hands you a dense clause, on data residency, say, and asks you to make it readable for the whole company. Stripping the jargon is a clean hand-off to a model. Deciding which caveat cannot be simplified away without making the result quietly wrong is not.",
-        "type": "callout"
+        "type": "kicker"
       },
       {
         "id": "2909550d-73f8-4cc8-8306-4b00345af365",
@@ -3012,7 +3012,7 @@
       {
         "id": "b572ac04-c86c-46a7-a136-64eaafcdb29a",
         "text": "You do not build good AI instincts by reading about them. You build them by noticing what happened after each round, and why.",
-        "type": "callout"
+        "type": "kicker"
       },
       {
         "id": "5dacc147-959a-4fe2-97e5-6d9196fdfe33",
@@ -3135,7 +3135,7 @@
       {
         "id": "558e7247-1b1d-4a71-8c1b-331a0ae280c0",
         "text": "Take a recurring task you actually own this week: a folder of raw meeting notes, a report you rewrite every month, a draft you always end up untangling. This lesson is not a demonstration. You run your own task through it, start to finish, right now.",
-        "type": "callout"
+        "type": "kicker"
       },
       {
         "id": "bb5afded-d0fc-4cdb-999f-a325984125ec",
@@ -3260,7 +3260,7 @@
       {
         "id": "45557958-0a69-40eb-8ed8-378531eb2ef9",
         "text": "You started this track knowing how to use AI. You're finishing it knowing how to direct it: what to hand over, what to check, and when to keep your hands on the work yourself.",
-        "type": "callout"
+        "type": "kicker"
       },
       {
         "id": "844aa1e6-cc59-454b-80b3-9164e4e14d7b",
