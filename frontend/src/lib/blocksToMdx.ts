@@ -6,6 +6,9 @@ import type { ContentBlock } from '../types/contentBlocks'
  * Known limitations (lossy round-trip):
  *  - callout: the `>` prefix is re-added by blocksToMdx, but the original block
  *    text must not already start with `>` or it will be doubled on re-import.
+ *  - kicker: serialised as a bare `*text*` line; the block's own text must not
+ *    already be wrapped in a single pair of asterisks, and must stay on one
+ *    line, or it will misparse on re-import.
  *  - card_group / quiz: serialised as raw JSON inside <Cards /> / <Quiz /> tags;
  *    any special characters in card/question text are not escaped.
  *  - interactive / try_it_yourself: base64-encoded inside <Interactive /> /
@@ -42,6 +45,9 @@ export function blocksToMdx(blocks: ContentBlock[] | null | undefined): string {
             .split('\n')
             .map((line) => `> ${line}`)
             .join('\n')
+
+        case 'kicker':
+          return `*${block.text}*`
 
         case 'card_group':
           return `<Cards data='${JSON.stringify(block.cards)}' />`

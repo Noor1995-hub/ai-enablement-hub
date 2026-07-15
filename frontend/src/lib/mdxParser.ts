@@ -3,6 +3,7 @@ import {
   createCallout,
   createCardGroup,
   createHeading,
+  createKicker,
   createParagraph,
   createQuiz,
   createWhitespace,
@@ -27,6 +28,7 @@ function decodeBlock<T>(data: string): T {
  *   - <Interactive data="<base64>" /> and <TryItYourself data="<base64>" />
  *   - Markdown headings (# / ## / ###)
  *   - Blockquotes (> text)
+ *   - Kicker lines (a line that is entirely *one italic span*, e.g. `*text*`)
  *   - Plain paragraphs
  */
 export function parseMdxToBlocks(mdx: string): ContentBlock[] {
@@ -127,6 +129,9 @@ export function parseMdxToBlocks(mdx: string): ContentBlock[] {
       const h2 = line.match(/^##\s+(.+)/)
       const h1 = line.match(/^#\s+(.+)/)
       const bq = line.match(/^>\s*(.*)/)
+      // A line that is ENTIRELY one italic span (not italic text inside a
+      // longer line, which stays plain prose for ParagraphBlock to render).
+      const kicker = line.trim().match(/^\*([^*\n]+)\*$/)
 
       if (h1 || h2 || h3) {
         flushParagraph()
@@ -136,6 +141,9 @@ export function parseMdxToBlocks(mdx: string): ContentBlock[] {
       } else if (bq) {
         flushParagraph()
         blocks.push(createCallout(bq[1].trim()))
+      } else if (kicker) {
+        flushParagraph()
+        blocks.push(createKicker(kicker[1].trim()))
       } else {
         paragraphLines.push(line)
       }
@@ -148,6 +156,7 @@ export function parseMdxToBlocks(mdx: string): ContentBlock[] {
     if (b.type === 'paragraph') return b.text.trim().length > 0
     if (b.type === 'heading') return b.text.trim().length > 0
     if (b.type === 'callout') return b.text.trim().length > 0
+    if (b.type === 'kicker') return b.text.trim().length > 0
     return true
   })
 }

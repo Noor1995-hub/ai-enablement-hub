@@ -5,6 +5,7 @@ import type { ContentBlock } from '../../types/contentBlocks'
 import HeadingEditor   from './editors/HeadingEditor'
 import ParagraphEditor from './editors/ParagraphEditor'
 import CalloutEditor   from './editors/CalloutEditor'
+import KickerEditor    from './editors/KickerEditor'
 import CardGroupEditor from './editors/CardGroupEditor'
 import QuizEditor      from './editors/QuizEditor'
 import QuestionEditor  from './editors/QuestionEditor'
@@ -25,6 +26,7 @@ const EDITORS: {
   [BLOCK_TYPES.HEADING]:    HeadingEditor,
   [BLOCK_TYPES.PARAGRAPH]:  ParagraphEditor,
   [BLOCK_TYPES.CALLOUT]:    CalloutEditor,
+  [BLOCK_TYPES.KICKER]:     KickerEditor,
   [BLOCK_TYPES.CARD_GROUP]: CardGroupEditor,
   [BLOCK_TYPES.QUIZ]:       QuizEditor,
   [BLOCK_TYPES.QUESTION]:   QuestionEditor,
@@ -38,6 +40,7 @@ const EDITORS: {
 const TYPE_ORDER: ContentBlock['type'][] = [
   BLOCK_TYPES.HEADING,
   BLOCK_TYPES.PARAGRAPH,
+  BLOCK_TYPES.KICKER,
   BLOCK_TYPES.CALLOUT,
   BLOCK_TYPES.CARD_GROUP,
   BLOCK_TYPES.QUIZ,

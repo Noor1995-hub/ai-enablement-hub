@@ -3,6 +3,7 @@ import type { ContentBlock } from '../../types/contentBlocks'
 import HeadingBlock   from './blocks/HeadingBlock'
 import ParagraphBlock from './blocks/ParagraphBlock'
 import CalloutBlock   from './blocks/CalloutBlock'
+import KickerBlock    from './blocks/KickerBlock'
 import CardsBlock     from './blocks/CardsBlock'
 import QuizBlock      from './blocks/QuizBlock'
 import QuestionBlock  from './blocks/QuestionBlock'
@@ -26,6 +27,7 @@ const RENDERERS: {
   heading:    HeadingBlock,
   paragraph:  ParagraphBlock,
   callout:    CalloutBlock,
+  kicker:     KickerBlock,
   card_group: CardsBlock,
   quiz:       QuizBlock,
   question:   QuestionBlock,

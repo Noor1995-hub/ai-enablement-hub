@@ -5,6 +5,9 @@
 export type HeadingBlock = { id: string; type: 'heading'; level: 1 | 2 | 3; text: string }
 export type ParagraphBlock = { id: string; type: 'paragraph'; text: string }
 export type CalloutBlock = { id: string; type: 'callout'; text: string }
+// Lightweight subtitle line under a lesson's title — a lighter alternative to
+// a full callout/card opener (see general_tracks_style_guide.md parking lot).
+export type KickerBlock = { id: string; type: 'kicker'; text: string }
 export type Card = { id: string; title: string; body: string }
 export type CardGroupBlock = { id: string; type: 'card_group'; cards: Card[] }
 export type QuizQuestion = {
@@ -94,6 +97,7 @@ export type ContentBlock =
   | HeadingBlock
   | ParagraphBlock
   | CalloutBlock
+  | KickerBlock
   | CardGroupBlock
   | QuizBlock
   | QuestionBlock

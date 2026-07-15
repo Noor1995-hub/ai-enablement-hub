@@ -6,6 +6,7 @@ import type {
   HeadingBlock,
   ImageBlock,
   InteractiveBlock,
+  KickerBlock,
   ParagraphBlock,
   QuestionBlock,
   QuizBlock,
@@ -19,6 +20,7 @@ export const BLOCK_TYPES = {
   HEADING: 'heading',
   PARAGRAPH: 'paragraph',
   CALLOUT: 'callout',
+  KICKER: 'kicker',
   CARD_GROUP: 'card_group',
   QUIZ: 'quiz',
   QUESTION: 'question',
@@ -33,6 +35,7 @@ export const BLOCK_LABELS: Record<ContentBlock['type'], string> = {
   heading: 'Heading',
   paragraph: 'Text',
   callout: 'Callout',
+  kicker: 'Kicker',
   card_group: 'Cards',
   quiz: 'Quiz',
   question: 'Question',
@@ -53,6 +56,10 @@ export function createParagraph(text = ''): ParagraphBlock {
 
 export function createCallout(text = ''): CalloutBlock {
   return { id: crypto.randomUUID(), type: BLOCK_TYPES.CALLOUT, text }
+}
+
+export function createKicker(text = ''): KickerBlock {
+  return { id: crypto.randomUUID(), type: BLOCK_TYPES.KICKER, text }
 }
 
 // Incoming cards/questions (MDX import, DB JSONB) may lack ids.
@@ -157,6 +164,7 @@ export const BLOCK_FACTORIES: Record<ContentBlock['type'], () => ContentBlock> =
   [BLOCK_TYPES.HEADING]: () => createHeading(),
   [BLOCK_TYPES.PARAGRAPH]: () => createParagraph(),
   [BLOCK_TYPES.CALLOUT]: () => createCallout(),
+  [BLOCK_TYPES.KICKER]: () => createKicker(),
   [BLOCK_TYPES.CARD_GROUP]: () => createCardGroup(),
   [BLOCK_TYPES.QUIZ]: () => createQuiz(),
   [BLOCK_TYPES.QUESTION]: () => createQuestion(),
