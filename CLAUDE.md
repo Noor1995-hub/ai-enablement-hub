@@ -420,6 +420,25 @@ authoritative for anything; see `db/README.md` for why its migration scripts mus
   module delete, and the invite link/email split (see that feature entry). HEAD support on
   SPA routes rode along too. Health check green post-deploy; not further browser-verified
   this session (no browser automation tool available).
+- **NOTE — this section lagged reality:** between 2026-07-07 and 2026-07-15 the app was
+  redeployed several times (undocumented here), so maturity-gated learning, the learning-path
+  redesign + level headers, lesson media/blob storage, feedback, bulk invite, email templates
+  and interactive lesson blocks were all already live before the deploy below. When in doubt
+  about what prod is running, query the live image tag, don't trust this log:
+  `az containerapp show -n ai-enablement-hub -g imaginemore-playground
+  --query properties.template.containers[0].image -o tsv`.
+- **Redeployed 2026-07-15** (`ai-enablement-hub:20260715-131259`, revision `--0000012`,
+  user-approved): "For Developers" track moved to the **multiplier** level (commit `1128515`).
+  Prod was already at `20260715-094341` (built that morning), so the only delta was migration
+  `d8e9f0a1b2c3` — widens the `tracks.required_level` CHECK to allow `'multiplier'` and flips
+  the For Developers tool track `integrator → multiplier` (applied automatically on container
+  start; prod alembic head now `d8e9f0a1b2c3`). Also `SurveyService._seed_assignments` extends
+  the auto-assign ceiling to the top of the ladder for integrator scorers, so For Developers
+  still auto-assigns on survey completion like the other tool tracks (maturity now gates its
+  visibility until a learner closes out integrator). Health + `/api/auth/methods` green on
+  `--0000012` (healthy startup ⇒ migration applied cleanly); the under-Multiplier rendering is
+  not browser-verified this session (no browser automation + no prod login) — spot-check
+  `/learning` as an integrator-level learner/admin.
 
 ## Open for cutover
 
