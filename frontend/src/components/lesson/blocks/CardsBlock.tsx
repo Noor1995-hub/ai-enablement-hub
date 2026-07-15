@@ -1,4 +1,5 @@
 import type { Card, CardGroupBlock } from '../../../types/contentBlocks'
+import { renderInline } from './renderInline'
 
 // Brand red/teal/purple + the Practitioner level rose (lib/levels.ts) so a
 // four-card group gets four distinct accents.
@@ -36,7 +37,7 @@ export default function CardsBlock({ block }: { block: CardGroupBlock }) {
             color: '#101820',
             margin: '0 0 8px',
           }}>
-            {card.title}
+            {renderInline(card.title)}
           </h3>
 
           {card.what ? (
@@ -56,7 +57,7 @@ export default function CardsBlock({ block }: { block: CardGroupBlock }) {
               margin: 0,
               lineHeight: 1.6,
             }}>
-              {card.body}
+              {renderInline(card.body)}
             </p>
           )}
         </div>
