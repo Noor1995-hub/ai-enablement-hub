@@ -8,7 +8,7 @@
       },
       {
         "id": "f56a4625-1f20-470c-a979-adca12ca3fd4",
-        "text": "Most people meet AI through trial and error. A few results that genuinely impress, a few that quietly embarrass, and no reliable sense of when to trust the thing. That is a slow and expensive way to learn. This path swaps that guesswork for judgment, so you can direct AI on purpose and help set the tone for how the people around you use it.",
+        "text": "Most people meet AI through trial and error. A few results that genuinely impress, a few that quietly embarrass, and no reliable sense of when to trust the thing. That is a slow and inefficient way to learn. This path swaps that guesswork for judgment, so you can direct AI on purpose and help set the tone for how the people around you use it.",
         "type": "paragraph"
       },
       {
@@ -19,7 +19,7 @@
       },
       {
         "id": "c97a33dd-eeac-4848-bb71-355f68206807",
-        "text": "A structured route from \"I have heard AI is useful\" to \"I know where it pays off and where it does not.\" It is built for people who lead work and make decisions, and it stays just as useful if you manage no one and simply want to do your own job well with AI in it.\n\nIt is not a tour of buttons and menus, and that is on purpose. Tools get renamed and rebuilt every few months; the judgment about when to trust them lasts a lot longer. So the focus stays on what holds steady: what these systems are good at, how they fail, how to steer them, and where the responsibility stays with you.",
+        "text": "A structured route from \"I have heard AI is useful\" to \"I know where it pays off and where it does not.\" It is built for anyone who wants to use AI well at work, whether that means leading a team's decisions or simply doing your own job better with AI in it.\n\nIt is not a tour of buttons and menus, and that is on purpose. Tools get renamed and rebuilt every few months; the judgment about when to trust them lasts a lot longer. So the focus stays on what holds steady: what these systems are good at, how they fail, how to steer them, and where the responsibility stays with you.",
         "type": "paragraph"
       },
       {
@@ -59,7 +59,7 @@
       },
       {
         "id": "2114a0a5-1a82-4238-abd1-e9c7fd94421f",
-        "text": "Short lessons, grouped into modules, in a deliberate order. The early modules build a working picture of what AI is and how it behaves. The middle ones teach you to steer it and to catch it when it goes wrong. The last modules turn all of that into a way of working: deciding what to delegate, building your own instincts, and putting the whole kit to work on a task you do again and again.\n\nEach lesson adds one idea and assumes the ones before it. That order is doing real work, so resist the urge to jump ahead. A point from module five lands far better once modules two and three have given you something to hang it on.",
+        "text": "Short lessons, grouped into modules, in a deliberate order. The early modules build a working picture of what AI is and how it behaves. The middle ones teach you to steer it and catch it when it goes wrong. The last modules turn that into a way of working: deciding what to delegate, building your own instincts, and putting it all to work on a task you do again and again. This General track is the foundation — once it's done, the tool-specific tracks (Copilot, Claude, and others) build the same judgment into the tools you actually use.",
         "type": "paragraph"
       },
       {
@@ -138,7 +138,7 @@
       },
       {
         "id": "9dc2ee43-4361-401e-af24-c4a47cab6409",
-        "text": "Before you decide where AI fits in your work, start by disarming two reflexes. The first is the hype: the feeling that AI is a step from replacing whole functions, so the only sane move is to hand it everything. The second is the dismissal: the feeling that it is a party trick that makes things up and cannot be trusted with anything that counts. Both fail in the same place. Each one treats AI as a single verdict rather than a tool with a shape.",
+        "text": "Before deciding where AI fits into your work, it helps to set aside two common reactions. One is over-enthusiasm: assuming AI is close to replacing entire functions, so the safest move is to hand it everything. The other is dismissal: assuming it is unreliable and not worth trusting with anything that matters. Both reactions make the same mistake — treating AI as a single verdict rather than a tool that is strong in some areas and weak in others.",
         "type": "paragraph"
       },
       {
@@ -153,11 +153,6 @@
         "type": "paragraph"
       },
       {
-        "id": "e5669d37-1279-4dc6-abb1-dca79ac16a21",
-        "text": "The most expensive stance is certainty in either direction. Being sure AI is infallible and being sure it is useless both stop you from finding where the line actually sits.",
-        "type": "callout"
-      },
-      {
         "id": "c7b5ce25-b27e-484a-be72-eb31f78beb32",
         "text": "The stance that pays",
         "type": "heading",
@@ -165,7 +160,7 @@
       },
       {
         "id": "47b00ab8-c5e1-454a-a5b9-6effe1bf2dfd",
-        "text": "What works instead is calibration. You walk in expecting AI to be strong at some things and weak at others, and you read every output as a draft you are accountable for rather than a result you can forward unread.\n\nThat sounds obvious. It is harder to hold than it looks.\n\nThis changes the question you ask. The useful question is which parts of a job you can hand off and which you have to keep. Take the all-hands script. AI can give you a structure and a serviceable first draft in a minute, and on a routine quarter that gets you perhaps 70 to 80 percent of the way there. The rest is the part that was always yours: what the message should say, whether the tone fits a room that has just heard about a hiring freeze, which figures are safe to commit to out loud. If you do not run an all-hands, the same split turns up in the update you post to your team channel or the note you send round after a decision.",
+        "text": "What works instead is calibration. You walk in expecting AI to be strong at some things and weak at others, and you read every output as a draft you are accountable for rather than a result you can forward unread.\n\nIt is a simple idea to state and an easy one to abandon once you are busy.\n\nThis changes the question you ask. The useful question is which parts of a job you can hand off and which you have to keep. Take the all-hands script. AI can give you a structure and a serviceable first draft in a minute, and on a routine quarter that gets you perhaps 70 to 80 percent of the way there. The rest is the part that was always yours: what the message should say, whether the tone fits a room that has just heard about a hiring freeze, which figures are safe to commit to out loud. If you do not run an all-hands, the same split turns up in the update you post to your team channel or the note you send round after a decision.",
         "type": "paragraph"
       },
       {
@@ -262,7 +257,7 @@
       },
       {
         "id": "85a0f863-b9ae-41e2-840b-36ba3f41c17f",
-        "text": "Artificial intelligence has meant a lot of things over the decades. The part that actually changed how work gets done is one branch, generative AI, and it is worth being precise about what sets it apart. If you lead a team, this is the shift you are now setting the tone for. If you lead no one, it is the same shift landing on your own desk, and the mechanics do not change either way.",
+        "text": "Artificial intelligence has meant many different things over the decades, but the branch that actually changed how work gets done is generative AI: models that produce new text, drafts, and summaries on demand, rather than retrieving something that was already stored. Whether you lead a team or just do your own job, that shift lands the same way and works the same way.",
         "type": "paragraph"
       },
       {
@@ -289,7 +284,7 @@
       },
       {
         "id": "13064302-851c-4274-948d-519d121c80be",
-        "text": "The distinction has real consequences. It changes both what you can safely hand off and what you have to watch for.\n\nBecause the output is generated rather than retrieved, it comes back fluent, fast, and shaped to your request. That is exactly why it helps with drafting that wiki entry, turning a long recorded meeting into a short list of decisions, or putting a dense policy clause into plain language. Work that used to mean sitting down and producing prose from a blank page can now start from a draft.\n\nThat same quality is the catch. Retrieved information is either in the system or it is not. Generated content always comes back looking complete and confident, whether or not it is correct. You are no longer running arithmetic you can trust by default. You are reading something that has to be judged on its merits before you rely on it.",
+        "text": "The distinction has real consequences. It changes both what you can safely hand off and what you have to watch for.\n\nBecause the output is generated rather than retrieved, it comes back fluent, fast, and shaped to your request. That is exactly why it helps with drafting that wiki entry, turning a long recorded meeting into a short list of decisions, or putting a dense policy clause into plain language. Work that used to mean sitting down and producing prose from a blank page can now start from a draft.\n\nThat same quality creates the risk. Retrieved information is either in the system or it is not. Generated content always comes back looking complete and confident, whether or not it is correct. You are no longer running arithmetic you can trust by default. You are reading something that has to be judged on its merits before you rely on it.",
         "type": "paragraph"
       },
       {
@@ -297,11 +292,11 @@
         "type": "card_group",
         "cards": [
           {
-            "body": "Finds, sorts, or calculates what already exists. Fixed rules, and the same input gives the same output every time. You can trust it to do exactly what it was told.",
+            "body": "**Deterministic.** Finds, sorts, or calculates what already exists. Fixed rules, and the same input gives the same output every time. You can trust it to do exactly what it was told.",
             "title": "Traditional software"
           },
           {
-            "body": "Produces new content that fits your request. Fast and flexible, but the output is written fresh each time and has to be judged before you rely on it.",
+            "body": "**Probabilistic.** Produces new content that fits your request. Fast and flexible, but the output is written fresh each time and has to be judged before you rely on it.",
             "title": "Generative AI"
           }
         ]
@@ -314,7 +309,7 @@
       },
       {
         "id": "b97aa694-6f16-45f8-9f53-dcf5d39e5365",
-        "text": "Two habits follow from how the technology works. First, generative AI helps most where producing a first version is the slow part: drafting, summarising, restructuring, reformatting. Give it the blank-page job and refine from there.\n\nSecond, treat what comes back as a capable draft rather than a finished answer. It is written to look right, which is a different thing from being right. Most of this track is about knowing where that line sits and how to stay on the useful side of it.",
+        "text": "Two habits follow from how the technology works: reach for it where producing a first version is the slow part — drafting, summarising, restructuring, reformatting — and treat what comes back as a capable draft rather than a finished answer, since it is written to look right, which is a different thing from being right. A later lesson, \"What AI is good at, and where it falls short,\" goes into exactly where that line sits in practice.",
         "type": "paragraph"
       },
       {
@@ -383,7 +378,7 @@
       },
       {
         "id": "04bd4c6c-182d-485b-8d83-ded1d618cc85",
-        "text": "An LLM is trained on huge amounts of text to do one thing: predict what text should plausibly come next, given what came before. That sounds narrow, but in practice it covers a lot of ground. The same trained system can draft a stakeholder update, pull a batch of open-ended survey comments into a themed summary, rewrite a dense clause in plain language, or turn scribbled notes into a clean action list.\n\nThe reach is real, and so are the limits. The model has no memory of your last conversation unless the tool feeds it back in. It does not see live information unless something connects it to a source that does. And because it produces plausible text rather than looking things up, it is usually right and occasionally, confidently, wrong.",
+        "text": "An LLM is trained on huge amounts of text to do one thing: predict what text should plausibly come next, given what came before. That sounds narrow, but in practice it covers a lot of ground. The same trained system can draft a stakeholder update, pull a batch of open-ended survey comments into a themed summary, rewrite a dense clause in plain language, or turn scribbled notes into a clean action list.\n\nThe reach is genuinely wide, but so are the limits. The model has no memory of your last conversation unless the tool feeds it back in, and it does not see live information unless something connects it to a source that does. As covered in the previous lesson, it produces plausible text rather than looked-up facts — that is why it is usually right and occasionally, confidently, wrong.",
         "type": "paragraph"
       },
       {
@@ -503,7 +498,7 @@
       },
       {
         "id": "049835fb-10b5-424e-b539-bcfd4c76d330",
-        "text": "AI is strongest when the work is open-ended language and weakest when it turns on facts, figures, or judgment only you can supply. A project post-mortem sits right on that line. The write-up, the timeline, the tidy list of what happened: that is language work, and AI is fast at it. What actually went wrong, and what your team should do differently: that stays with you. Whether you are chairing the review or just accounting for your own part of the project, the split lands the same way.\n\nThink in task categories, not tools. The same model that turns your scattered incident notes into a clean timeline in seconds will also name the wrong root cause with total confidence. What changed between those two results is the kind of task you handed it, not the tool.",
+        "text": "AI is strongest when the work is open-ended language and weakest when it turns on facts, figures, or judgment only you can supply. Turning a page of messy meeting notes into a clean list of decisions and owners sits right on the strong side of that line: it is language work, and AI is fast at it. Deciding what those notes actually mean for the project, and what your team should do next, stays with you.\n\nThe distinction that matters is the kind of task, not the tool. The same model that turns scattered notes into a clean list in seconds will also name a wrong cause or decision with total confidence if you ask it to judge instead of restructure. What changes between those two results is the kind of task you handed it.",
         "type": "paragraph"
       },
       {
@@ -523,7 +518,7 @@
         "cards": [
           {
             "id": "e7527ca6-75bf-4040-9054-7bf0b8b90257",
-            "body": "Open-ended work with words: writing, summarising, reasoning through a problem out loud. Hand it your scattered post-mortem notes and it returns a first-pass timeline with decisions, owners, and open questions. What comes back is a rough document you then shape further.",
+            "body": "Open-ended work with words: writing, summarising, reasoning through a problem out loud. Hand it a page of scattered meeting notes and it returns a first-pass list of decisions, owners, and open questions. What comes back is a rough document you then shape further.",
             "title": "Thinking and drafting"
           },
           {
@@ -533,7 +528,7 @@
           },
           {
             "id": "85e86fd7-c6ab-4952-9b10-70fc1c5eeda2",
-            "body": "Emails, summaries, the opening draft of the post-mortem writeup itself. You get something usable in seconds and spend your time refining instead of staring at a blank page.",
+            "body": "Emails, summaries, the opening draft of a write-up you'll refine. You get something usable in seconds and spend your time refining instead of staring at a blank page.",
             "title": "First-draft generation"
           },
           {
@@ -561,7 +556,7 @@
       },
       {
         "id": "8d257d35-b2bc-472e-8824-668eb1933fd3",
-        "text": "The limits are just as predictable. They cluster where the task stops being about producing plausible language and starts being about something the model cannot reliably do.\n\n**Calculation and live facts.** On its own, a language model does not calculate. It produces text that looks like a computed answer, and it has no live data unless a tool feeds it some. So when a post-mortem draft says the outage lasted 47 minutes or that response times tripled, treat those as text shaped like numbers until you check them against the actual logs. Both limits lift when the tool is wired for it, since some now run real code or reach a live source. Unless you know that is happening, a duration or a cost it hands you is a claim to verify rather than a figure it worked out.\n\n**Novel judgment with no clear right answer.** Deciding what really caused the slip, and what to change next time, is the part of the post-mortem that matters most. When that call turns on competing accounts of what happened, or on which risk is worth carrying, AI gives you something generic and reasonable-sounding. It cannot make the trade-off for you, because the trade-off depends on what you know and value, not on what plausibly comes next. That holds whether you run the review or simply speak to your own slice of it.\n\n**Anything needing context it does not have.** The model has what you told it and what it absorbed in training. The real reason a project stalled is often the thing nobody wrote down: the deadline that was political, the corner someone was quietly told to cut, the disagreement that never made the minutes. None of that reached the model. Missing context does not stop it from answering. It answers as if the gap were not there.\n\n**High-stakes precision work.** Financial modelling, regulatory decisions, anything carrying legal or safety weight. The task itself demands an exactness the model does not guarantee, so it sits outside what you can hand over and accept as-is.",
+        "text": "The limits are just as predictable. They cluster where the task stops being about producing plausible language and starts being about something the model cannot reliably do.\n\n**Calculation and live facts.** On its own, a language model does not calculate. It produces text that looks like a computed answer, and it has no live data unless a tool feeds it some. So when a summary says a project is three weeks behind or that costs have doubled, treat those as text shaped like numbers until you check them against the actual source. Both limits lift when the tool is wired for it, since some now run real code or reach a live source. Unless you know that is happening, a figure it hands you is a claim to verify rather than one it worked out.\n\n**Novel judgment with no clear right answer.** Deciding what a set of meeting notes actually means for the project, and what to do about it, is the part that matters most. When that call turns on competing accounts of what happened, or on which risk is worth carrying, AI gives you something generic and reasonable-sounding. It cannot make the trade-off for you, because the trade-off depends on what you know and value, not on what plausibly comes next.\n\n**Anything needing context it does not have.** The model has what you told it and what it absorbed in training. The real reason a decision stalled is often the thing nobody wrote down: the objection raised off the record, the constraint nobody mentioned in the meeting, the history between two people in the room. None of that reached the model. Missing context does not stop it from answering — it answers as if the gap were not there.\n\n**High-stakes precision work.** Financial modelling, regulatory decisions, anything carrying legal or safety weight. The task itself demands an exactness the model does not guarantee, so it sits outside what you can hand over and accept as-is.",
         "type": "paragraph"
       },
       {
@@ -588,7 +583,7 @@
       },
       {
         "id": "5073cadd-1ada-49c9-bb45-1444b0632eaf",
-        "text": "Before you hand off a piece of the post-mortem, run one quick test: is this mostly about producing language and structure, or does it turn on a number, a fact, or a judgment about what really happened? The first kind AI does well and fast. The second it will answer anyway, confidently and often wrong. Learning to feel that difference before you delegate is most of what separates the people who get real value from AI from the people who do not.",
+        "text": "Before you hand off a piece of work, run one quick test: is this mostly about producing language and structure, or does it turn on a number, a fact, or a judgment about what really happened? The first kind AI does well and fast. The second it will answer anyway, confidently and often wrong. Learning to feel that difference before you delegate is most of what separates the people who get real value from AI from the people who do not.",
         "type": "paragraph"
       },
       {
@@ -686,7 +681,7 @@
     "content_blocks": [
       {
         "id": "ea7418b1-3e22-4deb-87c5-2b82c35aa9bf",
-        "text": "Every AI tool works inside two hard limits: how it chops your text into pieces, and how much of it the model can hold at once. Knowing where those limits sit is the difference between a reliable answer and one built on material the model has already lost sight of.",
+        "text": "Every AI tool works inside two hard limits: how it chops your text into pieces, and how much of it the model can hold at once. Knowing where those limits sit helps you get a reliable answer instead of one built on material the model can no longer see.",
         "type": "callout"
       },
       {
@@ -702,7 +697,7 @@
       },
       {
         "id": "6478f238-af35-44c9-9883-223a5fac4bf8",
-        "text": "A token is a chunk of text, usually a few characters, roughly three-quarters of a word on average. The word \"board\" is one token. A longer or unusual word might run to two or three. The conversion worth keeping in your head is simple. 1,000 tokens is about 750 words, or a page or two of dense text.\n\nYou do not need the maths. You need the instinct. Everything you send and everything the model returns is measured in tokens, and there is a ceiling on how many it can work with at once. A one-line question is a handful of tokens. A spreadsheet export with a few thousand rows, pasted in whole, is tens of thousands. That gap is why the limit turns real on exactly the tasks where AI is most useful, the long and information-dense ones.",
+        "text": "A token is a chunk of text, usually a few characters, roughly three-quarters of a word on average. The word \"board\" is one token. A longer or unusual word might run to two or three. The conversion worth keeping in your head is simple. 1,000 tokens is about 750 words, or a page or two of dense text.\n\nThe exact conversion matters less than a rough sense of scale. Everything you send and everything the model returns is measured in tokens, and there is a ceiling on how many it can work with at once. A one-line question is a handful of tokens. A spreadsheet export with a few thousand rows, pasted in whole, is tens of thousands. That gap is why the limit turns real on exactly the tasks where AI is most useful, the long and information-dense ones.",
         "type": "paragraph"
       },
       {
@@ -713,7 +708,7 @@
       },
       {
         "id": "d6233b52-1723-4be0-ac0a-86604350f67c",
-        "text": "The context window is the total pool of tokens the model can hold in a single conversation. It covers everything in play: the background instructions it starts with, every message you have sent, every reply it has given, and any document or spreadsheet you have pasted or attached. If it is not in the window, the model cannot use it.\n\nThis has real consequences for how you work.",
+        "text": "The context window is the total pool of tokens the model can hold in a single conversation. It covers everything in play: the background instructions it starts with, every message you have sent, every reply it has given, and any document or spreadsheet you have pasted or attached. If it is not in the window, the model cannot use it.",
         "type": "paragraph"
       },
       {
@@ -729,7 +724,7 @@
       },
       {
         "id": "184a4cbe-12f4-4fe7-8666-12315e3e2bcc",
-        "text": "When a conversation or a set of documents outgrows the window, something has to give, and the oldest material falls out of view first. The model does not warn you and does not stop responding. It carries on with less to work from.\n\nThis is why a long working session can feel as though the model is forgetting what you told it at the start. It is not a glitch. The detail you set out early has dropped outside the window, and the model is now answering from what remains. The same effect explains why a summary of a very long document can quietly miss what sat on page one, because not all of it was in view when the answer was produced.",
+        "text": "When a conversation or a set of documents outgrows the window, something has to give, and the oldest material falls out of view first. The model does not warn you and does not stop responding. It carries on with less to work from.\n\nThis is why a long working session can feel as though the model is forgetting what you told it at the start. It is not a glitch. The detail you set out early has dropped outside the window, and the model is now answering from what remains. The same effect explains why a summary of a very long document can quietly miss what sat on page one, because not all of it was in view when the answer was produced.\n\nIf you are not sure how much room is left, you can simply ask the model how full its context window feels and whether starting a fresh session would help. Some tools also **compact** a long conversation behind the scenes, quietly summarising older messages to free up room — worth knowing so you are not surprised when older detail gets fuzzier even though you never cleared the chat.",
         "type": "paragraph"
       },
       {
@@ -745,7 +740,7 @@
       },
       {
         "id": "07d4bd17-6cab-45ad-a338-cd28c1cf5e9f",
-        "text": "Modern models have large context windows, hundreds of thousands of tokens, enough to take a full contract, a long email thread, or several files at once. Large is not unlimited. Cleaning up a big spreadsheet export, reformatting a few thousand rows into one consistent structure, is exactly the kind of task that can still reach the edge, and the failure is silent.\n\nThe practical moves are straightforward. For a large clean-up, the more you narrow what you hand over to what the task actually needs, the more reliable the result: send the columns that matter, not the whole export, when you can. When you must supply a lot, structure it, because clear headings and labels help the model find what counts inside the pool. And when precision on a specific detail matters, put that detail late and state it plainly rather than assuming an instruction from twenty exchanges ago is still in view.",
+        "text": "Modern models have large context windows, hundreds of thousands of tokens, enough to take a full contract, a long email thread, or several files at once — and these windows have grown enormously over the past few years and keep expanding with each new generation. But \"much bigger\" is not the same as \"unlimited,\" and that ceiling still matters for the tasks that push against it. Cleaning up a big spreadsheet export, reformatting a few thousand rows into one consistent structure, is exactly the kind of task that can still reach the edge, and the failure is silent.\n\nThe practical moves are straightforward. For a large clean-up, the more you narrow what you hand over to what the task actually needs, the more reliable the result: send the columns that matter, not the whole export, when you can. When you must supply a lot, structure it, because clear headings and labels help the model find what counts inside the pool. And when precision on a specific detail matters, put that detail late and state it plainly rather than assuming an instruction from twenty exchanges ago is still in view.",
         "type": "paragraph"
       },
       {
@@ -812,7 +807,7 @@
     "content_blocks": [
       {
         "id": "bb74d4d4-8f0b-4d42-99ff-5afc9afebd45",
-        "text": "A model does not look up answers. It predicts text, one token at a time, always reaching for the most plausible next chunk. That single habit explains two surprises at once: why the same prompt can give you two different answers, and why it can hand you a confident, well-formed fact that is simply untrue.\n\nLast lesson was about what goes into a model. This one is about what comes out, and why it is both less fixed and less reliable than the fluent writing makes it look.",
+        "text": "The previous lesson covered what goes into a model: tokens and the context window. This one covers what comes out — because the same mechanism that reads your input this way also explains two things people notice quickly: why the same prompt can give two different answers, and why AI can hand you a confident, well-formed fact that is simply untrue.",
         "type": "paragraph"
       },
       {
@@ -823,7 +818,7 @@
       },
       {
         "id": "2bd823d3-ce3f-4076-aed5-4222f101ef43",
-        "text": "A search engine finds text that already exists and returns it. A model works differently. It builds each answer from scratch, choosing every word because it plausibly follows what came before. Nothing is retrieved. The model produces text that resembles what it learned from, without ever checking a verified record of what is true.\n\nThat resemblance is usually good enough to be useful. But the model optimises for plausibility, not truth, and almost everything that surprises you about AI, the inconsistency and the confident mistakes, comes back to that one fact.",
+        "text": "As covered earlier in this track, the model builds each answer by predicting the next plausible chunk of text rather than retrieving a stored fact. Two consequences follow directly from that, and this lesson covers both: why identical prompts can produce different answers, and why a fluent answer is not proof that it is correct.",
         "type": "paragraph"
       },
       {
@@ -848,46 +843,22 @@
         "type": "paragraph"
       },
       {
-        "id": "c71d0aad-8894-4549-8358-939ecb37581a",
-        "mode": "predict",
-        "type": "interactive",
-        "prompt": "If you ran the exact same prompt on the exact same AI tool twice in a row, would you get back the exact same answer?",
-        "options": [
-          {
-            "id": "73326bb0-747d-4f66-9cae-e55408cb31e2",
-            "label": "Yes, it recomputes the same way each time",
-            "reason": "A model does not retrieve a fixed answer. It selects among several probable next tokens at each step, so identical prompts do not guarantee identical output."
-          },
-          {
-            "id": "3798685b-8d3a-4836-87db-969cfa93c2a3",
-            "label": "No, they would likely differ",
-            "reason": "At each step the model weighs several probable next words rather than locking onto one, and temperature governs how far it strays, so the same prompt rarely comes back the same way twice."
-          },
-          {
-            "id": "77428bb5-dff6-41ac-a328-6a4fc9860167",
-            "label": "It depends entirely on how long the prompt is",
-            "reason": "Length is not the driver. The variability comes from token-by-token selection and the temperature setting, not prompt length."
-          }
-        ],
-        "correctOptionId": "3798685b-8d3a-4836-87db-969cfa93c2a3"
-      },
-      {
         "id": "bbb7788e-58ac-4c61-a99b-7551a63a0c75",
-        "task": "Now that you have predicted it, verify it for real. Run the exact same prompt below in your own AI tool twice, as two separate messages, not edits of the same one.",
+        "task": "Copy the prompt below and run it in your own AI tool as two separate, brand-new conversations — not two messages in the same thread. Compare what comes back.",
         "type": "try_it_yourself",
         "steps": [
           {
             "id": "97a7d11a-75d2-4b5d-8124-7a729c574a69",
-            "text": "Suggest three possible names for a new internal newsletter about AI tips at work.",
+            "text": "Paste it into a new chat and note the three names it suggests.",
             "label": "First run"
           },
           {
             "id": "4d73ac56-aba5-4119-9188-30fa2bec864f",
-            "text": "Suggest three possible names for a new internal newsletter about AI tips at work.",
-            "label": "Second run (same prompt, new message)"
+            "text": "Start a completely new chat (not the same thread) and paste the identical prompt again.",
+            "label": "Second run (new conversation)"
           }
         ],
-        "material": "",
+        "material": "Suggest three possible names for a new internal newsletter about AI tips at work.",
         "whatToNotice": "The two lists probably will not match exactly, and that is not a bug. At each step the model chooses among several plausible next words rather than retrieving one fixed answer, so identical prompts do not guarantee identical output."
       },
       {
@@ -898,13 +869,8 @@
       },
       {
         "id": "24318e1c-c2f5-4abc-bbd8-c1955d163ef4",
-        "text": "The same mechanism produces the failure that catches people off guard: a **hallucination**, where the model states something plausible-sounding that is simply false.\n\nThis is the mechanism working exactly as designed. Ask for a citation, a figure, or a name the model was not well trained on, and it does the only thing it can: it produces the text that most plausibly fits. A convincing reference to a paper that was never published. A precise-looking number with nothing behind it. It all arrives in the same fluent, authoritative tone as everything else, because producing authoritative-sounding text is the one thing the model is built to do.\n\nThe confidence in the writing tells you nothing about whether the content is right. The model gives no signal of its own uncertainty. A fabricated figure and a correct one reach you in the same even voice.",
+        "text": "The same mechanism produces the failure that catches people off guard: a **hallucination**, where the model states something plausible-sounding that is simply false.\n\nAsk for a citation, a figure, or a name the model was not well trained on, and it does the only thing it can: it produces the text that most plausibly fits. A convincing reference to a paper that was never published. A precise-looking number with nothing behind it. It arrives in the same fluent tone as everything else it gets right, with no signal that this particular answer was invented.",
         "type": "paragraph"
-      },
-      {
-        "id": "c59845a0-65be-438c-9d5e-63d9158d6caa",
-        "text": "Fluency is not evidence. A model that sounds certain is not the same as a model that is right, and it produces that certain tone whether or not the facts behind it hold up.",
-        "type": "callout"
       },
       {
         "id": "5def7b32-e9ef-43b8-9913-34356fcfbd80",
@@ -990,11 +956,6 @@
   {
     "content_blocks": [
       {
-        "id": "ec92f4b7-7967-40c4-8c5b-ec9e6673658c",
-        "text": "The prompt you type is only half the instruction the model follows. The other half was written before you arrived, and it explains most of the behaviour that catches you off guard.",
-        "type": "callout"
-      },
-      {
         "id": "bcfe4537-9469-492a-8657-605a735eab12",
         "text": "Every response a model produces is shaped by two layers of instruction: the prompt you send, and a standing set of instructions you never see. Knowing both exist changes how you read what comes back, and how much of a tool's behaviour you can actually change.",
         "type": "paragraph"
@@ -1007,7 +968,7 @@
       },
       {
         "id": "ce5458bc-c6a9-4f8a-8451-19e08c3e2b83",
-        "text": "A prompt is any input you give the model: a question, an instruction, a document to summarise, a set of notes to turn into a task list. The model takes your prompt, adds whatever else is already sitting in the context window, and builds a response out of all of it.\n\nThe term gets used loosely. Sometimes it means a single message; sometimes it means the whole approach to phrasing a request well. Either way the principle holds: what you put in shapes what you get back. Ask a support tool to \"reply to this complaint\" and you get something generic and cautious. Tell it the customer has been waiting nine days, that you want an apology without admitting fault, and that a goodwill credit should be offered in the last line, and you get a reply you can almost send as it stands.\n\nYou don't need the full craft yet; that comes in the next module. One instinct is enough for now: the model fills gaps with assumptions, and its assumptions are not always yours. A vague prompt fails quietly. It hands you a confident, plausible answer to a question you didn't quite ask, and nothing in the output flags the gap.",
+        "text": "A prompt is any input you give the model: a question, an instruction, a document to summarise, a set of notes to turn into a task list. The model takes your prompt, adds whatever else is already sitting in the context window, and builds a response out of all of it.\n\nThe term gets used loosely. Sometimes it means a single message; sometimes it means the whole approach to phrasing a request well. Either way the principle holds: what you put in shapes what you get back. Ask a support tool to \"reply to this complaint\" and you get something generic and cautious. Tell it the customer has been waiting nine days, that you want an apology without admitting fault, and that a goodwill credit should be offered in the last line, and you get a reply you can almost send as it stands.\n\nYou don't need the full craft yet; that comes in the next module. One instinct is enough for now: the model fills gaps with assumptions, and its assumptions are not always yours.",
         "type": "paragraph"
       },
       {
@@ -1018,7 +979,7 @@
       },
       {
         "id": "213f2b11-19f0-4af5-a21e-6f0b43051030",
-        "text": "Before your first message, the model has already been handed a set of standing instructions. This is the system prompt. It runs behind the interface, never shows up in the chat thread, and shapes how the model behaves across the whole conversation: what role to play, what tone to strike, what to focus on, what to refuse.\n\nEvery AI tool you open already has one. Take the customer support assistant behind a company's help chat. Its system prompt is what turns a general model into that assistant, fixing the tone, the policies it can quote, the refunds it is allowed to mention, and the topics it must hand to a human. When you set a persona or global instructions in a tool that offers them, you are writing a lightweight system prompt of your own.",
+        "text": "Before your first message, the model has already been handed a set of standing instructions. This is the system prompt. It runs behind the interface, never shows up in the chat thread, and shapes how the model behaves across the whole conversation: what role to play, what tone to strike, what to focus on, what to refuse.\n\nEvery AI tool you open already has one. Take the customer support assistant behind a company's help chat. Its system prompt is what turns a general model into that assistant, fixing the tone, the policies it can quote, the refunds it is allowed to mention, and the topics it must hand to a human. When you set a persona or global custom instructions in a tool that offers them (most chat tools have a settings menu for this), you are writing a lightweight system prompt of your own — for example, telling the model to always answer concisely with bullet points, or to never use em dashes.",
         "type": "paragraph"
       },
       {
@@ -1034,7 +995,7 @@
       },
       {
         "id": "0425fe92-18a0-4e49-96c3-293e36f32d07",
-        "text": "You may never write a system prompt. Knowing one is always running still changes how you read what you see.\n\nWhen a model refuses a reasonable request, softens an answer, or keeps forcing a format you didn't ask for, reach for the system prompt before you blame your own wording. A standing rule you cannot see is often the thing steering the model, and once you spot that, you either work around it or move to a tool configured for what you actually need.\n\nIt also sets your expectations about control. The system prompt sets the stage; your prompt directs the scene inside it. You have real influence over the second layer and none over the first, which is why the tool you pick matters as much as the wording of any single request.",
+        "text": "You may never write a system prompt. Knowing one is always running still changes how you read what you see.\n\nWhen a model refuses a reasonable request, softens an answer, or keeps forcing a format you didn't ask for, consider that a system prompt may be shaping that behaviour, rather than assuming your own wording is at fault. A standing rule you cannot see is often the thing steering the model, and once you spot that, you either work around it or move to a tool configured for what you actually need.\n\nIt also sets your expectations about control. The system prompt sets the stage; your prompt directs the scene inside it. You have real influence over the second layer and none over the first, which is why the tool you pick matters as much as the wording of any single request.",
         "type": "paragraph"
       },
       {
@@ -1127,7 +1088,7 @@
       },
       {
         "id": "efd63db3-2a2b-463c-aaf0-554a79535124",
-        "text": "Chat is the doorway, not the whole house. The versions of AI that change how work actually gets done can act on your behalf and reach into the systems where that work sits.",
+        "text": "The versions of AI that actually change how work gets done go further than chat: they can act on your behalf and reach into the systems where that work already lives.",
         "type": "callout"
       },
       {
@@ -1138,7 +1099,7 @@
       },
       {
         "id": "2101a67b-ab1f-4b4a-830b-a7e868bd9e15",
-        "text": "A standard chat model responds one message at a time, and you stay in the loop for every step. It drafts, you read, you decide what comes next. An agent works differently. You hand it a goal, and it takes several steps toward that goal on its own: running a search, reading a file, drafting a result, checking what it produced, moving on to the next step. Your input along the way is far lighter.\n\nBack to the risk register. Ask a chat model and it structures whatever you handed it. An agent could go and find the material first, pull the recent status updates, cross-reference them against last quarter's entries, and hand back a marked-up draft. Several steps, little supervision.\n\nThat autonomy is where the value sits, and where the risk sits with it. More unsupervised steps mean more places a wrong turn goes unseen. A single confident-but-wrong answer is easy to catch when you read every reply. A wrong step buried three actions deep in an agent run is not: the overdue mitigation it quietly dropped, or the risk it rated low because it never saw the email that would have raised the flag.",
+        "text": "A standard chat model responds one message at a time, and you stay in the loop for every step. It drafts, you read, you decide what comes next. An agent works differently: you define the goal or outcome, and it plans its own steps to reach it — running a search, reading a file, drafting a result, checking its own work — using whatever tools it has access to along the way. Your input along the way is far lighter.\n\nTake the risk-register example from the start of this lesson: ask a chat model, and it structures whatever you handed it. An agent could instead go and find the material itself, pull the recent status updates, cross-reference them against last quarter's entries, and hand back a marked-up draft.\n\nThat autonomy is where the value sits, and where the risk sits with it. More unsupervised steps mean more places a wrong turn goes unseen. A single confident-but-wrong answer is easy to catch when you read every reply. A wrong step buried three actions deep in an agent run is not: the overdue mitigation it quietly dropped, or the risk it rated low because it never saw the email that would have raised the flag. Two things reduce that risk: giving the agent a clear goal and enough context to work from, and building in checkpoints along the way, so you can course-correct partway through a run rather than only judging the finished result.",
         "type": "paragraph"
       },
       {
@@ -1154,7 +1115,7 @@
       },
       {
         "id": "8bd16a2e-f135-46a7-8971-f974e3a54965",
-        "text": "An agent that cannot touch anything is only a talker. What lets AI reach past the chat window is a connector: a pre-built link between an AI tool and an outside system, whether that is your files, an email thread, a document store, or the tracker holding your risk register. Point the tool at that tracker and it can read what is there. The link that makes it possible is the connector.\n\nMCP, the Model Context Protocol, is the standard that keeps those links consistent. Rather than every AI tool needing a custom build for every system, MCP gives them a shared format to speak, so a connector built once works across tools. Think of a universal plug instead of a drawer full of mismatched adapters.\n\nHere is the short version for you. Connectors turn AI from a clever writing partner into something wired into where your work already sits. That is what makes it useful, and it is also why access, permissions, and oversight are worth asking about before you switch it on.",
+        "text": "An agent still needs a way to reach beyond the chat window — that link is called a connector: a pre-built connection between an AI tool and an outside system, whether that is your files, an email thread, a document store, or the tracker holding your risk register. Point the tool at that tracker through a connector and it can read what is there.\n\nMCP, the Model Context Protocol, is the open standard most connectors are now built on. Rather than every AI tool needing a custom-built connector for every system, MCP gives them a shared format to speak, so a connector built once works across any tool that supports MCP. Think of a universal plug instead of a drawer full of mismatched adapters — MCP is the plug standard, and a connector is a specific plug built to it.\n\nConnectors turn AI from a writing partner into something wired into where your work already sits. That is what makes it useful, and it is also why access, permissions, and oversight are worth asking about before you switch one on.",
         "type": "paragraph"
       },
       {
@@ -1192,7 +1153,7 @@
       },
       {
         "id": "ea57fc41-489e-48f6-9c63-6b082052f2df",
-        "text": "You are not being asked to set any of this up. What matters now is recognition. When someone says an AI can just handle a multi-step job, hear agent, and ask how the outcome gets checked. When a tool offers to connect to your inbox, your files, or that project tracker, hear connector, and ask who approved the access and what it can see.\n\nMCP is the general, cross-vendor standard behind the connector idea, and it is still spreading. Claude's Cowork and Copilot Studio can already reach an MCP server directly. Microsoft 365 Copilot and the wider Power Platform mostly still route through their own older connector systems, though that is starting to change too. Obsidian needs none of this, since an AI tool just reads your notes as files. The tool track you use shows you where things stand for that product today.",
+        "text": "You are not being asked to set any of this up. What matters now is recognition. When someone says an AI can just handle a multi-step job, hear agent, and ask how the outcome gets checked. When a tool offers to connect to your inbox, your files, or that project tracker, hear connector, and ask who approved the access and what it can see.\n\nMCP is the general, cross-vendor standard behind the idea, and support for it is still spreading unevenly across products — some tools already connect through it directly, others still rely on their own older connector systems. Rather than tracking which is which today, the tool-specific track you're using will tell you where things stand for that product; what carries across all of them is recognising the pattern itself.",
         "type": "paragraph"
       },
       {
@@ -1244,13 +1205,8 @@
   {
     "content_blocks": [
       {
-        "id": "4aa1e0b6-3ae5-4a35-8c03-80729849e460",
-        "text": "When AI hands you something mediocre, the prompt is usually the reason it landed flat, and the prompt is also where you fix it.",
-        "type": "callout"
-      },
-      {
         "id": "60bd075e-5d9e-4e05-84de-73df9ed9d17c",
-        "text": "Most people who come away unimpressed with AI wrote a vague request and got a vague answer back. The model did its job. It filled the gaps you left, and it filled them with the most generic plausible thing it could reach for. Prompting is a skill, and unlike most skills it improves in minutes, not months. The payoff is immediate, and a sharper instruction turns a throwaway draft into something you can forward, edit lightly, or actually decide from.\n\nThis lesson covers the four things that make a prompt good in the first place: specificity, audience, format, and constraints. Whether you are prepping talking points for a vendor negotiation or just trying to get a usable draft of an awkward email, the same four decisions do most of the work. Get them right and most of your frustration disappears.",
+        "text": "Most disappointing AI output traces back to a vague request that got a vague answer. The model filled the gaps you left with the most generic, plausible thing it could reach for. Prompting is a skill you can improve quickly, using a handful of rules of thumb rather than months of practice — a sharper instruction can turn a throwaway draft into something you can forward or decide from with only light edits.\n\nThis lesson covers the four things that make a prompt good in the first place: specificity, audience, format, and constraints. Whether you are prepping talking points for a vendor negotiation or getting a usable draft of an everyday email, the same four decisions do most of the work.",
         "type": "paragraph"
       },
       {
@@ -1261,12 +1217,12 @@
       },
       {
         "id": "fc4d36a2-8028-4a48-9e1d-b18420892190",
-        "text": "The most common mistake is asking for too little. \"Summarise this document\" is a prompt, but it forces the model to guess how long, for whom, and to what end. Now compare that against a fuller version. \"Summarise this vendor contract in five bullet points for a non-technical colleague, focusing only on the clauses that carry a cost or a deadline.\" The second gets you something usable on the first pass. The first gets you a coin flip.\n\nEvery guess you leave in a prompt is a decision you have handed to the model, and it will make that decision generically, with no idea what you had in mind. Cutting those guesses is all that specificity means. The extra words are just what it takes to get there.",
+        "text": "The most common mistake is asking for too little. **\"Summarise this document\"** is a prompt, but it forces the model to guess how long, for whom, and to what end. Now compare that against a fuller version: **\"Summarise this vendor contract in five bullet points for a non-technical colleague, focusing only on the clauses that carry a cost or a deadline.\"** The second gets you something usable on the first pass. The first gets you a coin flip.\n\nEvery guess you leave in a prompt is a decision you have handed to the model, and it will make that decision generically, with no idea what you had in mind. Cutting those guesses is all that specificity means. The extra words are just what it takes to get there.",
         "type": "paragraph"
       },
       {
         "id": "0b111a4a-5dd3-45e8-8ad5-f2f4af800dfe",
-        "text": "Vague in, vague out. If the output feels generic, look at your prompt before you blame the model. You almost certainly left the important choices unspecified.",
+        "text": "When the output feels generic, the prompt is the first place to look — most of the time, an important choice was left unspecified rather than decided.",
         "type": "callout"
       },
       {
@@ -1277,7 +1233,7 @@
       },
       {
         "id": "0c923e4c-1ede-4f23-8643-7289c44c2c3a",
-        "text": "For anything you intend to use directly, four decisions carry most of the weight. You will not need all four every time, but naming them takes ten seconds and saves you a round trip.",
+        "text": "For anything you intend to use directly, four decisions carry most of the weight. You will not need all four every time, but deciding them upfront is quick and saves a round trip of edits later.",
         "type": "paragraph"
       },
       {
@@ -1285,7 +1241,7 @@
         "type": "card_group",
         "cards": [
           {
-            "body": "Who is this for? Notes for your own prep read nothing like a message you send to the vendor. State it: for my own use, for a colleague who was not in the room, for a new hire. The model calibrates vocabulary, depth, and what it assumes they already know.",
+            "body": "Who is this for? Notes for your own prep read nothing like a message you send to the vendor. State it: **for my own use**, **for a colleague who was not in the room**, or **for a new hire**. The model calibrates vocabulary, depth, and what it assumes they already know.",
             "title": "Audience"
           },
           {
@@ -1304,7 +1260,7 @@
       },
       {
         "id": "5437881a-2e86-48e8-864f-d0715b6675d3",
-        "text": "Take a real case. You are preparing talking points for a contract renewal with a software vendor who has just proposed a double-digit price increase. \"Help me prepare for this negotiation\" leaves everything open. Instead: \"Draft talking points for our renewal call. We have used this vendor for three years and rely on it daily. They want a large annual increase, and I want to hold it near inflation and add two user seats. Give me three opening positions and the likely pushback on each. Direct, businesslike tone, no filler, one page.\" Audience, format, angle, and constraints, all decided by you rather than left to the model.",
+        "text": "Take a real case. You are preparing talking points for a contract renewal with a software vendor who has just proposed a double-digit price increase. **\"Help me prepare for this negotiation\"** leaves everything open. Instead: **\"Draft talking points for our renewal call. We have used this vendor for three years and rely on it daily. They want a large annual increase, and I want to hold it near inflation and add two user seats. Give me three opening positions and the likely pushback on each. Direct, businesslike tone, no filler, one page.\"** Audience, format, angle, and constraints, all decided by you rather than left to the model.",
         "type": "paragraph"
       },
       {
@@ -1315,7 +1271,7 @@
       },
       {
         "id": "f7cfd0c5-9e8c-4c0c-9020-c3a2b0603d55",
-        "text": "Telling the model what to avoid is as powerful as telling it what to do, and most people never do it. If the output keeps coming back with the same flaw, name the flaw.\n\nThe patterns that come up most: \"Do not open with a preamble. Start with the first point.\" \"Do not suggest fixes; I only want the problem framed.\" \"Do not use corporate filler like leverage, synergy, or holistic.\" \"Do not exceed 200 words.\" None of these is a nitpick. A recurring annoyance you keep editing out by hand is a one-line instruction you have not written yet.",
+        "text": "Telling the model what to avoid works as well as telling it what to do, and it's an easy step to skip. If the output keeps coming back with the same flaw, name the flaw directly.\n\nCommon examples: **\"Do not open with a preamble — start with the first point.\"** **\"Do not suggest fixes; I only want the problem framed.\"** **\"Do not use corporate filler like leverage, synergy, or holistic.\"** **\"Do not exceed 200 words.\"** None of these is a nitpick — a recurring annoyance you keep editing out by hand is a one-line instruction you have not written yet.",
         "type": "paragraph"
       },
       {
@@ -1331,7 +1287,7 @@
       },
       {
         "id": "acec6e60-7cb1-4707-a45b-d119f3b4f5fa",
-        "text": "The difference is intention, not creativity. Watch what happens when the four levers meet a weak request.\n\n**Weak:** \"Write talking points for my vendor call.\"\n\n**Strong:** \"Write talking points for a 30-minute renewal call with our IT vendor. Open with the value we have had from them, then make the case that their proposed increase runs above market, and close with the two concessions I need to walk away satisfied. Firm but friendly tone, under 250 words, no header.\"\n\nThe strong version came from decisions made up front rather than a better imagination. It said who it is for, what shape it takes, what it should do, and what it must not do. That is all it comes down to.",
+        "text": "The difference is intention, not creativity. Watch what happens when the four levers meet a weak request.\n\n**Weak:** \"Write talking points for my vendor call.\"\n\n**Strong:** \"Write talking points for a 30-minute renewal call with our IT vendor. Open with the value we have had from them, then make the case that their proposed increase runs above market, and close with the two concessions I need to walk away satisfied. Firm but friendly tone, under 250 words, no header.\"\n\nThe strong version came from decisions made up front rather than a better imagination. It said who it is for, what shape it takes, what it should do, and what it must not do. That is all it comes down to. Worth knowing too: today's models have advanced enough that even a simpler, reasonably well-rounded prompt usually gets you most of the way there — the four levers just make that outcome reliable instead of lucky.",
         "type": "paragraph"
       },
       {
@@ -1342,7 +1298,7 @@
       },
       {
         "id": "ff97ee8c-490c-4935-929b-e0a5b95855ad",
-        "text": "You can push quality further with heavier techniques, such as showing the model a worked example of what good looks like, or giving it a role to shift its perspective, like asking it to pressure-test your talking points the way the vendor account manager would. Those are genuine multipliers, and they get their own lesson. For now, the four levers plus a clear statement of what to avoid will handle most of your work. Master the baseline before reaching for the extras.",
+        "text": "You can push quality further with heavier techniques, such as showing the model a worked example of what good looks like, or giving it a role to shift its perspective, like asking it to pressure-test your talking points the way the vendor account manager would. Those are genuine multipliers, and the next lesson is dedicated to them. For now, the four levers plus a clear statement of what to avoid will handle most of your work — master the baseline before reaching for the extras.",
         "type": "paragraph"
       },
       {
@@ -1358,7 +1314,7 @@
       },
       {
         "id": "41839d6b-b516-4c0b-a608-d9129642b930",
-        "text": "Before you send a prompt for anything that matters, run a two-second check: have I said who it is for, what it should look like, what stance to take, and what to avoid? You will skip some of those on purpose, and that is fine. The point is that you decided, instead of leaving the model to guess. That habit separates the people who find AI useful from the people who find it disappointing.",
+        "text": "Before you send a prompt for anything that matters, run a two-second check: have I said who it is for, what it should look like, what stance to take, and what to avoid? You will skip some of those on purpose, and that is fine. The point is that you decided, instead of leaving the model to guess.",
         "type": "paragraph"
       },
       {
@@ -1429,118 +1385,102 @@
   {
     "content_blocks": [
       {
-        "id": "1ee7e318-d619-4cf7-9971-ed07398c4213",
+        "id": "97b1f9ba-3a59-4c83-a766-ae163b7e2739",
         "text": "It starts before the model writes",
         "type": "heading",
         "level": 2
       },
       {
-        "id": "66cb069e-0f80-493d-bb9d-0c0b3a11eb7b",
-        "text": "You have your monthly one-on-one with your manager on Thursday, and a month of scattered work to turn into three things worth actually raising. You could open a model and ask for help. What you get back depends less on how you word the request and more on what you put in front of it first.\n\nA good prompt tells the model what to do. Context is the raw material it works with: the project updates you are pulling from, the manager you are writing for, the constraints you already know apply. Get the context right and the difference in output is larger than any clever phrasing. The instinct most people carry over from search, that more input means a better result, works against you here. The model responds to relevance, not volume.",
+        "id": "ddf3beda-782c-4a77-a2b5-19cff0f19c44",
+        "text": "You have your monthly one-on-one with your manager on Thursday, and a month of scattered work to turn into three things worth actually raising. You could open a model and ask for help. What you get back depends less on how you word the request and more on what you put in front of it first.\n\nA good prompt tells the model what to do. Context is the raw material it works with: the project updates you are pulling from, the manager you are writing for, the constraints you already know apply. Get the context right and the difference in output is larger than any clever phrasing. Most people bring an instinct from search — that more input means a better result — and that instinct works against you here: the model responds to relevance, not volume.",
         "type": "paragraph"
       },
       {
-        "id": "0195abec-2609-468c-b403-339a50b206a8",
+        "id": "506d4b93-a426-4c33-8eac-e6a592899e63",
         "text": "What context actually is",
         "type": "heading",
         "level": 2
       },
       {
-        "id": "ba5d6694-5bc6-41c5-9fae-00b9ac6ffbbb",
+        "id": "4e42e526-fc40-4fce-a12b-dc224bb4e9bf",
         "text": "Everything the model can see in one conversation counts as context: your instructions, the files you attach, the data you paste, and the whole back-and-forth up to that point. All of it shapes the answer. So the question that matters is what the task needs.\n\nThink about how you would brief a capable new colleague. You would not drop every document the company owns on their desk and ask for a summary. You would give them the two or three things that matter, tell them who it is for, and flag the one constraint they could not have guessed. The model rewards the same discipline.",
         "type": "paragraph"
       },
       {
-        "id": "ec609c9d-510c-4e69-876c-f719700262ad",
+        "id": "ee29fbb9-f52a-43f4-988f-1593e70a1521",
         "text": "What to include",
         "type": "heading",
         "level": 2
       },
       {
-        "id": "870152d4-377b-4a16-9898-8a9a34e22c76",
+        "id": "9261894c-cd28-4c84-89f2-9020deec2c8d",
         "text": "The context worth giving usually comes down to four things. Give the model the ones the task turns on and leave the rest out.",
         "type": "paragraph"
       },
       {
-        "id": "e98b42fc-60eb-4fad-8320-fac030f471b0",
+        "id": "801fbcba-490a-4ed1-9bab-d470b97a3bef",
         "type": "card_group",
         "cards": [
           {
+            "id": "607775e6-60cb-4567-97d1-e8b3ec5cb047",
             "body": "The actual thing the task works on: the project updates you are pulling from, the thread you need to reply to, the notes you want turned into actions. Paste the relevant parts and leave the surrounding archive out.",
             "title": "The source material"
           },
           {
+            "id": "0878697c-d43a-4438-85d8-9277526b152d",
             "body": "Who reads the output and what it is for. A talking-points list for your own one-on-one reads nothing like a summary for the whole team. Say it, because the model cannot guess your reader.",
             "title": "The audience and purpose"
           },
           {
+            "id": "1e40bdb6-7a71-438e-9e4c-517ae95e09a0",
             "body": "The boundaries the model could not infer: length, tone, what to leave out, a format you must match, a decision already taken. These are what keep a usable draft from going off the rails.",
             "title": "The constraints"
           },
           {
+            "id": "09e84552-9d09-4614-97b9-19ec25a2a809",
             "body": "What good looks like. A short example of the tone or structure you want, or one line on what a strong answer covers, sharpens the output more than another paragraph of instruction.",
             "title": "The standard to hit"
           }
         ]
       },
       {
-        "id": "0c745584-8f59-4259-a0e1-550aec22a78e",
-        "text": "Back to Thursday. For your one-on-one, the context that matters is the handful of projects you want to raise, where each one stands, and what you want from your manager on each: a decision, cover for a delay, a heads-up. What does not help is your whole task list for the quarter, every thread the projects touched, or the org chart. That material does not sharpen the talking points. It just gives the model more to wade through before it reaches anything useful.",
+        "id": "09de5fa5-cefd-47ca-a938-0225c660c69d",
+        "text": "Back to the Thursday one-on-one from the start of this lesson: the context that matters is the handful of projects you want to raise, where each stands, and what you want from your manager on each — a decision, cover for a delay, a heads-up. Your whole task list for the quarter, every thread the projects touched, or the org chart does not sharpen the talking points; it just gives the model more to wade through before it reaches anything useful.",
         "type": "paragraph"
       },
       {
-        "id": "553daff9-5a98-42e1-b68d-2b591fba7cb7",
+        "id": "ef57f2b0-664b-4f06-b5c6-55a7f1a9e3ad",
         "size": "md",
         "type": "whitespace"
       },
       {
-        "id": "d10b4bb3-f872-4e58-ad1a-1297c61b4bb1",
-        "text": "More is not better",
+        "id": "48a303eb-bf84-4859-9b4f-ab45c4f9d83c",
+        "text": "More is not necessarily better",
         "type": "heading",
         "level": 2
       },
       {
-        "id": "f39054b8-970e-48d3-aa3d-c6fc61eda259",
-        "text": "This is the part that cuts against instinct. Overload the context and the model has to reason across all of it to find the few things that matter, and the signal you care about gets diluted by everything sitting around it. The usual culprits are familiar: a 60-page contract pasted whole when the question is about one clause, a raw data export dropped in instead of the relevant rows, a long conversation that began on one thing and wandered through five others.\n\nThat last one is easy to miss. In a long, drifting thread, an instruction you gave near the start, keep this under a page, write it for someone non-technical, gets buried under everything that came after and quietly stops being honoured. The model is weighing the whole conversation, and your early steer has become a small voice in a crowded room.",
+        "id": "44e1cd8d-462f-44df-bc56-02a6b576cc43",
+        "text": "This cuts against instinct, though it isn't an absolute rule: if a bigger document genuinely holds the context a complex or iterative task needs, upload it — the cost is just that it fills more of the context window, not that it is automatically wrong. The problem is unfiltered volume, not size itself. Overload the context with material that is not actually needed and the model has to reason across all of it to find the few things that matter, and the signal you care about gets diluted by everything sitting around it. The usual culprits are familiar: a 60-page contract pasted whole when the question is about one clause, a raw data export dropped in instead of the relevant rows, a long conversation that began on one thing and wandered through five others.\n\nThat last one is easy to miss. In a long, drifting thread, an instruction you gave near the start, keep this under a page, write it for someone non-technical, gets buried under everything that came after and quietly stops being honoured. The model is weighing the whole conversation, and your early steer has become a small voice in a crowded room.\n\n\nA couple of habits keep it clean, and which one applies depends on the kind of work. For a single, one-off chat, paste the minimum that does the job: the relevant clause rather than the whole contract, a filtered subset rather than the full export. For work you come back to repeatedly — a project or an ongoing piece of work — uploading a larger reference document into a persistent memory or project space (see the Claude track, or your tool's equivalent, for how that works in practice) is exactly what those features are built for: reusable standing context you set once, like who the work is for, the format you always use, and the constraints that keep recurring, instead of re-explaining it every time or re-pasting it into every new chat.",
         "type": "paragraph"
       },
       {
-        "id": "f08b68f2-0ecd-462c-b72b-44ad4b03d60d",
-        "text": "When answers start feeling generic, dropping the constraints you set earlier, or repeating themselves, the context has gone noisy. Clean it up before you reach for a cleverer prompt.",
-        "type": "callout"
-      },
-      {
-        "id": "061e93b5-4fae-48f2-ae89-9050c854f788",
-        "text": "A couple of habits keep it clean. Paste the minimum that does the job: the relevant clause rather than the whole contract, a filtered subset rather than the full export. And where your tool offers a persistent memory or project space, use it for the stable context that rarely shifts, like who the work is for, the format you always use, and the constraints that keep recurring, so you set it once instead of re-explaining it every time. That is what those features are built for: reusable standing context, rather than a store for every document you have ever opened.",
+        "id": "17dd44ec-547c-4d83-a19f-ca556838fc04",
+        "text": "One more rule belongs here, briefly: do not paste confidential, personal, or regulated information into an AI tool that has not been approved for it — customer records, employee data, unreleased financials, a colleague's performance notes, anything covered by a contract or a regulation. The full picture on data, approved tools, and where the real risks sit gets its own lesson later in this track; for now, the short version is enough to keep you out of trouble: relevant beats plentiful, and confidential stays out.",
         "type": "paragraph"
       },
       {
-        "id": "b10910c1-cf99-41d9-9131-2b69621dfe17",
-        "text": "What never to include",
-        "type": "heading",
-        "level": 2
-      },
-      {
-        "id": "4a61262c-0617-413b-9d26-e1e79b38171c",
-        "text": "One rule overrides everything above. Do not paste confidential, personal, or regulated information into an AI tool that has not been approved for it: customer records, employee data, unreleased financials, anything covered by a contract or a regulation. Your one-on-one prep is exactly where this bites. Notes on a colleague's performance problem, a salary figure, something you heard in confidence about a reorg: none of it belongs in an unapproved tool, however much faster it would make the prep. The convenience is real. So is the exposure.",
-        "type": "paragraph"
-      },
-      {
-        "id": "e1a2fc86-edf7-445f-90ee-7facc50a079e",
+        "id": "5f3e115c-3f88-4bb9-a2e1-e923a87a144f",
         "text": "If you would not put it in an email to someone outside the company, do not paste it into an unapproved AI tool. When in doubt, leave it out, or use only a tool that has been approved for it.",
         "type": "callout"
       },
       {
-        "id": "fee70ad6-4403-43b0-bdc8-649b42b99122",
-        "text": "This is the short version, enough to keep you out of trouble for now. The full picture on data, approved tools, and where the real risks sit comes later in the track. For here, the rule travels light: relevant beats plentiful, and confidential stays out.",
-        "type": "paragraph"
-      },
-      {
-        "id": "c9cb68bb-350a-4f63-88ce-e9100ee56bd8",
+        "id": "21bb3327-489a-4c62-a7d4-516c94b804df",
         "type": "quiz",
         "questions": [
           {
             "q": "You want the model to help you prep talking points for one project ahead of your one-on-one. What should you give it as context?",
+            "id": "86c4efb7-53af-4a10-90b3-3201ca692126",
             "correct": 1,
             "options": [
               "Your full task list and every project you touched this quarter, for complete background",
@@ -1552,6 +1492,7 @@
           },
           {
             "q": "A chat you started an hour ago has wandered from your one-on-one prep through formatting, wording, and two side questions. The model has started ignoring your early instruction to keep things under a page. What is the most likely cause?",
+            "id": "315b00b9-46f3-4bac-ba8a-97791bd6565d",
             "correct": 2,
             "options": [
               "The prompt was not detailed enough to begin with",
@@ -1563,6 +1504,7 @@
           },
           {
             "q": "Your AI tool offers a persistent project space that carries context across conversations. What belongs there?",
+            "id": "e7f75ffb-1407-43ea-89f1-2360a0b22c3b",
             "correct": 1,
             "options": [
               "Every document related to the work, so nothing is ever lost",
@@ -1584,13 +1526,8 @@
   {
     "content_blocks": [
       {
-        "id": "d1b41590-7862-4d7d-9162-3bd5fc6c85c5",
-        "text": "The first output is where the work starts. A short back-and-forth usually gets you further than any single, perfectly crafted prompt.",
-        "type": "callout"
-      },
-      {
         "id": "c8e27e38-6c21-48aa-a9d7-63b9b77e328d",
-        "text": "A lot of weak AI output traces back to one habit: treating each prompt as a single shot. You fire off one instruction, judge whatever comes back, and walk away unimpressed. The more reliable pattern is a loop. Get a draft, work out what is wrong with it, correct that one thing specifically, and go again. Two or three exchanges routinely land somewhere a single prompt never would.\n\nSay a vendor has gone quiet on a deliverable and you ask the model for a follow-up email. This is the same instinct you already use when you hand work to someone else. You would not expect their first draft to be final. You react to it: cut the throat-clearing, lead with the overdue item, soften the closing line. The second version is better because your feedback was concrete. The tool works the same way, only faster. If you manage no one, nothing changes here; you react to the model the way you react to your own rough first attempt at anything.",
+        "text": "A lot of weak AI output comes from treating each prompt as a single shot: you fire off one instruction, judge whatever comes back, and move on unimpressed. The more reliable pattern is a loop — get a draft, work out what is wrong with it, correct that one thing specifically, and go again. Two or three exchanges routinely land somewhere a single prompt never would.\n\nSay a vendor has gone quiet on a deliverable, and you ask the model for a follow-up email. React to the draft the way you would react to anyone else's rough first attempt: cut the throat-clearing, lead with the overdue item, soften the closing line. The second version is better because your feedback was concrete — the tool works the same way, only faster.",
         "type": "paragraph"
       },
       {
@@ -1601,7 +1538,7 @@
       },
       {
         "id": "370e527f-5eb2-4a0d-83e7-7acdc85c9385",
-        "text": "You could try to anticipate every requirement in one enormous prompt. Usually it is quicker to say roughly what you want, look at what comes back, and redirect from there. Seeing a draft you dislike tells you what you actually want far more precisely than staring at a blank page trying to predict it. One look at a vendor email that reads too aggressively tells you the tone you need better than any adjective you could have supplied up front.",
+        "text": "This is not a contradiction of writing a clear prompt upfront — both matter, and which one to lean on depends on the task. For anything you can specify well in advance (the four levers from the last lesson), do that. But for anything fuzzier, trying to anticipate every requirement in one enormous prompt often costs more time than it saves. It is usually quicker to say roughly what you want, look at what comes back, and redirect from there. Seeing a draft you dislike tells you what you actually want far more precisely than staring at a blank page trying to predict it — one look at a message that reads too aggressively tells you the tone you need better than any adjective you could have supplied up front.",
         "type": "paragraph"
       },
       {
@@ -1628,7 +1565,7 @@
       },
       {
         "id": "8c67665f-6bd0-4e23-8486-f5e64c735433",
-        "text": "Not everything is a short email. When you need something substantial, a full vendor evaluation or a multi-section supplier review, do not ask for the finished document in one go. Long outputs drift when you demand everything at once.\n\nAsk for the structure first. An outline is fast to produce and fast to correct, and approving the shape before any real content means a wrong frame gets caught while it is still cheap to change. Then fill it in section by section. Leave tone, word choice, and formatting until the end, once the substance is settled.",
+        "text": "Not everything is a short email. For something substantial and complex, a full vendor evaluation or a multi-section supplier review, asking for the whole finished document in one go can still drift, even though today's models handle long single-shot requests better than they used to.\n\nThe safer pattern for complex documents is still to ask for the structure first. An outline is fast to produce and fast to correct, and approving the shape before any real content means a wrong frame gets caught while it is still cheap to change. Then fill it in section by section, leaving tone, word choice, and formatting until the end, once the substance is settled. For simpler or shorter documents, asking for the whole thing at once and then iterating is often just as fast.",
         "type": "paragraph"
       },
       {
@@ -1663,7 +1600,7 @@
       },
       {
         "id": "8417306b-8e39-4a0c-a2da-c46b1271f0cf",
-        "text": "The reset has a technique of its own. Do not just retype your prompt into a blank window and lose the good work. Paste the useful draft into the fresh conversation and give sharper instructions around it. You drop what was dragging the thread down and keep the part worth keeping. If your AI tool lets you store stable background, the standing facts about a project or a supplier, starting fresh drops the noise without losing that foundation.",
+        "text": "The reset has a technique of its own. Before you close the thread, ask the model to summarise what's useful so far into a short handoff you can paste into the new conversation, rather than retyping from memory. Paste that summary into the fresh chat and give sharper instructions around it. You drop what was dragging the thread down and keep the part worth keeping. If your AI tool lets you store stable background, the standing facts about a project or a supplier, starting fresh drops the noise without losing that foundation.",
         "type": "paragraph"
       },
       {
@@ -1684,16 +1621,16 @@
         "steps": [
           {
             "id": "de8df0cb-0cdf-486e-a577-08348661a24a",
-            "text": "Write a message to my team letting them know our weekly sync is moving from Tuesday 10am to Thursday 2pm starting next week.",
+            "text": "Write a follow-up email to a vendor who has gone quiet on a deliverable that was due last week.",
             "label": "First prompt"
           },
           {
             "id": "c49e940b-807a-422e-9067-bcfd8a516647",
-            "text": "Look at the draft. Pick one specific thing wrong with it (too long, buries the new time, wrong tone) and tell the model exactly that, not \"make it better\", but the actual problem and what right looks like.",
+            "text": "Look at the draft. Pick one specific thing wrong with it (opening too soft, buries the overdue item, tone too aggressive) and tell the model exactly that — not 'make it better', but the actual problem and what right looks like.",
             "label": "Your correction"
           }
         ],
-        "material": "A made-up scenario: your weekly team sync is moving from Tuesday 10am to Thursday 2pm, starting next week.",
+        "material": "A made-up scenario: your vendor was due to deliver a piece of work last week and has gone quiet since. You still need it and want to keep the relationship workable.",
         "whatToNotice": "The second draft should visibly fix the one thing you named, because a specific correction sticks. \"Make it better\" tends to just reshuffle the same draft rather than actually fix it."
       },
       {
@@ -1751,7 +1688,7 @@
       },
       {
         "id": "1d1d2e5c-0569-4cf6-9762-c2ed60394e99",
-        "text": "By now you can write a clear prompt and run the review-and-refine loop. This lesson is the toolkit you reach for inside that loop: the specific levers that lift output from acceptable to good. Each takes seconds, and you will use each dozens of times a week. The onboarding plan is a good place to watch them work one at a time.\n\nIf you don't manage anyone, the same moves apply to any structured document you own: a runbook, a wiki page, the checklist you run through yourself whenever a new project spins up.",
+        "text": "By now you can write a clear prompt and run the review-and-refine loop. This lesson is the toolkit you reach for inside that loop: specific levers that lift output from acceptable to good, each taking seconds, used dozens of times a week. The onboarding plan is a good place to watch them work one at a time, and the same moves apply just as well to any structured document you own: a runbook, a wiki page, or the checklist you run through whenever a new project starts.",
         "type": "paragraph"
       },
       {
@@ -1762,7 +1699,7 @@
       },
       {
         "id": "9195ef33-3764-4eaf-a953-091ec53e8b15",
-        "text": "The fastest way to tell a model what you want is to show it. A style described in adjectives, \"concise, warm, practical\", leaves the model guessing at what those words mean to you. One concrete example takes the guessing away.\n\nWrite a single onboarding item the way you want the rest to read: owner, task, and the week it falls in, in that order. Paste one line at the register you are after. Hand over the header row of the table you already have in your head. The model matches a pattern it can see far more reliably than one you describe, and one task written your way sets the shape for the twenty that follow.",
+        "text": "The fastest way to tell a model what you want is to show it. Describing a style in adjectives — \"concise, warm, practical\" — leaves the model guessing at what those words mean to you; one concrete example removes the guesswork.\n\nWrite a single onboarding item the way you want the rest to read: owner, task, and the week it falls in, in that order. The model matches a visible pattern far more reliably than a described one, and one task written your way sets the shape for the twenty that follow.",
         "type": "paragraph"
       },
       {
@@ -1778,7 +1715,7 @@
       },
       {
         "id": "dede388e-753b-463d-a44f-4ddf26f9b3af",
-        "text": "Telling the model who to be changes what it pays attention to. Ask it to review your onboarding plan and you get a flat, generic once-over. Ask it to review the plan as a brand-new joiner reading it on day one, someone who knows none of your systems or shorthand, and it starts flagging the jargon, the login nobody requested, and the week-one task that quietly assumes a fortnight of context.\n\nA role sets a lens for a particular kind of scrutiny or a particular reader: a finance reviewer hunting for soft numbers, a sceptical peer poking holes in a timeline, a non-technical reader tripping over jargon. For an onboarding plan, the most useful reviewer is often the new hire themselves, the one person who will hit every gap you left in. Point that lens at the draft before it reaches them, and you find the holes while they are still cheap to close.",
+        "text": "Assigning the model a role changes what it pays attention to. Ask it to review your onboarding plan plainly and you get a flat, generic once-over. Ask it to review the plan as a brand-new joiner reading it on day one, someone who knows none of your systems or shorthand, and it starts flagging the jargon, the login nobody requested, and the week-one task that quietly assumes a fortnight of context.\n\nA role sets a lens for a particular kind of scrutiny or reader: a finance reviewer hunting for soft numbers, a sceptical peer poking holes in a timeline, a non-technical reader tripping over jargon. For an onboarding plan, the most useful reviewer is often the new hire themselves — the one person who will hit every gap left in it. Reviewing it through that lens before it reaches them catches the gaps while they are still easy to fix.",
         "type": "paragraph"
       },
       {
@@ -1789,7 +1726,7 @@
       },
       {
         "id": "048d1814-3b64-4546-96dd-6ad4f2f98267",
-        "text": "You can dictate the exact shape of the output: how many sections, what each one covers, a length ceiling, the columns of a table. You met format as one of the baseline levers already. What matters here is that a tight format spec compounds with the others and cuts a whole round off the refine loop.\n\nTake the plan again. \"Build me an onboarding plan\" hands you prose you then have to carve into a schedule. \"Organise the first month into four weekly blocks, each a table with columns for task, owner, and what done looks like, plus one line on the goal for that week\" hands you something already shaped like a document you can send. The specified version asks no more of the model, only more intention from you about the shape.\n\nThere is a negative half you already know: naming what to leave out. It carries over. A format spec is as much about what you exclude, no filler, no motivational preamble, as what you put in, and it stacks cleanly with a role or a self-critique instruction.",
+        "text": "You can dictate the exact shape of the output: how many sections, what each one covers, a length ceiling, the columns of a table. You met format as one of the baseline levers already. What matters here is that a tight format spec compounds with the others and cuts a whole round off the refine loop.\n\nTake the plan again. \"Build me an onboarding plan\" hands you prose you then have to carve into a schedule. \"Organise the first month into four weekly blocks, each a table with columns for task, owner, and what done looks like, plus one line on the goal for that week\" hands you something already shaped like a document you can send. The specified version asks no more of the model, only more intention from you about the shape.\n\nThere is a negative half you already know from the constraints lever: naming what to leave out. A format spec is as much about what you exclude, no filler, no motivational preamble, as what you put in — and it combines cleanly with a role or a self-critique instruction layered on top.",
         "type": "paragraph"
       },
       {
@@ -1800,7 +1737,7 @@
       },
       {
         "id": "2d179df9-4d51-4074-b2dd-ecea41eea213",
-        "text": "Here is the lever most people never touch. Once the model has produced the plan, tell it to turn on its own work: \"List the three weakest points in this onboarding plan.\" \"Where would a new joiner get stuck in week one?\" \"What did I leave out that a real first week needs?\"\n\nWith nothing to defend, the model will often name genuine gaps: the access request nobody kicked off, the introduction you skipped, the first task that assumes context the new person has not been handed yet. You stay the judge of which flags are fair. But a self-critique pass surfaces candidates for revision faster than reading the draft cold, and it costs you a single line. It pays off most on anything a person will actually live by, like the plan a new hire follows through week one.",
+        "text": "Here is the lever most people never touch. Once the model has produced the plan, ask it to turn on its own work — for example: **\"List the three weakest points in this onboarding plan.\"** **\"Where would a new joiner get stuck in week one?\"** **\"What did I leave out that a real first week needs?\"**\n\nWith nothing to defend, the model will often name genuine gaps: the access request nobody kicked off, the introduction you skipped, the first task that assumes context the new person has not been handed yet. You stay the judge of which flags are fair. A self-critique pass in the same conversation surfaces candidates for revision faster than reading the draft cold, and it costs you a single line.\n\nAn even stronger version: paste the finished draft into a brand-new conversation with no earlier context, and ask that fresh session to critique it. Without the history that shaped how the first session wrote it, a fresh set of eyes tends to catch different gaps than a self-critique in the same thread — worth doing for anything a person will actually live by, like the plan a new hire follows through week one.",
         "type": "paragraph"
       },
       {
@@ -1821,7 +1758,7 @@
       },
       {
         "id": "23270a74-eb07-499d-90ce-3ccba4b7e887",
-        "text": "The levers stack. A strong onboarding prompt might set a role, fix the format, and end with a self-critique all at once: \"As an experienced manager onboarding a new team member, draft a four-week plan as weekly tables, then list the two things a first-timer would still find confusing.\" You won't need all four every time. For anything you will send onward, or that a new hire will lean on, layering two or three of them is the cheapest quality gain you have.",
+        "text": "The levers stack. A strong onboarding prompt might set a role, fix the format, and end with a self-critique all at once:\n\n**\"As an experienced manager onboarding a new team member, draft a four-week plan as weekly tables, then list the two things a first-timer would still find confusing.\"**\n\nYou won't need all four every time. For anything you will send onward, or that a new hire will lean on, layering two or three of them is the cheapest quality gain you have.",
         "type": "paragraph"
       },
       {
@@ -1880,6 +1817,11 @@
         ]
       },
       {
+        "id": "71b99d75-1f20-499d-873e-0e686c01e9f6",
+        "size": "md",
+        "type": "whitespace"
+      },
+      {
         "id": "00d40a91-eb97-4b2f-9ce6-cd33a4ca9286",
         "task": "Run the first prompt below with no lever. Then add ONE lever, a role, and run it again.",
         "type": "try_it_yourself",
@@ -1897,6 +1839,11 @@
         ],
         "material": "A made-up scenario: your team just wrapped a two-week sprint that shipped three features but slipped one deadline.",
         "whatToNotice": "The first draft likely reads smooth and generic, with no real tension surfaced. Adding the role lever should make the model actually probe the slipped deadline instead of gliding past it, the same shift the lesson describes for the onboarding plan."
+      },
+      {
+        "id": "1fac4ae4-8155-4b4a-b21a-5b988335e3f2",
+        "size": "md",
+        "type": "whitespace"
       },
       {
         "id": "a29ce59a-e92c-4acc-802d-a83908a04738",
@@ -1947,77 +1894,76 @@
   {
     "content_blocks": [
       {
-        "id": "c7a754dd-6569-44e7-9fe3-27323f7426cc",
+        "id": "1e70323d-71ca-4497-a5ff-4d1a608669ce",
         "text": "You do not need to write Markdown to work well with AI. Recognising it is enough: knowing why your AI tool keeps producing it, and how to get clean text back when a destination will not display it properly.",
         "type": "callout"
       },
       {
-        "id": "0fdd0d51-88b1-4706-819b-5f1e0883696a",
-        "text": "Markdown is a lightweight way to add structure to plain text using ordinary characters: a hash for a heading, asterisks for bold, a hyphen for a bullet. That is all it is. It's punctuation for structure rather than a coding skill, and it takes about two minutes to learn to read.\n\nIt matters because it turns up everywhere AI touches. When your tool hands back an answer with headings, bold key terms, and neat bullets, it's writing Markdown. Documentation, notes apps, and plenty of editors use the same conventions. Knowing what you're looking at makes you faster and spares you a few avoidable annoyances.",
+        "id": "269eb51f-6cf7-478c-a491-740f05bd56fe",
+        "text": "Markdown is a lightweight way to add structure to plain text using ordinary characters: a hash for a heading, asterisks for bold, a hyphen for a bullet. That is all it is — punctuation for structure rather than a coding skill, and it takes about two minutes to learn to read.\n\nIt has become the default way AI tools format text for a practical reason: it adds structure using only a few extra characters, which keeps documents compact and easy for a model to read back — an efficient use of the context window covered earlier in this track. Most AI models both read and write it fluently as a result. That is also why it turns up everywhere AI touches: when your tool hands back an answer with headings, bold key terms, and neat bullets, it's writing Markdown, and documentation, notes apps, and plenty of editors use the same conventions.",
         "type": "paragraph"
       },
       {
-        "id": "b2dd0858-addd-42a7-9a0e-4a044ab403e1",
-        "text": "Why the model outputs it",
+        "id": "1a2085cb-e9f6-469b-990a-67046aa7c1fb",
+        "text": "Using it in your own prompts",
         "type": "heading",
         "level": 2
       },
       {
-        "id": "60bee259-a06d-48db-8b06-fced23efb959",
-        "text": "Structure is easier to produce and easier to read than a wall of prose, so models default to it. The same logic runs the other way. A prompt you organise with a heading and a few bullets is easier for the model to follow than one long paragraph. Say you're turning a sprint's worth of changes into release notes: give it the fixes, the new features, and the breaking changes as three separate points, and it tracks each one instead of losing them mid-sentence. You already do this when you write a good prompt, and Markdown is just the tidy way to lay it out.",
+        "id": "5ff85e95-babb-4c76-8d4c-8e7909b4d4a1",
+        "text": "The same efficiency runs the other way: a prompt you organise with a heading and a few bullets is easier for the model to follow than one long paragraph. Say you're turning a sprint's worth of changes into release notes — give it the fixes, the new features, and the breaking changes as three separate points, and it tracks each one instead of losing them mid-sentence. You already do this when you write a good prompt; Markdown is just the tidy way to lay it out.",
         "type": "paragraph"
       },
       {
-        "id": "dbf94348-ea58-4508-9924-ef96cb7f397e",
+        "id": "f039b723-62d1-46f3-a53a-b053e26be48c",
         "text": "The handful of patterns worth recognising",
         "type": "heading",
         "level": 2
       },
       {
-        "id": "9f410b9d-8437-4d4a-9571-5a500f67647b",
+        "id": "067c8b46-e88b-415e-a3d6-9d2d55f6caa2",
         "text": "You will never need most of the syntax. These few cover almost everything you will meet.",
         "type": "paragraph"
       },
       {
-        "id": "864b8e98-e026-497a-947f-7a82496ebbbd",
+        "id": "de017dac-b189-4902-bde8-4e065a9e7fb5",
         "type": "card_group",
         "cards": [
           {
+            "id": "f171fd96-5bed-4eb1-9a73-9ab3432d75f9",
             "body": "A hash then a space makes a heading; two hashes make a smaller sub-heading. Text wrapped in double asterisks is bold; single asterisks is italic.",
             "title": "Headings and emphasis"
           },
           {
+            "id": "15f15fab-3836-41a7-9353-41d52ab19898",
             "body": "A hyphen and a space starts a bullet. A number, a dot, and a space starts a numbered list. This is what turns a set of points into a scannable list.",
             "title": "Lists"
           },
           {
+            "id": "8abd4081-452f-4577-b990-50758450dc4b",
             "body": "A greater-than sign and a space marks a quoted block. Text wrapped in backticks shows as monospace, used for things like file names or a single command.",
             "title": "Quotes and code"
           }
         ]
       },
       {
-        "id": "7735fa3b-86fe-43c1-87f4-2e3910df9aac",
+        "id": "f4abbd90-231d-49f5-bc46-cae0b13a3ebf",
         "text": "The one thing that trips people up",
         "type": "heading",
         "level": 2
       },
       {
-        "id": "9c74cf62-c6cc-4367-8447-0eccfcc8ea01",
-        "text": "Markdown only becomes clean formatting when something renders it. A chat window renders it, so you see tidy headings and bullets. A plain email field or a basic text box usually does not, so you get the raw symbols instead.\n\nSo when you paste those release notes into an email and they arrive cluttered with hashes, double asterisks, and stray hyphens, nothing has gone wrong. You are looking at unrendered Markdown. Paste it somewhere that renders it, since most modern document and mail editors do, or ask the tool for plain text with no formatting. For notes going out to the whole team or to a customer, that quick check is worth making before you hit send.",
+        "id": "e606f63f-4b6f-4231-883d-5412e68b6b46",
+        "text": "Markdown only becomes clean formatting when something renders it. A chat window renders it, so you see tidy headings and bullets. A plain email field or a basic text box usually does not, so you get the raw symbols instead.\n\nSay AI drafts a short update for you with headings and bullet points, and you paste it straight into an email: if it arrives cluttered with hashes, double asterisks, and stray hyphens, nothing has gone wrong — you are looking at unrendered Markdown. Paste it somewhere that renders it, since most modern document and mail editors do, or ask the tool for plain text with no formatting. For anything going out to the whole team or to a customer, that quick check is worth making before you hit send.",
         "type": "paragraph"
       },
       {
-        "id": "7a656780-b379-4f0c-a4fe-87fa23044457",
-        "text": "Before forwarding AI output, look at how it renders where it is going. Symbols where formatting should be mean you are sending raw Markdown. Ask for plain text, or paste it into an editor that renders it.",
-        "type": "callout"
-      },
-      {
-        "id": "86920620-821c-4ab3-97b2-a2804cda9e57",
+        "id": "7628585f-15f5-489b-aa51-bc6083f88e41",
         "type": "quiz",
         "questions": [
           {
             "q": "You paste AI-drafted release notes into a plain email field and they are full of ## symbols, double asterisks, and hyphens. What has happened?",
+            "id": "3b5f3126-cb20-460c-aba0-84eb8bd0108a",
             "correct": 1,
             "options": [
               "The AI tool made an error and corrupted the text",
@@ -2029,6 +1975,7 @@
           },
           {
             "q": "Why is it worth organising a long prompt with headings and bullet points?",
+            "id": "006d407f-08ec-41d2-b402-3cdb26d6d76a",
             "correct": 2,
             "options": [
               "It makes the prompt look more professional to colleagues",
@@ -2040,6 +1987,7 @@
           },
           {
             "q": "How much Markdown syntax do you actually need to master to work well with AI?",
+            "id": "46878851-bf5c-4502-ade6-6eb5fc7ade81",
             "correct": 2,
             "options": [
               "All of it, since models rely on the full specification",
@@ -2052,7 +2000,7 @@
         ]
       }
     ],
-    "created_at": "2026-07-02T12:35:17.34042+00:00",
+    "created_at": "2026-07-02T12:35:17.340420+00:00",
     "id": "4f316be9-ebb0-41f6-b84b-952ba945cf4e",
     "module_id": "7868c1d8-53bc-48ec-9c36-cd4fa4cad6df",
     "sort_order": 5,
@@ -2061,13 +2009,8 @@
   {
     "content_blocks": [
       {
-        "id": "90c36931-56e8-4085-8978-1b79d55ff359",
-        "text": "A model fails in a handful of predictable places. The same weak points turn up again and again, whatever you happen to be working on. Learn where they sit and you can keep working fast and still catch the bad output before it reaches anyone.",
-        "type": "callout"
-      },
-      {
         "id": "282a96d6-8551-43a4-afd6-c0df67a714ec",
-        "text": "Picture the budget you are pulling together ahead of a decision meeting: last quarter's actuals, a couple of forecasts, and a recommendation on where the money should go next. A model can draft most of that in minutes. It can also get four specific things wrong, in ways that survive a quick read and land in the room looking finished. This lesson walks through those four, where the mechanism you have already met, plausible text rather than looked-up fact, does its most reliable damage, and what each one costs you.",
+        "text": "Picture the budget you are pulling together ahead of a decision meeting: last quarter's actuals, a couple of forecasts, and a recommendation on where the money should go next. A model can draft most of that in minutes. It can also get four specific things wrong, in ways that survive a quick read and land in the room looking finished. This lesson walks through those four failure points — the same mechanism you have already met, plausible text rather than looked-up fact, is behind all of them — and what each one actually costs you.",
         "type": "paragraph"
       },
       {
@@ -2078,7 +2021,7 @@
       },
       {
         "id": "90e4b046-012c-4875-a274-4448abf8f8f7",
-        "text": "A model knows what it was trained on, up to a cutoff date, and nothing after it. Ask it about a tax threshold that changed last quarter, a supplier that raised its rates in March, or a regulation amended since its training, and it answers with the same steady confidence it uses for facts that have held for a decade. It has no built-in sense that its knowledge expires.\n\nThe cost hides in plain sight, because the answer reads as current. A budget built on last year's rates. A pricing recommendation resting on market conditions that have since moved. A cost line that misses a supplier increase half the room already knows about. Each one reads perfectly, and each is quietly out of date. Unless the tool is pulling live data, treat anything time-sensitive as a draft you still have to date-check.",
+        "text": "The underlying model's own knowledge is genuinely frozen at its training cutoff. Ask it about a tax threshold that changed last quarter, a supplier that raised its rates in March, or a regulation amended since its training, and it can only answer from what it learned before that date, with the same steady confidence it uses for facts that have held for a decade.\n\nBut most AI tools people actually use pair the model with retrieval: web search, connectors, or documents you supply. When one of those is active, the answer can be genuinely current — the risk isn't \"AI is always out of date,\" it's knowing whether your current tool or session actually has a live source, or is answering from memory alone. If nothing shows it's grounded (a citation, a connector indicator, a visible search step), that is the moment to check it yourself. A budget built on last year's rates, a pricing recommendation resting on market conditions that have since moved, a cost line that misses a supplier increase half the room already knows about: each reads perfectly, and each is quietly out of date if nothing refreshed the model's view.",
         "type": "paragraph"
       },
       {
@@ -2089,7 +2032,7 @@
       },
       {
         "id": "07a2ca8a-947b-47d0-a0e5-57c025906397",
-        "text": "On its own, a model writes the text of a calculation. It does not run the calculation. It generates the digits that most plausibly follow the words \"the total is\", which is a different act from adding the numbers up. Some tools now run real code and compute exactly, and where that happens the maths is genuine. Until you know a real calculation ran, treat every figure as text shaped like a number.\n\nIt often lands close, and close is the dangerous part: a total that is off by a little slips past the review a wildly absurd number never would. This bites hardest in the very work you would most want to hand off. Summing the columns in a budget, working out a percentage change on a forecast, or reconciling two totals that should agree are the moments the model looks most useful and is least reliable. Multi-step reasoning breaks the same way. Each step reads as sound, the chain compounds one small slip, and the conclusion arrives confident and wrong.",
+        "text": "On its own, a model writes the text of a calculation. It does not run the calculation. It generates the digits that most plausibly follow the words \"the total is\", which is a different act from adding the numbers up. Some tools now run real code and compute exactly, and where that happens the maths is genuine. Until you know a real calculation ran, treat every figure as text shaped like a number.\n\nIt often lands close, and close is the tricky part: a total that is off by a little slips past review in a way a wildly absurd number would not. This shows up most in the work you would most want to hand off — summing the columns in a budget, working out a percentage change on a forecast, reconciling two totals that should agree. Multi-step reasoning follows the same pattern: each step can read as sound while a small slip compounds along the way, arriving at a confident but wrong conclusion. Whenever you know the tool actually ran a calculation rather than predicted one, that risk drops substantially — the caution here is for the more common case where you don't know which happened.",
         "type": "paragraph"
       },
       {
@@ -2105,7 +2048,7 @@
       },
       {
         "id": "d1dcf71a-59f1-48b6-9e37-7deb98f9c57d",
-        "text": "A model learned from an enormous body of human writing, and it absorbed the patterns there, including the skewed ones. Ask it to sketch a candidate for a senior role, name a typical customer, or describe who does what on a team, and its defaults track the majority patterns in its training data rather than the people actually in front of you.\n\nThis surfaces in two places. In anything that touches people, such as hiring language, performance notes, or assumptions about an audience, the model can dress a stereotype up as professional-sounding prose. And when you ask it to weigh options, it leans toward the conventional, mainstream take, which makes it a poor source of real contrarian challenge. Left unchecked, it narrows your thinking at the exact moment you wanted it widened. If you manage no one, the same caution holds for your own work. The vendor shortlist it drafts or the survey comments it summarises inherit its defaults, not your read of the situation.",
+        "text": "A model learned from an enormous body of human writing, and it absorbed the patterns there, including the skewed ones. Ask it to sketch a candidate for a senior role, name a typical customer, or describe who does what on a team, and its defaults track the majority patterns in its training data rather than the people actually in front of you.\n\nThis surfaces in two places. In anything that touches people, such as hiring language, performance notes, or assumptions about an audience, the model can dress a stereotype up as professional-sounding prose. And when you ask it to weigh options, it leans toward the conventional, mainstream take, which makes it a poor source of real contrarian challenge. Left unchecked, it narrows your thinking at the exact moment you wanted it widened — whether that shortlist or those survey comments are shaping a team decision or just your own work, they inherit the model's defaults, not your read of the situation.",
         "type": "paragraph"
       },
       {
@@ -2143,7 +2086,7 @@
       },
       {
         "id": "7b2df30d-0bab-4c11-b02c-bbf599bfd3d1",
-        "text": "The model is fluent, and fluency reads as competence. It does not reliably hold a complex argument together. It will miss the load-bearing assumption in a proposal, accept a flawed premise you hand it, or contradict something it claimed three paragraphs earlier, none of it flagged.\n\nThe sharper risk is agreeableness. Push back on its answer and it will often fold and reverse, whether or not you had a point. Frame a question so it implies the answer you are hoping for and it tends to hand that answer straight back. So when you ask it to stress-test the case for a budget before the meeting, it makes a weak challenger: better at producing a first pass than at judging whether that pass holds up. Honest friction is the one thing you most want there, and the one thing it is least able to give.",
+        "text": "The model is fluent, and fluency reads as competence, but it does not always hold a complex argument together as reliably as the polish suggests. It can miss a load-bearing assumption in a proposal, accept a flawed premise you hand it, or contradict something it claimed three paragraphs earlier, none of it flagged — this has improved with newer models, but it is still worth watching for.\n\nA related risk is agreeableness. Push back on its answer and it will sometimes fold and reverse, whether or not you had a point; frame a question so it implies the answer you are hoping for and it can hand that answer straight back. The upside is that you are always free to challenge it directly and ask it to argue the other side — but left unchallenged, that agreeableness can turn into an echo chamber that just confirms what you already believed. So when you ask it to stress-test the case for a budget before the meeting, ask it explicitly to argue against you, rather than trusting a first pass that simply agrees.",
         "type": "paragraph"
       },
       {
@@ -2159,7 +2102,7 @@
       },
       {
         "id": "c2d96d44-890f-4c65-843f-d99dc5e11b78",
-        "text": "None of these failures announces itself. Whether the output is right or wrong, it comes back equally fluent, formatted, and confident. The error you spot is cheap; you fix it and move on. The expensive one is the plausible mistake that reads perfectly and gets forwarded: a stale rate in the budget, a total that does not add up in the pricing case, a stereotype in a job description, an assumption nobody challenged sitting under a recommendation. That is how AI usually fails at work. It hands you a confident, well-dressed mistake, and the mistake goes out under your name.",
+        "text": "None of these failures announces itself — the output comes back equally fluent, formatted, and confident whether it's right or wrong. An error you catch costs you almost nothing: you fix it and move on. The one worth guarding against is the plausible mistake that reads perfectly and gets forwarded: a stale rate in the budget, a total that does not add up, a stereotype in a job description, an assumption nobody challenged sitting under a recommendation. None of that is a reason to avoid AI — the checks in this lesson are exactly how you catch them before they go out under your name, which is what turns speed into something you can trust.",
         "type": "paragraph"
       },
       {
@@ -2167,11 +2110,11 @@
         "type": "card_group",
         "cards": [
           {
-            "body": "A model knows nothing past its training cutoff. If a task turns on a recent change or a live figure, assume the model does not have it unless the tool is pulling live data.",
+            "body": "The model's own knowledge is frozen at its training cutoff, but many tools pair it with search or connectors that add live information. If a task turns on a recent change or a live figure, check whether your tool is actually grounded in a current source before you trust it.",
             "title": "Stale by default"
           },
           {
-            "body": "Arithmetic and multi-step reasoning are close-but-wrong territory. The more the answer rests on a calculation or a chain of steps, the more it needs an independent check.",
+            "body": "Arithmetic and multi-step reasoning are close-but-wrong territory unless the tool is actually running a calculation rather than predicting one. When you're not sure which is happening, the more the answer rests on numbers or a chain of steps, the more it needs an independent check.",
             "title": "Numbers and logic"
           },
           {
@@ -2179,7 +2122,7 @@
             "title": "Bias in the defaults"
           },
           {
-            "body": "Push back and the model tends to fold; frame a question and it hands back the answer you implied. For any decision that needs honest friction, that makes it a poor sanity check.",
+            "body": "Push back and the model can fold, or hand back the answer your framing implied. Ask it explicitly to challenge you rather than just agree, especially for any decision that needs honest friction.",
             "title": "A weak challenger"
           }
         ]
@@ -2233,118 +2176,113 @@
   {
     "content_blocks": [
       {
-        "id": "4e407451-6805-47bd-9575-e859f5d4131c",
-        "text": "Before a competitive scan lands in the deck for your strategy session, ask the one question that matters: how do you actually know it is right? It reads well and looks complete. Neither of those is evidence.",
-        "type": "callout"
-      },
-      {
-        "id": "48a4576d-7995-4fa1-ba13-97908c6855a5",
-        "text": "Verification is a habit you run before output leaves your hands: a short, repeatable check that turns a plausible draft into something you can defend. Take the competitive scan you pull together before a strategy session. The model hands you a tidy page on three rivals, with pricing tiers, headcount, a recent funding round, a couple of product claims. It looks finished. Whether it is right is a separate question, and you are the only one who can answer it.\n\nThe reason to bother is ownership. When that scan shapes where the team places its bets, the model does not carry the cost of a wrong number. You do. The same holds if nobody reports to you: the moment you paste a figure into a shared doc or repeat it in a meeting, it becomes your claim, and \"the AI said so\" is not a defence anyone accepts. Verification is how you turn speed into something you can stand behind.",
+        "id": "acc68193-73eb-4869-a0bd-8d1fe4efc2f3",
+        "text": "Verification is a habit you run before output leaves your hands: a short, repeatable check that turns a plausible draft into something you can defend. Take the competitive scan you pull together before a strategy session — the model hands you a tidy page on three rivals, with pricing tiers, headcount, a recent funding round, a couple of product claims. It looks finished. Whether it is actually right is a separate question, and you are the only one who can answer it.\n\nThe reason to bother is ownership: once a figure shapes a decision, or you repeat it in a meeting or paste it into a shared doc, it becomes your claim rather than the model's, and \"the AI said so\" is not a defence anyone accepts. Verification is how you turn speed into something you can stand behind.",
         "type": "paragraph"
       },
       {
-        "id": "8fe275c6-83ae-47c1-adcc-3f05d255db1d",
+        "id": "111b139e-748d-4b01-abc1-fdefee03f7b6",
         "text": "Match the check to the risk",
         "type": "heading",
         "level": 2
       },
       {
-        "id": "84a9bd46-0298-4656-8068-7498377c8ca8",
+        "id": "55560db0-0af5-4668-94ea-f8a89e355b6f",
         "text": "Not every output needs the same scrutiny. A rough brainstorm you plan to rework barely needs a look. A competitor price that decides how you position your own is worth getting right. Calibrate the effort to two things: how much the task turns on specific facts, and how costly a wrong one would be.",
         "type": "paragraph"
       },
       {
-        "id": "72e12733-4116-48df-a61a-e636ea76f76a",
-        "text": "The more an output turns on specific facts, figures, names, or quotes, the more the burden sits with you before you forward it, cite it, or act on it.",
+        "id": "4124ff9d-0142-4967-b6c0-4fe44905984e",
+        "text": "The more an output turns on specific facts, figures, names, or quotes, the more the responsibility sits with you to check it before you forward it, cite it, or act on it.",
         "type": "callout"
       },
       {
-        "id": "9e9ab416-dfe9-4ea5-a4c4-c4f5bea9565e",
+        "id": "712f535c-6866-47af-946d-6fbfadbee52e",
         "text": "A quick reflex helps: ask what happens if this is wrong. If the honest answer is that someone places a bet on bad information or the team loses credibility with the board, the output has bought itself a real check. If the answer is nothing much, move on.",
         "type": "paragraph"
       },
       {
-        "id": "36b6795a-dbb2-4ab8-b498-cc15793f9f8a",
+        "id": "bfc6cbfe-6c5f-4439-838c-3f6848c54c57",
         "text": "What to check",
         "type": "heading",
         "level": 2
       },
       {
-        "id": "2dd8a7c8-5f96-44d8-9a46-dbd15bc99ee1",
-        "text": "Verification is not rereading until it feels right. It is checking named claims against a source you trust, one at a time. Fluent prose reads as correct whether or not it is, so a general sense that something seems solid is worth nothing. Check specific things, each tied to a failure mode you already know.",
+        "id": "081610c4-6791-4be4-8ca0-bc8b8c2d4cf0",
+        "text": "Verification is not rereading until it feels right — it is checking named claims against a source you trust, one at a time. Fluent prose reads as correct whether or not it is, so a general sense that something seems solid tells you very little. Check specific things instead, each tied to a failure mode you already know.",
         "type": "paragraph"
       },
       {
-        "id": "de6b6021-8a41-4a67-adaf-86802ffa4271",
+        "id": "aa84b4fc-2270-447d-a934-73a41ba8153b",
         "type": "card_group",
         "cards": [
           {
+            "id": "2e6333b5-5b86-491a-9647-68318180b9d0",
             "body": "Every number, date, name, and quote is a place the model may have produced something plausible and invented. Trace each one back to a source you trust. A competitor funding round stated with full confidence is not proof the round happened.",
             "title": "Facts and figures"
           },
           {
-            "body": "Ask whether the claim depends on recent events or changed circumstances. A model works from training data with a cutoff and does not know what happened after it unless you supplied the material. A rival price or a headcount can be a year out of date.",
+            "id": "13baebee-7345-4d4a-82db-1d3de9f9d2f0",
+            "body": "Ask whether the claim depends on recent events or changed circumstances. The model's own training has a cutoff, though a connected or search-enabled tool may have current data — check which applies. A rival price or a headcount can be out of date if nothing refreshed the model's view.",
             "title": "Currency"
           },
           {
+            "id": "0c922633-4d03-49dd-8f01-ebb5a93464da",
             "body": "Follow the logic step by step. Output can reach a wrong conclusion through fluent, confident steps that skip a link. Check the chain, not just the answer at the end.",
             "title": "Reasoning"
           },
           {
+            "id": "3957b583-b8fd-475e-ba8d-ef625c05bf2b",
             "body": "Ask what is missing, not only whether what is present is true. A scan can be accurate on every line and still leave out the competitor who matters most, or the caveat that would change the decision.",
             "title": "Omission and slant"
           }
         ]
       },
       {
-        "id": "f036ddd5-0b2c-47be-8be0-bfe31fdc7192",
+        "id": "c01c2c28-d058-4972-bb10-422714bd5c18",
         "text": "Three moves that make checking faster",
         "type": "heading",
         "level": 2
       },
       {
-        "id": "f9f01c21-50e8-48a0-abc9-3569455ed098",
-        "text": "You do not have to verify everything by hand from a blank slate. A few habits cut the cost.\n\nFirst, make the claims traceable. When you prompt, ask the model to mark which parts rest on the material you gave it and which come from its own general knowledge. The second kind is where invented detail hides. This does not prove the source-backed claims are right, but it tells you where to look hardest.\n\nSecond, check against the source, not against the model. If you handed it a set of analyst notes to condense, verify the summary against those notes. The ground truth is the input you provided, not a second answer from the AI. Asking the model whether it is sure is close to worthless: it will revise a correct answer or defend a wrong one with the same steady confidence.\n\nThird, take anything about the outside world to the outside world. For a market-share figure, a regulation, a rival funding round, confirm it in a real source. Treat the model as a fast way to draft and structure, and go elsewhere for facts about the world. Keeping those two jobs separate is most of the discipline.",
+        "id": "d660e671-d4dd-4bca-bf6e-035cbdda8b2e",
+        "text": "You do not have to verify everything by hand from a blank slate. A few habits cut the cost.\n\nFirst, make the claims traceable. When you prompt, ask the model to mark which parts rest on the material you gave it and which come from its own general knowledge. The second kind is where invented detail hides. This does not prove the source-backed claims are right, but it tells you where to look hardest.\n\nSecond, check against the source, not against the model. If you handed it a set of analyst notes to condense, verify the summary against those notes — the ground truth is the input you provided, not a second answer from the AI, which will revise a correct answer or defend a wrong one with equal confidence either way.\n\nThird, take anything about the outside world to the outside world. For a market-share figure, a regulation, a rival funding round, confirm it in a real source. Treat the model as a fast way to draft and structure, and go elsewhere for facts about the world. Keeping those two jobs separate is most of the discipline.",
         "type": "paragraph"
       },
       {
-        "id": "57038a5c-a5b5-465a-84d1-2b97e82f8c8f",
+        "id": "cd881504-50f8-4db7-85a5-70528f6cd076",
         "text": "Where it goes wrong in practice",
         "type": "heading",
         "level": 2
       },
       {
-        "id": "e66ce18e-9f51-40e4-9194-d94f1bec9c73",
+        "id": "87b8c3c0-f1fc-4a46-bcc5-afb140fed74b",
         "text": "The first common failure is checking the wrong thing: polishing tone and flow while the numbers go unexamined. Polish is not accuracy. The second is anchoring. Once you have read a confident, well-formed answer, it is hard to see what is missing, because the draft has already framed the problem for you. Guard against it by deciding what a good answer must contain before you read the model version. For the competitive scan, write down the questions the strategy session has to answer, then check whether each one is genuinely covered and sourced, rather than being led by whatever the model chose to include.",
         "type": "paragraph"
       },
       {
-        "id": "def537c4-b59b-42eb-8df0-a92dd2748926",
-        "text": "Verification matters most where AI is most convincing: when the output is fluent, complete-looking, and one click from being forwarded.",
-        "type": "callout"
-      },
-      {
-        "id": "a590fcbc-eee9-4203-9795-e913f8b06389",
+        "id": "2ec9fe01-4f3b-4393-b0f7-216e5ce7792d",
         "text": "The workflow in one pass",
         "type": "heading",
         "level": 2
       },
       {
-        "id": "0aaa739e-48b5-4c6f-835e-703bb320f09a",
+        "id": "da0d5967-8071-43b3-a7a3-ff68b9a668f6",
         "text": "For any output that carries real weight: decide up front what a good answer must contain; separate the model claims from what your source actually supports; check every fact, figure, and date against a trusted source rather than against the AI; follow the reasoning a step at a time; and ask what has been left out. It takes minutes. Skipping it can cost far more than the minutes it saved.",
         "type": "paragraph"
       },
       {
-        "id": "0615eb3c-25b7-4f78-b34f-d07c528af326",
+        "id": "73313d83-3ac4-4002-9358-b9712d7a11d5",
         "size": "md",
         "type": "whitespace"
       },
       {
-        "id": "e070cd11-fb5b-4213-907b-be98794f6563",
+        "id": "eb9dda94-3fcc-46e3-9cbd-9474e4514177",
         "type": "quiz",
         "questions": [
           {
             "q": "You asked an AI tool to condense a stack of analyst notes into a short competitive brief. What is the right way to verify the figures in the brief?",
+            "id": "c72a3da4-e886-48d5-94c8-a875262a3fcd",
             "correct": 2,
             "options": [
               "Ask the model whether it is sure the figures are correct",
@@ -2356,6 +2294,7 @@
           },
           {
             "q": "Why is checking an output for tone and flow a weak form of verification?",
+            "id": "be89bcbf-e443-4a43-8380-34427b028573",
             "correct": 1,
             "options": [
               "Tone does not matter in business writing",
@@ -2367,6 +2306,7 @@
           },
           {
             "q": "How much verification should a given AI output get?",
+            "id": "3255adb8-6fb9-4032-80bf-dc984a12ee2d",
             "correct": 1,
             "options": [
               "The same thorough process for every output, to be safe",
@@ -2388,11 +2328,6 @@
   {
     "content_blocks": [
       {
-        "id": "31a3d38c-cb2c-404e-b467-12c7c748625d",
-        "text": "The quickest way to give back everything AI just saved you is to point it at a task that never belonged with it. Knowing when to stop is a judgment skill, and it belongs to you, not the tool.",
-        "type": "callout"
-      },
-      {
         "id": "5599700e-54e3-4257-b105-eca195fabf9c",
         "text": "So far the track has been about getting more out of the tool: sharper prompts, closer verification, a clear read on where it fails. This lesson is about the opposite discipline, the one that says leave it shut. Some tasks fail the test before verification even comes up, because AI never belonged in them. For those, no prompt and no amount of checking helps. The right move is to not open the tool at all.",
         "type": "paragraph"
@@ -2405,7 +2340,7 @@
       },
       {
         "id": "c8cf2b64-9426-4ee6-866b-826ebff3303a",
-        "text": "Difficulty is not the test. A task lands off-limits for one of two reasons: a confident wrong answer would cost more than you can absorb, or using the tool breaks a duty you hold no matter how the answer turns out.\n\nA model produces plausible text. It does not know what is true, and it answers to no one when it gets things wrong. Set those two facts against high stakes and the tool turns into a liability. So the question worth asking before you hand something over is a plain one: if it is confidently wrong here, what happens, and can you live with it?",
+        "text": "A task lands off-limits for one of two reasons: a confident wrong answer would cost more than you can absorb, or using the tool breaks a duty you hold no matter how the answer turns out — not because the task itself is technically difficult.\n\nA model produces plausible text. It does not know what is true, and nothing holds it accountable when it gets things wrong. Set those two facts against high stakes and the tool becomes a real liability. So the question worth asking before you hand something over is a plain one: if it is confidently wrong here, what happens, and can you live with it?\n\nNone of this argues for caution everywhere — most day-to-day work carries low stakes and easy checking, and AI belongs there: cleaning up a spreadsheet export, turning a batch of survey comments into themes, drafting the first pass of release notes. The point is narrower: a small set of tasks should never touch the tool, and a slightly larger set earns a deliberate pause before it does. Treating AI as something that makes getting to a draft fast and easy is exactly why the thinking has to come from you first on anything that matters — sorting one from the other is the skill the rest of this lesson builds.",
         "type": "paragraph"
       },
       {
@@ -2421,7 +2356,7 @@
       },
       {
         "id": "4b18504c-ee9c-417c-b427-7c6753209653",
-        "text": "Some categories stay off the table however convenient AI would be. Treat these as defaults, not suggestions.",
+        "text": "Some categories stay off the table for the tool making the actual call, however convenient AI would be — that doesn't mean AI is banned from touching them at all, only that it cannot be the thing deciding. Treat these as defaults, not suggestions.",
         "type": "paragraph"
       },
       {
@@ -2454,12 +2389,12 @@
       },
       {
         "id": "f8b9b93b-f7e4-4340-8bd0-d03fc88cce6d",
-        "text": "The dangerous cases are rarely the obvious ones. Nobody sets out to file a fabricated legal citation. It happens because the tool was fast, the output looked right, and the stakes were not felt until later.\n\nSpeed is what makes a tool tempting in the very moments it should stay shut. A confident, well-formatted answer to a question you cannot check feels like progress, and under deadline pressure that feeling is the danger. The more a task tempts you to skip the check because you are busy, the more likely it is a task where skipping the check is what hurts you.",
+        "text": "The dangerous cases are rarely the obvious ones. Nobody sets out to file a fabricated legal citation — it happens because the tool was fast, the output looked right, and the stakes weren't felt until later.\n\nSpeed is exactly what makes a tool tempting in the moments it should stay shut. AI makes getting to a draft very easy and fast, but for some tasks the thinking has to happen first: work out your own position or read of the situation before you bring AI in, rather than outsourcing that reasoning to it from the start. A confident, well-formatted answer to a question you haven't thought through yourself is easy to mistake for progress, particularly under deadline pressure.",
         "type": "paragraph"
       },
       {
         "id": "13363132-82c2-4f8f-98fc-14c39d8e7105",
-        "text": "The moment you notice you are trusting AI because checking would be inconvenient, stop. That instinct is the signal that you have crossed the line. It is not a licence to cross it anyway.",
+        "text": "Trusting AI's answer because checking it would be inconvenient is a signal worth pausing on, not a green light to carry on anyway.",
         "type": "callout"
       },
       {
@@ -2470,18 +2405,7 @@
       },
       {
         "id": "80b5703a-5de5-412a-ba89-509dbd0a4a28",
-        "text": "Most work is not a hard stop. The grey zone is wider, and it is where the real call sits: AI is allowed, but is using it wise?\n\nTake the message announcing a reorg to your team. Nothing forbids you from having a model draft it, and it would hand you something clean and calm in seconds. But the lines that land are the ones that show you understand what people are about to feel, and that read is yours to bring. Let the tool tidy your phrasing once the substance is written. Do not let it decide what the substance is.\n\nThe test is ownership. When the message goes out, whose name sits on it, and what are they answerable for? If AI helped with the draft and you still stand fully behind every line because you supplied the judgment, the tool did its job. If you would be using it to stand in for judgment you are the one paid to bring, keep the work yourself, even when nothing formally forbids it.\n\nIf you manage no one, the same test still bites. The note where you own a mistake to a customer, or raise a hard worry with your manager, is yours for the same reason: your credibility is what carries it, and no model can supply that.",
-        "type": "paragraph"
-      },
-      {
-        "id": "f79dee4a-cfbe-4d62-a7d9-73946a5c1201",
-        "text": "Keeping it in proportion",
-        "type": "heading",
-        "level": 2
-      },
-      {
-        "id": "0ea13e2c-8dfe-4c89-a9dc-83df6eb7925a",
-        "text": "None of this argues for caution everywhere. Most day-to-day work carries low stakes and easy checking, and AI belongs there: cleaning up a spreadsheet export, turning a batch of survey comments into themes, drafting the first pass of release notes. The point is narrower. A small set of tasks should never touch the tool, and a slightly larger set earns a deliberate pause before it does. Sorting one from the other is the skill worth building.",
+        "text": "Most work is not a hard stop. The grey zone is wider, and it is where the real call sits: AI is allowed, but is using it wise?\n\nTake a message announcing a reorg to your team, or a note where you're owning a mistake to a customer, or raising a hard concern with your own manager. Nothing forbids having a model draft any of these, and it would hand you something clean and calm in seconds. But the lines that land are the ones that show you understand what the other person is about to feel, and that read is yours to bring — work out the substance yourself first, then let the tool tidy the phrasing once it's written.\n\nThe test is ownership: whose name sits on it, and what are they answerable for? If AI helped with the draft and you still stand fully behind every line because you supplied the judgment, the tool did its job. If you would be using it to stand in for judgment that is yours to bring, keep the work yourself, even when nothing formally forbids it — your credibility is what carries it, and no model can supply that.",
         "type": "paragraph"
       },
       {
@@ -2534,7 +2458,7 @@
     "content_blocks": [
       {
         "id": "b2896ba2-3378-4759-8ff2-b2e8a43ccdb6",
-        "text": "Paste text into a consumer AI tool and that text leaves your building. It travels to a model running on someone else's servers. Depending on the tool and its settings, it might be retained, logged, reviewed by a person checking quality, or used to train the next version of the model. Some tools promise none of that. Others do all of it by default and let you opt out. Most people never check which kind they are using.\n\nThis failure sits entirely on your side of the screen: sensitive information going into a tool that has no business holding it. The mechanics take a sentence to explain. Deciding what is safe to paste is the part that takes attention. If you manage people, the norm you set here is the one your team will copy, and if you manage no one, the same call still lands on you every time you open a chat window with real work in front of you.",
+        "text": "Paste text into a consumer AI tool and that text leaves your building. It travels to a model running on someone else's servers, where, depending on the tool and its settings, it might be retained, logged, reviewed by a person checking quality, or used to train the next version of the model. Some tools promise none of that; others do all of it by default and let you opt out. Few people check which kind they are using before they paste something sensitive in.\n\nThe mechanics take a sentence to explain. Deciding what is safe to paste is the part that takes attention, every time you open a chat window with real work in front of you — and if you manage people, the norm you set here is the one your team will copy too.",
         "type": "paragraph"
       },
       {
@@ -2556,7 +2480,7 @@
       },
       {
         "id": "37e7e1e6-b38f-4d92-a56e-cd58a782ab21",
-        "text": "Most people picture passwords and credit card numbers. At a management level the real exposure is broader and a good deal more mundane.",
+        "text": "Passwords and credit card numbers are the obvious cases, but the real exposure at work is broader and a good deal more mundane than that.",
         "type": "paragraph"
       },
       {
@@ -2629,6 +2553,17 @@
         ]
       },
       {
+        "id": "61641937-0359-4c90-9333-5052b505003c",
+        "text": "Concrete behaviours",
+        "type": "heading",
+        "level": 2
+      },
+      {
+        "id": "363bd08b-1cb5-49c4-9ebe-0892dd875d8c",
+        "text": "A few concrete habits:\n\n- **Default to the approved tool for anything real**, even when it is marginally less convenient than the alternative.\n- **When you are unsure whether something is sensitive, treat it as if it is.**\n- **If you must work in an unapproved tool for some reason, strip the specifics first** — remove names, figures, and identifiers while keeping the structure, so you'd ask the model to pressure-test the shape of a budget case with the real numbers pulled out rather than left in.\n- **Set the expectation with your team plainly** — they will match what you actually do, not what the policy says.",
+        "type": "paragraph"
+      },
+      {
         "id": "78e306df-9632-43a3-8cfd-075028df4cbd",
         "text": "Approved tools, in practice",
         "type": "heading",
@@ -2651,24 +2586,13 @@
       },
       {
         "id": "43f3f792-36ca-4d1b-af5e-13dc2f449044",
-        "text": "Shadow AI is the real risk",
+        "text": "Unsanctioned tool use is the real risk",
         "type": "heading",
         "level": 2
       },
       {
         "id": "7eda02e7-1f68-4fb6-862e-6306cd32170d",
-        "text": "Shadow AI is the use of unapproved tools for real work: the marketing manager drafting on a personal account, the analyst pasting next quarter's budget into whatever tool ranked first in a search. It rarely comes from bad intent. Usually a good tool was just easier to reach than the sanctioned one.\n\nThis is where leadership matters more than IT. If the approved path is slow, hidden, or worse than the free alternative, people route around it, and you cannot police your way out of that. You close the gap by making the sanctioned tool the path of least resistance, and by being clear out loud about what belongs where.",
-        "type": "paragraph"
-      },
-      {
-        "id": "61641937-0359-4c90-9333-5052b505003c",
-        "text": "Concrete behaviours",
-        "type": "heading",
-        "level": 2
-      },
-      {
-        "id": "363bd08b-1cb5-49c4-9ebe-0892dd875d8c",
-        "text": "Strip the specifics before you paste. You can often get the same quality of help by removing names, figures, and identifiers while keeping the structure, so ask the model to pressure-test the shape of a budget case with the real numbers pulled out rather than left in. Use the approved tool for anything real, and default to it even when it is marginally less convenient. When you are unsure whether something is sensitive, treat it as if it is. And set the expectation with your team plainly, because they will match what you actually do, not what the policy says.",
+        "text": "\"Shadow AI\" is the term for using unapproved tools for real work: a marketing manager drafting on a personal account, an analyst pasting next quarter's budget into whatever tool ranked first in a search. It rarely comes from bad intent — usually the unsanctioned tool was just easier to reach than the approved one.\n\nThis is where leadership matters more than IT. If the approved path is slow, hidden, or worse than the free alternative, people will route around it, and policing alone won't hold that line. Closing the gap means making the sanctioned tool the path of least resistance, and being clear out loud about what belongs where.",
         "type": "paragraph"
       },
       {
@@ -2719,11 +2643,6 @@
   },
   {
     "content_blocks": [
-      {
-        "id": "962e1950-a5ff-4185-8000-c607991011e3",
-        "text": "If you send it, it's yours. The credit when it lands, and the fallout when it doesn't.",
-        "type": "callout"
-      },
       {
         "id": "44ea645a-bed8-4587-a83b-5d4c09285fe5",
         "text": "You feed the model your rough notes from a performance review and it hands back a clean, confident write-up in seconds. That fluency is why accountability is where this module ends: the easier the output is to accept, the easier it is to pass on something you never actually checked. The tool does not sign the review. You do.",
@@ -2852,12 +2771,12 @@
     "content_blocks": [
       {
         "id": "19160fe5-ffda-4d23-9cbb-7b4d4fe72413",
-        "text": "Nobody needs you to type the first draft anymore. They need you to make sure what goes out is right.",
+        "text": "Typing the first draft yourself matters less now. Making sure what goes out is actually right is what matters more.",
         "type": "callout"
       },
       {
         "id": "b74a93ef-f5b5-4255-aa97-4b9145374bfb",
-        "text": "If you manage people, you already do a version of this. You brief someone, review what comes back, add context they didn't have, and put your name on the result before it goes anywhere. If you don't manage anyone, the shift is the same, just aimed at your own work instead of someone else's: you're now briefing, reviewing, and signing off on things you used to produce start to finish by yourself.",
+        "text": "This is a shift you already recognise in some form: briefing the work, reviewing what comes back, adding context that wasn't there, and putting your name on the result before it goes anywhere — whether that work used to go to someone else, or you produced it yourself, start to finish.",
         "type": "paragraph"
       },
       {
@@ -2868,7 +2787,7 @@
       },
       {
         "id": "2566969c-d2dc-4fd0-8dea-1b4afb9deea1",
-        "text": "The old limit on knowledge work was time: hours spent drafting, summarising, formatting, moving information from one shape into another. Much of that can now be handed off. What's left is what was never actually the bottleneck: judgment, context, and the read on what matters and who's in the room. AI didn't change what good work looks like. It just moved the constraint off the mechanical steps and onto you.\n\nThis lands harder for people who manage others, because you've spent your career being judged on outcomes you didn't personally produce. The habit of directing rather than doing is already there. What's new is that it now reaches into the drafting and the synthesis too, the parts you might have kept doing yourself out of habit, or because handing them to a person cost more than just doing it. If you've never had anyone to delegate to before, this is that experience for the first time, just aimed at a model instead of a person.",
+        "text": "The old limit on knowledge work was time: hours spent drafting, summarising, formatting, moving information from one shape into another. Much of that can now be handed off. What's left is what was never actually the bottleneck: judgment, context, and the read on what matters and who's in the room. AI didn't change what good work looks like. It just moved the constraint away from the mechanical steps and onto your judgment.\n\nThis lands harder for people who manage others, because you've spent your career being judged on outcomes you didn't personally produce. The habit of directing rather than doing is already there. What's new is that it now reaches into the drafting and the synthesis too, the parts you might have kept doing yourself out of habit, or because handing them to a person cost more than just doing it. If you've never had anyone to delegate to before, this is that experience for the first time, just aimed at a model instead of a person.",
         "type": "paragraph"
       },
       {
@@ -2879,12 +2798,12 @@
       },
       {
         "id": "2a3c36c8-c18e-43d9-a1d3-7719ba76fb06",
-        "text": "You move from producing to directing. Instead of writing the first draft of a stakeholder update yourself, you write the brief and review what comes back. Instead of reading through a stack of interview notes and building the hiring recommendation single-handed, you direct the first pass and then interrogate it: what did it flatten, what did it miss, what would the hiring committee push back on. Instead of building structure from a blank page, you steer it and sharpen the language.\n\nThis sounds like less work. It isn't. Directing well takes more clarity than doing, not less. You have to know what good looks like before you ask for it. You have to catch the error that reads perfectly and is still wrong. And you have to supply the judgment the model can't reach: the history, the politics, the thing that can't go in the recommendation for reasons no prompt would ever surface.",
+        "text": "You move from producing to directing. Instead of writing the first draft of a stakeholder update yourself, you write the brief and review what comes back. Instead of reading through a stack of interview notes and building the hiring recommendation single-handed, you direct the first pass and then interrogate it: what did it flatten, what did it miss, what would the hiring committee push back on. Instead of building structure from a blank page, you steer it and sharpen the language.\n\nThis sounds like less work. It isn't — directing well takes more clarity than doing, not less. You have to know what good looks like before you ask for it, catch a plausible-looking error before it goes out, and supply the judgment the model can't reach: the history, the politics, the thing that can't go in the recommendation for reasons no prompt would ever surface.",
         "type": "paragraph"
       },
       {
         "id": "b41e6649-f48b-4e10-8750-e5cf370bea09",
-        "text": "Directing is harder than it sounds. It forces you to know what you want before you ask, and vague direction produces vague work whether it comes from a model or a person.",
+        "text": "Directing takes more upfront clarity than doing does — vague direction produces vague work, whether it comes from a model or a person.",
         "type": "callout"
       },
       {
@@ -2902,7 +2821,7 @@
             "title": "Brief before you build"
           },
           {
-            "body": "Your job is to review and refine, not start over. If you find yourself rewriting everything, the brief was probably the problem, not the output. Fix the instruction and go again instead of grinding through it by hand.",
+            "body": "Your job is to review and refine, not rewrite from scratch. If you catch yourself rewriting everything by hand, that's a signal the brief was the problem, not the output — fix the instruction and run it again, rather than grinding through a manual rewrite.",
             "title": "Review, do not redo"
           },
           {
@@ -2919,7 +2838,7 @@
       },
       {
         "id": "be1512c6-4c11-47ad-ab9b-78bdf2fd4c02",
-        "text": "This is not permission to route everything through AI, replace thinking with prompting, or trade accuracy for speed. Push the assembly down and keep the judgment. That is the whole shift. Do it right and the hours you free up go toward the read only you can supply, the part nobody and nothing else can do for you.",
+        "text": "This is not permission to **route everything through AI**, **replace thinking with prompting**, or **trade accuracy for speed**. Hand off the production work and keep the judgment — that is the whole shift. Do it right and the hours you free up go toward the read only you can supply, the part nobody and nothing else can do for you.",
         "type": "paragraph"
       },
       {
@@ -2935,7 +2854,7 @@
       },
       {
         "id": "d34a8424-f8b0-4210-b761-15e583a6e13b",
-        "text": "Push the assembly down. Keep the judgment. Brief clearly, review honestly, add the context the model cannot see, and own what goes out as your work.",
+        "text": "Hand off the production work. Keep the judgment. Brief clearly, review honestly, add the context the model cannot see, and own what goes out as your work.",
         "type": "paragraph"
       },
       {
@@ -2988,12 +2907,12 @@
     "content_blocks": [
       {
         "id": "1a032e61-d700-4a3e-a0be-e432839de92a",
-        "text": "A colleague hands you a paragraph of dense technical language, a clause on data residency, say, and asks you to make it readable for the whole company. Stripping the jargon is a clean hand-off to a model. Deciding which caveat cannot be simplified away without making the result quietly wrong is not.",
+        "text": "A colleague hands you a dense clause, on data residency, say, and asks you to make it readable for the whole company. Stripping the jargon is a clean hand-off to a model. Deciding which caveat cannot be simplified away without making the result quietly wrong is not.",
         "type": "callout"
       },
       {
         "id": "2909550d-73f8-4cc8-8306-4b00345af365",
-        "text": "You already run this calculation whenever you pass a task to someone else, weighing what it costs to brief and check them against what it costs to just do it yourself. Handing work to AI is the same discipline with one difference. The model is fast and never tires, but it arrives with none of your context, and it carries none of the accountability when the call turns out wrong. If you manage nobody and have never delegated a thing, the same judgment still applies, aimed at your own work: which parts to hand off, and which to keep because only you can do them right.",
+        "text": "The last lesson made the case for directing rather than doing everything yourself. This one is about the judgment call underneath that shift: what actually to hand off, and what to keep. You already run this calculation whenever you pass a task to someone else, weighing what it costs to brief and check them against what it costs to just do it yourself. Handing work to AI takes the same discipline, applied to your own work if you've never delegated to a person before: which parts to hand off, and which to keep because only you can do them right. The one real difference is that the model is fast and never tires, but it arrives with none of your context, and it carries none of the accountability when the call turns out wrong.",
         "type": "paragraph"
       },
       {
@@ -3004,7 +2923,7 @@
       },
       {
         "id": "4e8775db-a0ae-402c-9deb-49792e20bf8a",
-        "text": "Before you hand anything off, ask two things.\n\nFirst, how much task-specific context does this need? Context the model cannot pull from the words in front of it: who is in the room, why a timeline really slipped, which stakeholder is privately opposed. For the plain-language rewrite, the context that matters is narrow. Which regulatory detail is load-bearing and which is decoration, and you can hand that over in a sentence. When a task turns on context you cannot supply that cheaply, either keep it or brief the model properly first. When it needs little, it is a strong candidate to pass on.\n\nSecond, what does a subtle error cost, and how easily would you catch one? A mistake that jumps out on a quick read is cheap, because you see it, you fix it, you move on. A mistake only an insider would notice is expensive, because it can pass review and reach a decision-maker intact. In the translation case, a dropped qualifier that changes what the clause actually permits is that kind of quiet, costly error. The harder a mistake is to catch, the more the task belongs with you.",
+        "text": "Before you hand anything off, check one thing first, then ask two questions.\n\n**First, is the data itself allowed near AI at all?** If it's confidential, personal, or regulated, that's a separate gate covered in the safety module later in this track — settle that before anything below applies. What follows assumes the answer is yes.\n\n- **How much task-specific context does this need?** Context the model cannot pull from the words in front of it: who is in the room, why a timeline really slipped, which stakeholder is privately opposed. For the plain-language rewrite, the context that matters is narrow — which regulatory detail is load-bearing and which is decoration, and you can hand that over in a sentence. When a task turns on context you cannot supply that cheaply, either keep it or brief the model properly first. When it needs little, it is a strong candidate to pass on.\n- **What does a subtle error cost, and how easily would you catch one?** A mistake that jumps out on a quick read is cheap, because you see it, you fix it, you move on. A mistake only an insider would notice is expensive, because it can pass review and reach a decision-maker intact. In this kind of rewrite, a dropped qualifier that changes what the clause actually permits is that kind of quiet, costly error. The harder a mistake is to catch, the more the task belongs with you.",
         "type": "paragraph"
       },
       {
@@ -3020,7 +2939,7 @@
       },
       {
         "id": "91c3c868-3119-4696-b3c2-2aa4bbf8a89c",
-        "text": "AI pays off on structured, repetitive work, and on moving information from one shape into another. Summarising a long thread. Turning rough notes into a clean table. Rewriting that dense clause in plain words. The quality bar is clear enough for the model to hit, the time saved is genuine, and mistakes tend to surface on review.\n\nUnderneath most good delegation sits a split you can make on almost any task: separate the judgment from the assembly. Deciding which findings belong in a report is judgment, so keep it. Writing those findings up once you have chosen them is assembly, so pass it on. Deciding which technical nuance must survive a translation is judgment. Producing the clean plain-language draft around that decision is assembly.\n\nThat split is why so much real work is neither fully kept nor fully handed off. You do the thinking; the model does the production.",
+        "text": "AI pays off on structured, repetitive work, and on moving information from one shape into another — the same territory covered in \"What AI is good at, and where it falls short.\" The quality bar is clear enough for the model to hit, the time saved is genuine, and mistakes tend to surface on review.\n\nUnderneath most good delegation sits a split you can make on almost any task: separate the judgment from the assembly. Deciding which findings belong in a report is judgment, so keep it. Writing those findings up once you have chosen them is assembly, so pass it on. Deciding which technical nuance must survive a rewrite is judgment. Producing the clean plain-language draft around that decision is assembly.\n\nThat split is why so much real work is neither fully kept nor fully handed off. You do the thinking; the model does the production.",
         "type": "paragraph"
       },
       {
@@ -3036,7 +2955,7 @@
       },
       {
         "id": "ad15163f-954e-4554-854b-d837a9eab817",
-        "text": "Keep the work whose value lives in the parts a model cannot supply. Novel judgment calls with no obvious right answer and competing risks. Anything that depends on having been in the room. Anything where the output has to reflect your read of the politics, the history, or the people involved.\n\nThe model will always give you an answer, and that is the risk. Ask it to recommend a pricing change and it will recommend one, fluently, drawing on nothing about your market, your margins, or your competitors. The answer comes out generic, and your value on that task was the non-generic part. When a task turns on knowing something the model cannot know, holding onto it is exactly where you add value.",
+        "text": "Keep the work whose value lives in the parts a model cannot supply. Novel judgment calls with no obvious right answer and competing risks. Anything that depends on having been in the room. Anything where the output has to reflect your read of the politics, the history, or the people involved.\n\nThe model will always give you an answer, which is worth keeping in mind: ask it to recommend a pricing change and it will recommend one, fluently, drawing on nothing about your market, your margins, or your competitors. The answer comes out generic, and your value on that task was the non-generic part. When a task turns on knowing something the model cannot know, holding onto it is exactly where you add value.",
         "type": "paragraph"
       },
       {
@@ -3065,7 +2984,7 @@
       },
       {
         "id": "7a137104-ce48-4483-9917-c121767ba0d6",
-        "text": "A caution before you rely on this map. Handing the model a task that needs context you never gave it does not make the task easier; it makes the output confidently generic. And splitting well depends on doing the judgment part yourself first. Delegate the decision along with the drafting, and the effort you thought you saved is gone. You have handed away the part that was yours to own.",
+        "text": "One caution: handing the model a task that needs context you never gave it does not make the task easier, it just makes the output confidently generic. Splitting well depends on doing the judgment part yourself first — delegate the decision along with the drafting, and the effort you thought you saved is gone, because you've handed away the part that was yours to own.",
         "type": "paragraph"
       },
       {
@@ -3123,7 +3042,7 @@
       },
       {
         "id": "5dacc147-959a-4fe2-97e5-6d9196fdfe33",
-        "text": "You already have the frame: the shift from doing to directing, and the judgement call about what to hand off and what to keep. This lesson is about turning that frame into something faster than reasoning, the point where you stop working it out step by step. A well-calibrated user knows within seconds whether a task is worth handing over, writes a usable brief without labouring over it, and reads the output already knowing what to fix. None of this needs a team. If you turn the same messy meeting notes into a task list most weeks, the calibration happens on your own desk, one round at a time.",
+        "text": "You already have the frame: the shift from doing to directing, and the judgement call about what to hand off and what to keep. This lesson turns that frame into something faster than working it out step by step each time. A well-calibrated user knows within seconds whether a task is worth handing over, writes a usable brief without labouring over it, and reads the output already knowing what to fix. None of this needs a team — if you turn the same messy meeting notes into a task list most weeks, the calibration happens on your own desk, one round at a time.",
         "type": "paragraph"
       },
       {
@@ -3142,7 +3061,7 @@
         "type": "card_group",
         "cards": [
           {
-            "body": "You hand over a task without the background it needs. The output comes back polished and confidently wrong in ways that matter. The fix: give the model your context before you ask for output.",
+            "body": "The context question from the last lesson, missed: you hand over a task without the background it needs, and the output comes back polished and confidently wrong in ways that matter. The fix: supply that context before you ask for output.",
             "title": "Over-delegating without context"
           },
           {
@@ -3167,12 +3086,12 @@
       },
       {
         "id": "baef9642-d6fb-43a5-a534-94fb490174b3",
-        "text": "Calibration is pattern recognition, and every delegation is a data point. Take the notes-to-tasks routine. Did the task list come back usable, or did it invent an owner nobody agreed to and miss the one action that actually mattered? If it missed, ask why: thin context, the wrong task for a model, or a first draft that needed another turn. Over enough rounds you build a mental map of what this kind of work does well and where it slips, and the reasoning collapses into a fast read.\n\nThe problem is that most people use AI and move straight on, registering nothing. The output was fine, or it was not, and the moment passes either way. You do not need a log or a system for this. You need the habit of pausing for five seconds after each round to ask what you learned. Calibration costs you almost nothing extra. It is attention, paid to the rounds you are already running.",
+        "text": "Calibration is pattern recognition, and every delegation is a data point. Take a recurring task like turning meeting notes into a task list: did it come back usable, or did it invent an owner nobody agreed to and miss the one action that actually mattered? If it missed, ask why — thin context, the wrong task for a model, or a first draft that needed another turn. Over enough rounds you build a mental map of what this kind of work does well and where it slips, until the judgment becomes a fast read instead of a step-by-step process.\n\nThe problem is that most people use AI and move straight on, registering nothing. The output was fine, or it was not, and the moment passes either way. You do not need a log or a system for this. You need the habit of pausing for five seconds after each round to ask what you learned. Calibration costs you almost nothing extra. It is attention, paid to the rounds you are already running.",
         "type": "paragraph"
       },
       {
         "id": "1920559d-2bf9-4351-8fe7-fe52e0d47366",
-        "text": "Repeated disappointment with a task usually means you have not run it enough times to calibrate your brief. It is rarely proof that the task cannot be delegated. Give it enough rounds before you write it off.",
+        "text": "Repeated disappointment with a task usually means too few reps to calibrate your brief yet — rarely proof the task can't be delegated at all. Give it enough rounds before writing it off.",
         "type": "callout"
       },
       {
@@ -3183,7 +3102,7 @@
       },
       {
         "id": "58167cab-b2ed-4d00-849b-8ef8d796c4fd",
-        "text": "Calibrating across everything at once is slow and muddy. Pick one recurring task and use AI for it consistently for two weeks. Your weekly meeting notes are a good candidate: the same shape every time, low stakes, and frequent enough to give you real repetitions.\n\nWatch three things as you go: what it reliably gets right, where it consistently misses, and which adjustments to your brief move the needle most. Narrow focus learns faster and cleaner than attention spread thin. That single repeated task is exactly the kind of work the next module puts into practice, start to finish.",
+        "text": "Here's a practical way to train that instinct: calibrating across everything at once is slow and muddy, so pick one recurring task and use AI for it consistently for two weeks. Your weekly meeting notes are a good candidate: the same shape every time, low stakes, and frequent enough to give you real repetitions.\n\nWatch three things as you go: what it reliably gets right, where it consistently misses, and which adjustments to your brief move the needle most. Focusing on one task teaches you faster than spreading the same attention across many. That single repeated task is exactly the kind of work the next module puts into practice, start to finish.",
         "type": "paragraph"
       },
       {
@@ -3257,7 +3176,7 @@
       },
       {
         "id": "99cbb8bd-2733-499e-8199-960fa79ea817",
-        "text": "The best first task is one you do often, that eats real time, and where you can tell good output from bad because you know the subject. That last point matters most. If you cannot judge the result, you cannot catch what AI gets wrong, and this lesson is as much about building your eye as about saving time.\n\nSkip anything that touches a hard no-go zone. Final decisions that carry legal or personal weight, confidential material that cannot go into your tool, work where a plausible-but-wrong answer would slip through unnoticed. You already hold those judgements. Apply them before you start, not after.\n\nOne task fits almost any role and makes a good first run: turning a pile of messy meeting notes into a clean list of decisions, owners, and open questions. Pick your task now. Whatever you choose, it should be real work with a deadline you already have.",
+        "text": "The best first task is one you do often, that eats real time, and where you can tell good output from bad because you know the subject. That last point matters most: judging the result is what lets you catch what AI gets wrong, so this lesson is as much about building that eye as it is about saving time.\n\nSkip anything that touches a hard no-go zone: final decisions that carry legal or personal weight, confidential material that cannot go into your tool, work where a plausible-but-wrong answer would slip through unnoticed. You already hold those judgements — apply them before you start, not after.\n\nIf nothing comes to mind immediately, a few good candidates: turning a pile of messy meeting notes into a clean list of decisions, owners, and open questions; drafting the status update or report you rewrite every week; turning a stack of feedback or survey comments into themes; or cleaning up a rough set of notes into a structured document. Pick your task now. Whatever you choose, it should be real work with a deadline you already have.",
         "type": "paragraph"
       },
       {
@@ -3279,7 +3198,7 @@
       },
       {
         "id": "d795b13f-5256-4aa3-a425-bf28bb7cefdf",
-        "text": "Write the prompt now, covering the four things every prompt needs: the task, the audience, the format you want, and any constraints. If you have a strong example of what good looks like, paste it in, a model matches a shown standard far better than a described one.\n\nThen give it the context it cannot see on its own: the actual source material, and nothing it should not have. For meeting notes, that is the raw text itself, plus one instruction that matters here, tell the model to keep firm decisions separate from open questions rather than blur the two, and to attach an owner to every action it can find one for.",
+        "text": "Write the prompt now, covering the four things every prompt needs: the task, the audience, the format you want, and any constraints. If you have a strong example of what good looks like, paste it in — a model matches a shown standard far better than a described one.\n\nThen give it the context it cannot see on its own: the actual source material. If you're using the meeting-notes example, a prompt like this covers the basics — adapt it to your own task and notes:\n\n**\"Turn these meeting notes into a task list for my team. Separate firm decisions from open questions rather than blurring the two, and attach an owner to every action where one was named. Format as a short table: task, owner, status. [paste your notes below]\"**",
         "type": "paragraph"
       },
       {
@@ -3290,7 +3209,7 @@
       },
       {
         "id": "de7416c5-4eca-4ec3-a570-3369be60ab5f",
-        "text": "Read your draft now the way you would scrutinise a colleague's proposal before it goes up: hunting for gaps, weak claims, and lines that sound right but are not. Check anything factual against your source material. A figure, a name, or a date the model produced on its own is exactly where a hallucination hides. If your task list names a deadline or an owner that appears nowhere in your notes, that is your signal to check before you send it on.",
+        "text": "Read your draft the way you would review a colleague's proposal before it goes up: look for gaps, weak claims, and anything that sounds right but might not be. Check anything factual against your source material — a figure, a name, or a date the model produced on its own is exactly where a hallucination hides. If your task list names a deadline or an owner that appears nowhere in your notes, that is your signal to check it before you send it on.",
         "type": "paragraph"
       },
       {
@@ -3301,7 +3220,7 @@
       },
       {
         "id": "71fc9c5f-74f8-4b00-96c2-e0936fe21b1f",
-        "text": "If your draft lands close but wrong in a specific way, too long, the wrong emphasis, a section that missed the point, name the fix and ask again. Keep the thread going while it is still improving. Start fresh only when the output has drifted so far that correcting it costs more than a clean prompt would. Knowing which situation you are in is the instinct you have been building all along, and this is where you use it for real.",
+        "text": "If your draft lands close but wrong in a specific way — too long, the wrong emphasis, a section that missed the point — name the fix and ask again. For a task this size, staying in the same conversation and refining is usually all you need; starting fresh matters more on longer or more complex work, where a thread can drift far enough that correcting it costs more than a clean prompt would. Knowing which situation you're in is the instinct you've been building all along, and this is where you use it for real.",
         "type": "paragraph"
       },
       {
@@ -3326,17 +3245,17 @@
       },
       {
         "id": "e1205562-7137-49ed-9d37-0f046b1a2ebf",
-        "text": "Once the output is good enough, it is still yours. Do the final read now, as the person accountable for it, because you are. Confirm the facts hold, the tone fits the audience, and nothing confidential slipped in along the way. Then send it, file it, or carry it into the meeting as your own work.",
+        "text": "Once the output is good enough, it is still yours. Do the final read now: confirm the facts hold, the tone fits the audience, and nothing confidential slipped in along the way. Then send it, file it, or carry it into the meeting as your own work.",
         "type": "paragraph"
       },
       {
         "id": "34ab9ed4-c3de-4f08-8e4f-58b0443b54a5",
-        "text": "This goes out under your name. Verification is the step that makes the speed safe to rely on, and skipping it means standing behind a draft you never actually checked.",
+        "text": "Verification is what makes the speed safe to rely on — a quick final check turns a fast draft into something you can stand behind.",
         "type": "callout"
       },
       {
         "id": "46dd490f-6df9-44ff-a7e0-b77dbd94ba29",
-        "text": "Doing this once with a real task shifts something. The abstract advice from earlier modules turns into a workflow you can feel: where AI saved you real time, where your judgement was the thing that mattered, where you would push harder next time. That felt sense is worth more than any single output. It is what lets you take on the next task with confidence and know exactly what to check.",
+        "text": "Running this once with a real task turns the earlier advice into something concrete: you can now feel where AI saved you real time, where your judgement was the thing that mattered, and what you'd push harder on next time. That's what lets you take on the next task with confidence, already knowing what to check.",
         "type": "paragraph"
       },
       {
@@ -3366,7 +3285,7 @@
     "content_blocks": [
       {
         "id": "45557958-0a69-40eb-8ed8-378531eb2ef9",
-        "text": "You started this track able to use AI. You finish it able to direct it: knowing what to hand over, what to check, and when to keep your hands on the work.",
+        "text": "You started this track knowing how to use AI. You're finishing it knowing how to direct it — what to hand over, what to check, and when to keep your hands on the work yourself.",
         "type": "callout"
       },
       {
@@ -3382,7 +3301,7 @@
       },
       {
         "id": "95c2858d-6174-49dd-a052-d8d624ba013b",
-        "text": "Seven things, each building on the last. You know what generative AI really is: a model that predicts text rather than a system that looks up facts. You know enough about how it works to have good instincts, about tokens and context, about why the same prompt gives different answers, about why it can hand you confident nonsense in a fluent voice. You can write a prompt that gets a usable result, supply the context the model cannot see, and work the instruct-review-refine loop instead of taking the first draft as final.\n\nYou also know where it fails and what those failures cost: bias, stale information, gaps in reasoning, the tasks that are simply off-limits. You know how to verify before you forward or decide, what should never be pasted into a tool, and that whatever goes out is yours to stand behind. And you have seen the move from doing the work to directing it, choosing what is worth handing off and what needs your own hand. If you manage people, that will feel familiar. If you manage no one, it applies just as squarely to your own work. You are now the one briefing, reviewing, and signing off on things you used to grind out from start to finish.",
+        "text": "Seven things, each building on the last:\n\n- **What generative AI really is** — a model that predicts text rather than a system that looks up facts, though many tools now pair it with search or connectors that add current information on top of that.\n- **Enough about how it works to have good instincts** — tokens and context, why the same prompt gives different answers, why it can hand you a fluent but confidently wrong answer.\n- **How to write a prompt that gets a usable result.**\n- **How to supply the context the model cannot see on its own.**\n- **The instruct-review-refine loop**, instead of taking the first draft as final.\n- **Where it fails and what those failures cost** — bias, stale information, gaps in reasoning, the tasks that are simply off-limits.\n- **How to verify before you forward or decide**, what should never be pasted into a tool, and that whatever goes out is yours to stand behind.\n\nAnd you have seen the move from doing the work to directing it, choosing what is worth handing off and what needs your own hand — whether that applies to work you used to hand to other people, or work you used to grind out yourself from start to finish.",
         "type": "paragraph"
       },
       {
@@ -3398,7 +3317,7 @@
       },
       {
         "id": "64cfb23b-da42-4c2d-b04d-12b3c40deb69",
-        "text": "The tools you will meet from here sort roughly by the kind of work they support. Learn the categories rather than the products. Products get renamed and replaced; the categories hold.",
+        "text": "The tracks you will meet from here are organized by product (Copilot, Claude, Lovable, and so on), not by these categories directly — each one mixes conversational, agentic, and specialist capabilities depending on what that product actually offers. Still, worth learning the underlying categories below: they're the lens for understanding what a given feature inside any of those tracks is actually doing, and that lens holds even as the specific products around it get renamed and replaced.",
         "type": "paragraph"
       },
       {
@@ -3421,7 +3340,7 @@
       },
       {
         "id": "b06ab46d-8049-4ffc-bed4-0c6aefb21d55",
-        "text": "Most tasks land cleanly in one of these. The tool tracks that follow go deep inside each category, into the practical detail of getting real work done with a given product. You already have the foundation they build on. You will judge a new tool by what it does and where it breaks, not by how it is sold.",
+        "text": "Most individual features land cleanly in one of these categories, even when the product they live in spans more than one. The tool tracks that follow go deep on a single product at a time, into the practical detail of getting real work done with it. You already have the foundation they build on. You will judge a new tool by what it does and where it breaks, not by how it is sold.",
         "type": "paragraph"
       },
       {
@@ -3432,7 +3351,7 @@
       },
       {
         "id": "211c936b-a7be-414b-b836-b01d60828f0e",
-        "text": "Pick one recurring task you already own: the weekly report you always rewrite, the inbox thread that eats an hour, the write-up nobody enjoys drafting. Point AI at that one, check what comes back, and refine your approach over a few real repetitions. Calibration comes from reps on work you can already judge. Experiments on unfamiliar, high-stakes work teach you far less.",
+        "text": "You've already run this once, on the task you worked through a couple of lessons ago — the same approach carries forward as your parting advice: pick one recurring task you already own, the weekly report you always rewrite, the inbox thread that eats an hour, the write-up nobody enjoys drafting, and refine your approach over a few real repetitions. Calibration comes from reps on work you can already judge; experiments on unfamiliar, high-stakes work teach you far less.",
         "type": "paragraph"
       },
       {
