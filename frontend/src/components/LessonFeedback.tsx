@@ -94,7 +94,7 @@ export default function LessonFeedback({
             {status === 'sent' ? (
               <div style={{ textAlign: 'center', padding: '12px 0' }}>
                 <p style={{ margin: '0 0 18px', fontSize: 15, fontWeight: 600, color: '#101820' }}>
-                  Thanks — your feedback was sent.
+                  Thanks, your feedback has been sent!
                 </p>
                 <button
                   type="button"
