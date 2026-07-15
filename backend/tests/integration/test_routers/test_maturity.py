@@ -409,3 +409,49 @@ class TestMigrationRestructure:
             )
         ).scalar_one()
         assert count == 1
+
+
+def _load_promote_migration() -> tuple[str, str, str]:
+    path = (
+        Path(__file__).resolve().parents[3]
+        / "alembic"
+        / "versions"
+        / "d8e9f0a1b2c3_for_developers_multiplier_track.py"
+    )
+    spec = importlib.util.spec_from_file_location("_promote_migration", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.PROMOTE_SQL, module.DEMOTE_SQL, module.FOR_DEVELOPERS_ID
+
+
+class TestForDevelopersPromotion:
+    """The shipped data SQL flips "For Developers" between integrator and
+    multiplier (the constraint swap is model-level and covered by every test that
+    creates a multiplier track)."""
+
+    async def test_promote_and_demote_for_developers(self, db_session: AsyncSession) -> None:
+        promote_sql, demote_sql, track_id = _load_promote_migration()
+        await db_session.execute(
+            text(
+                "INSERT INTO tracks (id, name, sort_order, track_type, required_level) "
+                "VALUES (:id, 'For Developers', 9, 'tool', 'integrator')"
+            ),
+            {"id": track_id},
+        )
+
+        await db_session.execute(text(promote_sql))
+        level = (
+            await db_session.execute(
+                text("SELECT required_level FROM tracks WHERE id = :id"), {"id": track_id}
+            )
+        ).scalar_one()
+        assert level == "multiplier"
+
+        await db_session.execute(text(demote_sql))
+        level = (
+            await db_session.execute(
+                text("SELECT required_level FROM tracks WHERE id = :id"), {"id": track_id}
+            )
+        ).scalar_one()
+        assert level == "integrator"

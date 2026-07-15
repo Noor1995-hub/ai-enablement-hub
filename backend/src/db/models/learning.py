@@ -26,7 +26,8 @@ class Track(Base):
     __table_args__ = (
         CheckConstraint("track_type IN ('general', 'tool')", name="track_type"),
         CheckConstraint(
-            "required_level IN ('explore', 'practitioner', 'integrator')", name="required_level"
+            "required_level IN ('explore', 'practitioner', 'integrator', 'multiplier')",
+            name="required_level",
         ),
     )
 
@@ -38,8 +39,10 @@ class Track(Base):
     track_type: Mapped[str] = mapped_column(Text, nullable=False)
     color: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Maturity gate: a track is unlocked iff the user's effective maturity is at
-    # least this level. General I → explore, General II → practitioner, all tool
-    # tracks → integrator (see the maturity-ladder migration).
+    # least this level. General I → explore, General II → practitioner, tool
+    # tracks → integrator, except "For Developers" → multiplier, the aspirational
+    # top rung reached only by progression (see the maturity-ladder migration and
+    # the For-Developers promotion migration).
     required_level: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()

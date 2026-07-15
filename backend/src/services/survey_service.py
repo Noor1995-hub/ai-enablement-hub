@@ -90,11 +90,21 @@ class SurveyService:
         if await self._assignments.track_ids_for_user(user_id):
             return
 
+        # The scoring engine tops out at 'integrator'; 'multiplier' is aspirational
+        # (reached only by progression from integrator, never scored). Extend the
+        # seed ceiling to the top of the ladder for integrator scorers so a
+        # multiplier-gated track (e.g. "For Developers") is seeded alongside the
+        # integrator tool tracks — assignment just grants the content, maturity
+        # still gates its visibility until the learner closes out integrator.
+        seed_rank = (
+            LEVEL_RANK["multiplier"] if level_rank >= LEVEL_RANK["integrator"] else level_rank
+        )
+
         tracks = await self._content.list_tracks()
         track_ids = [
             track.id
             for track in tracks
-            if (rank := LEVEL_RANK.get(track.required_level)) is not None and rank <= level_rank
+            if (rank := LEVEL_RANK.get(track.required_level)) is not None and rank <= seed_rank
         ]
         if not track_ids:
             return

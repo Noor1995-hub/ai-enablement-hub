@@ -173,9 +173,25 @@ class TestComplete:
         assert "safe-use" not in (stored["mandatory_modules"] or [])
 
 
+# A full answer set that scores to integrator (all four capabilities HAVE, two
+# advanced, safe c5, trustworthy c6) — the top level the scorer ever emits.
+INTEGRATOR_ANSWERS = {
+    "c1_code": "ADV_D",
+    "c2_code": "ADV_D",
+    "c3_code": "HAVE",
+    "c4_code": "HAVE",
+    "c5_codes": ["KEPT_OUT"],
+    "c6_code": "HAVE",
+    "b_freq": "WEEKLY",
+    "b_breadth": "SEVERAL",
+}
+
+
 class TestAutoAssignOnComplete:
     """Completing the assessment seeds track/module/lesson assignments for every
-    track at or below the scored level (VALID_ANSWERS scores to practitioner)."""
+    track at or below the scored level (VALID_ANSWERS scores to practitioner). An
+    integrator scorer additionally seeds the aspirational multiplier track ("For
+    Developers"), which the scoring engine never emits on its own."""
 
     async def test_assigns_tracks_at_or_below_level_with_modules_and_lessons(
         self, client: AsyncClient, learner: User, test_settings: Settings, db_session: AsyncSession
@@ -186,6 +202,13 @@ class TestAutoAssignOnComplete:
         )
         integrator = await create_track(
             db_session, "Tool", track_type="tool", required_level="integrator", sort_order=2
+        )
+        multiplier = await create_track(
+            db_session,
+            "For Developers",
+            track_type="tool",
+            required_level="multiplier",
+            sort_order=3,
         )
         explore_module = await create_module(db_session, explore, "E-mod")
         practitioner_module = await create_module(db_session, practitioner, "P-mod")
@@ -198,6 +221,7 @@ class TestAutoAssignOnComplete:
         assert (await client.post("/api/survey/complete", headers=headers)).status_code == 200
 
         assignments = AssignmentRepository(db_session)
+        # Above the scored level (integrator, and the aspirational multiplier) stays out.
         assert await assignments.track_ids_for_user(learner.id) == {explore.id, practitioner.id}
         assert await assignments.module_ids_for_user(learner.id) == {
             explore_module.id,
@@ -208,6 +232,40 @@ class TestAutoAssignOnComplete:
         assert explore_lesson.id in assigned_lessons
         assert integrator_lesson.id not in assigned_lessons
         assert integrator_module.id not in await assignments.module_ids_for_user(learner.id)
+        assert multiplier.id not in await assignments.track_ids_for_user(learner.id)
+
+    async def test_integrator_scorer_seeds_multiplier_track_too(
+        self, client: AsyncClient, learner: User, test_settings: Settings, db_session: AsyncSession
+    ) -> None:
+        # The scoring engine never emits 'multiplier', so a multiplier-gated track
+        # would never be seeded by a plain rank comparison. An integrator scorer
+        # gets it alongside the integrator tool tracks — assignment grants it,
+        # maturity still gates its visibility until integrator is closed out.
+        assert score_response(INTEGRATOR_ANSWERS)["score_level"] == "integrator"
+
+        integrator = await create_track(
+            db_session, "Tool", track_type="tool", required_level="integrator", sort_order=2
+        )
+        multiplier = await create_track(
+            db_session,
+            "For Developers",
+            track_type="tool",
+            required_level="multiplier",
+            sort_order=3,
+        )
+        multiplier_module = await create_module(db_session, multiplier, "M-mod")
+        multiplier_lesson = await create_lesson(db_session, multiplier_module, "M-lesson")
+
+        headers = auth_headers(learner, test_settings)
+        await client.put("/api/survey/me", json=INTEGRATOR_ANSWERS, headers=headers)
+        assert (await client.post("/api/survey/complete", headers=headers)).status_code == 200
+
+        assignments = AssignmentRepository(db_session)
+        tracks = await assignments.track_ids_for_user(learner.id)
+        assert integrator.id in tracks
+        assert multiplier.id in tracks
+        assert multiplier_module.id in await assignments.module_ids_for_user(learner.id)
+        assert multiplier_lesson.id in await assignments.lesson_ids_for_user(learner.id)
 
     async def test_does_not_seed_when_user_already_has_an_assignment(
         self, client: AsyncClient, learner: User, test_settings: Settings, db_session: AsyncSession
