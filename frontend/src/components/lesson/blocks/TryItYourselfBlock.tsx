@@ -58,7 +58,7 @@ export default function TryItYourselfBlock({ block }: TryItYourselfBlockProps) {
               <span style={{ fontFamily: 'var(--dlw-font-ui)', fontWeight: 700, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em', color: ACCENT, display: 'block', marginBottom: 4 }}>
                 {step.label}
               </span>
-              <p style={{ fontFamily: 'var(--dlw-font-body)', fontSize: 14, color: '#3C3C3C', margin: 0, lineHeight: 1.6, fontStyle: 'italic' }}>
+              <p style={{ fontFamily: 'var(--dlw-font-body)', fontSize: 14, color: '#3C3C3C', margin: 0, lineHeight: 1.6, fontStyle: 'italic', whiteSpace: 'pre-wrap' }}>
                 {renderInline(step.text)}
               </p>
             </div>

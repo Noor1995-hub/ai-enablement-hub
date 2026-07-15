@@ -1217,7 +1217,7 @@
       },
       {
         "id": "fc4d36a2-8028-4a48-9e1d-b18420892190",
-        "text": "The most common mistake is asking for too little. **\"Summarise this document\"** is a prompt, but it forces the model to guess how long, for whom, and to what end. Now compare that against a fuller version: **\"Summarise this vendor contract in five bullet points for a non-technical colleague, focusing only on the clauses that carry a cost or a deadline.\"** The second gets you something usable on the first pass. The first gets you a coin flip.\n\nEvery guess you leave in a prompt is a decision you have handed to the model, and it will make that decision generically, with no idea what you had in mind. Cutting those guesses is all that specificity means. The extra words are just what it takes to get there.",
+        "text": "The most common mistake is asking for too little. *\"Summarise this document\"* is a prompt, but it forces the model to guess how long, for whom, and to what end. Now compare that against a fuller version: *\"Summarise this vendor contract in five bullet points for a non-technical colleague, focusing only on the clauses that carry a cost or a deadline.\"* The second gets you something usable on the first pass. The first gets you a coin flip.\n\nEvery guess you leave in a prompt is a decision you have handed to the model, and it will make that decision generically, with no idea what you had in mind. Cutting those guesses is all that specificity means. The extra words are just what it takes to get there.",
         "type": "paragraph"
       },
       {
@@ -1260,7 +1260,7 @@
       },
       {
         "id": "5437881a-2e86-48e8-864f-d0715b6675d3",
-        "text": "Take a real case. You are preparing talking points for a contract renewal with a software vendor who has just proposed a double-digit price increase. **\"Help me prepare for this negotiation\"** leaves everything open. Instead: **\"Draft talking points for our renewal call. We have used this vendor for three years and rely on it daily. They want a large annual increase, and I want to hold it near inflation and add two user seats. Give me three opening positions and the likely pushback on each. Direct, businesslike tone, no filler, one page.\"** Audience, format, angle, and constraints, all decided by you rather than left to the model.",
+        "text": "Take a real case. You are preparing talking points for a contract renewal with a software vendor who has just proposed a double-digit price increase. *\"Help me prepare for this negotiation\"* leaves everything open. Instead: *\"Draft talking points for our renewal call. We have used this vendor for three years and rely on it daily. They want a large annual increase, and I want to hold it near inflation and add two user seats. Give me three opening positions and the likely pushback on each. Direct, businesslike tone, no filler, one page.\"* Audience, format, angle, and constraints, all decided by you rather than left to the model.",
         "type": "paragraph"
       },
       {
@@ -1271,7 +1271,7 @@
       },
       {
         "id": "f7cfd0c5-9e8c-4c0c-9020-c3a2b0603d55",
-        "text": "Telling the model what to avoid works as well as telling it what to do, and it's an easy step to skip. If the output keeps coming back with the same flaw, name the flaw directly.\n\nCommon examples: **\"Do not open with a preamble. Start with the first point.\"** **\"Do not suggest fixes; I only want the problem framed.\"** **\"Do not use corporate filler like leverage, synergy, or holistic.\"** **\"Do not exceed 200 words.\"** None of these is a nitpick: a recurring annoyance you keep editing out by hand is a one-line instruction you have not written yet.",
+        "text": "Telling the model what to avoid works as well as telling it what to do, and it's an easy step to skip. If the output keeps coming back with the same flaw, name the flaw directly.\n\nCommon examples: *\"Do not open with a preamble. Start with the first point.\"* *\"Do not suggest fixes; I only want the problem framed.\"* *\"Do not use corporate filler like leverage, synergy, or holistic.\"* *\"Do not exceed 200 words.\"* None of these is a nitpick: a recurring annoyance you keep editing out by hand is a one-line instruction you have not written yet.",
         "type": "paragraph"
       },
       {
@@ -1716,7 +1716,7 @@
       },
       {
         "id": "2d179df9-4d51-4074-b2dd-ecea41eea213",
-        "text": "Here is the lever most people never touch. Once the model has produced the plan, ask it to turn on its own work, for example: **\"List the three weakest points in this onboarding plan.\"** **\"Where would a new joiner get stuck in week one?\"** **\"What did I leave out that a real first week needs?\"**\n\nWith nothing to defend, the model will often name genuine gaps: the access request nobody kicked off, the introduction you skipped, the first task that assumes context the new person has not been handed yet. You stay the judge of which flags are fair. A self-critique pass in the same conversation surfaces candidates for revision faster than reading the draft cold, and it costs you a single line.\n\nAn even stronger version: paste the finished draft into a brand-new conversation with no earlier context, and ask that fresh session to critique it. Without the history that shaped how the first session wrote it, a fresh set of eyes tends to catch different gaps than a self-critique in the same thread: worth doing for anything a person will actually live by, like the plan a new hire follows through week one.",
+        "text": "Here is the lever most people never touch. Once the model has produced the plan, ask it to turn on its own work, for example: *\"List the three weakest points in this onboarding plan.\"* *\"Where would a new joiner get stuck in week one?\"* *\"What did I leave out that a real first week needs?\"*\n\nWith nothing to defend, the model will often name genuine gaps: the access request nobody kicked off, the introduction you skipped, the first task that assumes context the new person has not been handed yet. You stay the judge of which flags are fair. A self-critique pass in the same conversation surfaces candidates for revision faster than reading the draft cold, and it costs you a single line.\n\nAn even stronger version: paste the finished draft into a brand-new conversation with no earlier context, and ask that fresh session to critique it. Without the history that shaped how the first session wrote it, a fresh set of eyes tends to catch different gaps than a self-critique in the same thread: worth doing for anything a person will actually live by, like the plan a new hire follows through week one.",
         "type": "paragraph"
       },
       {
@@ -1737,7 +1737,7 @@
       },
       {
         "id": "23270a74-eb07-499d-90ce-3ccba4b7e887",
-        "text": "The levers stack. A strong onboarding prompt might set a role, fix the format, and end with a self-critique all at once:\n\n**\"As an experienced manager onboarding a new team member, draft a four-week plan as weekly tables, then list the two things a first-timer would still find confusing.\"**\n\nYou won't need all four every time. For anything you will send onward, or that a new hire will lean on, layering two or three of them is the cheapest quality gain you have.",
+        "text": "The levers stack. A strong onboarding prompt might set a role, fix the format, and end with a self-critique all at once:\n\n*\"As an experienced manager onboarding a new team member, draft a four-week plan as weekly tables, then list the two things a first-timer would still find confusing.\"*\n\nYou won't need all four every time. For anything you will send onward, or that a new hire will lean on, layering two or three of them is the cheapest quality gain you have.",
         "type": "paragraph"
       },
       {
@@ -3172,7 +3172,7 @@
       },
       {
         "id": "d795b13f-5256-4aa3-a425-bf28bb7cefdf",
-        "text": "Write the prompt now, covering the four things every prompt needs: the task, the audience, the format you want, and any constraints. If you have a strong example of what good looks like, paste it in: a model matches a shown standard far better than a described one.\n\nThen give it the context it cannot see on its own: the actual source material. If you're using the meeting-notes example, a prompt like this covers the basics, adapt it to your own task and notes:\n\n**\"Turn these meeting notes into a task list for my team. Separate firm decisions from open questions rather than blurring the two, and attach an owner to every action where one was named. Format as a short table: task, owner, status. [paste your notes below]\"**",
+        "text": "Write the prompt now, covering the four things every prompt needs: the task, the audience, the format you want, and any constraints. If you have a strong example of what good looks like, paste it in: a model matches a shown standard far better than a described one.\n\nThen give it the context it cannot see on its own: the actual source material. If you're using the meeting-notes example, a prompt like this covers the basics, adapt it to your own task and notes:\n\n*\"Turn these meeting notes into a task list for my team. Separate firm decisions from open questions rather than blurring the two, and attach an owner to every action where one was named. Format as a short table: task, owner, status. [paste your notes below]\"*",
         "type": "paragraph"
       },
       {
