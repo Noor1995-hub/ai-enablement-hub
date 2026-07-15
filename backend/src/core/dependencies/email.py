@@ -35,8 +35,4 @@ def get_email_service(
     return EmailService(
         _email_client(settings.email.connection_string.get_secret_value()),
         sender_address=settings.email.sender_address,
-        app_url=settings.app.url,
-        entra_enabled=settings.entra is not None,
-        invite_ttl_days=settings.auth.invite_ttl_days,
-        reset_ttl_days=settings.auth.reset_ttl_days,
     )

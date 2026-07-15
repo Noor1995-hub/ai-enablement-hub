@@ -10,6 +10,7 @@ __all__ = [
     "EntraUserNotFoundError",
     "InvalidCredentialsError",
     "InvalidCsvError",
+    "InvalidEmailTemplateError",
     "InvalidRequestError",
     "InvalidSessionError",
     "LessonSetMismatchError",
@@ -95,6 +96,11 @@ class SurveyNotInProgressError(ConflictError):
 
 class InvalidRequestError(DomainError):
     """Structurally valid request that references the wrong thing. → 400"""
+
+
+class InvalidEmailTemplateError(DomainError):
+    """A per-project email template an admin tried to save is malformed
+    (blank, references an unknown token, or is missing its link token). → 400"""
 
 
 class InvalidCsvError(DomainError):

@@ -1,7 +1,8 @@
-"""Invite/reset endpoints × email delivery: real EmailService (templates and
-all) wired to a stub sender via dependency_overrides. Covers "sent" and
-"failed" (endpoint still succeeds, token still redeemable); the "disabled"
-path is asserted in test_admin_users.py against the default conftest client.
+"""Invite/reset endpoints × email delivery: real EmailTemplateService (resolve
++ render against the test DB) feeding a stub ACS sender via dependency_overrides.
+Covers "sent" and "failed" (endpoint still succeeds, token still redeemable);
+the "disabled" path is asserted in test_admin_users.py against the default
+conftest client.
 """
 
 from __future__ import annotations
@@ -46,14 +47,9 @@ async def make_client(
         async def _override_session() -> AsyncGenerator[AsyncSession]:
             yield db_session
 
-        service = EmailService(
-            sender,
-            sender_address=TEST_EMAIL.sender_address,
-            app_url=test_settings.app.url,
-            entra_enabled=False,
-            invite_ttl_days=test_settings.auth.invite_ttl_days,
-            reset_ttl_days=test_settings.auth.reset_ttl_days,
-        )
+        # Only the ACS transport is stubbed; EmailTemplateService resolves +
+        # renders for real against the (overridden) test session.
+        service = EmailService(sender, sender_address=TEST_EMAIL.sender_address)
         app.dependency_overrides[get_session] = _override_session
         app.dependency_overrides[get_settings] = lambda: test_settings
         app.dependency_overrides[get_email_service] = lambda: service
@@ -133,6 +129,42 @@ class TestInviteEmails:
         info = await client.get(f"/api/auth/invite/{_extract_token(data['link'])}")
         assert info.status_code == 200
         assert info.json()["purpose"] == "invite"
+
+    async def test_invite_uses_the_projects_custom_template(
+        self,
+        make_client: Callable[[EmailSender], Awaitable[AsyncClient]],
+        project: Project,
+        headers: dict[str, str],
+    ) -> None:
+        """A stored per-project override drives the actual sent content."""
+        sender = RecordingSender()
+        client = await make_client(sender)
+        put = await client.put(
+            f"/api/admin/projects/{project.id}/email-templates/invite",
+            json={
+                "subject": "Custom welcome, {{first_name}}!",
+                "body_markdown": "Hey {{first_name}} — join {{project_name}}:\n\n{{invite_link}}",
+            },
+            headers=headers,
+        )
+        assert put.status_code == 204
+
+        response = await client.post(
+            "/api/admin/invites",
+            json={
+                "email": "custom@example.com",
+                "first_name": "Cust",
+                "last_name": "Omer",
+                "project_id": str(project.id),
+            },
+            headers=headers,
+        )
+        assert response.status_code == 201
+        [message] = sender.messages
+        content = message["content"]
+        assert content["subject"] == "Custom welcome, Cust!"
+        assert "Hey Cust — join Mail Project" in content["plainText"]
+        assert response.json()["link"] in content["plainText"]
 
     async def test_send_email_false_skips_the_send_entirely(
         self,

@@ -5,7 +5,7 @@ from typing import Any, Protocol
 
 from starlette.concurrency import run_in_threadpool
 
-from src.services.email_templates import EmailContent, invite_email, reset_email
+from src.services.email_templates import EmailContent
 
 __all__ = ["EmailSender", "EmailService"]
 
@@ -20,49 +20,23 @@ class EmailSender(Protocol):
 
 
 class EmailService:
-    """Invite/reset emails via Azure Communication Services.
+    """Transport for pre-rendered emails via Azure Communication Services.
 
-    `True` means ACS accepted the message for delivery (`begin_send` returns
-    on the 202) — the LRO poller is deliberately not awaited: its status poll
-    runs at ~10s intervals and a terminal "Succeeded" still doesn't prove
-    mailbox delivery. Failures never propagate; the caller downgrades to the
-    manual copy-the-link flow.
+    Content (subject/plain/html) is produced upstream by EmailTemplateService so
+    this class stays a thin, project-agnostic ACS adapter.
+
+    `True` means ACS accepted the message for delivery (`begin_send` returns on
+    the 202) — the LRO poller is deliberately not awaited: its status poll runs
+    at ~10s intervals and a terminal "Succeeded" still doesn't prove mailbox
+    delivery. Failures never propagate; the caller downgrades to the manual
+    copy-the-link flow.
     """
 
-    def __init__(
-        self,
-        sender: EmailSender,
-        *,
-        sender_address: str,
-        app_url: str,
-        entra_enabled: bool,
-        invite_ttl_days: int,
-        reset_ttl_days: int,
-    ) -> None:
+    def __init__(self, sender: EmailSender, *, sender_address: str) -> None:
         self._sender = sender
         self._sender_address = sender_address
-        self._app_url = app_url
-        self._entra_enabled = entra_enabled
-        self._invite_ttl_days = invite_ttl_days
-        self._reset_ttl_days = reset_ttl_days
 
-    async def send_invite_email(self, *, to: str, first_name: str, invite_link: str) -> bool:
-        content = invite_email(
-            first_name=first_name,
-            invite_link=invite_link,
-            ttl_days=self._invite_ttl_days,
-            entra_enabled=self._entra_enabled,
-            app_url=self._app_url,
-        )
-        return await self._send(to, content)
-
-    async def send_reset_email(self, *, to: str, first_name: str, reset_link: str) -> bool:
-        content = reset_email(
-            first_name=first_name, reset_link=reset_link, ttl_days=self._reset_ttl_days
-        )
-        return await self._send(to, content)
-
-    async def _send(self, to: str, content: EmailContent) -> bool:
+    async def send(self, to: str, content: EmailContent) -> bool:
         message = {
             "senderAddress": self._sender_address,
             "recipients": {"to": [{"address": to}]},

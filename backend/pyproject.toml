@@ -21,6 +21,9 @@ dependencies = [
     "httpx~=0.28",
     "cryptography~=45.0",
     "azure-communication-email~=1.1",
+    # Per-project email templates: admins author subject/body in Markdown; the
+    # backend renders it to HTML (raw HTML disabled) at send time.
+    "markdown-it-py~=3.0",
     # Lesson media: private Blob Storage container + read-time SAS URLs.
     "azure-storage-blob~=12.24",
     # Multipart form parsing for the (upcoming) media upload endpoint.

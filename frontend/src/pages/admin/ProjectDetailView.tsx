@@ -6,6 +6,7 @@ import type { ResetLinkEntry } from '../Admin'
 import { s, COMPONENT_KEYS, COMPONENT_LABELS } from './adminStyles'
 import { LevelBadge, Field, formatDate } from './adminHelpers'
 import BulkInviteModal from './BulkInviteModal'
+import EmailTemplatesCard from './EmailTemplatesCard'
 import { levelByCode } from '../../lib/levels'
 
 /*
@@ -409,6 +410,9 @@ export default function ProjectDetailView({
           </table>
         )}
       </div>
+
+      {/* email templates */}
+      <EmailTemplatesCard projectId={project.id} />
 
       {bulkOpen && (
         <BulkInviteModal

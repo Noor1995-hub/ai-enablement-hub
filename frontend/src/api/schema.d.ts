@@ -478,6 +478,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/invites/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Bulk Invites
+         * @description Bulk-invite from a CSV (first_name,last_name,email). dry_run=true parses,
+         *     validates and dedups against existing users, creating nothing — the admin's
+         *     preview. dry_run=false additionally creates the valid users, mints their
+         *     invite tokens and emails the links. Existing emails are skipped; a failed
+         *     email leaves the user created (recover via the per-user reset link). The
+         *     uploaded file is never persisted.
+         */
+        post: operations["create_bulk_invites_api_admin_invites_bulk_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/users/{user_id}/reset-link": {
         parameters: {
             query?: never;
@@ -708,6 +733,73 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/projects/{project_id}/email-templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Email Templates
+         * @description Both invite + reset templates, resolved to the per-project override or the
+         *     code default (`is_custom` distinguishes the two).
+         */
+        get: operations["get_email_templates_api_admin_projects__project_id__email_templates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{project_id}/email-templates/{purpose}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Email Template
+         * @description Store (or replace) the per-project override. 400 if the body is blank,
+         *     references an unknown token, or omits the required link token.
+         */
+        put: operations["put_email_template_api_admin_projects__project_id__email_templates__purpose__put"];
+        post?: never;
+        /**
+         * Delete Email Template
+         * @description Drop the override so the project falls back to the code default.
+         */
+        delete: operations["delete_email_template_api_admin_projects__project_id__email_templates__purpose__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{project_id}/email-templates/{purpose}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview Email Template
+         * @description Render an unsaved draft server-side (same pipeline as a real send) with
+         *     sample token values — the admin's faithful preview.
+         */
+        post: operations["preview_email_template_api_admin_projects__project_id__email_templates__purpose__preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/tracks": {
         parameters: {
             query?: never;
@@ -906,7 +998,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    // hand-added (Task 5); regenerate via npm run gen:api when the backend next runs
     "/api/feedback": {
         parameters: {
             query?: never;
@@ -1140,6 +1231,67 @@ export interface components {
             /** Entra */
             entra: boolean;
         };
+        /** Body_create_bulk_invites_api_admin_invites_bulk_post */
+        Body_create_bulk_invites_api_admin_invites_bulk_post: {
+            /** File */
+            file: string;
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /**
+             * Dry Run
+             * @default false
+             */
+            dry_run: boolean;
+        };
+        /** BulkInviteReport */
+        BulkInviteReport: {
+            /** Dry Run */
+            dry_run: boolean;
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            summary: components["schemas"]["BulkInviteSummary"];
+            /** Rows */
+            rows: components["schemas"]["BulkInviteRow"][];
+        };
+        /** BulkInviteRow */
+        BulkInviteRow: {
+            /** Row Number */
+            row_number: number;
+            /** First Name */
+            first_name: string;
+            /** Last Name */
+            last_name: string;
+            /** Email */
+            email: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "valid" | "duplicate" | "invalid" | "created" | "email_failed";
+            /** Detail */
+            detail?: string | null;
+        };
+        /** BulkInviteSummary */
+        BulkInviteSummary: {
+            /** Total Rows */
+            total_rows: number;
+            /** Valid */
+            valid: number;
+            /** Duplicates */
+            duplicates: number;
+            /** Invalid */
+            invalid: number;
+            /** Created */
+            created: number;
+            /** Email Failed */
+            email_failed: number;
+        };
         /** BulkLessonAssignmentRequest */
         BulkLessonAssignmentRequest: {
             /** Lesson Ids */
@@ -1214,12 +1366,53 @@ export interface components {
                 [key: string]: components["schemas"]["ComponentState"];
             };
         };
+        /** EmailTemplateOut */
+        EmailTemplateOut: {
+            /**
+             * Purpose
+             * @enum {string}
+             */
+            purpose: "invite" | "reset";
+            /** Subject */
+            subject: string;
+            /** Body Markdown */
+            body_markdown: string;
+            /** Is Custom */
+            is_custom: boolean;
+        };
+        /** EmailTemplatePreviewRequest */
+        EmailTemplatePreviewRequest: {
+            /** Subject */
+            subject: string;
+            /** Body Markdown */
+            body_markdown: string;
+        };
+        /** EmailTemplatePreviewResponse */
+        EmailTemplatePreviewResponse: {
+            /** Subject */
+            subject: string;
+            /** Html */
+            html: string;
+            /** Plain Text */
+            plain_text: string;
+        };
+        /** EmailTemplateUpdateRequest */
+        EmailTemplateUpdateRequest: {
+            /** Subject */
+            subject: string;
+            /** Body Markdown */
+            body_markdown: string;
+        };
+        /** EmailTemplatesResponse */
+        EmailTemplatesResponse: {
+            /** Templates */
+            templates: components["schemas"]["EmailTemplateOut"][];
+        };
         /** EntraRedeemRequest */
         EntraRedeemRequest: {
             /** Code */
             code: string;
         };
-        // hand-added (Task 5); regenerate via npm run gen:api when the backend next runs
         /** FeedbackCreate */
         FeedbackCreate: {
             /**
@@ -2600,6 +2793,39 @@ export interface operations {
             };
         };
     };
+    create_bulk_invites_api_admin_invites_bulk_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_create_bulk_invites_api_admin_invites_bulk_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkInviteReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     create_reset_link_api_admin_users__user_id__reset_link_post: {
         parameters: {
             query?: never;
@@ -3010,6 +3236,137 @@ export interface operations {
             };
         };
     };
+    get_email_templates_api_admin_projects__project_id__email_templates_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailTemplatesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_email_template_api_admin_projects__project_id__email_templates__purpose__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                purpose: "invite" | "reset";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailTemplateUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_email_template_api_admin_projects__project_id__email_templates__purpose__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                purpose: "invite" | "reset";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_email_template_api_admin_projects__project_id__email_templates__purpose__preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                purpose: "invite" | "reset";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailTemplatePreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailTemplatePreviewResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_tracks_api_tracks_get: {
         parameters: {
             query?: never;
@@ -3306,7 +3663,6 @@ export interface operations {
             };
         };
     };
-    // hand-added (Task 5); regenerate via npm run gen:api when the backend next runs
     submit_feedback_api_feedback_post: {
         parameters: {
             query?: never;

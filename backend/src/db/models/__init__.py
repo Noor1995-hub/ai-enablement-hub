@@ -1,6 +1,11 @@
 from src.db.models.assignment import LessonProgress, UserLesson, UserModule, UserTrack
 from src.db.models.auth import AuthSession, AuthToken
-from src.db.models.company import Company, Project, ProjectComponentSetting
+from src.db.models.company import (
+    Company,
+    Project,
+    ProjectComponentSetting,
+    ProjectEmailTemplate,
+)
 from src.db.models.feedback import Feedback
 from src.db.models.learning import Curriculum, Lesson, Module, ModulePrerequisite, Track
 from src.db.models.survey import SurveyResponse
@@ -18,6 +23,7 @@ __all__ = [
     "ModulePrerequisite",
     "Project",
     "ProjectComponentSetting",
+    "ProjectEmailTemplate",
     "SurveyResponse",
     "Track",
     "User",

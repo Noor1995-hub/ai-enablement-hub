@@ -25,3 +25,8 @@ export type ModuleOut = components['schemas']['ModuleOut']
 
 // Invite/reset emails (auto-sent via ACS when configured server-side)
 export type EmailStatus = components['schemas']['LinkResponse']['email_status']
+
+// Per-project email templates (admin editor)
+export type EmailTemplate = components['schemas']['EmailTemplateOut']
+export type EmailTemplatePurpose = EmailTemplate['purpose']
+export type EmailTemplatePreview = components['schemas']['EmailTemplatePreviewResponse']

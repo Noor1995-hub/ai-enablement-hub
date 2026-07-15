@@ -112,21 +112,15 @@ async def make_email_client(
     db_session: AsyncSession,
     test_settings,
 ) -> AsyncGenerator[Callable[[EmailSender], Awaitable[AsyncClient]]]:
-    """conftest's client + a REAL EmailService whose outbound leg is a stub."""
+    """conftest's client + the ACS transport stubbed; EmailTemplateService
+    resolves + renders for real against the (overridden) test session."""
     clients: list[AsyncClient] = []
 
     async def _make(sender: EmailSender) -> AsyncClient:
         async def _override_session() -> AsyncGenerator[AsyncSession]:
             yield db_session
 
-        service = EmailService(
-            sender,
-            sender_address=TEST_EMAIL.sender_address,
-            app_url=test_settings.app.url,
-            entra_enabled=False,
-            invite_ttl_days=test_settings.auth.invite_ttl_days,
-            reset_ttl_days=test_settings.auth.reset_ttl_days,
-        )
+        service = EmailService(sender, sender_address=TEST_EMAIL.sender_address)
         app.dependency_overrides[get_session] = _override_session
         app.dependency_overrides[get_settings] = lambda: test_settings
         app.dependency_overrides[get_email_service] = lambda: service

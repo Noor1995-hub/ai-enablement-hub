@@ -10,6 +10,7 @@ from src.core.configs.settings import Settings
 from src.core.dependencies.auth import get_token_service, require_admin
 from src.core.dependencies.domain import (
     get_admin_user_service,
+    get_email_template_service,
     get_maturity_service,
     get_survey_service,
 )
@@ -40,6 +41,7 @@ from src.schemas.admin_users import (
 )
 from src.services.admin_user_service import AdminUserService
 from src.services.email_service import EmailService
+from src.services.email_template_service import EmailTemplateService
 from src.services.exceptions import PayloadTooLargeError
 from src.services.invite_csv import MAX_INVITE_CSV_BYTES, build_preview, parse_invite_csv
 from src.services.maturity_service import MaturityService
@@ -59,6 +61,7 @@ SurveyServiceDep = Annotated[SurveyService, Depends(get_survey_service)]
 SettingsDep = Annotated[Settings, Depends(get_settings)]
 RateLimiterDep = Annotated[RateLimiter, Depends(get_rate_limiter)]
 EmailServiceDep = Annotated[EmailService | None, Depends(get_email_service)]
+EmailTemplateServiceDep = Annotated[EmailTemplateService, Depends(get_email_template_service)]
 
 _RATE_LIMITED = HTTPException(
     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
@@ -71,22 +74,42 @@ def _invite_link(settings: Settings, raw_token: str) -> str:
     return f"{settings.app.url.rstrip('/')}/invite/{raw_token}"
 
 
+def _login_url(settings: Settings) -> str | None:
+    """The {{login_url}} token target (Microsoft sign-in) — only meaningful, and
+    only offered, when Entra login is configured."""
+    if settings.entra is None:
+        return None
+    return f"{settings.app.url.rstrip('/')}/login"
+
+
 async def _email_the_link(
     email_service: EmailService | None,
+    email_template_service: EmailTemplateService,
     *,
     purpose: Literal["invite", "reset"],
+    project_id: uuid.UUID | None,
     to: str,
     first_name: str,
+    last_name: str,
     link: str,
+    ttl_days: int,
+    login_url: str | None,
 ) -> EmailStatus:
     """None service = EMAIL__* unconfigured; a failed send never fails the
-    endpoint — the admin falls back to copying the returned link."""
+    endpoint — the admin falls back to copying the returned link. Content is the
+    project's resolved template (custom override or code default)."""
     if email_service is None:
         return "disabled"
-    if purpose == "invite":
-        sent = await email_service.send_invite_email(to=to, first_name=first_name, invite_link=link)
-    else:
-        sent = await email_service.send_reset_email(to=to, first_name=first_name, reset_link=link)
+    content = await email_template_service.render(
+        project_id,
+        purpose,
+        first_name=first_name,
+        last_name=last_name,
+        link=link,
+        ttl_days=ttl_days,
+        login_url=login_url,
+    )
+    sent = await email_service.send(to, content)
     return "sent" if sent else "failed"
 
 
@@ -107,6 +130,7 @@ async def create_invite(
     settings: SettingsDep,
     limiter: RateLimiterDep,
     email_service: EmailServiceDep,
+    email_template_service: EmailTemplateServiceDep,
 ) -> LinkResponse:
     """Create the user row + single-use invite token; the link is emailed to
     the user (when EMAIL__* is configured and body.send_email is true) and
@@ -120,7 +144,16 @@ async def create_invite(
     link = _invite_link(settings, raw_token)
     email_status: EmailStatus = (
         await _email_the_link(
-            email_service, purpose="invite", to=user.email, first_name=user.first_name, link=link
+            email_service,
+            email_template_service,
+            purpose="invite",
+            project_id=body.project_id,
+            to=user.email,
+            first_name=user.first_name,
+            last_name=user.last_name,
+            link=link,
+            ttl_days=settings.auth.invite_ttl_days,
+            login_url=_login_url(settings),
         )
         if body.send_email
         else "skipped"
@@ -136,6 +169,7 @@ async def create_bulk_invites(
     settings: SettingsDep,
     limiter: RateLimiterDep,
     email_service: EmailServiceDep,
+    email_template_service: EmailTemplateServiceDep,
     file: Annotated[UploadFile, File()],
     project_id: Annotated[uuid.UUID, Form()],
     dry_run: Annotated[bool, Form()] = False,
@@ -176,10 +210,15 @@ async def create_bulk_invites(
             link = _invite_link(settings, raw_token)
             email_status = await _email_the_link(
                 email_service,
+                email_template_service,
                 purpose="invite",
+                project_id=project_id,
                 to=user.email,
                 first_name=user.first_name,
+                last_name=user.last_name,
                 link=link,
+                ttl_days=settings.auth.invite_ttl_days,
+                login_url=_login_url(settings),
             )
             if email_status == "failed":
                 p.status, p.detail = "email_failed", "user created — email could not be sent"
@@ -219,6 +258,7 @@ async def create_reset_link(
     settings: SettingsDep,
     limiter: RateLimiterDep,
     email_service: EmailServiceDep,
+    email_template_service: EmailTemplateServiceDep,
 ) -> LinkResponse:
     """Issue a password-reset link (emailed to the user when EMAIL__* is
     configured, always returned); prior unused reset tokens are revoked."""
@@ -228,7 +268,16 @@ async def create_reset_link(
     raw_token = await token_service.issue_action_token(user, "reset")
     link = _invite_link(settings, raw_token)
     email_status = await _email_the_link(
-        email_service, purpose="reset", to=user.email, first_name=user.first_name, link=link
+        email_service,
+        email_template_service,
+        purpose="reset",
+        project_id=user.project_id,
+        to=user.email,
+        first_name=user.first_name,
+        last_name=user.last_name,
+        link=link,
+        ttl_days=settings.auth.reset_ttl_days,
+        login_url=None,
     )
     return LinkResponse(link=link, email_status=email_status)
 

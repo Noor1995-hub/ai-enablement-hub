@@ -22,6 +22,7 @@ from src.repositories.auth_token_repository import AuthTokenRepository
 from src.repositories.user_repository import UserRepository
 from src.routers import (
     admin_content,
+    admin_email_templates,
     admin_media,
     admin_org,
     admin_users,
@@ -176,6 +177,7 @@ app.include_router(survey.router)
 app.include_router(learning.router)
 app.include_router(admin_org.router)
 app.include_router(admin_users.router)
+app.include_router(admin_email_templates.router)
 app.include_router(admin_content.router)
 app.include_router(admin_media.router)
 app.include_router(feedback.router)

@@ -21,6 +21,7 @@ if TYPE_CHECKING:
         ModulePrerequisite,
         Project,
         ProjectComponentSetting,
+        ProjectEmailTemplate,
         SurveyResponse,
         Track,
         User,
@@ -34,6 +35,7 @@ __all__ = [
     "AbstractAuthSessionRepository",
     "AbstractAuthTokenRepository",
     "AbstractContentRepository",
+    "AbstractEmailTemplateRepository",
     "AbstractFeedbackRepository",
     "AbstractOrgRepository",
     "AbstractProgressRepository",
@@ -202,6 +204,30 @@ class AbstractOrgRepository(ABC):
     async def upsert_component_setting(
         self, project_id: uuid.UUID, component: str, *, hidden: bool, locked: bool
     ) -> None: ...
+
+
+class AbstractEmailTemplateRepository(ABC):
+    """Per-project invite/reset email overrides (project_email_templates)."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    @abstractmethod
+    async def get(self, project_id: uuid.UUID, purpose: str) -> ProjectEmailTemplate | None: ...
+
+    @abstractmethod
+    async def list_for_project(self, project_id: uuid.UUID) -> list[ProjectEmailTemplate]:
+        """Every override row for the project (0–2 rows)."""
+
+    @abstractmethod
+    async def upsert(
+        self, project_id: uuid.UUID, purpose: str, *, subject: str, body_markdown: str
+    ) -> None:
+        """Insert or replace the (project, purpose) override."""
+
+    @abstractmethod
+    async def delete(self, project_id: uuid.UUID, purpose: str) -> None:
+        """Remove the override so the project falls back to the code default."""
 
 
 class AbstractSurveyRepository(ABC):

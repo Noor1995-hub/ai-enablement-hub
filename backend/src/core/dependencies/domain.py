@@ -16,6 +16,7 @@ from src.core.dependencies.database import get_session
 from src.core.dependencies.user import get_user_repository
 from src.repositories.assignment_repository import AssignmentRepository
 from src.repositories.content_repository import ContentRepository
+from src.repositories.email_template_repository import EmailTemplateRepository
 from src.repositories.feedback_repository import FeedbackRepository
 from src.repositories.org_repository import OrgRepository
 from src.repositories.progress_repository import ProgressRepository
@@ -23,6 +24,7 @@ from src.repositories.survey_repository import SurveyRepository
 from src.repositories.user_repository import UserRepository
 from src.services.admin_user_service import AdminUserService
 from src.services.content_service import ContentService
+from src.services.email_template_service import EmailTemplateService
 from src.services.feedback_service import FeedbackService
 from src.services.learning_service import LearningService
 from src.services.maturity_service import MaturityService
@@ -34,6 +36,8 @@ __all__ = [
     "get_assignment_repository",
     "get_content_repository",
     "get_content_service",
+    "get_email_template_repository",
+    "get_email_template_service",
     "get_feedback_repository",
     "get_feedback_service",
     "get_learning_service",
@@ -84,6 +88,19 @@ def get_survey_service(
 
 def get_org_service(org: Annotated[OrgRepository, Depends(get_org_repository)]) -> OrgService:
     return OrgService(org)
+
+
+def get_email_template_repository(
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> EmailTemplateRepository:
+    return EmailTemplateRepository(session)
+
+
+def get_email_template_service(
+    templates: Annotated[EmailTemplateRepository, Depends(get_email_template_repository)],
+    org: Annotated[OrgRepository, Depends(get_org_repository)],
+) -> EmailTemplateService:
+    return EmailTemplateService(templates, org)
 
 
 def get_learning_service(

@@ -18,7 +18,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from src.db.base import Base
 
-__all__ = ["Company", "Project", "ProjectComponentSetting"]
+__all__ = ["Company", "Project", "ProjectComponentSetting", "ProjectEmailTemplate"]
 
 
 class Company(Base):
@@ -69,6 +69,36 @@ class ProjectComponentSetting(Base):
     component: Mapped[str] = mapped_column(Text, nullable=False)
     locked: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
     hidden: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class ProjectEmailTemplate(Base):
+    """Per-project override of an invite/reset email (subject + Markdown body).
+
+    A row exists only when an admin has customized that (project, purpose);
+    absent rows fall back to the code-level DEFAULT_TEMPLATES, mirroring how
+    ProjectComponentSetting falls back to DEFAULT_HIDDEN/DEFAULT_LOCKED.
+    """
+
+    __tablename__ = "project_email_templates"
+    __table_args__ = (
+        UniqueConstraint("project_id", "purpose"),
+        CheckConstraint("purpose IN ('invite', 'reset')", name="purpose"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    project_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("projects.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    purpose: Mapped[str] = mapped_column(Text, nullable=False)
+    subject: Mapped[str] = mapped_column(Text, nullable=False)
+    body_markdown: Mapped[str] = mapped_column(Text, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
