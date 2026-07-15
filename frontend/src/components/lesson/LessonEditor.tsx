@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, type ComponentType } from 'react'
+import { useState, useEffect, useRef, Fragment, type ComponentType } from 'react'
 import { client, errorMessage } from '../../api/client'
 import { BLOCK_TYPES, BLOCK_LABELS, BLOCK_FACTORIES } from '../../lib/contentBlocks'
 import type { ContentBlock } from '../../types/contentBlocks'
@@ -49,6 +49,86 @@ const TYPE_ORDER: ContentBlock['type'][] = [
   BLOCK_TYPES.VIDEO,
 ]
 
+// Compact block-type chooser. Renders in-place wherever a block can be
+// inserted (the between-block plus buttons, and the bottom "+ Add block").
+// A tight two-column grid keeps it small instead of the old tall list.
+function BlockPicker({ onPick, onCancel }: {
+  onPick: (type: ContentBlock['type']) => void
+  onCancel: () => void
+}) {
+  return (
+    <div style={{
+      border: '1px solid #E2E2E2', borderRadius: 10, background: '#fff',
+      boxShadow: '0 4px 16px rgba(0,0,0,0.10)', padding: 6, margin: '4px 0',
+      display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 4,
+    }}>
+      {TYPE_ORDER.map(type => (
+        <button key={type} type="button" onClick={() => onPick(type)} style={{
+          textAlign: 'left', padding: '6px 9px', borderRadius: 6,
+          background: '#FAFAFA', border: '1px solid #F0EFED',
+          fontFamily: 'var(--dlw-font-body)', fontWeight: 600, fontSize: 12.5,
+          lineHeight: 1.25, color: '#3C3C3C', cursor: 'pointer',
+        }}>
+          {BLOCK_LABELS[type]}
+        </button>
+      ))}
+      <button type="button" onClick={onCancel} style={{
+        gridColumn: '1 / -1', textAlign: 'center', padding: '5px',
+        background: 'none', border: 'none', borderTop: '1px solid #F0EFED',
+        marginTop: 2, fontFamily: 'var(--dlw-font-body)', fontSize: 12,
+        color: '#8A8A8A', cursor: 'pointer',
+      }}>
+        Cancel
+      </button>
+    </div>
+  )
+}
+
+// The thin insertion slot that lives in the gap between two blocks (and above
+// the first one). Shows a small, subtle + that lights up on hover; clicking it
+// opens the compact picker in place.
+function InsertZone({ open, onOpen, onPick, onCancel }: {
+  open: boolean
+  onOpen: () => void
+  onPick: (type: ContentBlock['type']) => void
+  onCancel: () => void
+}) {
+  const [hovered, setHovered] = useState(false)
+
+  if (open) return <BlockPicker onPick={onPick} onCancel={onCancel} />
+
+  return (
+    <div
+      onClick={onOpen}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      title="Add block here"
+      style={{
+        position: 'relative', height: 20, cursor: 'pointer',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}
+    >
+      <div style={{
+        position: 'absolute', left: 0, right: 0, height: 2, borderRadius: 2,
+        background: hovered ? '#3BC9BC' : 'transparent', transition: 'background 0.12s',
+      }} />
+      <div style={{
+        position: 'relative', zIndex: 1,
+        width: 20, height: 20, borderRadius: '50%',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: hovered ? '#3BC9BC' : '#fff',
+        border: `1.5px solid ${hovered ? '#3BC9BC' : '#DADADA'}`,
+        color: hovered ? '#fff' : '#B0B0B0',
+        fontSize: 15, lineHeight: 1, fontWeight: 600,
+        boxShadow: hovered ? '0 1px 4px rgba(0,0,0,0.12)' : 'none',
+        transition: 'all 0.12s',
+      }}>
+        +
+      </div>
+    </div>
+  )
+}
+
 export interface EditedLesson {
   title: string
   content_blocks: ContentBlock[]
@@ -66,7 +146,9 @@ export default function LessonEditor({ lesson, onSave, onLiveChange }: LessonEdi
   const [dirty, setDirty]     = useState(false)
   const [saving, setSaving]   = useState(false)
   const [error, setError]     = useState<string | null>(null)
-  const [addOpen, setAddOpen] = useState(false)
+  // Index at which the block picker is open (a new block is inserted here);
+  // null = closed. blocks.length = the bottom "+ Add block" (append).
+  const [addAt, setAddAt]     = useState<number | null>(null)
   const mounted = useRef(false)
 
   useEffect(() => {
@@ -97,10 +179,14 @@ export default function LessonEditor({ lesson, onSave, onLiveChange }: LessonEdi
     setDirty(true)
   }
 
-  function addBlock(type: ContentBlock['type']) {
-    setBlocks(bs => [...bs, BLOCK_FACTORIES[type]()])
+  function addBlock(type: ContentBlock['type'], index: number) {
+    setBlocks(bs => {
+      const next = [...bs]
+      next.splice(index, 0, BLOCK_FACTORIES[type]())
+      return next
+    })
     setDirty(true)
-    setAddOpen(false)
+    setAddAt(null)
   }
 
   async function save() {
@@ -185,8 +271,9 @@ export default function LessonEditor({ lesson, onSave, onLiveChange }: LessonEdi
           />
         </div>
 
-        {/* Blocks */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {/* Blocks — an insertion slot sits above each block (the first one is
+            the "plus at the top"); the bottom "+ Add block" handles append. */}
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
           {blocks.map((block, i) => {
             // TS can't correlate block.type with block across the map lookup;
             // the mapped type above guarantees the pairing, so one widening cast
@@ -194,7 +281,14 @@ export default function LessonEditor({ lesson, onSave, onLiveChange }: LessonEdi
             const Editor = EDITORS[block.type] as ComponentType<{ block: ContentBlock; onChange: (b: ContentBlock) => void }>
             if (!Editor) return null // content_blocks is JSONB — tolerate unknown types
             return (
-              <div key={block.id} style={{
+              <Fragment key={block.id}>
+              <InsertZone
+                open={addAt === i}
+                onOpen={() => setAddAt(i)}
+                onPick={type => addBlock(type, i)}
+                onCancel={() => setAddAt(null)}
+              />
+              <div style={{
                 border: '1px solid #E2E2E2', borderRadius: 10,
                 background: '#FAFAFA', overflow: 'hidden',
               }}>
@@ -224,39 +318,20 @@ export default function LessonEditor({ lesson, onSave, onLiveChange }: LessonEdi
                   <Editor block={block} onChange={updated => updateBlock(block.id, updated)} />
                 </div>
               </div>
+              </Fragment>
             )
           })}
         </div>
 
-        {/* Add block */}
-        <div style={{ marginTop: 16 }}>
-          {addOpen ? (
-            <div style={{
-              border: '1px solid #E2E2E2', borderRadius: 10,
-              overflow: 'hidden', background: '#fff',
-            }}>
-              {TYPE_ORDER.map((type, i) => (
-                <button key={type} type="button" onClick={() => addBlock(type)} style={{
-                  display: 'block', width: '100%', textAlign: 'left',
-                  padding: '11px 16px', background: 'none', border: 'none',
-                  borderBottom: i < TYPE_ORDER.length - 1 ? '1px solid #F0EFED' : 'none',
-                  fontFamily: 'var(--dlw-font-body)', fontWeight: 600, fontSize: 14,
-                  color: '#3C3C3C', cursor: 'pointer',
-                }}>
-                  {BLOCK_LABELS[type]}
-                </button>
-              ))}
-              <button type="button" onClick={() => setAddOpen(false)} style={{
-                display: 'block', width: '100%', textAlign: 'center',
-                padding: '9px 16px', background: '#FAFAFA', border: 'none',
-                borderTop: '1px solid #F0EFED',
-                fontFamily: 'var(--dlw-font-body)', fontSize: 13, color: '#8A8A8A', cursor: 'pointer',
-              }}>
-                Cancel
-              </button>
-            </div>
+        {/* Add block (append at the end) */}
+        <div style={{ marginTop: 12 }}>
+          {addAt === blocks.length ? (
+            <BlockPicker
+              onPick={type => addBlock(type, blocks.length)}
+              onCancel={() => setAddAt(null)}
+            />
           ) : (
-            <button type="button" onClick={() => setAddOpen(true)} style={{
+            <button type="button" onClick={() => setAddAt(blocks.length)} style={{
               width: '100%', padding: '10px 0',
               border: '1.5px dashed #E2E2E2', borderRadius: 8,
               background: 'none', color: '#8A8A8A',
