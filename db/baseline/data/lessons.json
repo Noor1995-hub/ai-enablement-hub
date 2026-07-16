@@ -6203,7 +6203,7 @@
       {
         "id": "4beecd5f-45df-4631-a3d0-5fa36e83d38c",
         "text": "In Lovable you build by describing. That makes the first sentence you write matter more than any button you press, so a few minutes spent scoping pays off fast.",
-        "type": "callout"
+        "type": "kicker"
       },
       {
         "id": "7f9baec2-8590-4214-b93b-e1ec40d57a05",
@@ -7498,7 +7498,7 @@
       {
         "id": "e50fd2b3-59e5-4ff4-82d4-4a5c00bcf5b2",
         "text": "If you keep pasting the same instructions into Claude week after week, that is a Skill waiting to be written. You write it once and invoke it whenever you need it.",
-        "type": "callout"
+        "type": "kicker"
       },
       {
         "id": "c602fcc2-5175-4fb3-bb15-ed65461fcc89",
@@ -9799,7 +9799,7 @@
       {
         "id": "29a8f921-e4cd-412c-9dcc-0a163803fded",
         "text": "Your vault is a folder of plain markdown files on your own machine. That is what makes Obsidian private by default, and it is also what you hand over to any sync service or plugin you switch on.",
-        "type": "callout"
+        "type": "kicker"
       },
       {
         "id": "d3d9f3bd-f58a-44de-9d25-5b1f20db1d4f",
@@ -13231,7 +13231,7 @@
       {
         "id": "487175cf-2112-4bc6-bb62-2811a191afc2",
         "text": "Northwind Metrics' support inbox gets roughly 400 tickets a day, and right now a human reads every single one before deciding who handles it. You've been asked to build a small internal service that reads an incoming ticket, drafts a first-pass reply, and flags how urgent it is \u2014 no chat window, no copy-pasting into Claude.ai, just your code calling Claude directly. This lesson is where that starts.",
-        "type": "callout"
+        "type": "kicker"
       },
       {
         "id": "2966138c-974a-4d3a-a6d1-564523b12841",
@@ -13415,7 +13415,7 @@
       {
         "id": "cb7fef0b-040e-4a78-b1b7-b0afa3c9fcdc",
         "text": "The classification prompt from the previous lesson works on the dozen tickets you tried by hand in the console. It has never seen the other 399 tickets that will hit it today, or the 400 tomorrow. Before this goes anywhere near production, you need a way to know it still works, not a feeling that it probably does.",
-        "type": "callout"
+        "type": "kicker"
       },
       {
         "id": "4cf3b3f2-b88a-4d8f-843e-9bb62af09604",
@@ -13572,7 +13572,7 @@
       {
         "id": "002aa422-cc46-47df-99d9-22e16bc11464",
         "text": "The triage tool drafts a reply that sounds confident and is wrong: it tells a customer they're on the Standard plan when they upgraded to Pro last month. Claude isn't lying, it's guessing. Nothing in the prompt gave it the customer's actual account data, so it filled the gap with the most plausible-sounding answer. What it needs is a way to ask for that data itself, mid-conversation, instead of you trying to paste in every customer's full history up front.",
-        "type": "callout"
+        "type": "kicker"
       },
       {
         "id": "332d6045-7988-4c06-84d0-1c7cfc77a0da",
@@ -13748,7 +13748,7 @@
       {
         "id": "c92a6017-d288-47d0-a8ed-854bc8066a98",
         "text": "The look_up_customer function from the last lesson is hardcoded straight into the triage script. Now a second internal tool, a small Slack bot the account team wants for checking a customer's plan without opening the dashboard, needs the exact same lookup. Copy-pasting the function into a second codebase means fixing the same bug twice the next time the customer schema changes. Time to pull it out into something both tools can share.",
-        "type": "callout"
+        "type": "kicker"
       },
       {
         "id": "2c334e7f-d980-4a00-b3b1-9f49ab6e39a1",
@@ -13915,7 +13915,7 @@
       {
         "id": "c1c5b8a4-dd37-4c10-9be0-e3f45de5b62f",
         "text": "The triage agent works beautifully on your laptop: you run the script, it processes a batch of tickets, you watch the output. Northwind Metrics needs it running continuously against the live ticket queue, day and night, without someone's terminal window staying open forever, and their infrastructure team, who already run everything else on AWS, has a question before they'll sign off: does this have to be a raw Anthropic API key, or can it go through Bedrock like everything else does?",
-        "type": "callout"
+        "type": "kicker"
       },
       {
         "id": "c50dc6e8-bf3d-481d-831e-89d010de7cda",
