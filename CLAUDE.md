@@ -439,6 +439,15 @@ authoritative for anything; see `db/README.md` for why its migration scripts mus
   `--0000012` (healthy startup ⇒ migration applied cleanly); the under-Multiplier rendering is
   not browser-verified this session (no browser automation + no prod login) — spot-check
   `/learning` as an integrator-level learner/admin.
+- **Redeployed 2026-07-16** (`ai-enablement-hub:20260716-215603`, revision `--0000015`,
+  user-approved with full deploy authority): invite/reset link expiry extended from 7 → 14 days
+  (commit `0ffde5a` — both `invite_ttl_days` and `reset_ttl_days` defaults in
+  `core/configs/auth.py`; the invite/reset emails render `{{ttl_days}}` from these settings so
+  their copy updates automatically). Code-only change, no migration (alembic head unchanged at
+  `d8e9f0a1b2c3`). 1069 backend tests green + ruff format/lint clean before deploy. Post-deploy
+  `/api/health` `{"status":"ok"}` and `/api/auth/methods` `{"password":true,"entra":false}`
+  green on `--0000015`; new revision confirmed as the running/ready revision on the new image.
+  Only newly-minted links get 14 days — already-issued links keep their original expiry.
 
 ## Open for cutover
 
