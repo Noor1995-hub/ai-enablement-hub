@@ -54,6 +54,7 @@ Secrets live in `db/.env` and `backend/.env` — both git-ignored. Never commit 
 | `migrate_supabase_to_azure.py` | Loads the snapshot into Azure: TRUNCATE-and-reload in one transaction, FK-safe order, users transformed (no auth_id, `password_set=false`, `password_hash=NULL`, lowercased email), `invite_tokens` skipped. Ends with verification gates (row counts, PK-set hashes, content_blocks element count, users/survey spot-checks); non-zero exit on any failure. `--check-only` for a dry run. |
 | `baseline/supabase_schema_record.md` | Frozen record of the live Supabase schema (columns, constraints, indexes, FK actions, RLS policies, functions) as of 2026-07-03. |
 | `baseline/data/*.json` | The data snapshot (202 rows incl. 13 non-migrated invite_tokens). `invite_tokens.json` is git-ignored — it contains Supabase action links that may still be redeemable; it stays local-only. |
+| `content_tools/` | Reusable scripts for live lesson-content edit passes (fetch, quiz-bias check, locator-based edit/apply, baseline re-sync). Built for the General I/II content review round (2026-07-15/16); see that folder's own docstrings for usage. Safe-write pattern: fetch fresh → dry-run → `apply_content_edits.py --apply` → verify → `sync_baseline.py`. |
 
 Run scripts with [uv](https://docs.astral.sh/uv/) — dependencies are inline (PEP 723):
 `uv run <script>.py`.
