@@ -23,8 +23,8 @@ class AuthSettings(BaseModel):
     jwt_audience: str = "ai-hub-api"
     access_token_minutes: int = 30
     refresh_token_days: int = 14
-    invite_ttl_days: int = 7
-    reset_ttl_days: int = 7
+    invite_ttl_days: int = 14
+    reset_ttl_days: int = 14
 
     @field_validator("jwt_secret")
     @classmethod
