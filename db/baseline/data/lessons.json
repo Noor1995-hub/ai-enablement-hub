@@ -3486,10 +3486,10 @@
             "q": "Your organisation has both Copilot and Claude. You need to think through a difficult trade-off before you can write a decision email. Which tool fits the thinking part?",
             "correct": 1,
             "options": [
-              "Copilot, because the email will live in Outlook anyway",
+              "Copilot, because the email will live in Outlook anyway, so it makes sense to draft the whole thing there from the start",
               "Claude, because open-ended reasoning is where it gives you room to iterate",
-              "Neither, because reasoning is better done away from any AI tool",
-              "Whichever one opens faster on the day"
+              "Neither, because reasoning is better done away from any AI tool, in a notebook or on a whiteboard where nothing nudges your thinking",
+              "Whichever one opens faster on the day, since the actual thinking part barely depends on which tool you pick"
             ],
             "explanation": "Copilot is strongest transforming M365 content you already have. Open-ended reasoning is where Claude fits, and you then bring the conclusion back to the email."
           },
@@ -3614,10 +3614,10 @@
             "q": "You are back from leave and want Copilot to summarise a busy Teams channel. What does it need in order to do this?",
             "correct": 1,
             "options": [
-              "It can summarise any channel in your organisation, whether or not you are a member",
+              "It can summarise any channel in your organisation, whether or not you are a member, since grounding reaches across the whole tenant regardless of membership",
               "It can only work with content your work account can already reach, through the work-grounded experience your organisation has enabled",
-              "It needs you to paste every message into the chat box first",
-              "It behaves the same whether you sign in with a personal or a work account"
+              "It needs you to paste every message into the chat box first, since it cannot open a Teams channel directly on its own",
+              "It behaves the same whether you sign in with a personal or a work account, since grounding is not tied to which account you use"
             ],
             "explanation": "Copilot reasons over content your account can already open, through the work experience. A personal account, or a channel you cannot reach yourself, will not work."
           },
@@ -3625,10 +3625,10 @@
             "q": "Copilot returns a clear, confident summary of the channel. What is the right next step before you act on it?",
             "correct": 1,
             "options": [
-              "Forward it to your team as the official record of what was decided",
+              "Forward it to your team as the official record of what was decided, since a clear summary is as good as the source thread itself",
               "Treat it as a starting point and check the original messages for anything that drives a decision",
-              "Assume it is complete because it reads well",
-              "Ask Copilot to confirm that it is correct"
+              "Assume it is complete because it reads well, since fluent, confident phrasing is a reliable sign that nothing important was missed",
+              "Ask Copilot to confirm that it is correct, since asking it a second time is enough to catch anything it got wrong"
             ],
             "explanation": "A fluent answer can still be wrong or incomplete, and asking the model to check itself does not fix that. Verify against the source before acting, especially where a decision is involved."
           },
@@ -3636,10 +3636,10 @@
             "q": "Which is a fair description of where Copilot chat lives?",
             "correct": 1,
             "options": [
-              "At a single website you have to bookmark",
+              "At a single website you have to bookmark, since it only runs at copilot.microsoft.com and nowhere else",
               "In several places you already work, including the Copilot app, Teams, and Outlook, all signed in with your work account",
-              "Only inside Word documents",
-              "Only on a mobile phone"
+              "Only inside Word documents, since that is the one place Microsoft built a Copilot chat pane into",
+              "Only on a mobile phone, through the standalone Copilot app you install from an app store"
             ],
             "explanation": "Copilot chat appears across the tools you already use, and signing in with your work account is what lets it reach your own content."
           },
@@ -3824,9 +3824,9 @@
             "correct": 0,
             "options": [
               "Type a forward slash, start typing the file name, and select it from the list so Copilot reads the file directly",
-              "Describe the document from memory and hope Copilot finds it",
-              "Attach the document to an email to yourself first, then forward it to Copilot",
-              "Paste the entire document into the prompt box every time you ask about it"
+              "Describe the document from memory and hope Copilot finds it, trusting that a good enough description is as reliable as pointing straight at the file",
+              "Attach the document to an email to yourself first, then forward it to Copilot, so it has a copy to work from through your inbox",
+              "Paste the entire document into the prompt box every time you ask about it, retyping or copying the text fresh for each question"
             ],
             "explanation": "The forward slash is the reference gesture. It points Copilot at the live file, so you do not have to paste or re-describe it."
           },
@@ -3834,10 +3834,10 @@
             "q": "In Copilot chat, what does typing the at-sign do?",
             "correct": 1,
             "options": [
-              "It attaches the file you are viewing",
+              "It attaches the file you are viewing, pulling the currently open document straight into the conversation",
               "It summons a specific agent to handle your request",
-              "It formats your prompt as a list",
-              "It saves the conversation to a Page"
+              "It formats your prompt as a list, turning whatever you type next into bullet points automatically",
+              "It saves the conversation to a Page, storing the current chat as an editable document in OneDrive"
             ],
             "explanation": "The at-sign chooses who answers by calling a specific agent. The forward slash is the separate gesture for choosing what content Copilot reads."
           },
@@ -3845,10 +3845,10 @@
             "q": "Why does Copilot in Outlook usually not need you to reference the email thread with a forward slash?",
             "correct": 1,
             "options": [
-              "Outlook does not support the forward slash gesture at all",
+              "Outlook does not support the forward slash gesture at all, since that command only exists in the standalone Copilot app",
               "Embedded Copilot already has the open thread in view, so it can act on it without you pointing at it",
-              "Referencing is disabled unless an administrator turns it on for each mailbox",
-              "Outlook Copilot can only work with attachments, not the thread itself"
+              "Referencing is disabled unless an administrator turns it on for each mailbox, as part of a tenant-level configuration step",
+              "Outlook Copilot can only work with attachments, not the thread itself, so the message body always has to be referenced separately"
             ],
             "explanation": "Embedded Copilot works on whatever is open, which is why you point at files mainly in the standalone chat, where it starts with nothing in view."
           },
@@ -3856,10 +3856,10 @@
             "q": "You get a useful table back from a standalone Copilot chat and know you'll want to keep editing and sharing it later. What should you do with it?",
             "correct": 1,
             "options": [
-              "Leave it in the chat, since Copilot chats never expire",
+              "Leave it in the chat, since Copilot chats never expire and stay just as easy to find and edit later",
               "Send it to a Page, turning it into an editable document stored in your OneDrive",
-              "Copy it into an email draft so it is not lost",
-              "Start the same request again in a new chat each time you need it"
+              "Copy it into an email draft so it is not lost, keeping the only editable copy sitting in your drafts folder",
+              "Start the same request again in a new chat each time you need it, regenerating the table fresh rather than keeping one copy"
             ],
             "explanation": "Sending a response to a Page turns it into a durable, editable document in your OneDrive. A one-off answer you will not return to can just stay in the chat."
           },
@@ -4013,10 +4013,10 @@
             "q": "You have an approved project brief in Word and need a first-draft slide deck quickly. What is the most effective way to use Copilot in PowerPoint?",
             "correct": 1,
             "options": [
-              "Retype the brief into slides, then ask Copilot to format them",
+              "Retype the brief into slides, then ask Copilot to format them, doing the content transfer by hand before Copilot touches the layout",
               "Start a new presentation with Copilot and point it at the Word brief so it builds slides from the document structure",
-              "Ask Copilot in Word to convert the document into slides in place",
-              "Ask Copilot for a deck on the topic without referencing the brief"
+              "Ask Copilot in Word to convert the document into slides in place, expecting the same Word canvas to turn itself into a deck",
+              "Ask Copilot for a deck on the topic without referencing the brief, relying on its general knowledge of the subject instead"
             ],
             "explanation": "Copilot in PowerPoint can generate a deck from a file. Pointing it at a well-structured brief gives it headings to build from, which produces a stronger scaffold than a topic-only prompt."
           },
@@ -4024,10 +4024,10 @@
             "q": "You missed a two-hour Teams meeting and want to know what was decided. When can Copilot give you a reliable recap?",
             "correct": 1,
             "options": [
-              "Whenever the meeting was in your calendar",
+              "Whenever the meeting was in your calendar, since a calendar invite alone gives Copilot enough to work from",
               "Only if the meeting was recorded or transcribed",
-              "Only if you attended the first ten minutes",
-              "Whenever the organiser used Copilot themselves"
+              "Only if you attended the first ten minutes, which gives Copilot enough of the discussion to reconstruct the rest",
+              "Whenever the organiser used Copilot themselves, since their own usage carries over to everyone else on the invite"
             ],
             "explanation": "Copilot in Teams reads the transcript or recording. If transcription was off there is nothing for it to summarise, so confirm it was on before relying on a recap."
           },
@@ -4035,10 +4035,10 @@
             "q": "Copilot in Word returns polished but generic text when you ask it to improve your document. Why?",
             "correct": 1,
             "options": [
-              "Word Copilot cannot handle business documents",
+              "Word Copilot cannot handle business documents, since it is really only built for casual or personal writing",
               "It does not know the constraints, history, and audience you have in mind, so a vague prompt produces generic output",
-              "The document is too long to process",
-              "You need to switch to the standalone chat at copilot.microsoft.com"
+              "The document is too long to process, so it falls back to generic filler once it runs past a certain length",
+              "You need to switch to the standalone chat at copilot.microsoft.com, since only that version can write with real specificity"
             ],
             "explanation": "Copilot works from what is in the document and the direction you give it. A vague ask leaves the specifics to guesswork, so name the audience, goal, and format."
           },
@@ -4047,10 +4047,10 @@
             "id": "e1a2b3c4-1111-4a2b-9c3d-000000000005",
             "correct": 1,
             "options": [
-              "Nothing, Copilot's numeric answers in Excel are pulled directly from formulas so they cannot be wrong",
+              "Nothing, Copilot's numeric answers in Excel are pulled directly from formulas so they cannot be wrong, the same way a cell reference cannot be wrong",
               "Trace the figure back to the cells it came from, since Copilot can misread a range or an unexpected hidden row",
-              "Ask Copilot a second time and use whichever answer sounds more confident",
-              "Switch to Copilot in Word, which is more reliable with numbers"
+              "Ask Copilot a second time and use whichever answer sounds more confident, treating tone as the tiebreaker between the two",
+              "Switch to Copilot in Word, which is more reliable with numbers, since it is not built around spreadsheet ranges the same way"
             ],
             "explanation": "Copilot in Excel can misread ranges, filters, or hidden structure in a sheet. A fluent, confident number is still worth tracing back to its source cells before it goes into a report."
           }
@@ -4175,10 +4175,10 @@
             "q": "You and a colleague ask Copilot the same question about a project document and get different answers. What is the most likely explanation?",
             "correct": 1,
             "options": [
-              "Copilot gives randomised answers to reduce bias",
+              "Copilot gives randomised answers to reduce bias, deliberately varying its wording between users on the same question",
               "Grounding only retrieves content each of you is already authorised to open, so you may be searching different sets of files",
-              "One of you has a faster internet connection",
-              "Copilot caches the first answer and reuses it for everyone"
+              "One of you has a faster internet connection, which changes which documents Copilot manages to retrieve in time",
+              "Copilot caches the first answer and reuses it for everyone, so later askers should see the same result as the first"
             ],
             "explanation": "Grounding respects your existing M365 permissions. If you can each access different content, Copilot can surface different sources, so the answers differ."
           },
@@ -4186,10 +4186,10 @@
             "q": "Copilot quotes a daily meal allowance from your travel-expense policy, but you suspect the figure is out of date. What is the best next step?",
             "correct": 1,
             "options": [
-              "Trust it, because a grounded answer draws from your own data",
+              "Trust it, because a grounded answer draws from your own data, so a citation alone guarantees the figure is current",
               "Open the citation and confirm it points to the current policy document and that the figure appears there",
-              "Ask Copilot to confirm whether it is correct",
-              "Re-run the prompt until you get a consistent number"
+              "Ask Copilot to confirm whether it is correct, treating a second confident reply as sufficient proof",
+              "Re-run the prompt until you get a consistent number, since a repeated answer is more likely to be accurate"
             ],
             "explanation": "Grounding can retrieve an older version that still sits in SharePoint. The citation lets you verify the source and its date rather than trusting a fluent answer."
           },
@@ -4197,10 +4197,10 @@
             "q": "Your organisation stores its travel-expense policy only in a third-party HR system, not in SharePoint or M365. What should you expect when you ask Copilot about it?",
             "correct": 1,
             "options": [
-              "Copilot will find it, because grounding reaches any system in your organisation",
+              "Copilot will find it, because grounding reaches any system in your organisation regardless of where the data physically lives",
               "Copilot cannot ground on it unless that system is connected to Graph through a connector",
-              "Copilot will download the policy from the web instead",
-              "Copilot will ask you to paste the policy first, every time"
+              "Copilot will download the policy from the web instead, treating a public search as a stand-in for the missing connection",
+              "Copilot will ask you to paste the policy first, every time, since it has no other way to see content outside M365"
             ],
             "explanation": "Grounding works over Microsoft Graph. Content in an external system is invisible to it unless a Copilot connector brings that source into Graph."
           }
@@ -4355,10 +4355,10 @@
             "q": "You ask Copilot a general question and its answer quotes salary figures from a document you did not know existed. What has most likely happened?",
             "correct": 1,
             "options": [
-              "Copilot bypassed the file permissions to give you a complete answer",
+              "Copilot bypassed the file permissions to give you a complete answer, reaching past whatever access controls were set on the file",
               "The document was shared more broadly than intended, and your account already had access to it",
-              "Copilot invented the figures because it could not find real data",
-              "Your organisation tenant has been breached by an external party"
+              "Copilot invented the figures because it could not find real data, generating plausible-looking numbers to fill the gap",
+              "Your organisation tenant has been breached by an external party, and Copilot is surfacing data that was exfiltrated"
             ],
             "explanation": "Copilot only surfaces content your account can already open. A surprising result usually means the file was overshared, not that Copilot broke any boundary."
           },
@@ -4366,10 +4366,10 @@
             "q": "A manager says Copilot is dangerous because it gives everyone access to sensitive files. What is the most accurate correction?",
             "correct": 1,
             "options": [
-              "They are right, so Copilot should not be deployed until Microsoft fixes it",
+              "They are right, so Copilot should not be deployed until Microsoft fixes it, since the underlying access problem is a product defect",
               "Copilot grants no new access; it only makes content that is already overshared easier to find, so the fix is to tighten sharing",
-              "Copilot only reads files stored in the users own OneDrive, so there is no risk",
-              "Sensitivity labels have no effect on what Copilot can surface"
+              "Copilot only reads files stored in the user's own OneDrive, so there is no risk of it surfacing anything shared elsewhere",
+              "Sensitivity labels have no effect on what Copilot can surface, so labelling a file makes no practical difference either way"
             ],
             "explanation": "Copilot respects existing permissions and adds no access. The real exposure is pre-existing oversharing, which Copilot makes discoverable, so remediation belongs in sharing settings and labels."
           },
@@ -4377,10 +4377,10 @@
             "q": "You need Copilot to summarise a confidential contract. Which choice best protects the content?",
             "correct": 1,
             "options": [
-              "Paste the contract into a public web chat interface so it processes faster",
+              "Paste the contract into a public web chat interface so it processes faster, since speed matters more than where the text ends up",
               "Use the M365-embedded Copilot, where the content stays inside your organisation tenant",
-              "Email the contract to yourself first, then summarise the email in any tool",
-              "Remove the confidential clauses before pasting it anywhere"
+              "Email the contract to yourself first, then summarise the email in any tool, treating the email hop as a safe intermediate step",
+              "Remove the confidential clauses before pasting it anywhere, then summarise whatever wording is left over"
             ],
             "explanation": "The M365-embedded Copilot keeps data within your organisation tenant and does not use it to train the model. A public, unmanaged chat is a different environment with weaker protection for confidential content."
           }
@@ -4524,10 +4524,10 @@
             "q": "Which situation is the strongest case for building a Copilot Studio agent for HR leave questions?",
             "correct": 1,
             "options": [
-              "The rules change on a case-by-case basis and rarely repeat",
+              "The rules change on a case-by-case basis and rarely repeat, so each answer has to be worked out fresh every time",
               "The same questions recur often and the answers live in a maintained SharePoint policy",
-              "Nobody currently owns or updates the leave documentation",
-              "A single pinned Teams message would answer every version of the question"
+              "Nobody currently owns or updates the leave documentation, so the source the agent would ground on is already going stale",
+              "A single pinned Teams message would answer every version of the question, since the guidance never really varies"
             ],
             "explanation": "An agent earns its place when the question recurs and points at a source that is kept current. If the source is unmaintained or the question never repeats, the effort is not justified."
           },
@@ -4535,10 +4535,10 @@
             "q": "Why should a person stay accountable for the leave-policy documents even after the agent is live?",
             "correct": 1,
             "options": [
-              "The agent stops working if the documents are not opened regularly",
+              "The agent stops working if the documents are not opened regularly, since inactivity causes its connection to lapse",
               "A grounded agent answers confidently from whatever the source says, including outdated or contradictory content",
-              "Microsoft requires a named document owner for every published agent",
-              "The agent cannot read SharePoint without a manual refresh each morning"
+              "Microsoft requires a named document owner for every published agent, as a condition of keeping it live",
+              "The agent cannot read SharePoint without a manual refresh each morning, so someone has to trigger it by hand daily"
             ],
             "explanation": "The agent grounds its answers in the source you point it at. If that source is wrong, the answer will be fluently wrong. Ongoing content ownership is what keeps it trustworthy."
           },
@@ -4547,10 +4547,10 @@
             "id": "e4d4b3c4-4444-4a2b-9c3d-000000000007",
             "correct": 1,
             "options": [
-              "Copilot Studio, since every agent needs its own app",
+              "Copilot Studio, since every agent needs its own app built and published before it can answer anything",
               "Agent Builder, right there in Copilot Chat, since the description-and-a-document case does not need more than that",
-              "Power Automate, since agents are built the same way as flows",
-              "They cannot build an agent without IT provisioning a separate licence"
+              "Power Automate, since agents are built the same way as flows, using the same trigger-and-action canvas",
+              "They cannot build an agent without IT provisioning a separate licence, so the request has to go through IT first"
             ],
             "explanation": "Agent Builder in Copilot Chat is the right-sized tool for a simple, description-and-a-document agent. Copilot Studio earns its extra complexity once an agent needs actions, connectors, or analytics."
           }
@@ -4707,10 +4707,10 @@
             "q": "During testing, a new starter asks about the parking policy and the agent gives a confident answer that is not in the onboarding documents. What should you check first?",
             "correct": 2,
             "options": [
-              "Whether the model needs retraining on new topics",
-              "Whether the licence tier supports parking-related questions",
+              "Whether the model needs retraining on new topics, since parking may simply be outside what it originally learned",
+              "Whether the licence tier supports parking-related questions, since some topics may sit behind a higher plan",
               "Whether the knowledge source actually covers parking, and verify the answer against the source",
-              "Whether the agent has been published to the correct channel"
+              "Whether the agent has been published to the correct channel, since a wrong channel could explain the mismatched answer"
             ],
             "explanation": "A fluent answer is not evidence it is correct. The agent may be filling a gap the documents do not cover, so check the source and confirm what the knowledge base actually contains."
           },
@@ -4718,10 +4718,10 @@
             "q": "Why keep this first agent read-only rather than having it also open IT tickets?",
             "correct": 1,
             "options": [
-              "Copilot Studio agents cannot take actions of any kind",
+              "Copilot Studio agents cannot take actions of any kind, so ticket creation is simply out of reach for this platform",
               "Read-only agents are easier to test and trust, and actions belong in a separate build",
-              "Actions are only available on external-facing agents",
-              "A read-only agent does not need a knowledge source"
+              "Actions are only available on external-facing agents, so an internal onboarding agent cannot open tickets regardless",
+              "A read-only agent does not need a knowledge source, since it only ever answers from general knowledge"
             ],
             "explanation": "A knowledge-only agent is faster to stand up and simpler to verify. Writing to systems adds moving parts and belongs in a flow, which is a different track."
           },
@@ -4730,10 +4730,10 @@
             "id": "e5e5b3c4-5555-4a2b-9c3d-000000000002",
             "correct": 1,
             "options": [
-              "Agent Builder cannot connect to SharePoint at all",
+              "Agent Builder cannot connect to SharePoint at all, so it has no way to reach the onboarding documents",
               "The build needs a properly configured knowledge source, real testing, and a path to publish and maintain the agent, which is Copilot Studio's territory",
-              "Copilot Studio is required for any agent that answers more than one question",
-              "Agent Builder only works for external-facing agents"
+              "Copilot Studio is required for any agent that answers more than one question, since Agent Builder handles only single-turn replies",
+              "Agent Builder only works for external-facing agents, so an internal tool like this one needs the fuller platform"
             ],
             "explanation": "Copilot Studio is the right tool once an agent needs more than a quick description and a document, such as configured knowledge sources, thorough testing, and ongoing publishing and maintenance."
           }
@@ -4864,9 +4864,9 @@
             "correct": 0,
             "options": [
               "The knowledge index has not refreshed yet since the source content changed",
-              "The agent needs to be retrained on the new content",
-              "The generative model has drifted from its original behaviour",
-              "The agent lost access to the source when you edited it"
+              "The agent needs to be retrained on the new content, the same way a model is retrained on a new dataset",
+              "The generative model has drifted from its original behaviour, gradually changing how it answers over time",
+              "The agent lost access to the source when you edited it, so it fell back to whatever it last had cached"
             ],
             "explanation": "Knowledge source indexing is not always instant. Until the index refreshes, the agent keeps serving the previous answer, so the fix may simply need time."
           },
@@ -4875,9 +4875,9 @@
             "correct": 0,
             "options": [
               "Authenticate with Microsoft, which identifies the signed-in user through Entra ID; a public web agent would instead use No authentication, which cannot use tools needing the credentials of the individual user",
-              "No authentication, so anyone with the link can use it, the same choice you would make for a public web agent",
-              "Manual authentication for internal agents, and Authenticate with Microsoft for public web agents",
-              "Authenticate with Microsoft for both, since a web agent also requires every visitor to sign in first"
+              "No authentication, so anyone with the link can use it, the same choice you would make for a public web agent, since Teams users do not need to be individually identified",
+              "Manual authentication for internal agents, and Authenticate with Microsoft for public web agents, treating internal and external audiences as the reverse of what you would expect",
+              "Authenticate with Microsoft for both, since a web agent also requires every visitor to sign in first before it can reach any of its tools"
             ],
             "explanation": "An internal Teams agent uses Authenticate with Microsoft so Entra ID identifies each signed-in user. A public web agent uses No authentication, which lets anyone with the link chat but cannot use tools that need the credentials of the individual user."
           },
@@ -5041,9 +5041,9 @@
             "correct": 0,
             "options": [
               "Copilot chat grounded on your M365 data, or a small Studio agent, because it retrieves across your permissioned sources",
-              "Copilot inside a single Word document, because it drafts text well",
-              "A public web chat, because it answers general questions quickly",
-              "None, because standing questions cannot be grounded on your own data"
+              "Copilot inside a single Word document, because it drafts text well and can hold the whole briefing in one place",
+              "A public web chat, because it answers general questions quickly without needing any connection to your files",
+              "None, because standing questions cannot be grounded on your own data no matter which Copilot surface you use"
             ],
             "explanation": "The repeating, spread-out question set is a retrieval job. Grounded Copilot chat, or a small Studio agent, searches across the sources you can already open, which is exactly what that part needs."
           },
@@ -5052,9 +5052,9 @@
             "correct": 0,
             "options": [
               "They should see only what their own permissions allow across every surface, so test as a colleague with narrower access before relying on it",
-              "They see exactly what you see, because you are the person who built it",
-              "They see nothing at all, because a composed set of surfaces cannot be shared",
-              "They see more than you, because sharing widens each users access"
+              "They see exactly what you see, because you are the person who built it, and the setup carries your access along with it",
+              "They see nothing at all, because a composed set of surfaces cannot be shared with anyone who did not build it themselves",
+              "They see more than you, because sharing widens each user's access to cover whatever the builder could originally reach"
             ],
             "explanation": "Copilot answers do not widen access. Each person sees through their own permissions on every surface, which is why you test as a colleague with narrower access."
           },
@@ -5063,9 +5063,9 @@
             "correct": 0,
             "options": [
               "Naming the exact sources gives sharper answers and a smaller surface to get wrong than grounding on everything",
-              "Copilot can only read one file at a time, so a folder must be reduced to a single document",
-              "Broad grounding is blocked by default and has to be requested from an administrator",
-              "Naming sources is a cosmetic label that has no effect on the answers"
+              "Copilot can only read one file at a time, so a folder must be reduced to a single document before it can ground on it",
+              "Broad grounding is blocked by default and has to be requested from an administrator before it can be turned on",
+              "Naming sources is a cosmetic label that has no effect on the answers, added mainly so the setup reads clearly to others"
             ],
             "explanation": "Tight, named grounding produces sharper answers and less to verify. Grounding on everything invites the wrong document to surface with the same confidence as the right one."
           }
