@@ -143,6 +143,9 @@ export default function LearningPathNew() {
   const [tracks, setTracks] = useState<TrackNode[]>([])
   const [modulesMap, setModulesMap] = useState<Record<string, ModuleNode[]>>({})
   const [prereqMap, setPrereqMap] = useState<Map<string, string[]>>(new Map())
+  // module_id → maturity-level rank of its track (over the FULL graph, so an
+  // unassigned lower-level predecessor is still recognised). Drives predSatisfied.
+  const [moduleLevelRank, setModuleLevelRank] = useState<Map<string, number>>(new Map())
   const [levelCode, setLevelCode] = useState<string | null>(null)
   const [loaded, setLoaded] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -200,9 +203,25 @@ export default function LearningPathNew() {
         pMap.get(row.module_id)!.push(row.prerequisite_module_id)
       }
 
+      // Maturity-level rank of EVERY module (by its track's required_level, over
+      // the FULL unfiltered graph so an unassigned lower-level predecessor is
+      // still recognised). Lets predSatisfied treat a prerequisite that points
+      // into an already-maturity-cleared lower level as satisfied.
+      const trackRankById = new Map<string, number>()
+      for (const t of graphRes.data.tracks) {
+        const r = LEVELS.findIndex(l => l.code === t.required_level)
+        if (r !== -1) trackRankById.set(t.id, r)
+      }
+      const modRank = new Map<string, number>()
+      for (const m of graphRes.data.modules) {
+        const r = trackRankById.get(m.track_id)
+        if (r !== undefined) modRank.set(m.id, r)
+      }
+
       setTracks(assignedTracks)
       setModulesMap(map)
       setPrereqMap(pMap)
+      setModuleLevelRank(modRank)
       // Effective maturity (override- and progression-aware) — no separate
       // /api/survey/me call; the graph carries the header level now.
       setLevelCode(graphRes.data.maturity_level ?? null)
@@ -247,6 +266,19 @@ export default function LearningPathNew() {
     return total === 0 || done >= total
   }, [tracks, modulesMap])
 
+  // A prerequisite is satisfied either by completion, OR — when it points into a
+  // strictly-lower maturity level than the dependent module's track — by the
+  // learner's maturity alone. isUnlocked only reaches the prereq check for a
+  // maturity-unlocked module, so its effective level already covers every
+  // lower-level track; re-gating on those cross-track (general → tool) edges
+  // would block a pinned/skip-ahead learner on general modules the ladder never
+  // required them to walk. Same-track and same-level prerequisites still gate.
+  const predSatisfied = (predId: string, dependentId: string): boolean => {
+    const myRank = moduleLevelRank.get(dependentId)
+    const pRank = moduleLevelRank.get(predId)
+    if (myRank !== undefined && pRank !== undefined && pRank < myRank) return true
+    return isDone(predId)
+  }
   const isUnlocked = (id: string): boolean => {
     if (isAdmin) return true // same bypass as the live page
     const mod = moduleById.get(id)
@@ -256,7 +288,7 @@ export default function LearningPathNew() {
     if (mod && !mod.is_introduction && !introComplete) return false
     const preds = prereqMap.get(id)
     if (!preds || preds.length === 0) return true
-    return preds.every(isDone)
+    return preds.every(p => predSatisfied(p, id))
   }
   const firstCurrent = (mods: ModuleNode[]): ModuleNode | null =>
     mods.find(m => !isDone(m.id) && isUnlocked(m.id)) ?? null
@@ -764,7 +796,7 @@ export default function LearningPathNew() {
           const completed = Math.min(mod.completed_lesson_count, mod.lesson_count)
           const pct = mod.lesson_count > 0 ? Math.round((100 * completed) / mod.lesson_count) : 0
           const missing = (prereqMap.get(mod.id) ?? [])
-            .filter(p => !isDone(p))
+            .filter(p => !predSatisfied(p, mod.id))
             .map(p => moduleById.get(p)?.title)
             .filter((t): t is string => !!t)
           // This popover is position:fixed inside the zoomed root; anchor comes
