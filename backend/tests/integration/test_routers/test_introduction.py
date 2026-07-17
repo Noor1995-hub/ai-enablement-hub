@@ -134,3 +134,27 @@ class TestIntroductionGraph:
         assert mod["assigned"] is True
         assert mod["lesson_count"] == 2  # ALL lessons, not just assigned
         assert mod["completed_lesson_count"] == 0
+
+
+class TestIntroductionLessons:
+    async def test_module_lessons_all_assigned_and_next_set(
+        self, client: AsyncClient, introworld: IntroWorld, test_settings: Settings
+    ) -> None:
+        resp = await client.get(
+            f"/api/modules/{introworld.intro_mod.id}/lessons",
+            headers=auth_headers(introworld.learner, test_settings),
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert all(le["assigned"] is True for le in body["lessons"])  # no assignment rows exist
+        assert body["next_lesson_id"] == str(introworld.intro_lessons[0].id)
+
+    async def test_lesson_detail_next_hop_within_intro(
+        self, client: AsyncClient, introworld: IntroWorld, test_settings: Settings
+    ) -> None:
+        resp = await client.get(
+            f"/api/lessons/{introworld.intro_lessons[0].id}",
+            headers=auth_headers(introworld.learner, test_settings),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["next_lesson_id"] == str(introworld.intro_lessons[1].id)

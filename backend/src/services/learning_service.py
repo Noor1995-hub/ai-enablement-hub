@@ -149,14 +149,22 @@ class LearningService:
         """Lessons of a module with per-lesson completion and per-caller
         `assigned` flags; next = first uncompleted ASSIGNED lesson. Returns ALL
         lessons (graph pattern): learner views filter on `assigned`, the admin
-        ModulePanel shows everything."""
-        if await self._content.get_module(module_id) is None:
+        ModulePanel shows everything. Introduction-track lessons are implicitly
+        assigned to everyone."""
+        module = await self._content.get_module(module_id)
+        if module is None:
             raise NotFoundError("Module")
         lessons = await self._content.list_lessons(module_id)
         completed = await self._progress.completed_lesson_ids(user_id, [le.id for le in lessons])
         assigned = await self._assignments.lesson_ids_for_user(user_id)
+        track = await self._content.get_track(module.track_id)
+        intro = track is not None and track.is_introduction
+
+        def is_assigned(lesson_id: uuid.UUID) -> bool:
+            return intro or lesson_id in assigned
+
         next_lesson = next(
-            (le for le in lessons if le.id in assigned and le.id not in completed), None
+            (le for le in lessons if is_assigned(le.id) and le.id not in completed), None
         )
         return {
             "lessons": [
@@ -165,7 +173,7 @@ class LearningService:
                     "title": lesson.title,
                     "sort_order": lesson.sort_order,
                     "completed": lesson.id in completed,
-                    "assigned": lesson.id in assigned,
+                    "assigned": is_assigned(lesson.id),
                 }
                 for lesson in lessons
             ],
@@ -186,13 +194,18 @@ class LearningService:
 
         progress = await self._progress.get(user_id, lesson_id)
         assigned = await self._assignments.lesson_ids_for_user(user_id)
+        track = await self._content.get_track(module.track_id)
+        intro = track is not None and track.is_introduction
+
+        def is_assigned(lesson_id_: uuid.UUID) -> bool:
+            return intro or lesson_id_ in assigned
 
         next_module_id: uuid.UUID | None = None
         next_lesson: Lesson | None = next(
             (
                 le
                 for le in await self._content.list_lessons(lesson.module_id)
-                if le.sort_order > lesson.sort_order and le.id in assigned
+                if le.sort_order > lesson.sort_order and is_assigned(le.id)
             ),
             None,
         )
@@ -206,7 +219,7 @@ class LearningService:
                     (
                         le
                         for le in await self._content.list_lessons(next_module.id)
-                        if le.id in assigned
+                        if is_assigned(le.id)
                     ),
                     None,
                 )
