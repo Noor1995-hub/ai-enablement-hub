@@ -432,9 +432,20 @@ export default function LearningPathNew() {
       }
     }
 
+    // Node badges follow the on-screen reading order — left→right by
+    // prerequisite rank, then top→bottom within a rank — NOT raw sort_order,
+    // which the DAG layout reorders visually. Without this a module gated behind
+    // another (e.g. Claude Code, sitting after Cowork) would show a lower number
+    // than the module it visually follows. `rows` is already rank-major and, per
+    // rank, in sort_order (== top→bottom, matching the y positions above), so a
+    // single left-to-right sweep numbers them 1..N in the order they read.
+    const badgeByModule = new Map<string, number>()
+    let badge = 0
+    rows.forEach(row => { for (const mod of row) badgeByModule.set(mod.id, ++badge) })
+
     const nodes: LaneNode[] = mods.map(m => {
       const p = pos.get(m.id)!
-      return { mod: m, x: p.x, y: p.y, index: ids.indexOf(m.id) + 1 }
+      return { mod: m, x: p.x, y: p.y, index: badgeByModule.get(m.id)! }
     })
     const width = RANK_X0 + (rows.length - 1) * RANK_DX + 130
     return { nodes, edges, height, width }
