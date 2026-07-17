@@ -3636,10 +3636,10 @@
             "q": "Which is a fair description of where Copilot chat lives?",
             "correct": 1,
             "options": [
-              "At a single website you have to bookmark, since it only runs at copilot.microsoft.com and nowhere else",
+              "At a single website you have to bookmark, since Copilot chat runs only at copilot.microsoft.com and was never built into any other Microsoft app or product",
               "In several places you already work, including the Copilot app, Teams, and Outlook, all signed in with your work account",
-              "Only inside Word documents, since that is the one place Microsoft built a Copilot chat pane into",
-              "Only on a mobile phone, through the standalone Copilot app you install from an app store"
+              "Only inside Word documents, since that is the one place Microsoft ever added a Copilot chat pane, with no equivalent chat experience in Outlook, Teams, or the browser",
+              "Only on a mobile phone, through the standalone Copilot app you install from an app store, since Copilot chat was never brought into the desktop or browser versions of Microsoft 365"
             ],
             "explanation": "Copilot chat appears across the tools you already use, and signing in with your work account is what lets it reach your own content."
           },
@@ -4175,10 +4175,10 @@
             "q": "You and a colleague ask Copilot the same question about a project document and get different answers. What is the most likely explanation?",
             "correct": 1,
             "options": [
-              "Copilot gives randomised answers to reduce bias, deliberately varying its wording between users on the same question",
+              "Copilot gives randomised answers to reduce bias, deliberately varying its wording and content between users even when they ask the exact same question",
               "Grounding only retrieves content each of you is already authorised to open, so you may be searching different sets of files",
-              "One of you has a faster internet connection, which changes which documents Copilot manages to retrieve in time",
-              "Copilot caches the first answer and reuses it for everyone, so later askers should see the same result as the first"
+              "One of you has a faster internet connection, which changes which documents Copilot is able to retrieve and read in time before answering",
+              "Copilot caches the first answer it gives and reuses that same cached reply for everyone afterward, so later askers should see the same result as the first"
             ],
             "explanation": "Grounding respects your existing M365 permissions. If you can each access different content, Copilot can surface different sources, so the answers differ."
           },
@@ -5040,21 +5040,21 @@
             "q": "Your briefing needs to answer the same standing questions every week (what did we agree, what is still open) from documents spread across several SharePoint sites. Which Copilot surface is the natural fit for that part?",
             "correct": 0,
             "options": [
-              "Copilot chat grounded on your M365 data, or a small Studio agent, because it retrieves across your permissioned sources",
-              "Copilot inside a single Word document, because it drafts text well and can hold the whole briefing in one place",
-              "A public web chat, because it answers general questions quickly without needing any connection to your files",
-              "None, because standing questions cannot be grounded on your own data no matter which Copilot surface you use"
+              "Copilot chat grounded on your M365 data, because it retrieves across your permissioned sources",
+              "Copilot inside a single Word document, because it drafts text well and can comfortably hold the whole weekly briefing in one continuously updated place",
+              "A public web chat, because it answers general questions quickly and confidently without needing any connection to your own files or SharePoint sites",
+              "None of the Copilot surfaces, because standing questions like these can never be grounded on your own organisational data no matter which surface you use"
             ],
-            "explanation": "The repeating, spread-out question set is a retrieval job. Grounded Copilot chat, or a small Studio agent, searches across the sources you can already open, which is exactly what that part needs."
+            "explanation": "The repeating, spread-out question set is a retrieval job. Grounded Copilot chat searches across the sources you can already open, which is exactly what that part needs."
           },
           {
             "q": "You built the prep under your own broad access, and a colleague with narrower access runs it. What should you expect, and what should you do?",
             "correct": 0,
             "options": [
               "They should see only what their own permissions allow across every surface, so test as a colleague with narrower access before relying on it",
-              "They see exactly what you see, because you are the person who built it, and the setup carries your access along with it",
-              "They see nothing at all, because a composed set of surfaces cannot be shared with anyone who did not build it themselves",
-              "They see more than you, because sharing widens each user's access to cover whatever the builder could originally reach"
+              "They see exactly what you see, because you personally are the one who built it, and the setup simply carries your own access along with it wherever it goes",
+              "They see nothing at all when they run it, because a composed set of surfaces like this can never be shared with anyone who did not build it themselves",
+              "They see more than you normally would, because sharing this kind of setup widens each user's access to cover whatever the original builder could reach"
             ],
             "explanation": "Copilot answers do not widen access. Each person sees through their own permissions on every surface, which is why you test as a colleague with narrower access."
           },
