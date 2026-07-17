@@ -38,7 +38,8 @@ class LearningService:
 
         lesson_count / completed_lesson_count only cover lessons ASSIGNED to
         the caller — the popup's "X of N lessons" is the learner's own
-        curriculum, not the module's full inventory.
+        curriculum, not the module's full inventory. The Introduction track is
+        the one exception (see below): its counts cover ALL its lessons.
 
         `effective_level` is the caller's maturity (from MaturityService). Each
         track gets `unlocked_by_maturity = effective_level covers required_level`;
@@ -56,7 +57,39 @@ class LearningService:
         def track_unlocked(required_level: str) -> bool:
             return caller_rank is not None and LEVEL_RANK[required_level] <= caller_rank
 
-        track_unlock = {track.id: track_unlocked(track.required_level) for track in tracks}
+        # Introduction tracks are mandatory for everyone: implicitly assigned,
+        # always unlocked (even before any survey → caller_rank None), and their
+        # lesson counts cover ALL lessons (not just assigned ones). Completion
+        # gates the other tracks on the client (LearningPathNew.introComplete).
+        intro_track_ids = {t.id for t in tracks if t.is_introduction}
+        intro_counts: dict[uuid.UUID, tuple[int, int]] = {}
+        if intro_track_ids:
+            intro_module_ids = {m.id for m in modules if m.track_id in intro_track_ids}
+            intro_lessons = [
+                le
+                for le in await self._content.list_lesson_summaries()
+                if le.module_id in intro_module_ids
+            ]
+            completed_intro = await self._progress.completed_lesson_ids(
+                user_id, [le.id for le in intro_lessons]
+            )
+            for le in intro_lessons:
+                total, done = intro_counts.get(le.module_id, (0, 0))
+                intro_counts[le.module_id] = (
+                    total + 1,
+                    done + (1 if le.id in completed_intro else 0),
+                )
+
+        # Introduction is force-unlocked; every other track uses the maturity rule.
+        track_unlock = {
+            track.id: (True if track.is_introduction else track_unlocked(track.required_level))
+            for track in tracks
+        }
+
+        def module_counts(module_id: uuid.UUID, track_id: uuid.UUID) -> tuple[int, int]:
+            if track_id in intro_track_ids:
+                return intro_counts.get(module_id, (0, 0))
+            return lesson_counts.get(module_id, (0, 0))
 
         return {
             "tracks": [
@@ -66,9 +99,10 @@ class LearningService:
                     "sort_order": track.sort_order,
                     "track_type": track.track_type,
                     "color": track.color,
-                    "assigned": track.id in assigned_tracks,
+                    "assigned": track.is_introduction or track.id in assigned_tracks,
                     "required_level": track.required_level,
                     "unlocked_by_maturity": track_unlock[track.id],
+                    "is_introduction": track.is_introduction,
                 }
                 for track in tracks
             ],
@@ -78,10 +112,11 @@ class LearningService:
                     "track_id": module.track_id,
                     "title": module.title,
                     "sort_order": module.sort_order,
-                    "assigned": module.id in assigned_modules,
-                    "lesson_count": lesson_counts.get(module.id, (0, 0))[0],
-                    "completed_lesson_count": lesson_counts.get(module.id, (0, 0))[1],
+                    "assigned": module.track_id in intro_track_ids or module.id in assigned_modules,
+                    "lesson_count": module_counts(module.id, module.track_id)[0],
+                    "completed_lesson_count": module_counts(module.id, module.track_id)[1],
                     "unlocked_by_maturity": track_unlock.get(module.track_id, False),
+                    "is_introduction": module.track_id in intro_track_ids,
                 }
                 for module in modules
             ],

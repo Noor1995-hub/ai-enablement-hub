@@ -29,6 +29,9 @@ class TrackNode(BaseModel):
     # False when the caller's effective maturity is below required_level (or
     # they have no maturity at all). Admins bypass this client-side.
     unlocked_by_maturity: bool
+    # True for the mandatory pre-Explorer Introduction track. Drives the client's
+    # separate "Introduction" group + completion gate; absent from LEVELS.
+    is_introduction: bool
 
 
 class ModuleNode(BaseModel):
@@ -42,6 +45,8 @@ class ModuleNode(BaseModel):
     # Inherited from the module's track — a module in a maturity-locked track is
     # locked by inheritance (prerequisites still gate within an unlocked track).
     unlocked_by_maturity: bool
+    # Inherited from the module's track (a module of the Introduction track).
+    is_introduction: bool
 
 
 class PrerequisiteEdge(BaseModel):
