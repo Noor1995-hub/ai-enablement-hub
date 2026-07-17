@@ -10,7 +10,7 @@
 // track.color — the call sites never change.
 
 import type { TrackNode } from '../types/domain'
-import { levelByCode } from './levels'
+import { INTRODUCTION_LEVEL, levelByCode } from './levels'
 
 /** How far each level color is mixed toward white (0 = raw level color, 1 = white). */
 const TINT = 0
@@ -36,7 +36,13 @@ function lighten(hex: string, amount: number): string {
  * at the same level get the same tint by design. Falls back to a neutral grey
  * if the level can't be resolved.
  */
-export function resolveTrackColor(track: Pick<TrackNode, 'required_level'>): string {
+export function resolveTrackColor(
+  track: Pick<TrackNode, 'required_level' | 'is_introduction'>,
+): string {
+  // Introduction is not a maturity level (required_level is 'explore' only so it
+  // stays always-unlocked), so key its lane chrome on its own color, not the
+  // Explorer tint — matches the INTRODUCTION_LEVEL header/dot/bar.
+  if (track.is_introduction) return INTRODUCTION_LEVEL.color
   const level = levelByCode(track.required_level)
   return level ? lighten(level.color, TINT) : FALLBACK_TRACK_COLOR
 }
