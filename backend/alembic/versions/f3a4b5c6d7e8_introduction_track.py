@@ -21,9 +21,23 @@ branch_labels: str | None = None
 depends_on: str | None = None
 
 # Exposed for the migration-sanity test (runs it against the test schema).
+# Ships the Introduction track with a placeholder module + lesson so the group is
+# immediately visible (with editable content) rather than an empty shell — the
+# admin replaces "Placeholder" with real orientation content. Note this makes the
+# completion gate LIVE on deploy: other tracks lock until the learner clears this
+# lesson (trivial — no quiz), then the admin's real content makes it meaningful.
 INTRODUCTION_SQL = """
-INSERT INTO tracks (name, sort_order, track_type, color, required_level, is_introduction)
-VALUES ('Introduction', 0, 'general', '#941914', 'explore', true)
+WITH intro_track AS (
+    INSERT INTO tracks (name, sort_order, track_type, color, required_level, is_introduction)
+    VALUES ('Introduction', 0, 'general', '#941914', 'explore', true)
+    RETURNING id
+), intro_module AS (
+    INSERT INTO modules (track_id, title, sort_order)
+    SELECT id, 'Introduction', 0 FROM intro_track
+    RETURNING id
+)
+INSERT INTO lessons (module_id, title, sort_order)
+SELECT id, 'Placeholder', 0 FROM intro_module
 """
 
 

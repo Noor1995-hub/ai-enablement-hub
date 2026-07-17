@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 import pytest_asyncio
 from sqlalchemy import select, text
 
-from src.db.models import Track, UserTrack
+from src.db.models import Lesson, Module, Track, UserTrack
 from tests.fixtures.auth import auth_headers
 from tests.fixtures.factories import (
     VALID_ANSWERS,
@@ -29,7 +29,7 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
     from src.core.configs.settings import Settings
-    from src.db.models import Lesson, Module, User
+    from src.db.models import User
 
 
 def _load_introduction_sql() -> str:
@@ -66,6 +66,21 @@ class TestIntroductionMigration:
         assert track.track_type == "general"
         assert track.color == "#941914"
         assert track.sort_order == 0
+
+        # Ships with a placeholder module + lesson (so the group is visible with
+        # editable content, not an empty shell).
+        module = (
+            await db_session.execute(select(Module).where(Module.track_id == track.id))
+        ).scalar_one()
+        assert module.title == "Introduction"
+        assert module.sort_order == 0
+
+        lesson = (
+            await db_session.execute(select(Lesson).where(Lesson.module_id == module.id))
+        ).scalar_one()
+        assert lesson.title == "Placeholder"
+        assert lesson.sort_order == 0
+        assert lesson.content_blocks == []
 
 
 @dataclass
