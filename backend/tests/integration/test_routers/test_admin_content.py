@@ -40,6 +40,7 @@ class TestTrackReads:
             "track_type": "general",
             "color": "#abc",
             "required_level": "explore",
+            "is_introduction": False,
         }
 
     async def test_track_modules_ordered(
