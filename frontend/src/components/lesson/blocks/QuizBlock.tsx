@@ -32,11 +32,14 @@ export default function QuizBlock({ block, onComplete }: QuizBlockProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only shuffle, same as the old app
   }, [])
 
+  // Reaching the results screen unlocks completion regardless of score: the
+  // quiz is obligatory (you must answer every question once), but a wrong
+  // answer no longer blocks "Mark as complete". Retake stays optional.
   useEffect(() => {
-    if (phase === 'results' && allCorrect) {
+    if (phase === 'results') {
       onComplete?.()
     }
-  }, [phase, allCorrect, onComplete])
+  }, [phase, onComplete])
 
   if (!shuffledQuestions.length) return null
 
@@ -84,13 +87,13 @@ export default function QuizBlock({ block, onComplete }: QuizBlockProps) {
         <h2 style={{ fontFamily: 'var(--dlw-font-body)', fontWeight: 700, fontSize: 18, color: '#101820', margin: '0 0 4px' }}>
           Quiz results
         </h2>
-        <p style={{ fontFamily: 'var(--dlw-font-body)', fontWeight: 700, fontSize: 36, color: allCorrect ? '#1D7A52' : '#C42828', margin: '0 0 4px' }}>
+        <p style={{ fontFamily: 'var(--dlw-font-body)', fontWeight: 700, fontSize: 36, color: allCorrect ? '#1D7A52' : '#B45309', margin: '0 0 4px' }}>
           {score}/{shuffledQuestions.length}
         </p>
         <p style={{ fontFamily: 'var(--dlw-font-body)', fontWeight: 300, fontSize: 14, color: '#8A8A8A', margin: '0 0 20px' }}>
           {allCorrect
             ? 'You answered everything correctly. Scroll down to continue.'
-            : `You got ${score} out of ${shuffledQuestions.length} right. Retake the quiz to continue.`}
+            : `You got ${score} out of ${shuffledQuestions.length} right. You can continue below, or retake the quiz to improve your score.`}
         </p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
@@ -125,14 +128,19 @@ export default function QuizBlock({ block, onComplete }: QuizBlockProps) {
             <span>✓</span> All correct — scroll down to continue
           </div>
         ) : (
-          <button onClick={handleRetake} className="btn-ghost" style={{
-            padding: '10px 22px', borderRadius: 999,
-            border: '1.5px solid #E2E2E2', background: '#fff',
-            color: '#3C3C3C', fontFamily: 'var(--dlw-font-body)', fontWeight: 600, fontSize: 14,
-            cursor: 'pointer',
-          }}>
-            Retake quiz
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+            <button onClick={handleRetake} className="btn-ghost" style={{
+              padding: '10px 22px', borderRadius: 999,
+              border: '1.5px solid #E2E2E2', background: '#fff',
+              color: '#3C3C3C', fontFamily: 'var(--dlw-font-body)', fontWeight: 600, fontSize: 14,
+              cursor: 'pointer',
+            }}>
+              Retake quiz
+            </button>
+            <span style={{ fontFamily: 'var(--dlw-font-body)', fontWeight: 600, fontSize: 14, color: '#3C3C3C' }}>
+              or scroll down to continue ↓
+            </span>
+          </div>
         )}
       </div>
     )
