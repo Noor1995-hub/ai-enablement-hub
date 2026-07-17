@@ -87,6 +87,13 @@ function SortMode({ block }: { block: Extract<InteractiveBlockType, { mode: 'sor
   const allAssigned = block.items.length > 0 && block.items.every(item => assignments[item.id])
   const score = block.items.filter(item => assignments[item.id] === item.bucketId).length
 
+  // Side-by-side pills only read well for 2 buckets. At 3+, stack them in a
+  // column beside the item text instead, all sized off this block's own
+  // longest label so short-label blocks stay compact and long-sentence
+  // blocks (e.g. "Governance for agentic engineering") get the room they need.
+  const manyBuckets = block.buckets.length > 2
+  const bucketColWidth = Math.max(...block.buckets.map(b => b.label.length)) + 4
+
   function assign(itemId: string, bucketId: string) {
     if (checked) return
     setAssignments(a => ({ ...a, [itemId]: bucketId }))
@@ -118,7 +125,14 @@ function SortMode({ block }: { block: Extract<InteractiveBlockType, { mode: 'sor
                 <p style={{ fontFamily: 'var(--dlw-font-body)', fontSize: 14, color: '#101820', margin: 0, fontWeight: 500, flex: '1 1 auto', minWidth: 0 }}>
                   {renderInline(item.text)}
                 </p>
-                <div role="group" aria-label={`Assign: ${item.text}`} style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                <div role="group" aria-label={`Assign: ${item.text}`} style={{
+                  display: 'flex',
+                  flexDirection: manyBuckets ? 'column' : 'row',
+                  gap: 8, flexShrink: 0,
+                  flexWrap: manyBuckets ? 'nowrap' : 'wrap',
+                  justifyContent: manyBuckets ? 'flex-start' : 'flex-end',
+                  alignItems: manyBuckets ? 'stretch' : undefined,
+                }}>
                   {block.buckets.map(bucket => {
                     const selected = picked === bucket.id
                     return (
@@ -136,6 +150,8 @@ function SortMode({ block }: { block: Extract<InteractiveBlockType, { mode: 'sor
                           fontFamily: 'var(--dlw-font-body)', fontSize: 13, fontWeight: 600,
                           cursor: checked ? 'default' : 'pointer',
                           whiteSpace: 'nowrap',
+                          width: manyBuckets ? `${bucketColWidth}ch` : undefined,
+                          textAlign: manyBuckets ? 'center' : undefined,
                         }}
                       >
                         {bucket.label}
