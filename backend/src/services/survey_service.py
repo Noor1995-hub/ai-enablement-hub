@@ -104,7 +104,9 @@ class SurveyService:
         track_ids = [
             track.id
             for track in tracks
-            if (rank := LEVEL_RANK.get(track.required_level)) is not None and rank <= seed_rank
+            if not track.is_introduction
+            and (rank := LEVEL_RANK.get(track.required_level)) is not None
+            and rank <= seed_rank
         ]
         if not track_ids:
             return

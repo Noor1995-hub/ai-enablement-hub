@@ -64,6 +64,9 @@ export default function UserPanel({
   const [expandedTracks, setExpandedTracks] = useState<Set<string>>(new Set())
   const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set())
 
+  // Introduction tracks are mandatory/implicit — never per-user assignable.
+  const assignableTracks = tracks.filter(t => !t.is_introduction)
+
   if (!user) return null
 
   function toggleExpanded(trackId: string) {
@@ -146,7 +149,7 @@ export default function UserPanel({
                 <p style={s.panelSectionTitle}>Track assignment</p>
                 <div style={{ display: 'flex', gap: 6 }}>
                   {(() => {
-                    const allTrackIds = tracks.map(t => t.id)
+                    const allTrackIds = assignableTracks.map(t => t.id)
                     const assignedCount = allTrackIds.filter(id => learningUser.assigned_track_ids.includes(id)).length
                     const bulkBusy = togglingItem === `bulk-tracks-${learningUser.id}-all`
                     return (
@@ -179,7 +182,7 @@ export default function UserPanel({
                   })()}
                 </div>
               </div>
-              {tracks.map(track => {
+              {assignableTracks.map(track => {
                 const assigned = learningUser.assigned_track_ids.includes(track.id)
                 const busy = togglingItem === `track-${learningUser.id}-${track.id}`
                 const trackModules = learningData.modules.filter(m => m.track_id === track.id)

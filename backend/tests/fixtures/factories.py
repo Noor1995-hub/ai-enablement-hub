@@ -92,6 +92,7 @@ async def create_track(
     color: str | None = None,
     sort_order: int = 0,
     required_level: str = "explore",
+    is_introduction: bool = False,
 ) -> Track:
     return await _persist(
         session,
@@ -101,6 +102,7 @@ async def create_track(
             color=color,
             sort_order=sort_order,
             required_level=required_level,
+            is_introduction=is_introduction,
         ),
     )
 

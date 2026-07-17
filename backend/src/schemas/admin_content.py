@@ -35,6 +35,7 @@ class TrackOut(BaseModel):
     track_type: str
     color: str | None
     required_level: str
+    is_introduction: bool
 
 
 class TrackModuleOut(BaseModel):

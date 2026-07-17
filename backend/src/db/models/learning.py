@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     DateTime,
     ForeignKey,
@@ -44,6 +45,13 @@ class Track(Base):
     # top rung reached only by progression (see the maturity-ladder migration and
     # the For-Developers promotion migration).
     required_level: Mapped[str] = mapped_column(Text, nullable=False)
+    # Introduction "level": a mandatory, always-unlocked, implicitly-assigned
+    # pre-Explorer track whose completion gates every other track (client-side).
+    # NOT a maturity level — required_level stays 'explore'; this boolean is the
+    # only marker. Set once by migration; never admin-editable.
+    is_introduction: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("false")
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
