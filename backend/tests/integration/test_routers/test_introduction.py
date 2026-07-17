@@ -14,9 +14,10 @@ from typing import TYPE_CHECKING
 import pytest_asyncio
 from sqlalchemy import select, text
 
-from src.db.models import Track
+from src.db.models import Track, UserTrack
 from tests.fixtures.auth import auth_headers
 from tests.fixtures.factories import (
+    VALID_ANSWERS,
     create_lesson,
     create_module,
     create_track,
@@ -158,3 +159,31 @@ class TestIntroductionLessons:
         )
         assert resp.status_code == 200
         assert resp.json()["next_lesson_id"] == str(introworld.intro_lessons[1].id)
+
+
+class TestIntroductionSeed:
+    async def test_survey_completion_does_not_seed_introduction(
+        self,
+        client: AsyncClient,
+        introworld: IntroWorld,
+        test_settings: Settings,
+        db_session: AsyncSession,
+    ) -> None:
+        headers = auth_headers(introworld.learner, test_settings)
+        # Fill + complete the survey via the real endpoints → triggers _seed_assignments.
+        # SurveyDraftRequest has no "answers" wrapper — VALID_ANSWERS is sent flat
+        # (same pattern as test_survey_flow.py's TestSurveyCompletion).
+        assert (
+            await client.put("/api/survey/me", json=VALID_ANSWERS, headers=headers)
+        ).status_code == 200
+        assert (await client.post("/api/survey/complete", headers=headers)).status_code == 200
+
+        seeded = set(
+            (
+                await db_session.execute(
+                    select(UserTrack.track_id).where(UserTrack.user_id == introworld.learner.id)
+                )
+            ).scalars()
+        )
+        assert introworld.explore.id in seeded  # normal explore track seeded
+        assert introworld.intro.id not in seeded  # introduction NOT seeded (implicit)
