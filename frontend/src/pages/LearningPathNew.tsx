@@ -40,7 +40,7 @@ import Spinner from '../components/Spinner'
 import ModulePanel from '../components/ModulePanel'
 import AddTrackModal from '../components/AddTrackModal'
 import AddModuleModal from '../components/AddModuleModal'
-import { LEVELS, LEVEL_GRADIENT, levelByCode } from '../lib/levels'
+import { LEVELS, LEVEL_GRADIENT, levelByCode, INTRODUCTION_LEVEL } from '../lib/levels'
 import { resolveTrackColor, FALLBACK_TRACK_COLOR } from '../lib/trackColors'
 import { getRectZoomFactor } from '../lib/uiZoom'
 import type { ModuleNode, TrackNode } from '../types/domain'
@@ -69,9 +69,16 @@ function writeStoredOpenTrack(userId: string, value: string | null): void {
   try { localStorage.setItem(OPEN_TRACK_KEY(userId), value ?? '') } catch { /* ignore */ }
 }
 
-// Maturity-ladder rank of a track's required_level (General I → General II →
-// tool tracks). Unknown levels sort last.
+// The synthetic group code for Introduction tracks (they are NOT a maturity
+// level, so they must not group with their required_level='explore' peers).
+const INTRO_GROUP = 'introduction'
+function groupCode(track: TrackNode): string {
+  return track.is_introduction ? INTRO_GROUP : track.required_level
+}
+
+// Maturity-ladder rank of a track. Introduction sorts before every level.
 function trackRank(track: TrackNode): number {
+  if (track.is_introduction) return -1
   const i = LEVELS.findIndex(l => l.code === track.required_level)
   return i === -1 ? LEVELS.length : i
 }
@@ -223,13 +230,30 @@ export default function LearningPathNew() {
     const mod = moduleById.get(id)
     return !!mod && mod.lesson_count > 0 && mod.completed_lesson_count >= mod.lesson_count
   }
+
+  // Introduction gate: the pre-Explorer track(s) must be finished before any
+  // other track unlocks. Lesson-based (matches the group bar) with the guard
+  // that an EMPTY Introduction (no lessons yet) leaves the gate OPEN, so
+  // shipping the empty track changes nothing until content is published.
+  const introComplete = useMemo(() => {
+    const introMods = tracks
+      .filter(t => t.is_introduction)
+      .flatMap(t => modulesMap[t.id] ?? [])
+    const total = introMods.reduce((n, m) => n + m.lesson_count, 0)
+    const done = introMods.reduce(
+      (n, m) => n + Math.min(m.completed_lesson_count, m.lesson_count),
+      0,
+    )
+    return total === 0 || done >= total
+  }, [tracks, modulesMap])
+
   const isUnlocked = (id: string): boolean => {
     if (isAdmin) return true // same bypass as the live page
-    // Maturity lock is inherited from the track (server-computed per module):
-    // a maturity-locked module is never unlocked, whatever its prerequisites.
-    // This keeps modules of an expanded locked track reading as locked, even
-    // the first one that has no prerequisites.
-    if (moduleById.get(id)?.unlocked_by_maturity === false) return false
+    const mod = moduleById.get(id)
+    if (mod?.unlocked_by_maturity === false) return false
+    // Introduction gate: modules OUTSIDE the Introduction track stay locked
+    // until the Introduction is complete.
+    if (mod && !mod.is_introduction && !introComplete) return false
     const preds = prereqMap.get(id)
     if (!preds || preds.length === 0) return true
     return preds.every(isDone)
@@ -240,8 +264,13 @@ export default function LearningPathNew() {
   // Maturity gate: a track (and, by inheritance, its modules/lessons) is locked
   // when the caller's effective maturity is below its required_level. Admins
   // bypass it, same as the prerequisite lock.
-  const isTrackLocked = (track: TrackNode): boolean =>
-    !isAdmin && !track.unlocked_by_maturity
+  const isTrackLocked = (track: TrackNode): boolean => {
+    if (isAdmin) return false
+    // The Introduction track itself is never gated by its own completion; it is
+    // force-unlocked server-side (unlocked_by_maturity true even w/o maturity).
+    if (track.is_introduction) return !track.unlocked_by_maturity
+    return !track.unlocked_by_maturity || !introComplete
+  }
 
   /* ── Level + header math ── */
   // Fallback to Explorer when no completed assessment exposes a level yet.
@@ -257,7 +286,7 @@ export default function LearningPathNew() {
   // "{level} progress" bar used.
   const trackLevelById = useMemo(() => {
     const m = new Map<string, string>()
-    for (const t of tracks) m.set(t.id, t.required_level)
+    for (const t of tracks) m.set(t.id, groupCode(t))
     return m
   }, [tracks])
   const levelStats = useMemo(() => {
@@ -288,9 +317,10 @@ export default function LearningPathNew() {
   const trackGroups = useMemo(() => {
     const groups: { levelCode: string; tracks: TrackNode[] }[] = []
     for (const t of tracks) {
+      const code = groupCode(t)
       const last = groups[groups.length - 1]
-      if (last && last.levelCode === t.required_level) last.tracks.push(t)
-      else groups.push({ levelCode: t.required_level, tracks: [t] })
+      if (last && last.levelCode === code) last.tracks.push(t)
+      else groups.push({ levelCode: code, tracks: [t] })
     }
     return groups
   }, [tracks])
@@ -537,14 +567,19 @@ export default function LearningPathNew() {
                 // mapping. The bar shows ACTUAL content progress, so a level
                 // passed via assessment reads passed-dot + honest 0% (agrees
                 // with its lanes, invites revisiting skipped content).
-                const groupLevel = levelByCode(group.levelCode)
-                const groupIdx = LEVELS.findIndex(l => l.code === group.levelCode)
+                const isIntroGroup = group.levelCode === INTRO_GROUP
+                const groupLevel = isIntroGroup ? INTRODUCTION_LEVEL : levelByCode(group.levelCode)
+                const groupIdx = LEVELS.findIndex(l => l.code === group.levelCode) // -1 for intro
                 const groupColor = groupLevel?.color ?? FALLBACK_TRACK_COLOR
                 const stats = levelStats.get(group.levelCode) ?? EMPTY_LEVEL_STATS
                 const groupPct = Math.round(lessonFraction(stats) * 100)
-                const passed = groupIdx !== -1 &&
-                  (groupIdx < levelIdx || (groupIdx === levelIdx && lessonFraction(stats) >= 1))
-                const isCurrent = !passed && groupIdx === levelIdx
+                const passed = isIntroGroup
+                  ? introComplete
+                  : (groupIdx !== -1 &&
+                    (groupIdx < levelIdx || (groupIdx === levelIdx && lessonFraction(stats) >= 1)))
+                const isCurrent = isIntroGroup
+                  ? !introComplete
+                  : (!passed && groupIdx === levelIdx)
                 return (
                   <div key={`${group.levelCode}:${gIdx}`} style={{ ...s.laneList, marginTop: gIdx > 0 ? 14 : 0 }}>
                     <div>
@@ -578,17 +613,23 @@ export default function LearningPathNew() {
                       const color = resolveTrackColor(track)
                       const maturityLocked = isTrackLocked(track)
                       const requiredLevel = levelByCode(track.required_level)
+                      // Locked specifically because the Introduction isn't done
+                      // yet — this message wins over the maturity "Unlocks at" note.
+                      const introBlocked =
+                        maturityLocked && !track.is_introduction && !introComplete
                       const done = mods.filter(m => isDone(m.id)).length
-                      // A maturity-locked track has no actionable "next", but it
-                      // can still be expanded to preview its (locked) modules.
                       const next = maturityLocked ? null : firstCurrent(mods)
                       const open = openTrackId === track.id
-                      const subtitle = maturityLocked
-                        ? `Unlocks at ${requiredLevel?.name ?? track.required_level}`
-                        : `${done} of ${mods.length} modules` +
-                          (next ? ` · next: ${next.title}`
-                            : done === mods.length && mods.length > 0 ? ' · track complete' : ' · locked')
-                      // Grey ring/dots when maturity-locked (the whole lane reads inert).
+                      const subtitle = introBlocked
+                        ? 'Complete the Introduction first'
+                        : maturityLocked
+                          ? `Unlocks at ${requiredLevel?.name ?? track.required_level}`
+                          : `${done} of ${mods.length} modules` +
+                            (next ? ` · next: ${next.title}`
+                              : done === mods.length && mods.length > 0 ? ' · track complete' : ' · locked')
+                      const lockColor = introBlocked
+                        ? INTRODUCTION_LEVEL.color
+                        : (requiredLevel?.color ?? '#8A8A8A')
                       const ringColor = maturityLocked ? '#C4C4C4' : color
 
                       return (
@@ -613,7 +654,7 @@ export default function LearningPathNew() {
                               : <ProgressRing color={ringColor} frac={mods.length ? done / mods.length : 0} />}
                             <div style={s.laneTitleCol}>
                               <span style={{ ...s.laneName, color: maturityLocked ? '#B6B6B6' : '#3C3C3C' }}>{track.name}</span>
-                              <span style={{ ...s.laneSubtitle, ...(maturityLocked ? { color: requiredLevel?.color ?? '#8A8A8A', fontWeight: 700 } : {}) }}>{subtitle}</span>
+                              <span style={{ ...s.laneSubtitle, ...(maturityLocked ? { color: lockColor, fontWeight: 700 } : {}) }}>{subtitle}</span>
                             </div>
                             <div style={s.laneDots}>
                               {mods.map(m => {

@@ -1716,6 +1716,8 @@ export interface components {
             completed_lesson_count: number;
             /** Unlocked By Maturity */
             unlocked_by_maturity: boolean;
+            /** Is Introduction */
+            is_introduction: boolean;
         };
         /** ModuleOut */
         ModuleOut: {
@@ -2012,6 +2014,8 @@ export interface components {
             required_level: string;
             /** Unlocked By Maturity */
             unlocked_by_maturity: boolean;
+            /** Is Introduction */
+            is_introduction: boolean;
         };
         /** TrackOut */
         TrackOut: {
@@ -2030,6 +2034,8 @@ export interface components {
             color: string | null;
             /** Required Level */
             required_level: string;
+            /** Is Introduction */
+            is_introduction: boolean;
         };
         /** UserProfileResponse */
         UserProfileResponse: {

@@ -31,3 +31,15 @@ export function levelByCode(code: string | null | undefined): LevelDef | undefin
 /** The four level colors as one left-to-right gradient, a stop at each segment centre. */
 export const LEVEL_GRADIENT =
   `linear-gradient(to right, ${LEVELS.map((l, i) => `${l.color} ${12.5 + i * 25}%`).join(', ')})`
+
+// The pre-Explorer orientation "level" — a MANDATORY GATE, not a maturity level,
+// so it is deliberately absent from LEVELS (and thus from the overall-journey
+// stepper, the "% of full path" math, the CURRENT LEVEL card and the assessment
+// graphic). It only ever renders as its own group in the learning path's YOUR
+// TRACKS list. `sub` is omitted — only name/tagline/color are read there.
+export const INTRODUCTION_LEVEL: { code: string; name: string; tagline: string; color: string } = {
+  code: 'introduction',
+  name: 'Introduction',
+  tagline: "Let's get familiar",
+  color: '#941914',
+}
