@@ -187,3 +187,17 @@ class TestIntroductionSeed:
         )
         assert introworld.explore.id in seeded  # normal explore track seeded
         assert introworld.intro.id not in seeded  # introduction NOT seeded (implicit)
+
+
+class TestIntroductionAdminTracks:
+    async def test_admin_tracks_expose_is_introduction(
+        self, client: AsyncClient, introworld: IntroWorld, test_settings: Settings
+    ) -> None:
+        # /api/tracks is Depends(get_current_user) — any authenticated user.
+        resp = await client.get(
+            "/api/tracks", headers=auth_headers(introworld.learner, test_settings)
+        )
+        assert resp.status_code == 200
+        by_id = {t["id"]: t for t in resp.json()}
+        assert by_id[str(introworld.intro.id)]["is_introduction"] is True
+        assert by_id[str(introworld.explore.id)]["is_introduction"] is False
