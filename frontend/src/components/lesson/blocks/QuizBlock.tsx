@@ -32,14 +32,17 @@ export default function QuizBlock({ block, onComplete }: QuizBlockProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only shuffle, same as the old app
   }, [])
 
-  // Reaching the results screen unlocks completion regardless of score: the
-  // quiz is obligatory (you must answer every question once), but a wrong
-  // answer no longer blocks "Mark as complete". Retake stays optional.
+  // Answering the final question unlocks completion: once its feedback shows,
+  // every question has been answered once, so "Mark as complete" appears at the
+  // same moment "See results" does — the learner does not have to click through
+  // to the results screen first. Reaching results also unlocks it (belt and
+  // braces). The quiz stays obligatory (you must answer every question once),
+  // but score is irrelevant and Retake stays optional.
   useEffect(() => {
-    if (phase === 'results') {
+    if (phase === 'results' || (isLast && showFeedback)) {
       onComplete?.()
     }
-  }, [phase, onComplete])
+  }, [phase, isLast, showFeedback, onComplete])
 
   if (!shuffledQuestions.length) return null
 
