@@ -448,6 +448,17 @@ authoritative for anything; see `db/README.md` for why its migration scripts mus
   `/api/health` `{"status":"ok"}` and `/api/auth/methods` `{"password":true,"entra":false}`
   green on `--0000015`; new revision confirmed as the running/ready revision on the new image.
   Only newly-minted links get 14 days — already-issued links keep their original expiry.
+- **Redeployed 2026-07-20** (`ai-enablement-hub:20260720-100825`, revision `--0000019`,
+  user-approved): below-level tracks are now freely reviewable on the learning path (commit
+  `e821297` — `LearningPathNew.tsx::isUnlocked` fully unlocks any module whose track sits at a
+  maturity level strictly below the learner's effective level, so e.g. a pinned/earned
+  Practitioner can review every Explorer module without walking the prerequisite path;
+  current-level prerequisites, higher-level maturity locks, the Introduction gate and
+  un-assessed learners are all unaffected). Frontend-only, no migration (alembic head unchanged
+  at `d8e9f0a1b2c3`). typecheck/lint/build clean before deploy. Post-deploy `/api/health`
+  `{"status":"ok"}` + `/api/auth/methods` `{"password":true,"entra":false}` green on the new
+  image. NOT browser-verified (no browser automation this session) — spot-check `/learning` as a
+  Practitioner-pinned learner. Spec: `docs/superpowers/specs/2026-07-20-below-level-free-review-design.md`.
 
 ## Open for cutover
 
