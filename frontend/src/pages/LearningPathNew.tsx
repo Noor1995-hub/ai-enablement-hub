@@ -286,6 +286,15 @@ export default function LearningPathNew() {
     // Introduction gate: modules OUTSIDE the Introduction track stay locked
     // until the Introduction is complete.
     if (mod && !mod.is_introduction && !introComplete) return false
+    // Below-level tracks are already "mastered": a module whose track sits at a
+    // maturity level strictly below the learner's effective level is fully
+    // unlocked — the whole prerequisite path is bypassed so the learner can
+    // freely review it (levels below the assessed level count as complete, the
+    // same model the overall bar uses). Current-level and higher tracks still
+    // gate: higher levels never reach here (unlocked_by_maturity === false
+    // above), and same-level prerequisites fall through to predSatisfied below.
+    const rank = moduleLevelRank.get(id)
+    if (rank !== undefined && rank < levelIdx) return true
     const preds = prereqMap.get(id)
     if (!preds || preds.length === 0) return true
     return preds.every(p => predSatisfied(p, id))
