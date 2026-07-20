@@ -91,55 +91,47 @@ def find_americanisms(blocks: list[dict]) -> list[dict]:
 CHECK_UNDERSTANDING = "check your understanding"
 
 
-def check_quiz_conformance(blocks: list[dict]) -> list[dict]:
-    """Enforce the house convention around quizzes and whitespace separators.
+WINDOW = 3  # blocks before a quiz counted as the quiz's "close" group
 
-    For each quiz: walking backward past whitespace blocks, the first
-    non-whitespace block must be a heading 'Check your understanding'
-    (quiz-heading), and at least one of the skipped whitespace blocks must be
-    size 'md' (quiz-separator). Any whitespace of a non-'md' size is flagged
-    (whitespace-size). Any whitespace not adjacent to a quiz is flagged
-    (whitespace-orphan).
+
+def check_quiz_conformance(blocks: list[dict]) -> list[dict]:
+    """Check the house convention around quizzes and whitespace separators.
+
+    The convention (authoring_guide.md) is a `whitespace(md)` separator and a
+    heading 'Check your understanding' shortly before the closing quiz. In real
+    content the whitespace sits either just before or just after that heading,
+    so we look for both anywhere in the WINDOW blocks immediately preceding the
+    quiz rather than demanding a fixed order:
+      - quiz-no-cyu-heading  : no 'Check your understanding' heading in the window
+      - quiz-no-md-separator : no whitespace(md) in the window
+      - whitespace-size      : a whitespace block of a size other than 'md'
+    Whitespace used elsewhere as a plain section separator is NOT flagged -
+    the convention says 'usually' before a quiz, not 'only'.
     """
     blocks = blocks or []
     findings: list[dict] = []
-    quiz_indices = {i for i, b in enumerate(blocks) if b.get("type") == "quiz"}
 
-    # whitespace-size + whitespace-orphan
     for i, b in enumerate(blocks):
-        if b.get("type") != "whitespace":
-            continue
-        if b.get("size") != "md":
+        if b.get("type") == "whitespace" and b.get("size") != "md":
             findings.append({"kind": "whitespace-size", "block_index": i,
                              "detail": f"whitespace size is {b.get('size')!r}, expected 'md'"})
-        # orphan = the nearest non-whitespace block AFTER it is not a quiz
-        j = i + 1
-        while j < len(blocks) and blocks[j].get("type") == "whitespace":
-            j += 1
-        if not (j < len(blocks) and blocks[j].get("type") == "quiz"):
-            findings.append({"kind": "whitespace-orphan", "block_index": i,
-                             "detail": "whitespace block is not immediately before a quiz"})
 
-    # quiz-heading + quiz-separator
-    for qi in sorted(quiz_indices):
-        saw_md_ws = False
-        k = qi - 1
-        while k >= 0 and blocks[k].get("type") == "whitespace":
-            if blocks[k].get("size") == "md":
-                saw_md_ws = True
-            k -= 1
-        prev = blocks[k] if k >= 0 else None
-        is_heading = (
-            prev is not None
-            and prev.get("type") == "heading"
-            and (prev.get("text") or "").strip().lower() == CHECK_UNDERSTANDING
+    for qi in (i for i, b in enumerate(blocks) if b.get("type") == "quiz"):
+        window = blocks[max(0, qi - WINDOW):qi]
+        has_cyu = any(
+            w.get("type") == "heading"
+            and (w.get("text") or "").strip().lower() == CHECK_UNDERSTANDING
+            for w in window
         )
-        if not is_heading:
-            findings.append({"kind": "quiz-heading", "block_index": qi,
-                             "detail": "no 'Check your understanding' heading immediately before the quiz"})
-        if not saw_md_ws:
-            findings.append({"kind": "quiz-separator", "block_index": qi,
-                             "detail": "no whitespace(md) separator immediately before the quiz"})
+        has_md_ws = any(
+            w.get("type") == "whitespace" and w.get("size") == "md" for w in window
+        )
+        if not has_cyu:
+            findings.append({"kind": "quiz-no-cyu-heading", "block_index": qi,
+                             "detail": "no 'Check your understanding' heading in the 3 blocks before the quiz"})
+        if not has_md_ws:
+            findings.append({"kind": "quiz-no-md-separator", "block_index": qi,
+                             "detail": "no whitespace(md) separator in the 3 blocks before the quiz"})
     return findings
 
 

@@ -57,21 +57,29 @@ QUIZ = {"id": "q", "type": "quiz", "questions": [
     {"id": "1", "q": "Q", "options": ["a", "b", "c"], "correct": 1, "explanation": "e"}]}
 
 
-def test_conformant_quiz_has_no_findings():
+def test_conformant_quiz_heading_then_ws_has_no_findings():
     blocks = [{"id": "p", "type": "paragraph", "text": "body"}, HEADING, WS_MD, QUIZ]
     assert check_quiz_conformance(blocks) == []
 
 
+def test_conformant_quiz_ws_then_heading_has_no_findings():
+    # the dominant real pattern: whitespace(md) sits BEFORE the CYU heading
+    blocks = [{"id": "p", "type": "paragraph", "text": "body"}, WS_MD, HEADING, QUIZ]
+    assert check_quiz_conformance(blocks) == []
+
+
 def test_missing_check_understanding_heading_is_flagged():
-    blocks = [WS_MD, QUIZ]  # no heading before the quiz
+    blocks = [WS_MD, QUIZ]  # md separator present, but no CYU heading
     kinds = {f["kind"] for f in check_quiz_conformance(blocks)}
-    assert "quiz-heading" in kinds
+    assert "quiz-no-cyu-heading" in kinds
+    assert "quiz-no-md-separator" not in kinds
 
 
 def test_missing_md_separator_is_flagged():
-    blocks = [HEADING, QUIZ]  # heading present but no whitespace(md) between it and the quiz
+    blocks = [HEADING, QUIZ]  # CYU heading present, but no whitespace(md) in the window
     kinds = {f["kind"] for f in check_quiz_conformance(blocks)}
-    assert "quiz-separator" in kinds
+    assert "quiz-no-md-separator" in kinds
+    assert "quiz-no-cyu-heading" not in kinds
 
 
 def test_wrong_whitespace_size_is_flagged():
@@ -80,11 +88,11 @@ def test_wrong_whitespace_size_is_flagged():
     assert "whitespace-size" in kinds
 
 
-def test_orphan_whitespace_not_near_quiz_is_flagged():
+def test_mid_lesson_whitespace_separator_is_not_flagged():
+    # a plain section separator, not near any quiz, must NOT be an error
     blocks = [{"id": "p", "type": "paragraph", "text": "x"}, WS_MD,
               {"id": "p2", "type": "paragraph", "text": "y"}]
-    kinds = {f["kind"] for f in check_quiz_conformance(blocks)}
-    assert "whitespace-orphan" in kinds
+    assert check_quiz_conformance(blocks) == []
 
 
 def test_quiz_stats_counts_questions_options_positions():
