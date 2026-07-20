@@ -6,10 +6,22 @@
 
 ## Purpose
 
-Run a structured quality-assurance pass over **every module and lesson currently assigned to
-the `admin admin` account** (`a@a.com`, `587f5667-2ddc-4b95-827c-09bcb92c5b7c`). This account
-has the full curriculum assigned, so the scope is effectively the whole live hub: **13 tracks,
-38 modules, 108 lessons** (280 quiz questions, 20 interactive blocks).
+Run a structured quality-assurance pass over the lessons the `admin admin` account
+(`a@a.com`, `587f5667-2ddc-4b95-827c-09bcb92c5b7c`) has assigned — **scoped to the 9 tracks
+Matthias flagged as the ones that matter now** (the tracks showing "assigned" in the admin
+track-assignment panel). This is **9 tracks, 28 modules, 93 lessons.**
+
+**In scope (9 tracks):** General I, General II, Copilot, Claude, Obsidian, General III,
+Copilot II, Claude II, For Developers.
+
+**Explicitly excluded:** the `Introduction` track (not assigned — not in `user_tracks`), and
+the three unassigned tool tracks **Power Automate/Apps, Lovable, Confluence**.
+
+Scope note: all lessons living in the 9 assigned tracks are lesson-assigned to admin (93).
+Two of them — the "Copilot use case build" and "Claude use case build" capstone lessons — are
+lesson-assigned but their *module* is not module-assigned, so admin doesn't currently see them
+in the graph; they are real track content and are folded in (giving 93 rather than 91). Drop
+them if the scope should be exactly-what-admin-sees.
 
 Two review workstreams, run over one shared read of the content:
 
@@ -38,10 +50,11 @@ relevant, checkable conventions:
 - **Heading before quiz:** a `heading` "Check your understanding" immediately precedes each
   quiz (Matthias's convention, confirmed 2026-07-17).
 - **Quiz:** optional per lesson (skip on light/curiosity/decision lessons); when used → 3
-  questions, 3–4 options, a teaching explanation each; **the correct answer must never be the
-  longest option** (a confirmed systemic bug — ~87% of questions violate this); vary which
-  position is correct; distractors must be plausible; a `sort` interactive can *replace* a
-  quiz on a decision lesson.
+  questions, 3–4 options, a teaching explanation each; vary which position is correct;
+  distractors must be plausible; a `sort` interactive can *replace* a quiz on a decision
+  lesson.
+  - **Answer-length bug is already fixed** (Matthias, 2026-07-20) — the historical "correct
+    answer is the longest option" pattern is out of scope and not re-litigated here.
 
 Where a convention itself looks wrong or contested for a given lesson, it is flagged for
 Matthias's decision rather than silently marked as a deviation (the guide is "draft v1", and
@@ -58,15 +71,15 @@ mechanical and needs no LLM.
 
 ```
 Live Azure DB
-   │  (one read-only fetch, all 108 assigned lessons)
+   │  (one read-only fetch, all 93 in-scope lessons across the 9 tracks)
    ▼
 lessons snapshot JSON  (track → module → lesson → sort_order → content_blocks)
    │
    ├── Phase 1: deterministic sweeps (scripts, run once, centrally)
    │      → deterministic_findings.json  (per-lesson: punctuation, americanisms,
-   │        spacing/heading conformance, quiz answer-length/position stats)
+   │        spacing/heading conformance, quiz structure stats)
    │
-   └── Phase 2: editorial workflow fan-out (one agent per module, ~38)
+   └── Phase 2: editorial workflow fan-out (one agent per module, ~28)
           input per agent: its module's lessons + the standard + Phase-1
                             findings for those lessons (so it adds judgement,
                             not re-finds mechanical hits)
@@ -80,9 +93,10 @@ Synthesis → two reports in scratch_review/:
 
 ### Phase 0 — Shared data pull
 
-A read-only script (asyncpg, pattern of `backend/scripts/read_foundation_to_tools.py`) joins
-`user_lessons → lessons → modules → tracks` for the admin user and dumps, ordered by
-track/module/lesson `sort_order`:
+A read-only script (asyncpg, pattern of `backend/scripts/read_foundation_to_tools.py`) selects
+the lessons of the 9 in-scope tracks (join `lessons → modules → tracks`, filtered to the
+assigned `track_id`s) for the admin user and dumps, ordered by track/module/lesson
+`sort_order`:
 
 ```
 { track_name, track_level, module_title, module_id, lesson_id, lesson_title,
@@ -111,16 +125,17 @@ interactive `reason`/`label`, try-it-yourself fields):
    `whitespace(md)` between them (or directly before the quiz)? Flag: missing heading, missing
    separator, `whitespace` of size other than `md`, `whitespace` not adjacent to a quiz, and
    the whitespace-count distribution per lesson.
-4. **Quiz data checks** — per quiz question: is the correct option the (unique) longest? record
-   the correct option's position; count options (flag ≠ 3–4); count questions per quiz (flag
-   ≠ 3 as a "fewer?" candidate for Phase 2). Aggregate per track and hub-wide.
+4. **Quiz structure stats** — count questions per quiz (flag ≠ 3 as a "3 → fewer?" candidate
+   for Phase 2), count options per question (flag ≠ 3–4), and record the correct-option
+   position distribution (informational, to spot position skew). The answer-length pattern is
+   *not* checked — it's already fixed and out of scope.
 
 Output: `deterministic_findings.json` keyed by lesson_id, plus a short human summary. These are
 high-confidence, exhaustive findings that Phase 2 does **not** need to re-discover.
 
 ### Phase 2 — Editorial workflow fan-out
 
-A `Workflow` (explicit opt-in given) with **one agent per module** (~38). Rationale for module
+A `Workflow` (explicit opt-in given) with **one agent per module** (~28). Rationale for module
 granularity: quiz *variety* is a module-level property — an agent seeing a whole module can
 recommend a *mix* (not "convert every quiz to predict"). `parallel`/`pipeline` over the module
 list, capped by the runtime's concurrency limit.
@@ -155,8 +170,8 @@ Assemble from Phase-1 JSON + Phase-2 structured returns into two plain-markdown 
   (Phase 1) and editorial (Phase 2) findings merged per lesson, deterministic ones marked as
   high-confidence.
 - **`quiz_review_2026-07-20.md`** — per quiz: verdict + reasoning; a per-module variety summary;
-  a hub-wide section for the systemic patterns (answer-length bias, position skew, question
-  counts).
+  a hub-wide section for the systemic patterns (position skew, question counts, distractor
+  quality). Answer-length bias is already fixed and not reported.
 
 Each report ends with a triaged action list so the follow-up apply phase has a clear worklist.
 
@@ -165,8 +180,8 @@ Each report ends with a triaged action list so the follow-up apply phase has a c
 - **Applying any fix.** Edits to live content are a separate phase, each write preceded by a
   fresh fetch (block ids churn on every admin-UI re-save; a quiz/card_group can silently vanish
   from an unrelated live edit — treat any missing block as a bug, not a decision).
-- **Lessons not assigned to `admin admin`** (there are none of consequence — the account has the
-  full curriculum — but any unassigned/orphan lesson is not fetched).
+- **The 4 unassigned tracks** — `Introduction`, Power Automate/Apps, Lovable, Confluence are
+  out of scope this pass (not in the 9 flagged tracks).
 - **Deep cross-lesson dedup** (review-lens §5 bucket 4): flagged where obvious, but a full
   read-the-sequence-as-one-arc dedup pass is a candidate follow-up, not part of this pass.
 - **Factual-accuracy verification** beyond flagging: any factual claim a reviewer doubts is
@@ -174,10 +189,10 @@ Each report ends with a triaged action list so the follow-up apply phase has a c
 
 ## Success criteria
 
-- Every one of the 108 assigned lessons appears in both reports (or is explicitly noted as
+- Every one of the 93 in-scope lessons appears in both reports (or is explicitly noted as
   clean).
 - Phase-1 mechanical findings are exhaustive for their known patterns (punctuation, listed
-  Americanisms, quiz answer-length/position, spacing/heading adjacency).
+  Americanisms, quiz structure stats, spacing/heading adjacency).
 - Every finding is actionable: exact quote or block locator, the specific deviation, and a
   recommendation.
 - Quiz verdicts include a module-level variety view, not just isolated per-quiz calls.
