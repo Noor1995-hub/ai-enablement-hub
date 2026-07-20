@@ -9,7 +9,8 @@
 Run a structured quality-assurance pass over the lessons the `admin admin` account
 (`a@a.com`, `587f5667-2ddc-4b95-827c-09bcb92c5b7c`) has assigned — **scoped to the 9 tracks
 Matthias flagged as the ones that matter now** (the tracks showing "assigned" in the admin
-track-assignment panel). This is **9 tracks, 28 modules, 93 lessons.**
+track-assignment panel). This is **9 tracks, 26 modules, 91 lessons** — exactly what admin
+sees (assigned track AND module AND lesson).
 
 **In scope (9 tracks):** General I, General II, Copilot, Claude, Obsidian, General III,
 Copilot II, Claude II, For Developers.
@@ -17,11 +18,10 @@ Copilot II, Claude II, For Developers.
 **Explicitly excluded:** the `Introduction` track (not assigned — not in `user_tracks`), and
 the three unassigned tool tracks **Power Automate/Apps, Lovable, Confluence**.
 
-Scope note: all lessons living in the 9 assigned tracks are lesson-assigned to admin (93).
-Two of them — the "Copilot use case build" and "Claude use case build" capstone lessons — are
-lesson-assigned but their *module* is not module-assigned, so admin doesn't currently see them
-in the graph; they are real track content and are folded in (giving 93 rather than 91). Drop
-them if the scope should be exactly-what-admin-sees.
+Scope note: the two "Copilot use case build" and "Claude use case build" capstone lessons are
+lesson-assigned but their *module* is not module-assigned, so admin doesn't see them in the
+graph. They are **excluded** (Matthias's call, 2026-07-20) so scope is exactly-what-admin-sees
+— which is why this is 91 lessons / 26 modules, not 93 / 28.
 
 Two review workstreams, run over one shared read of the content:
 
@@ -71,7 +71,7 @@ mechanical and needs no LLM.
 
 ```
 Live Azure DB
-   │  (one read-only fetch, all 93 in-scope lessons across the 9 tracks)
+   │  (one read-only fetch, all 91 in-scope lessons across the 9 tracks)
    ▼
 lessons snapshot JSON  (track → module → lesson → sort_order → content_blocks)
    │
@@ -79,7 +79,7 @@ lessons snapshot JSON  (track → module → lesson → sort_order → content_b
    │      → deterministic_findings.json  (per-lesson: punctuation, americanisms,
    │        spacing/heading conformance, quiz structure stats)
    │
-   └── Phase 2: editorial workflow fan-out (one agent per module, ~28)
+   └── Phase 2: editorial workflow fan-out (one agent per module, 26)
           input per agent: its module's lessons + the standard + Phase-1
                             findings for those lessons (so it adds judgement,
                             not re-finds mechanical hits)
@@ -135,7 +135,7 @@ high-confidence, exhaustive findings that Phase 2 does **not** need to re-discov
 
 ### Phase 2 — Editorial workflow fan-out
 
-A `Workflow` (explicit opt-in given) with **one agent per module** (~28). Rationale for module
+A `Workflow` (explicit opt-in given) with **one agent per module** (26). Rationale for module
 granularity: quiz *variety* is a module-level property — an agent seeing a whole module can
 recommend a *mix* (not "convert every quiz to predict"). `parallel`/`pipeline` over the module
 list, capped by the runtime's concurrency limit.
@@ -189,7 +189,7 @@ Each report ends with a triaged action list so the follow-up apply phase has a c
 
 ## Success criteria
 
-- Every one of the 93 in-scope lessons appears in both reports (or is explicitly noted as
+- Every one of the 91 in-scope lessons appears in both reports (or is explicitly noted as
   clean).
 - Phase-1 mechanical findings are exhaustive for their known patterns (punctuation, listed
   Americanisms, quiz structure stats, spacing/heading adjacency).
