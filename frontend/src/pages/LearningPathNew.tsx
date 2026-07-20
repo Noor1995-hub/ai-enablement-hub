@@ -632,6 +632,15 @@ export default function LearningPathNew() {
                 const isCurrent = isIntroGroup
                   ? !introComplete
                   : (!passed && groupIdx === levelIdx)
+                // The header tick means the level's CONTENT is actually finished.
+                // A level the learner is past by maturity but hasn't worked
+                // through yet (0% with locked lanes) reads as an open ring + dot,
+                // like the Introduction and the current level, rather than a tick
+                // that wrongly implies it is done.
+                const contentComplete = isIntroGroup
+                  ? introComplete
+                  : (groupIdx !== -1 && stats.modulesTotal > 0 && lessonFraction(stats) >= 1)
+                const showOpenDot = !contentComplete && groupIdx <= levelIdx
                 return (
                   <div key={`${group.levelCode}:${gIdx}`} style={{ ...s.laneList, marginTop: gIdx > 0 ? 14 : 0 }}>
                     <div>
@@ -639,10 +648,10 @@ export default function LearningPathNew() {
                         <span style={{
                           ...s.levelHeaderDot,
                           borderColor: groupColor,
-                          background: passed ? groupColor : '#fff',
+                          background: contentComplete ? groupColor : '#fff',
                         }}>
-                          {passed && <CheckGlyph size={10} />}
-                          {isCurrent && <span style={{ width: 6, height: 6, borderRadius: '50%', background: groupColor }} />}
+                          {contentComplete && <CheckGlyph size={10} />}
+                          {showOpenDot && <span style={{ width: 6, height: 6, borderRadius: '50%', background: groupColor }} />}
                         </span>
                         <span style={{ ...s.levelHeaderName, color: groupColor, fontWeight: isCurrent ? 800 : 600 }}>
                           {groupLevel?.name ?? group.levelCode}
