@@ -86,3 +86,78 @@ def find_americanisms(blocks: list[dict]) -> list[dict]:
                  "snippet": _snippet(text, m.start(), m.end())}
             )
     return findings
+
+
+CHECK_UNDERSTANDING = "check your understanding"
+
+
+def check_quiz_conformance(blocks: list[dict]) -> list[dict]:
+    """Enforce the house convention around quizzes and whitespace separators.
+
+    For each quiz: walking backward past whitespace blocks, the first
+    non-whitespace block must be a heading 'Check your understanding'
+    (quiz-heading), and at least one of the skipped whitespace blocks must be
+    size 'md' (quiz-separator). Any whitespace of a non-'md' size is flagged
+    (whitespace-size). Any whitespace not adjacent to a quiz is flagged
+    (whitespace-orphan).
+    """
+    blocks = blocks or []
+    findings: list[dict] = []
+    quiz_indices = {i for i, b in enumerate(blocks) if b.get("type") == "quiz"}
+
+    # whitespace-size + whitespace-orphan
+    for i, b in enumerate(blocks):
+        if b.get("type") != "whitespace":
+            continue
+        if b.get("size") != "md":
+            findings.append({"kind": "whitespace-size", "block_index": i,
+                             "detail": f"whitespace size is {b.get('size')!r}, expected 'md'"})
+        # orphan = the nearest non-whitespace block AFTER it is not a quiz
+        j = i + 1
+        while j < len(blocks) and blocks[j].get("type") == "whitespace":
+            j += 1
+        if not (j < len(blocks) and blocks[j].get("type") == "quiz"):
+            findings.append({"kind": "whitespace-orphan", "block_index": i,
+                             "detail": "whitespace block is not immediately before a quiz"})
+
+    # quiz-heading + quiz-separator
+    for qi in sorted(quiz_indices):
+        saw_md_ws = False
+        k = qi - 1
+        while k >= 0 and blocks[k].get("type") == "whitespace":
+            if blocks[k].get("size") == "md":
+                saw_md_ws = True
+            k -= 1
+        prev = blocks[k] if k >= 0 else None
+        is_heading = (
+            prev is not None
+            and prev.get("type") == "heading"
+            and (prev.get("text") or "").strip().lower() == CHECK_UNDERSTANDING
+        )
+        if not is_heading:
+            findings.append({"kind": "quiz-heading", "block_index": qi,
+                             "detail": "no 'Check your understanding' heading immediately before the quiz"})
+        if not saw_md_ws:
+            findings.append({"kind": "quiz-separator", "block_index": qi,
+                             "detail": "no whitespace(md) separator immediately before the quiz"})
+    return findings
+
+
+def quiz_stats(blocks: list[dict]) -> dict:
+    blocks = blocks or []
+    questions: list[dict] = []
+    quiz_index = 0
+    num_quizzes = 0
+    for b in blocks:
+        if b.get("type") == "quiz":
+            num_quizzes += 1
+            for q in b.get("questions", []):
+                questions.append({
+                    "num_options": len(q.get("options", [])),
+                    "correct_index": q.get("correct"),
+                    "quiz_index": quiz_index,
+                })
+            quiz_index += 1
+    num_whitespace = sum(1 for b in blocks if b.get("type") == "whitespace")
+    return {"num_quizzes": num_quizzes, "questions": questions,
+            "num_whitespace": num_whitespace}

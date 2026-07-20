@@ -1,4 +1,9 @@
-from content_qa.checks import find_americanisms, find_banned_punctuation
+from content_qa.checks import (
+    check_quiz_conformance,
+    find_americanisms,
+    find_banned_punctuation,
+    quiz_stats,
+)
 
 
 def _para(text):
@@ -44,3 +49,47 @@ def test_flags_nested_quiz_option_text():
          "correct": 0, "explanation": "ok"}]}]
     found = find_americanisms(blocks)
     assert any(f["path"].endswith("options[0]") for f in found)
+
+
+HEADING = {"id": "h", "type": "heading", "level": 2, "text": "Check your understanding"}
+WS_MD = {"id": "w", "type": "whitespace", "size": "md"}
+QUIZ = {"id": "q", "type": "quiz", "questions": [
+    {"id": "1", "q": "Q", "options": ["a", "b", "c"], "correct": 1, "explanation": "e"}]}
+
+
+def test_conformant_quiz_has_no_findings():
+    blocks = [{"id": "p", "type": "paragraph", "text": "body"}, HEADING, WS_MD, QUIZ]
+    assert check_quiz_conformance(blocks) == []
+
+
+def test_missing_check_understanding_heading_is_flagged():
+    blocks = [WS_MD, QUIZ]  # no heading before the quiz
+    kinds = {f["kind"] for f in check_quiz_conformance(blocks)}
+    assert "quiz-heading" in kinds
+
+
+def test_missing_md_separator_is_flagged():
+    blocks = [HEADING, QUIZ]  # heading present but no whitespace(md) between it and the quiz
+    kinds = {f["kind"] for f in check_quiz_conformance(blocks)}
+    assert "quiz-separator" in kinds
+
+
+def test_wrong_whitespace_size_is_flagged():
+    blocks = [HEADING, {"id": "w", "type": "whitespace", "size": "sm"}, QUIZ]
+    kinds = {f["kind"] for f in check_quiz_conformance(blocks)}
+    assert "whitespace-size" in kinds
+
+
+def test_orphan_whitespace_not_near_quiz_is_flagged():
+    blocks = [{"id": "p", "type": "paragraph", "text": "x"}, WS_MD,
+              {"id": "p2", "type": "paragraph", "text": "y"}]
+    kinds = {f["kind"] for f in check_quiz_conformance(blocks)}
+    assert "whitespace-orphan" in kinds
+
+
+def test_quiz_stats_counts_questions_options_positions():
+    blocks = [HEADING, WS_MD, QUIZ]
+    stats = quiz_stats(blocks)
+    assert stats["num_quizzes"] == 1
+    assert stats["questions"] == [{"num_options": 3, "correct_index": 1, "quiz_index": 0}]
+    assert stats["num_whitespace"] == 1
