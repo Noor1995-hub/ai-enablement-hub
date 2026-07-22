@@ -6,6 +6,7 @@ Orphaned quiz edits (invalid block_id) are matched to a quiz block by locating
 which lesson currently holds a quiz, using the edit's change_summary for the
 human to confirm.
 """
+
 import asyncio
 import json
 import sys
@@ -53,8 +54,11 @@ async def main() -> None:
             target = None
             for lid, blocks in fresh.items():
                 # search non-quiz text for the old_string
-                if any(e["old_string"] in json.dumps(b, ensure_ascii=False)
-                       for b in blocks if b.get("type") != "quiz"):
+                if any(
+                    e["old_string"] in json.dumps(b, ensure_ascii=False)
+                    for b in blocks
+                    if b.get("type") != "quiz"
+                ):
                     target = lid
                     break
             if target and apply_text_edit(fresh[target], e["old_string"], e["new_string"]):
@@ -76,7 +80,7 @@ async def main() -> None:
         # orphan quiz edits: report for mapping
         for qe in bad_quiz:
             print(f"\nORPHAN QUIZ EDIT (block {qe['block_id']}):")
-            print(f"  change_summary: {qe.get('change_summary','')[:300]}")
+            print(f"  change_summary: {qe.get('change_summary', '')[:300]}")
             print(f"  new question count: {len(qe['questions'])}")
             print(f"  first q: {qe['questions'][0]['q'][:90]}")
     finally:

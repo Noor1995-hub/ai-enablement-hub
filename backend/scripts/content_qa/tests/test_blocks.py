@@ -20,21 +20,33 @@ def test_extracts_nested_quiz_and_card_text():
             "id": "q",
             "type": "quiz",
             "questions": [
-                {"id": "q1", "q": "Why?", "options": ["A", "B"], "correct": 0,
-                 "explanation": "Because."},
+                {
+                    "id": "q1",
+                    "q": "Why?",
+                    "options": ["A", "B"],
+                    "correct": 0,
+                    "explanation": "Because.",
+                },
             ],
         },
-        {"id": "c", "type": "card_group",
-         "cards": [{"id": "c1", "title": "T", "body": "Bod"}]},
+        {"id": "c", "type": "card_group", "cards": [{"id": "c1", "title": "T", "body": "Bod"}]},
     ]
     texts = {t for _, t in iter_texts(blocks)}
     assert {"Why?", "A", "B", "Because.", "T", "Bod"} <= texts
 
 
 def test_skips_non_prose_locators():
-    blocks = [{"id": "i", "type": "image", "blob_path": "images/x.png",
-               "alt": "a diagram", "url": "https://sas", "width": 80}]
+    blocks = [
+        {
+            "id": "i",
+            "type": "image",
+            "blob_path": "images/x.png",
+            "alt": "a diagram",
+            "url": "https://sas",
+            "width": 80,
+        }
+    ]
     texts = {t for _, t in iter_texts(blocks)}
-    assert "a diagram" in texts          # alt IS prose
-    assert "images/x.png" not in texts   # blob_path is not
-    assert "https://sas" not in texts    # url is not
+    assert "a diagram" in texts  # alt IS prose
+    assert "images/x.png" not in texts  # blob_path is not
+    assert "https://sas" not in texts  # url is not

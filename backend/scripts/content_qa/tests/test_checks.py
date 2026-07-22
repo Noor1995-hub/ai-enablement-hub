@@ -30,9 +30,9 @@ def test_flags_american_spellings():
 
 
 def test_does_not_flag_correct_british_forms():
-    found = find_americanisms(_para(
-        "Organise the colour of your behaviour, summarise the Artefact, and centre it."
-    ))
+    found = find_americanisms(
+        _para("Organise the colour of your behaviour, summarise the Artefact, and centre it.")
+    )
     assert found == []
 
 
@@ -44,17 +44,34 @@ def test_americanism_word_boundaries_no_false_positives():
 
 
 def test_flags_nested_quiz_option_text():
-    blocks = [{"id": "q", "type": "quiz", "questions": [
-        {"id": "1", "q": "Pick", "options": ["Organize files", "Leave them"],
-         "correct": 0, "explanation": "ok"}]}]
+    blocks = [
+        {
+            "id": "q",
+            "type": "quiz",
+            "questions": [
+                {
+                    "id": "1",
+                    "q": "Pick",
+                    "options": ["Organize files", "Leave them"],
+                    "correct": 0,
+                    "explanation": "ok",
+                }
+            ],
+        }
+    ]
     found = find_americanisms(blocks)
     assert any(f["path"].endswith("options[0]") for f in found)
 
 
 HEADING = {"id": "h", "type": "heading", "level": 2, "text": "Check your understanding"}
 WS_MD = {"id": "w", "type": "whitespace", "size": "md"}
-QUIZ = {"id": "q", "type": "quiz", "questions": [
-    {"id": "1", "q": "Q", "options": ["a", "b", "c"], "correct": 1, "explanation": "e"}]}
+QUIZ = {
+    "id": "q",
+    "type": "quiz",
+    "questions": [
+        {"id": "1", "q": "Q", "options": ["a", "b", "c"], "correct": 1, "explanation": "e"}
+    ],
+}
 
 
 def test_conformant_quiz_heading_then_ws_has_no_findings():
@@ -90,8 +107,11 @@ def test_wrong_whitespace_size_is_flagged():
 
 def test_mid_lesson_whitespace_separator_is_not_flagged():
     # a plain section separator, not near any quiz, must NOT be an error
-    blocks = [{"id": "p", "type": "paragraph", "text": "x"}, WS_MD,
-              {"id": "p2", "type": "paragraph", "text": "y"}]
+    blocks = [
+        {"id": "p", "type": "paragraph", "text": "x"},
+        WS_MD,
+        {"id": "p2", "type": "paragraph", "text": "y"},
+    ]
     assert check_quiz_conformance(blocks) == []
 
 

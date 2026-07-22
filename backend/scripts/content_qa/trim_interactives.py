@@ -4,6 +4,7 @@ sort: keep one item per bucket (bucket coverage), then fill in authored order up
 to 4. spot_the_flaw: keep at least one flaw and one non-flaw, up to 4 total.
 Locates each block in the live lesson by its (unique) prompt, trims in place.
 """
+
 import asyncio
 import json
 import sys
@@ -15,8 +16,10 @@ from apply_lib import connect, fetch_blocks, write_blocks
 
 WORK = Path(__file__).resolve().parents[2].parent / "scratch_review" / "admin_content_qa_2026-07-20"
 CONV = json.loads((WORK / "convert_result.json").read_text(encoding="utf-8"))
-SNAP = {l["lesson_title"]: l["lesson_id"] for l in
-        json.loads((WORK / "lessons_snapshot.json").read_text(encoding="utf-8"))}
+SNAP = {
+    l["lesson_title"]: l["lesson_id"]
+    for l in json.loads((WORK / "lessons_snapshot.json").read_text(encoding="utf-8"))
+}
 MAX = 4
 
 
@@ -26,12 +29,14 @@ def trim_sort(items: list[dict]) -> list[dict]:
         by_bucket.setdefault(it["bucketId"], []).append(it)
     kept, seen = [], set()
     for bid, group in by_bucket.items():  # one per bucket first (authored order)
-        kept.append(group[0]); seen.add(id(group[0]))
+        kept.append(group[0])
+        seen.add(id(group[0]))
     for it in items:  # fill in authored order
         if len(kept) >= MAX:
             break
         if id(it) not in seen:
-            kept.append(it); seen.add(id(it))
+            kept.append(it)
+            seen.add(id(it))
     # preserve authored order among kept
     return [it for it in items if id(it) in seen][:MAX]
 
@@ -61,10 +66,13 @@ async def main() -> None:
             lid = SNAP[c["lesson_title"]]
             prompt = c["new_block"]["prompt"]
             blocks = await fetch_blocks(conn, lid)
-            blk = next((b for b in blocks
-                        if b.get("type") == "interactive" and b.get("prompt") == prompt), None)
+            blk = next(
+                (b for b in blocks if b.get("type") == "interactive" and b.get("prompt") == prompt),
+                None,
+            )
             if blk is None:
-                report.append((c["lesson_title"], "NOT FOUND", 0, 0)); continue
+                report.append((c["lesson_title"], "NOT FOUND", 0, 0))
+                continue
             if blk["mode"] == "sort":
                 before = len(blk["items"])
                 if before > MAX:

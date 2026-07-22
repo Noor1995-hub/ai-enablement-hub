@@ -5,6 +5,7 @@ change string VALUES inside existing blocks (never add/remove/reorder keys in
 the deterministic passes), and we assert the block id/type skeleton is
 unchanged before writing, so structure can't drift.
 """
+
 from __future__ import annotations
 
 import json
@@ -23,6 +24,7 @@ def _ensure_env() -> None:
     global _ENV_LOADED
     if not _ENV_LOADED:
         from pathlib import Path
+
         load_dotenv(Path(__file__).resolve().parents[2] / ".env")
         _ENV_LOADED = True
 
@@ -30,9 +32,12 @@ def _ensure_env() -> None:
 async def connect() -> asyncpg.Connection:
     _ensure_env()
     return await asyncpg.connect(
-        host=os.environ["DATABASE__HOST"], port=int(os.environ["DATABASE__PORT"]),
-        user=os.environ["DATABASE__USERNAME"], password=os.environ["DATABASE__PASSWORD"],
-        database=os.environ["DATABASE__NAME"], ssl="require",
+        host=os.environ["DATABASE__HOST"],
+        port=int(os.environ["DATABASE__PORT"]),
+        user=os.environ["DATABASE__USERNAME"],
+        password=os.environ["DATABASE__PASSWORD"],
+        database=os.environ["DATABASE__NAME"],
+        ssl="require",
     )
 
 
@@ -51,7 +56,8 @@ def skeleton(blocks: list[dict]) -> list[tuple]:
 async def write_blocks(conn: asyncpg.Connection, lesson_id: str, blocks: list[dict]) -> None:
     await conn.execute(
         "UPDATE lessons SET content_blocks = $1::jsonb WHERE id = $2",
-        json.dumps(blocks, ensure_ascii=False), lesson_id,
+        json.dumps(blocks, ensure_ascii=False),
+        lesson_id,
     )
 
 

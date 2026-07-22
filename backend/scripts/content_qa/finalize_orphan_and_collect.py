@@ -1,6 +1,7 @@
 """Apply the orphaned quiz edit to the real Skills lesson, and collect the
 residual banned-punctuation blocks for a targeted cleanup pass.
 """
+
 import asyncio
 import json
 import sys
@@ -38,17 +39,26 @@ async def main() -> None:
                 old_q = apply_quiz_edit(blocks, quiz_ids[0], orphan_qe["questions"])
                 assert skeleton(blocks) == before
                 await write_blocks(conn, SKILLS_LESSON, blocks)
-                changelog_add.append({
-                    "track": "Claude II", "lesson": "Skills and subagents for engineering work",
-                    "block_id": quiz_ids[0], "change_summary": orphan_qe.get("change_summary", ""),
-                    "old_question_count": len(old_q), "new_question_count": len(orphan_qe["questions"]),
-                    "old_correct_positions": [q.get("correct") for q in old_q],
-                    "new_correct_positions": [q.get("correct") for q in orphan_qe["questions"]],
-                })
-                print(f"orphan quiz applied to Skills lesson (quiz {quiz_ids[0]}): "
-                      f"{len(old_q)} -> {len(orphan_qe['questions'])} questions")
+                changelog_add.append(
+                    {
+                        "track": "Claude II",
+                        "lesson": "Skills and subagents for engineering work",
+                        "block_id": quiz_ids[0],
+                        "change_summary": orphan_qe.get("change_summary", ""),
+                        "old_question_count": len(old_q),
+                        "new_question_count": len(orphan_qe["questions"]),
+                        "old_correct_positions": [q.get("correct") for q in old_q],
+                        "new_correct_positions": [q.get("correct") for q in orphan_qe["questions"]],
+                    }
+                )
+                print(
+                    f"orphan quiz applied to Skills lesson (quiz {quiz_ids[0]}): "
+                    f"{len(old_q)} -> {len(orphan_qe['questions'])} questions"
+                )
             else:
-                print(f"WARNING: Skills lesson has {len(quiz_ids)} quiz blocks, not applying orphan")
+                print(
+                    f"WARNING: Skills lesson has {len(quiz_ids)} quiz blocks, not applying orphan"
+                )
 
         # --- collect residual banned-punctuation blocks ---
         residual = []
@@ -59,22 +69,29 @@ async def main() -> None:
                 continue
             hit_block_idx = {int(h["path"].split("]")[0].split("[")[1]) for h in hits}
             for idx in sorted(hit_block_idx):
-                residual.append({
-                    "lesson_id": les["lesson_id"], "track": les["track"],
-                    "lesson_title": les["lesson_title"], "block": blocks[idx],
-                })
+                residual.append(
+                    {
+                        "lesson_id": les["lesson_id"],
+                        "track": les["track"],
+                        "lesson_title": les["lesson_title"],
+                        "block": blocks[idx],
+                    }
+                )
     finally:
         await conn.close()
 
     (WORK / "cleanup_blocks.json").write_text(
-        json.dumps(residual, ensure_ascii=False, indent=2), encoding="utf-8")
+        json.dumps(residual, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
     # merge changelog addition
     cl_path = WORK / "quiz_changelog.json"
     cl = json.loads(cl_path.read_text(encoding="utf-8")) if cl_path.exists() else []
     cl.extend(changelog_add)
     cl_path.write_text(json.dumps(cl, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"residual blocks with banned punctuation: {len(residual)} "
-          f"(across {len({r['lesson_id'] for r in residual})} lessons)")
+    print(
+        f"residual blocks with banned punctuation: {len(residual)} "
+        f"(across {len({r['lesson_id'] for r in residual})} lessons)"
+    )
 
 
 if __name__ == "__main__":

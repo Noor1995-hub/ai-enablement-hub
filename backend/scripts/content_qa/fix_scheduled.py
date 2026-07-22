@@ -7,6 +7,7 @@ Facts (confirmed by Matthias, 2026-07-20):
   files), same as a task you run yourself. The old "cannot be tied to a folder"
   limit was wrong.
 """
+
 import asyncio
 import sys
 from pathlib import Path
@@ -47,7 +48,7 @@ CARD_BODY = (
 NEW_Q = {
     "id": QUESTION_ID,
     "q": "A scheduled task is due to run, but your computer is asleep and the Keep awake setting "
-         "is off. What happens?",
+    "is off. What happens?",
     "options": [
         "It runs anyway, because scheduled tasks execute in the cloud",
         "It does not run until your computer is awake and online again. Turning on Keep awake "
@@ -57,15 +58,22 @@ NEW_Q = {
     ],
     "correct": 1,
     "explanation": "Scheduled tasks run on your own machine, so they need it awake and online at "
-                   "the scheduled time. The Keep awake setting stops the computer sleeping so a "
-                   "task can fire while you are away.",
+    "the scheduled time. The Keep awake setting stops the computer sleeping so a "
+    "task can fire while you are away.",
 }
 
 
 async def main() -> None:
     import json
-    snap = json.loads((Path(__file__).resolve().parents[2].parent / "scratch_review"
-                       / "admin_content_qa_2026-07-20" / "lessons_snapshot.json").read_text(encoding="utf-8"))
+
+    snap = json.loads(
+        (
+            Path(__file__).resolve().parents[2].parent
+            / "scratch_review"
+            / "admin_content_qa_2026-07-20"
+            / "lessons_snapshot.json"
+        ).read_text(encoding="utf-8")
+    )
     lesson_id = next(l["lesson_id"] for l in snap if l["lesson_title"] == TITLE)
 
     conn = await connect()
@@ -74,18 +82,26 @@ async def main() -> None:
         before = skeleton(blocks)
         changes = []
         for b in blocks:
-            if b.get("type") == "paragraph" and "whether or not you are at your machine" in (b.get("text") or ""):
-                b["text"] = BODY2; changes.append("body-2 (awake + Keep awake)")
-            elif b.get("type") == "paragraph" and "cannot be tied to a folder" in (b.get("text") or ""):
-                b["text"] = BODY6; changes.append("body-6 (folder/project ability)")
+            if b.get("type") == "paragraph" and "whether or not you are at your machine" in (
+                b.get("text") or ""
+            ):
+                b["text"] = BODY2
+                changes.append("body-2 (awake + Keep awake)")
+            elif b.get("type") == "paragraph" and "cannot be tied to a folder" in (
+                b.get("text") or ""
+            ):
+                b["text"] = BODY6
+                changes.append("body-6 (folder/project ability)")
             elif b.get("type") == "card_group":
                 for c in b.get("cards", []):
                     if c.get("id") == CARD_ID:
-                        c["body"] = CARD_BODY; changes.append("card (Scheduled tasks)")
+                        c["body"] = CARD_BODY
+                        changes.append("card (Scheduled tasks)")
             elif b.get("type") == "quiz" and b.get("id") == QUIZ_BLOCK_ID:
                 for i, q in enumerate(b["questions"]):
                     if q.get("id") == QUESTION_ID:
-                        b["questions"][i] = NEW_Q; changes.append("quiz Q (asleep)")
+                        b["questions"][i] = NEW_Q
+                        changes.append("quiz Q (asleep)")
         assert skeleton(blocks) == before, "skeleton changed!"
         assert not find_banned_punctuation(blocks), "introduced banned punctuation!"
         await write_blocks(conn, lesson_id, blocks)

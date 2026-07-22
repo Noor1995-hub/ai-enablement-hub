@@ -4,6 +4,7 @@ Editorial (Phase 2) findings are joined to modules by the ASCII per-module file
 path the agent echoed back (module titles contain em-dashes and are not trusted
 from agent echo); the authoritative track/module_title come from that file.
 """
+
 import json
 from collections import Counter, defaultdict
 from pathlib import Path
@@ -47,13 +48,16 @@ def main() -> None:
 
     # ---- Copy/layout report, grouped track > module > lesson ----
     cl = [
-        "# Copy & layout review - admin-assigned content (2026-07-20)", "",
+        "# Copy & layout review - admin-assigned content (2026-07-20)",
+        "",
         "Report-only. Standard: `scratch_review/claude_cowork/authoring_guide.md`.",
         "Deterministic findings (punctuation, en-GB, spacing) are exhaustive for their patterns; "
-        "editorial findings are judgement.", "",
+        "editorial findings are judgement.",
+        "",
         "> **Caveat on `artifact`/`artifacts`:** house spelling is *Artefact*, but *Artifacts* is "
         "also Anthropic's real product-feature name. En-GB findings on these terms are correct "
-        "only where the text is prose, not naming the Claude product - verify before applying.", "",
+        "only where the text is prose, not naming the Claude product - verify before applying.",
+        "",
     ]
     # Group lessons by module first. Two Claude modules share sort_order, so
     # their lessons interleave in the flat snapshot; grouping by module_title
@@ -66,7 +70,8 @@ def main() -> None:
     cur_t = None
     for (t_ord, m_ord, track, mtitle), mod_lessons in sorted(mod_groups.items()):
         if track != cur_t:
-            cur_t = track; cl.append(f"\n## {track}")
+            cur_t = track
+            cl.append(f"\n## {track}")
         cl.append(f"\n### {mtitle}")
         for les in mod_lessons:
             d = det[les["lesson_id"]]
@@ -77,7 +82,9 @@ def main() -> None:
                 cl.append(f"- [punctuation/{f['char']}] `{f['path']}` - {f['snippet']}")
             for f in d["americanisms"]:
                 note = " (verify: product name?)" if f["term"].lower() in PRODUCT_NAME_TERMS else ""
-                cl.append(f"- [en-GB] `{f['term']}` -> `{f['suggestion']}`{note} at `{f['path']}` - {f['snippet']}")
+                cl.append(
+                    f"- [en-GB] `{f['term']}` -> `{f['suggestion']}`{note} at `{f['path']}` - {f['snippet']}"
+                )
             for f in d["quiz_conformance"]:
                 cl.append(f"- [spacing/{f['kind']}] block {f['block_index']}: {f['detail']}")
         _flush_editorial(cl, ed_copy, track, mtitle)
@@ -85,9 +92,11 @@ def main() -> None:
 
     # ---- Quiz report ----
     qz = [
-        "# Quiz review - admin-assigned content (2026-07-20)", "",
+        "# Quiz review - admin-assigned content (2026-07-20)",
+        "",
         "Report-only. Standard: `scratch_review/claude_cowork/authoring_guide.md`.",
-        "Answer-length bias is already fixed and not reported.", "",
+        "Answer-length bias is already fixed and not reported.",
+        "",
     ]
     verdicts = Counter()
     for key in sorted(ed_quiz, key=lambda k: order.get(k, (99, 99))):
@@ -120,10 +129,12 @@ def main() -> None:
         for qs in by_quiz.values():
             per_quiz_qcount[len(qs)] += 1
     qz += [
-        "\n## Hub-wide stats", "",
+        "\n## Hub-wide stats",
+        "",
         "Verdicts: " + ", ".join(f"{k}={v}" for k, v in verdicts.most_common()),
         "Questions per quiz: " + ", ".join(f"{k}q={v}" for k, v in sorted(per_quiz_qcount.items())),
-        "Correct-option position counts: " + ", ".join(f"idx{k}={v}" for k, v in sorted(positions.items())),
+        "Correct-option position counts: "
+        + ", ".join(f"idx{k}={v}" for k, v in sorted(positions.items())),
     ]
     (OUT / "quiz_review_2026-07-20.md").write_text("\n".join(qz), encoding="utf-8")
     print("Wrote copy_layout_review_2026-07-20.md and quiz_review_2026-07-20.md")
@@ -139,7 +150,7 @@ def _flush_editorial(cl: list, ed_copy: dict, track, module_title) -> None:
     for f in items:
         sev = f.get("severity", "")
         tag = f["issue_type"] + (f"/{sev}" if sev else "")
-        cl.append(f"- [{tag}] **{f['lesson_title']}**: \"{f['quote']}\" -> {f['suggestion']}")
+        cl.append(f'- [{tag}] **{f["lesson_title"]}**: "{f["quote"]}" -> {f["suggestion"]}')
 
 
 main()

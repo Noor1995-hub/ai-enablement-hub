@@ -5,6 +5,7 @@ dicts. No I/O, no DB. The Americanism map is a curated allowlist (exact forms)
 rather than a broad -ize regex, so it never fires on correct British spellings
 or on words like 'size'/'prize' that merely end in -ize.
 """
+
 from __future__ import annotations
 
 import re
@@ -15,35 +16,78 @@ BANNED_PUNCTUATION = {"—": "em-dash", "–": "en-dash", "…": "ellipsis"}
 
 # American -> British. Whole-word, case-insensitive. Includes common inflections.
 AMERICANISMS: dict[str, str] = {
-    "organize": "organise", "organizes": "organises", "organized": "organised",
-    "organizing": "organising", "organization": "organisation",
+    "organize": "organise",
+    "organizes": "organises",
+    "organized": "organised",
+    "organizing": "organising",
+    "organization": "organisation",
     "organizations": "organisations",
-    "recognize": "recognise", "recognized": "recognised", "recognizing": "recognising",
-    "customize": "customise", "customized": "customised", "customizing": "customising",
+    "recognize": "recognise",
+    "recognized": "recognised",
+    "recognizing": "recognising",
+    "customize": "customise",
+    "customized": "customised",
+    "customizing": "customising",
     "customization": "customisation",
-    "personalize": "personalise", "personalized": "personalised",
-    "personalizing": "personalising", "personalization": "personalisation",
-    "prioritize": "prioritise", "prioritized": "prioritised", "prioritizing": "prioritising",
-    "summarize": "summarise", "summarized": "summarised", "summarizing": "summarising",
-    "analyze": "analyse", "analyzed": "analysed", "analyzing": "analysing",
-    "optimize": "optimise", "optimized": "optimised", "optimizing": "optimising",
-    "minimize": "minimise", "maximize": "maximise",
-    "realize": "realise", "realized": "realised", "realizing": "realising",
-    "emphasize": "emphasise", "apologize": "apologise", "categorize": "categorise",
-    "specialize": "specialise", "standardize": "standardise", "utilize": "utilise",
-    "capitalize": "capitalise", "initialize": "initialise", "visualize": "visualise",
-    "synchronize": "synchronise", "familiarize": "familiarise",
-    "color": "colour", "colors": "colours", "colored": "coloured", "coloring": "colouring",
-    "behavior": "behaviour", "behaviors": "behaviours",
-    "favorite": "favourite", "favorites": "favourites", "favor": "favour",
-    "honor": "honour", "labor": "labour", "neighbor": "neighbour",
-    "center": "centre", "centered": "centred",
-    "catalog": "catalogue", "dialog": "dialogue",
-    "artifact": "artefact", "artifacts": "artefacts",
-    "defense": "defence", "offense": "offence",
-    "gray": "grey", "modeling": "modelling", "traveler": "traveller",
-    "canceled": "cancelled", "canceling": "cancelling",
-    "fulfill": "fulfil", "enrollment": "enrolment",
+    "personalize": "personalise",
+    "personalized": "personalised",
+    "personalizing": "personalising",
+    "personalization": "personalisation",
+    "prioritize": "prioritise",
+    "prioritized": "prioritised",
+    "prioritizing": "prioritising",
+    "summarize": "summarise",
+    "summarized": "summarised",
+    "summarizing": "summarising",
+    "analyze": "analyse",
+    "analyzed": "analysed",
+    "analyzing": "analysing",
+    "optimize": "optimise",
+    "optimized": "optimised",
+    "optimizing": "optimising",
+    "minimize": "minimise",
+    "maximize": "maximise",
+    "realize": "realise",
+    "realized": "realised",
+    "realizing": "realising",
+    "emphasize": "emphasise",
+    "apologize": "apologise",
+    "categorize": "categorise",
+    "specialize": "specialise",
+    "standardize": "standardise",
+    "utilize": "utilise",
+    "capitalize": "capitalise",
+    "initialize": "initialise",
+    "visualize": "visualise",
+    "synchronize": "synchronise",
+    "familiarize": "familiarise",
+    "color": "colour",
+    "colors": "colours",
+    "colored": "coloured",
+    "coloring": "colouring",
+    "behavior": "behaviour",
+    "behaviors": "behaviours",
+    "favorite": "favourite",
+    "favorites": "favourites",
+    "favor": "favour",
+    "honor": "honour",
+    "labor": "labour",
+    "neighbor": "neighbour",
+    "center": "centre",
+    "centered": "centred",
+    "catalog": "catalogue",
+    "dialog": "dialogue",
+    "artifact": "artefact",
+    "artifacts": "artefacts",
+    "defense": "defence",
+    "offense": "offence",
+    "gray": "grey",
+    "modeling": "modelling",
+    "traveler": "traveller",
+    "canceled": "cancelled",
+    "canceling": "cancelling",
+    "fulfill": "fulfil",
+    "enrollment": "enrolment",
     "license": "licence",  # noun; verb form 'license' is BrE too - flag for human check
 }
 
@@ -68,8 +112,12 @@ def find_banned_punctuation(blocks: list[dict]) -> list[dict]:
             idx = text.find(ch)
             while idx != -1:
                 findings.append(
-                    {"kind": "punctuation", "char": name, "path": path,
-                     "snippet": _snippet(text, idx, idx + 1)}
+                    {
+                        "kind": "punctuation",
+                        "char": name,
+                        "path": path,
+                        "snippet": _snippet(text, idx, idx + 1),
+                    }
                 )
                 idx = text.find(ch, idx + 1)
     return findings
@@ -81,9 +129,13 @@ def find_americanisms(blocks: list[dict]) -> list[dict]:
         for m in _AMERICANISM_RE.finditer(text):
             term = m.group(1)
             findings.append(
-                {"kind": "americanism", "term": term,
-                 "suggestion": AMERICANISMS[term.lower()], "path": path,
-                 "snippet": _snippet(text, m.start(), m.end())}
+                {
+                    "kind": "americanism",
+                    "term": term,
+                    "suggestion": AMERICANISMS[term.lower()],
+                    "path": path,
+                    "snippet": _snippet(text, m.start(), m.end()),
+                }
             )
     return findings
 
@@ -113,25 +165,38 @@ def check_quiz_conformance(blocks: list[dict]) -> list[dict]:
 
     for i, b in enumerate(blocks):
         if b.get("type") == "whitespace" and b.get("size") != "md":
-            findings.append({"kind": "whitespace-size", "block_index": i,
-                             "detail": f"whitespace size is {b.get('size')!r}, expected 'md'"})
+            findings.append(
+                {
+                    "kind": "whitespace-size",
+                    "block_index": i,
+                    "detail": f"whitespace size is {b.get('size')!r}, expected 'md'",
+                }
+            )
 
     for qi in (i for i, b in enumerate(blocks) if b.get("type") == "quiz"):
-        window = blocks[max(0, qi - WINDOW):qi]
+        window = blocks[max(0, qi - WINDOW) : qi]
         has_cyu = any(
             w.get("type") == "heading"
             and (w.get("text") or "").strip().lower() == CHECK_UNDERSTANDING
             for w in window
         )
-        has_md_ws = any(
-            w.get("type") == "whitespace" and w.get("size") == "md" for w in window
-        )
+        has_md_ws = any(w.get("type") == "whitespace" and w.get("size") == "md" for w in window)
         if not has_cyu:
-            findings.append({"kind": "quiz-no-cyu-heading", "block_index": qi,
-                             "detail": "no 'Check your understanding' heading in the 3 blocks before the quiz"})
+            findings.append(
+                {
+                    "kind": "quiz-no-cyu-heading",
+                    "block_index": qi,
+                    "detail": "no 'Check your understanding' heading in the 3 blocks before the quiz",
+                }
+            )
         if not has_md_ws:
-            findings.append({"kind": "quiz-no-md-separator", "block_index": qi,
-                             "detail": "no whitespace(md) separator in the 3 blocks before the quiz"})
+            findings.append(
+                {
+                    "kind": "quiz-no-md-separator",
+                    "block_index": qi,
+                    "detail": "no whitespace(md) separator in the 3 blocks before the quiz",
+                }
+            )
     return findings
 
 
@@ -144,12 +209,13 @@ def quiz_stats(blocks: list[dict]) -> dict:
         if b.get("type") == "quiz":
             num_quizzes += 1
             for q in b.get("questions", []):
-                questions.append({
-                    "num_options": len(q.get("options", [])),
-                    "correct_index": q.get("correct"),
-                    "quiz_index": quiz_index,
-                })
+                questions.append(
+                    {
+                        "num_options": len(q.get("options", [])),
+                        "correct_index": q.get("correct"),
+                        "quiz_index": quiz_index,
+                    }
+                )
             quiz_index += 1
     num_whitespace = sum(1 for b in blocks if b.get("type") == "whitespace")
-    return {"num_quizzes": num_quizzes, "questions": questions,
-            "num_whitespace": num_whitespace}
+    return {"num_quizzes": num_quizzes, "questions": questions, "num_whitespace": num_whitespace}

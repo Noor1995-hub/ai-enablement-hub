@@ -6,6 +6,7 @@ count, per-question option counts, and every "correct" index (these were
 keep-verdict quizzes - only wording should change), verify no banned
 punctuation remains, then replace the questions and write.
 """
+
 import asyncio
 import json
 import sys

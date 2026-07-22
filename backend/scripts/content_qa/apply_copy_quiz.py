@@ -5,6 +5,7 @@ replacements in non-quiz prose fields, replace named quiz blocks with the
 corrected questions, assert the block (id,type) skeleton is unchanged, write.
 Writes a quiz changelog JSON for the human review.
 """
+
 import asyncio
 import json
 import sys
@@ -19,8 +20,10 @@ from content_qa.blocks import NON_PROSE_KEYS
 
 WORK = Path(__file__).resolve().parents[2].parent / "scratch_review" / "admin_content_qa_2026-07-20"
 EDITS = json.loads((WORK / "phase3_edits.json").read_text(encoding="utf-8"))
-SNAP = {les["lesson_id"]: les for les in
-        json.loads((WORK / "lessons_snapshot.json").read_text(encoding="utf-8"))}
+SNAP = {
+    les["lesson_id"]: les
+    for les in json.loads((WORK / "lessons_snapshot.json").read_text(encoding="utf-8"))
+}
 
 
 def _replace_first(node, old, new) -> bool:
@@ -52,9 +55,14 @@ def apply_text_edit(blocks, old, new) -> bool:
 
 
 def valid_question(q) -> bool:
-    return (isinstance(q.get("q"), str) and isinstance(q.get("options"), list)
-            and 2 <= len(q["options"]) and isinstance(q.get("correct"), int)
-            and 0 <= q["correct"] < len(q["options"]) and isinstance(q.get("explanation"), str))
+    return (
+        isinstance(q.get("q"), str)
+        and isinstance(q.get("options"), list)
+        and 2 <= len(q["options"])
+        and isinstance(q.get("correct"), int)
+        and 0 <= q["correct"] < len(q["options"])
+        and isinstance(q.get("explanation"), str)
+    )
 
 
 def apply_quiz_edit(blocks, block_id, new_questions):
@@ -65,8 +73,11 @@ def apply_quiz_edit(blocks, block_id, new_questions):
             old_q = b.get("questions", [])
             for i, nq in enumerate(new_questions):
                 if not nq.get("id"):
-                    nq["id"] = (old_q[i]["id"] if i < len(old_q) and old_q[i].get("id")
-                                else str(uuid.uuid4()))
+                    nq["id"] = (
+                        old_q[i]["id"]
+                        if i < len(old_q) and old_q[i].get("id")
+                        else str(uuid.uuid4())
+                    )
             b["questions"] = new_questions
             return old_q
     return None
@@ -100,23 +111,39 @@ async def main() -> None:
                     text_applied += 1
                 else:
                     text_missed += 1
-                    misses.append({"track": track, "lesson": title,
-                                   "category": e["category"], "old": e["old_string"][:80]})
+                    misses.append(
+                        {
+                            "track": track,
+                            "lesson": title,
+                            "category": e["category"],
+                            "old": e["old_string"][:80],
+                        }
+                    )
 
             for qe in quiz_by_lesson.get(lid, []):
                 old_q = apply_quiz_edit(blocks, qe["block_id"], qe["questions"])
                 if old_q is None:
-                    misses.append({"track": track, "lesson": title, "category": "quiz",
-                                   "old": f"block {qe['block_id']} not found"})
+                    misses.append(
+                        {
+                            "track": track,
+                            "lesson": title,
+                            "category": "quiz",
+                            "old": f"block {qe['block_id']} not found",
+                        }
+                    )
                     continue
-                quiz_changelog.append({
-                    "track": track, "lesson": title, "block_id": qe["block_id"],
-                    "change_summary": qe.get("change_summary", ""),
-                    "old_question_count": len(old_q),
-                    "new_question_count": len(qe["questions"]),
-                    "old_correct_positions": [q.get("correct") for q in old_q],
-                    "new_correct_positions": [q.get("correct") for q in qe["questions"]],
-                })
+                quiz_changelog.append(
+                    {
+                        "track": track,
+                        "lesson": title,
+                        "block_id": qe["block_id"],
+                        "change_summary": qe.get("change_summary", ""),
+                        "old_question_count": len(old_q),
+                        "new_question_count": len(qe["questions"]),
+                        "old_correct_positions": [q.get("correct") for q in old_q],
+                        "new_correct_positions": [q.get("correct") for q in qe["questions"]],
+                    }
+                )
 
             assert skeleton(blocks) == before_skel, f"skeleton changed for {title}!"
             await write_blocks(conn, lid, blocks)
@@ -125,9 +152,11 @@ async def main() -> None:
         await conn.close()
 
     (WORK / "quiz_changelog.json").write_text(
-        json.dumps(quiz_changelog, ensure_ascii=False, indent=2), encoding="utf-8")
+        json.dumps(quiz_changelog, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
     (WORK / "apply_misses.json").write_text(
-        json.dumps(misses, ensure_ascii=False, indent=2), encoding="utf-8")
+        json.dumps(misses, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
     print(f"lessons written: {len(lessons_written)}")
     print(f"text edits applied: {text_applied} | missed (no exact match): {text_missed}")
     print(f"quiz blocks corrected: {len(quiz_changelog)}")

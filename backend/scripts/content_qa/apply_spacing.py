@@ -6,13 +6,16 @@ block(s) so the close reads: ... whitespace(md) > heading 'Check your
 understanding' > quiz. Fetches fresh, inserts, then RE-RUNS the conformance
 checker and asserts no spacing gap remains before writing.
 """
+
 import asyncio
 import json
 import sys
 import uuid
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # scripts/ on path (no PYTHONPATH needed)
+sys.path.insert(
+    0, str(Path(__file__).resolve().parents[1])
+)  # scripts/ on path (no PYTHONPATH needed)
 
 from apply_lib import connect, fetch_blocks, write_blocks
 from content_qa.checks import CHECK_UNDERSTANDING, WINDOW, check_quiz_conformance
@@ -22,8 +25,12 @@ SNAP = json.loads((WORK / "lessons_snapshot.json").read_text(encoding="utf-8"))
 
 
 def new_heading() -> dict:
-    return {"id": str(uuid.uuid4()), "type": "heading", "level": 2,
-            "text": "Check your understanding"}
+    return {
+        "id": str(uuid.uuid4()),
+        "type": "heading",
+        "level": 2,
+        "text": "Check your understanding",
+    }
 
 
 def new_ws() -> dict:
@@ -31,8 +38,9 @@ def new_ws() -> dict:
 
 
 def _is_cyu(b: dict) -> bool:
-    return (b.get("type") == "heading"
-            and (b.get("text") or "").strip().lower() == CHECK_UNDERSTANDING)
+    return (
+        b.get("type") == "heading" and (b.get("text") or "").strip().lower() == CHECK_UNDERSTANDING
+    )
 
 
 def _is_md_ws(b: dict) -> bool:
@@ -40,7 +48,7 @@ def _is_md_ws(b: dict) -> bool:
 
 
 def _needs_fix(blocks: list[dict], qi: int) -> bool:
-    window = blocks[max(0, qi - WINDOW):qi]
+    window = blocks[max(0, qi - WINDOW) : qi]
     return not (any(_is_cyu(w) for w in window) and any(_is_md_ws(w) for w in window))
 
 
@@ -78,8 +86,11 @@ async def main() -> None:
             if nfix == 0:
                 continue
             # assert no spacing gap remains
-            remaining = [f for f in check_quiz_conformance(new_blocks)
-                         if f["kind"] in ("quiz-no-cyu-heading", "quiz-no-md-separator")]
+            remaining = [
+                f
+                for f in check_quiz_conformance(new_blocks)
+                if f["kind"] in ("quiz-no-cyu-heading", "quiz-no-md-separator")
+            ]
             assert not remaining, f"{les['lesson_title']}: still has {remaining}"
             await write_blocks(conn, lid, new_blocks)
             lessons_changed += 1

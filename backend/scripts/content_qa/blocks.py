@@ -1,12 +1,23 @@
 """Walk the prose out of a lessons.content_blocks list."""
+
 from __future__ import annotations
 
 from collections.abc import Iterator
 
 # Keys whose string values are identifiers/config, not learner-facing prose.
 NON_PROSE_KEYS = frozenset(
-    {"id", "type", "mode", "source", "size", "level", "blob_path", "url",
-     "bucketId", "correctOptionId"}
+    {
+        "id",
+        "type",
+        "mode",
+        "source",
+        "size",
+        "level",
+        "blob_path",
+        "url",
+        "bucketId",
+        "correctOptionId",
+    }
 )
 
 

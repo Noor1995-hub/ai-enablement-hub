@@ -5,6 +5,7 @@ Case-preserving whole-word replacement using the AMERICANISMS map, EXCLUDING
 Fetches each lesson fresh, transforms only string values, asserts the block
 skeleton is unchanged, then writes. Prints a per-change log.
 """
+
 import asyncio
 import re
 
@@ -38,7 +39,9 @@ def make_fixer(log: list):
             repl = match_case(src, FIXES[src.lower()])
             log.append((src, repl))
             return repl
+
         return _RE.sub(sub, text)
+
     return fix
 
 
@@ -63,8 +66,10 @@ async def main() -> None:
             print(f"[{les['track']}] {les['lesson_title']}: {len(log)} ({pairs})")
     finally:
         await conn.close()
-    print(f"\nDONE: {total_changes} replacements across {changed_lessons} lessons "
-          f"(artifact/artifacts excluded).")
+    print(
+        f"\nDONE: {total_changes} replacements across {changed_lessons} lessons "
+        f"(artifact/artifacts excluded)."
+    )
 
 
 asyncio.run(main())
