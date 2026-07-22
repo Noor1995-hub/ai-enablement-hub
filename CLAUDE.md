@@ -459,6 +459,30 @@ authoritative for anything; see `db/README.md` for why its migration scripts mus
   `{"status":"ok"}` + `/api/auth/methods` `{"password":true,"entra":false}` green on the new
   image. NOT browser-verified (no browser automation this session) — spot-check `/learning` as a
   Practitioner-pinned learner. Spec: `docs/superpowers/specs/2026-07-20-below-level-free-review-design.md`.
+- **Redeployed 2026-07-22** (`ai-enablement-hub:20260722-111250`, revision `--0000023` region,
+  user-approved): the new **`user+` role** (learning-path lock bypass, no admin powers — commit
+  `c3dd4cb`; spec `docs/superpowers/specs/2026-07-22-user-plus-role-design.md`). Migration
+  `e2f3a4b5c6d7` widens the `users.role` CHECK to `('admin','user+','user')`; it was the ONLY
+  new migration this deploy and chains off the introduction-track migration `f3a4b5c6d7e8`
+  (that one shipped in an **undocumented deploy between 2026-07-20 and 2026-07-22** — the deploy
+  log gap this entry closes). Applied to the dev Azure DB (`alembic upgrade head`) and to prod
+  via `startup.py`; **prod alembic head is now `e2f3a4b5c6d7`** (progression since the 07-20 log:
+  `d8e9f0a1b2c3` → `f3a4b5c6d7e8` → `e2f3a4b5c6d7`). This deploy shipped the whole
+  `introduction-level` branch tip (user+, below-level ring headers, interactive-trim, content-QA
+  tooling), so **prod runs `introduction-level`'s code, not `main`'s**. Post-deploy `/api/health`
+  + `/api/auth/methods` green. NOT browser-verified (no browser automation) — spot-check: set a
+  learner to user+ via the admin User/User+/Admin dropdown, confirm `/learning` shows everything
+  unlocked and `/admin` still redirects them away.
+- **Source control / branching (documented 2026-07-22).** Work happens on feature branches
+  (`feature/*`) and on the longer-lived `introduction-level` branch; `main` is the integration
+  line. **`.\deploy.ps1` builds the image from the working directory, NOT from git** — so prod
+  can (and on 2026-07-22 did) run un-pushed local commits. To keep prod reproducible from the
+  remote: after a deploy, push the deployed branch to `origin` and fast-forward `main` to it.
+  On **2026-07-22** `introduction-level` (23 commits ahead of a then-stale `main`, 21 of them
+  un-pushed) was pushed to `origin` and merged into `main` (fast-forward), and the four
+  fully-merged stale branches (`feature/bulk-csv-invite`, `feature/lesson-feedback`,
+  `feature/per-project-email-templates`, `review-lens-update`) were deleted. As of that cleanup,
+  `main` == the deployed code.
 
 ## Open for cutover
 
