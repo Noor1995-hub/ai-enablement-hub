@@ -20,3 +20,11 @@ dist/
 
 # Local smoke-test copy of the frontend build (the Dockerfile creates the real one)
 backend/static/
+
+# Content-QA + draft-tooling working output and data snapshots — keep local only
+scratch_review/
+backend/scripts/*_DBBACKUP.json
+backend/scripts/*_LIVE.json
+
+# Stale repo-root copy of Claude tool state (real memory lives under ~/.claude/)
+memory/
