@@ -231,6 +231,26 @@ class TestRoleAndDelete:
         users = (await client.get("/api/admin/users", headers=org.headers)).json()["users"]
         assert next(u for u in users if u["id"] == str(user.id))["role"] == "admin"
 
+    async def test_patch_role_to_user_plus(
+        self, client: AsyncClient, db_session: AsyncSession, org: Org
+    ) -> None:
+        user = await create_user(db_session, email="powerup@example.com")
+        response = await client.patch(
+            f"/api/admin/users/{user.id}", json={"role": "user+"}, headers=org.headers
+        )
+        assert response.status_code == 204
+        users = (await client.get("/api/admin/users", headers=org.headers)).json()["users"]
+        assert next(u for u in users if u["id"] == str(user.id))["role"] == "user+"
+
+    async def test_user_plus_is_denied_admin_endpoints(
+        self, client: AsyncClient, db_session: AsyncSession, org: Org, test_settings: Settings
+    ) -> None:
+        """user+ bypasses learning-path locks but holds no admin powers:
+        require_admin gates on role == 'admin', so an admin route 403s."""
+        power = await create_user(db_session, email="poweruser@example.com", role="user+")
+        response = await client.get("/api/admin/users", headers=auth_headers(power, test_settings))
+        assert response.status_code == 403
+
     async def test_invalid_role_is_422(
         self, client: AsyncClient, db_session: AsyncSession, org: Org
     ) -> None:

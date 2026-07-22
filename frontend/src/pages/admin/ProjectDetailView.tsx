@@ -15,6 +15,14 @@ import { levelByCode } from '../../lib/levels'
  * `learning` group is gone too: it was destructured here but never rendered.
  */
 
+// Badge colour per role: dark = admin, indigo tint = user+ (the learning-path
+// lock-bypass role, no admin powers), grey = plain user.
+function roleBadgeColor(role: string): React.CSSProperties {
+  if (role === 'admin') return { background: '#101820', color: '#fff' }
+  if (role === 'user+') return { background: '#EEF0FB', color: '#4B5CC4' }
+  return { background: '#F5F5F5', color: '#8A8A8A' }
+}
+
 export interface SelectedProject {
   id: string
   name: string
@@ -43,7 +51,7 @@ interface ComponentAccessProps {
 interface Handlers {
   onBack: () => void
   onToggleComponent: (comp: ComponentKey, current: ComponentState, field: 'hidden' | 'locked') => void
-  onRoleToggle: (userId: string, currentRole: string) => void
+  onRoleChange: (userId: string, newRole: string) => void
   onDelete: (userId: string) => void
   onSetConfirmDelete: (userId: string) => void
   onGenerateResetLink: (userId: string) => void
@@ -84,7 +92,7 @@ export default function ProjectDetailView({
   } = componentAccess
 
   const {
-    onBack, onToggleComponent, onRoleToggle, onDelete, onSetConfirmDelete,
+    onBack, onToggleComponent, onRoleChange, onDelete, onSetConfirmDelete,
     onGenerateResetLink, onCopyResetLink, onDismissResetLink, onOpenUserPanel,
     onProjectRefresh,
   } = handlers
@@ -293,18 +301,26 @@ export default function ProjectDetailView({
                       ) : <span style={{ fontSize: 12, color: '#C4C4C4' }}>—</span>}
                     </td>
                     <td style={s.td}>
-                      <button
+                      <select
                         style={{
-                          ...s.badge, cursor: 'pointer', border: 'none',
-                          ...(u.role === 'admin' ? { background: '#101820', color: '#fff' } : { background: '#F5F5F5', color: '#8A8A8A' }),
+                          ...s.badge, cursor: 'pointer', border: 'none', appearance: 'none',
+                          WebkitAppearance: 'none', MozAppearance: 'none', paddingRight: 22,
+                          backgroundImage:
+                            'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'8\' height=\'5\' viewBox=\'0 0 8 5\'%3E%3Cpath d=\'M0 0l4 5 4-5z\' fill=\'currentColor\'/%3E%3C/svg%3E")',
+                          backgroundRepeat: 'no-repeat',
+                          backgroundPosition: 'right 8px center',
+                          ...roleBadgeColor(u.role),
                           ...(togglingRole === u.id ? { opacity: 0.5, cursor: 'not-allowed' } : {}),
                         }}
                         disabled={togglingRole === u.id}
-                        onClick={() => onRoleToggle(u.id, u.role)}
-                        title={u.role === 'admin' ? 'Click to remove admin' : 'Click to make admin'}
+                        value={u.role || 'user'}
+                        onChange={e => onRoleChange(u.id, e.target.value)}
+                        title="Change this user's role"
                       >
-                        {togglingRole === u.id ? '…' : u.role || 'user'}
-                      </button>
+                        <option value="user">User</option>
+                        <option value="user+">User+</option>
+                        <option value="admin">Admin</option>
+                      </select>
                     </td>
                     <td style={s.td}>
                       <div style={s.actionCell}>

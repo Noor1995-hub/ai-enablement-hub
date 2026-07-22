@@ -163,6 +163,11 @@ export default function LearningPathNew() {
 
   const userId = user?.id
   const isAdmin = user?.role === 'admin'
+  // 'user+' rides the same learning-path lock bypass as admins (prerequisites,
+  // Introduction gate, maturity gating) but has NO admin powers — edit mode and
+  // the add-track/module controls stay gated on isAdmin below. See the
+  // 2026-07-22 user-plus-role spec.
+  const canBypassLocks = isAdmin || user?.role === 'user+'
   const reload = () => setLoadKey(k => k + 1)
 
   /* ── Load: one graph aggregate (maturity level + locks come with it) ── */
@@ -280,7 +285,7 @@ export default function LearningPathNew() {
     return isDone(predId)
   }
   const isUnlocked = (id: string): boolean => {
-    if (isAdmin) return true // same bypass as the live page
+    if (canBypassLocks) return true // admin + user+ bypass, same as the live page
     const mod = moduleById.get(id)
     if (mod?.unlocked_by_maturity === false) return false
     // Introduction gate: modules OUTSIDE the Introduction track stay locked
@@ -306,7 +311,7 @@ export default function LearningPathNew() {
   // when the caller's effective maturity is below its required_level. Admins
   // bypass it, same as the prerequisite lock.
   const isTrackLocked = (track: TrackNode): boolean => {
-    if (isAdmin) return false
+    if (canBypassLocks) return false
     // The Introduction track itself is never gated by its own completion; it is
     // force-unlocked server-side (unlocked_by_maturity true even w/o maturity).
     if (track.is_introduction) return !track.unlocked_by_maturity
@@ -459,7 +464,7 @@ export default function LearningPathNew() {
     const width = RANK_X0 + (rows.length - 1) * RANK_DX + 130
     return { nodes, edges, height, width }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openTrackId, modulesMap, prereqMap, tracks, isAdmin])
+  }, [openTrackId, modulesMap, prereqMap, tracks, isAdmin, canBypassLocks])
 
   /* ── Popover CTA: server-computed next lesson, same as ModulePopup ── */
   async function startModule(moduleId: string) {

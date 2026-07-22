@@ -114,7 +114,9 @@ class BulkInviteReport(BaseModel):
 
 
 class RoleUpdateRequest(BaseModel):
-    role: Literal["admin", "user"]
+    # "user+" bypasses learning-path locks but holds no admin powers (require_admin
+    # still gates on == "admin"); see the 2026-07-22 user-plus-role spec.
+    role: Literal["admin", "user+", "user"]
 
 
 class MaturityOverrideRequest(BaseModel):

@@ -30,7 +30,7 @@ class User(Base):
 
     __tablename__ = "users"
     __table_args__ = (
-        CheckConstraint("role IN ('admin', 'user')", name="role"),
+        CheckConstraint("role IN ('admin', 'user+', 'user')", name="role"),
         CheckConstraint(
             "maturity_override IN ('explore', 'practitioner', 'integrator', 'multiplier')",
             name="maturity_override",

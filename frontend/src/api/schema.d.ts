@@ -1790,7 +1790,7 @@ export interface components {
              * Role
              * @enum {string}
              */
-            role: "admin" | "user";
+            role: "admin" | "user+" | "user";
         };
         /** SetPasswordRequest */
         SetPasswordRequest: {

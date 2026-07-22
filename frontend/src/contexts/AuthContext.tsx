@@ -14,7 +14,9 @@ import type { UserProfile } from '../types/domain'
 // existed only for Supabase's recovery-session event) so consuming pages port
 // mechanically; the internals are the FastAPI token pair (design-frontend.md §2).
 
-export type Role = 'admin' | 'user'
+// 'user+' bypasses learning-path locks (like an admin) but has no admin powers —
+// see the 2026-07-22 user-plus-role spec.
+export type Role = 'admin' | 'user+' | 'user'
 
 /** Thrown by login() so the Login page can distinguish 401 (wrong password)
  * from 429 (rate limited — NEVER auto-retried). */

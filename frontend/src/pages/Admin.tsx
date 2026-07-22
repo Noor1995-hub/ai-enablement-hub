@@ -272,18 +272,21 @@ export default function Admin() {
   }
 
   /* ── role / delete / reset ── */
-  async function handleRoleToggle(userId: string, currentRole: string) {
+  // Role is picked from a dropdown (user / user+ / admin). 'user+' bypasses
+  // learning-path locks like an admin but has no admin powers (backend
+  // require_admin still gates on == 'admin').
+  async function handleRoleChange(userId: string, newRole: string) {
+    const role = newRole as 'admin' | 'user+' | 'user'
     setTogglingRole(userId)
-    const newRole = currentRole === 'admin' ? 'user' : 'admin'
     try {
       const { error } = await client.PATCH('/api/admin/users/{user_id}', {
         params: { path: { user_id: userId } },
-        body: { role: newRole },
+        body: { role },
       })
       if (error) {
         setActionError(errorMessage(error, 'Failed to update role.'))
       } else {
-        setProjectUsers(prev => prev.map(u => u.id !== userId ? u : { ...u, role: newRole }))
+        setProjectUsers(prev => prev.map(u => u.id !== userId ? u : { ...u, role }))
       }
     } catch { setActionError('Network error.') }
     setTogglingRole(null)
@@ -432,7 +435,7 @@ export default function Admin() {
             handlers={{
               onBack: closeProject,
               onToggleComponent: toggleComponent,
-              onRoleToggle: handleRoleToggle,
+              onRoleChange: handleRoleChange,
               onDelete: handleDelete,
               onSetConfirmDelete: setConfirmDelete,
               onGenerateResetLink: handleGenerateResetLink,
