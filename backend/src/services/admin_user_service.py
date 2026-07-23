@@ -181,13 +181,7 @@ class AdminUserService:
         track_id_set = set(track_ids)
         modules = [m for m in await self._content.list_modules() if m.track_id in track_id_set]
         module_ids = [m.id for m in modules]
-        module_id_set = set(module_ids)
-        lessons = [
-            le
-            for le in await self._content.list_lesson_summaries()
-            if le.module_id in module_id_set
-        ]
-        return module_ids, [le.id for le in lessons]
+        return module_ids, await self._cascade_lesson_ids(module_ids)
 
     async def _cascade_to_modules_and_lessons(
         self, user_id: uuid.UUID, track_ids: list[uuid.UUID], assigned: bool
@@ -206,6 +200,24 @@ class AdminUserService:
         if await self._content.get_module(module_id) is None:
             raise NotFoundError("Module")
         await self._assignments.set_user_module(user_id, module_id, assigned)
+        await self._cascade_to_lessons(user_id, [module_id], assigned)
+
+    async def _cascade_lesson_ids(self, module_ids: list[uuid.UUID]) -> list[uuid.UUID]:
+        """All lesson ids under the given modules."""
+        module_id_set = set(module_ids)
+        lessons = [
+            le
+            for le in await self._content.list_lesson_summaries()
+            if le.module_id in module_id_set
+        ]
+        return [le.id for le in lessons]
+
+    async def _cascade_to_lessons(
+        self, user_id: uuid.UUID, module_ids: list[uuid.UUID], assigned: bool
+    ) -> None:
+        lesson_ids = await self._cascade_lesson_ids(module_ids)
+        if lesson_ids:
+            await self._assignments.set_user_lessons(user_id, lesson_ids, assigned)
 
     async def set_lesson_assignment(
         self, user_id: uuid.UUID, lesson_id: uuid.UUID, assigned: bool
