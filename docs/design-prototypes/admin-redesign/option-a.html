@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Option A — Project-centric workspace · Admin redesign mock</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="topbar">
+  <span class="brand"><span class="dot"></span> AI Enablement Hub <span class="admin-tag">Admin</span></span>
+  <span class="spacer"></span>
+  <a class="app-link" href="#" onclick="toast('Opens the learner app');return false">Open learner app <span id="ext-icon"></span></a>
+  <span class="avatar">AN</span>
+</header>
+
+<div class="main">
+  <div class="container" id="app"></div>
+</div>
+
+<span class="mock-tag">Mock · Option A</span>
+
+<script src="data.js"></script>
+<script src="common.js"></script>
+<script>
+/* Option A: the PROJECT is the unit of work.
+   Routes:  #/                     all-projects home (dashboard + project cards)
+            #/setup                companies & projects setup
+            #/project/p1/overview  project workspace, tabs: overview|people|assignments|feedback|settings */
+
+document.getElementById('ext-icon').innerHTML = icon('external', 13);
+const app = document.getElementById('app');
+
+const TABS = [
+  ['overview',    'Overview',    'home'],
+  ['people',      'People',      'users'],
+  ['assignments', 'Assignments', 'grid'],
+  ['feedback',    'Feedback',    'inbox'],
+  ['settings',    'Settings',    'settings'],
+];
+
+function route() {
+  const h = location.hash.replace(/^#\/?/, '');
+  if (h.startsWith('project/')) {
+    const [, pid, tab] = h.split('/');
+    return { view: 'project', pid, tab: tab || 'overview' };
+  }
+  if (h === 'setup') return { view: 'setup' };
+  return { view: 'home' };
+}
+
+function render() {
+  const r = route();
+  MOCK_STATE.selected.clear();
+  if (r.view === 'home') renderHome();
+  else if (r.view === 'setup') renderSetup();
+  else renderProject(r.pid, r.tab);
+  window.scrollTo(0, 0);
+}
+
+/* ── HOME: cross-project dashboard + project cards ── */
+function renderHome() {
+  const totalUsers = HUB.users.length;
+  const activeWeek = HUB.users.filter(u => u.lastActive !== null && u.lastActive <= 7).length;
+  const flagged = HUB.users.filter(u => u.flags.length).length;
+  const newFb = HUB.feedback.filter(f => fbStatus(f) === 'new').length;
+
+  const cards = HUB.projects.map(p => {
+    const c = companyOf(p);
+    const activated = Math.round((p.funnel.activated / p.funnel.invited) * 100);
+    return `<div class="proj-card" onclick="location.hash='#/project/${p.id}/overview'">
+      <div class="company">${c.name}</div>
+      <h3>${p.name}</h3>
+      <div class="stats">
+        <span><b>${p.funnel.invited}</b> invited</span>
+        <span><b>${activated}%</b> activated</span>
+        <span><b>${p.avgCompletion}%</b> avg progress</span>
+      </div>
+      ${progressBar(p.avgCompletion)}
+      <div class="foot">
+        ${p.stuck ? `<span class="chip warn">${icon('alert', 11)} ${p.stuck} need attention</span>` : '<span class="chip good">On track</span>'}
+        ${p.openFeedback ? `<span class="chip info">${p.openFeedback} open feedback</span>` : ''}
+        <span class="open">Open ${icon('chevR', 14)}</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  app.innerHTML = `
+    <h1 class="page-title">Good morning, Aaron</h1>
+    <p class="page-sub">Everything across your ${HUB.projects.length} projects — ${HUB.today}.</p>
+    <div class="tiles">
+      ${tile('Learners', totalUsers, { iconName: 'users', delta: 'across 3 projects' })}
+      ${tile('Active this week', activeWeek, { iconName: 'clock', delta: `${Math.round(activeWeek / totalUsers * 100)}% of all learners` })}
+      ${tile('Need attention', flagged, { iconName: 'alert', alert: flagged > 0, delta: 'stalled, inactive or not started' })}
+      ${tile('New feedback', newFb, { iconName: 'inbox', delta: 'waiting for review' })}
+    </div>
+
+    <div class="card">
+      <h2 class="card-title">Needs attention <span class="hint">across all projects, worst first</span></h2>
+      ${attentionRowsHTML(HUB.users, { showProject: true })}
+    </div>
+
+    <h2 class="card-title" style="margin-top:28px">Projects</h2>
+    <div class="proj-grid">${cards}</div>
+
+    <div class="card" style="margin-top:24px">
+      <h2 class="card-title">Administration</h2>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn ghost" onclick="location.hash='#/setup'">${icon('folder', 14)} Companies &amp; projects setup</button>
+        <button class="btn ghost" onclick="toast('Content is edited in the learning path itself (edit mode)')">${icon('external', 14)} Edit learning content</button>
+      </div>
+    </div>`;
+}
+
+/* ── PROJECT WORKSPACE ── */
+function renderProject(pid, tab) {
+  const p = projById(pid);
+  const users = usersOf(pid);
+  const c = companyOf(p);
+  const fb = HUB.feedback.filter(f => f.projectId === pid);
+  const newFb = fb.filter(f => fbStatus(f) === 'new').length;
+
+  const tabsHtml = TABS.map(([key, label]) => {
+    const count = key === 'feedback' && newFb ? `<span class="count">${newFb}</span>` : '';
+    return `<button class="tab${tab === key ? ' active' : ''}" onclick="location.hash='#/project/${pid}/${key}'">${label}${count}</button>`;
+  }).join('');
+
+  app.innerHTML = `
+    <div class="breadcrumb">
+      <a href="#/">All projects</a><span class="sep">/</span>
+      <span class="here">${p.name}</span>
+      <span class="chip outline" style="margin-left:4px">${c.name}</span>
+      <span style="margin-left:auto;display:flex;gap:8px">
+        <button class="btn ghost sm" onclick="toast('Bulk CSV invite — kept from current app')">Bulk invite (CSV)</button>
+        <button class="btn red sm" onclick="toast('Invite flow — not in this mock yet')">${icon('plus', 13)} Invite participants</button>
+      </span>
+    </div>
+    <div class="tabs">${tabsHtml}</div>
+    <div id="tab-body"></div>`;
+
+  const body = document.getElementById('tab-body');
+  const rerender = () => renderProject(pid, tab);
+
+  if (tab === 'overview') {
+    body.innerHTML = `
+      <div class="tiles">
+        ${tile('Participants', p.funnel.invited, { iconName: 'users' })}
+        ${tile('Active this week', p.activeThisWeek, { iconName: 'clock' })}
+        ${tile('Need attention', p.stuck, { iconName: 'alert', alert: p.stuck > 0 })}
+        ${tile('Avg completion', p.avgCompletion + '%', { iconName: 'grid', delta: 'of assigned lessons' })}
+      </div>
+      <div class="grid-2">
+        <div class="card"><h2 class="card-title">Activation funnel</h2>${funnelHTML(p.funnel)}</div>
+        <div class="card"><h2 class="card-title">Maturity levels <span class="hint">${p.funnel.assessed} assessed</span></h2>${levelRowsHTML(p.maturity)}</div>
+      </div>
+      <div class="card"><h2 class="card-title">Needs attention</h2>${attentionRowsHTML(users)}</div>`;
+  }
+
+  if (tab === 'people') {
+    const draw = () => {
+      body.innerHTML = `
+        <div class="toolbar">
+          <span class="search">${icon('search', 14)}<input placeholder="Search name or email…"></span>
+          <div class="pills">
+            <button class="pill active">All <span class="n">${users.length}</span></button>
+            <button class="pill">Active</button>
+            <button class="pill">Invited</button>
+            <button class="pill">Needs attention</button>
+          </div>
+        </div>
+        <div class="card" style="padding:6px 10px">${peopleTableHTML(users)}</div>`;
+      wirePeopleTable(body, draw);
+    };
+    draw();
+  }
+
+  if (tab === 'assignments') {
+    body.innerHTML = `
+      <div class="note-banner">Full-width matrix replaces the per-user side panel. The top row sets <b>project defaults</b> — what every new participant gets automatically. Cells below override per person. Use the <b>content scope tree</b> on the left for module and lesson level.</div>
+      <div class="card" style="padding:0" id="matrix-slot"></div>`;
+    mountMatrix(document.getElementById('matrix-slot'), p, users);
+  }
+
+  if (tab === 'feedback') {
+    body.innerHTML = `<div id="fb-slot"></div>`;
+    mountFeedback(document.getElementById('fb-slot'), fb);
+  }
+
+  if (tab === 'settings') {
+    body.innerHTML = `
+      <div class="card"><h2 class="card-title">Component access <span class="hint">what learners in this project see</span></h2>${componentsHTML(p)}</div>
+      <div class="card"><h2 class="card-title">Email templates <span class="hint">per-project invite &amp; reset emails</span></h2>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span class="chip outline">Invitation</span><span class="chip outline">Password reset</span>
+          <button class="btn ghost sm" style="margin-left:auto" onclick="toast('Template editor — kept from current app')">Edit templates</button>
+        </div>
+      </div>
+      <div class="card"><h2 class="card-title">Project</h2>
+        <div style="display:flex;gap:10px;align-items:center">
+          <span class="subtext">Created ${p.created} · ${c.name}</span>
+          <button class="btn ghost sm" style="margin-left:auto" onclick="toast('Rename — not in this mock yet')">Rename</button>
+        </div>
+      </div>`;
+  }
+}
+
+/* ── SETUP ── */
+function renderSetup() {
+  const rows = HUB.companies.map(cc => {
+    const projs = HUB.projects.filter(p => p.companyId === cc.id);
+    return `<div class="comp-row">
+      <span class="name">${cc.name}</span>
+      <span class="subtext">${projs.length} project${projs.length === 1 ? '' : 's'} — ${projs.map(p => p.name).join(' · ')}</span>
+    </div>`;
+  }).join('');
+  app.innerHTML = `
+    <div class="breadcrumb"><a href="#/">All projects</a><span class="sep">/</span><span class="here">Setup</span></div>
+    <h1 class="page-title">Companies &amp; projects</h1>
+    <p class="page-sub">Create the client structure participants are invited into.</p>
+    <div class="grid-2">
+      <div class="card"><h2 class="card-title">New company</h2>
+        <span class="search" style="width:100%"><input placeholder="Company name…"></span>
+        <div class="section-gap"></div>
+        <button class="btn primary sm" onclick="toast('Create company — not wired in this mock')">Create company</button>
+      </div>
+      <div class="card"><h2 class="card-title">New project</h2>
+        <span class="select-look" style="width:100%;justify-content:space-between">Select company… ${icon('chevD', 14)}</span>
+        <div class="section-gap"></div>
+        <span class="search" style="width:100%"><input placeholder="Project name…"></span>
+        <div class="section-gap"></div>
+        <button class="btn primary sm" onclick="toast('Create project — not wired in this mock')">Create project</button>
+      </div>
+    </div>
+    <div class="card"><h2 class="card-title">Existing</h2>${rows}</div>`;
+}
+
+window.addEventListener('hashchange', render);
+render();
+</script>
+</body>
+</html>

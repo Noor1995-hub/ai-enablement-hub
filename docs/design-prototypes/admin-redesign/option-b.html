@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Option B — Function-first sidebar · Admin redesign mock</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="topbar">
+  <span class="brand"><span class="dot"></span> AI Enablement Hub <span class="admin-tag">Admin</span></span>
+  <span class="scope-switch" id="scope-slot"></span>
+  <span class="spacer"></span>
+  <a class="app-link" href="#" onclick="toast('Opens the learner app');return false">Open learner app <span id="ext-icon"></span></a>
+  <span class="avatar">AN</span>
+</header>
+
+<div class="shell">
+  <nav class="sidebar" id="sidenav"></nav>
+  <div class="main">
+    <div class="container" id="app"></div>
+  </div>
+</div>
+
+<span class="mock-tag">Mock · Option B</span>
+
+<script src="data.js"></script>
+<script src="common.js"></script>
+<script>
+/* Option B: FUNCTIONS are the top level; every section spans all projects and
+   carries its own project filter.
+   Routes: #/dashboard  #/people  #/assignments  #/feedback  #/projects  #/setup
+   State:  one global project filter (persists across sections). */
+
+document.getElementById('ext-icon').innerHTML = icon('external', 13);
+const app = document.getElementById('app');
+const nav = document.getElementById('sidenav');
+
+let projectFilter = 'all'; // 'all' | project id
+
+const SECTIONS = [
+  ['dashboard',   'Dashboard',       'home'],
+  ['people',      'People',          'users'],
+  ['assignments', 'Assignments',     'grid'],
+  ['feedback',    'Feedback',        'inbox'],
+  ['projects',    'Projects',        'folder'],
+  ['templates',   'Email templates', 'mail'],
+  ['setup',       'Setup',           'settings'],
+];
+
+const routeParts = () => (location.hash.replace(/^#\/?/, '') || 'dashboard').split('?')[0].split('/');
+const section = () => routeParts()[0];
+const routeArg = () => routeParts()[1];
+
+function renderNav() {
+  const cur = section();
+  const newFb = HUB.feedback.filter(f => fbStatus(f) === 'new').length;
+  nav.innerHTML = SECTIONS.map(([key, label, ic]) => `
+    <button class="side-item${cur === key ? ' active' : ''}" onclick="location.hash='#/${key}'">
+      ${icon(ic, 17)} ${label}
+      ${key === 'feedback' && newFb ? `<span class="count">${newFb}</span>` : ''}
+    </button>`).join('');
+}
+
+/* The scope switcher is THE navigation anchor of this design: pick a company/
+   project once, every section follows. Lives in the top bar, always visible;
+   goes red when scoped so you can't miss what you're looking at. */
+function renderScope() {
+  const slot = document.getElementById('scope-slot');
+  const scoped = projectFilter !== 'all';
+  const opts = [`<option value="all"${!scoped ? ' selected' : ''}>All projects</option>`]
+    .concat(HUB.projects.map(p =>
+      `<option value="${p.id}"${projectFilter === p.id ? ' selected' : ''}>${orgFull(p)}</option>`));
+  slot.innerHTML = `<span class="viewing">Viewing</span>
+    <span class="scope-pill${scoped ? ' scoped' : ''}">${icon('folder', 14)}
+      <select id="scope-select">${opts.join('')}</select>
+      ${scoped ? `<button class="scope-clear" id="scope-clear" title="Back to all projects">✕</button>` : ''}
+    </span>`;
+  document.getElementById('scope-select').addEventListener('change', e => { projectFilter = e.target.value; render(); });
+  const clear = document.getElementById('scope-clear');
+  if (clear) clear.addEventListener('click', () => { projectFilter = 'all'; render(); });
+}
+const filteredUsers = () => projectFilter === 'all' ? HUB.users : usersOf(projectFilter);
+const filteredFb = () => projectFilter === 'all' ? HUB.feedback : HUB.feedback.filter(f => f.projectId === projectFilter);
+
+function render() {
+  renderNav();
+  renderScope();
+  MOCK_STATE.selected.clear();
+  if (section() === 'people' && routeArg()) userDetail(routeArg());
+  else ({ dashboard, people, assignments, feedback, projects, templates, setup })[section()]();
+  window.scrollTo(0, 0);
+}
+
+/* ── Dashboard ── */
+function dashboard() {
+  const users = filteredUsers();
+  const activeWeek = users.filter(u => u.lastActive !== null && u.lastActive <= 7).length;
+  const flagged = users.filter(u => u.flags.length).length;
+  const newFb = filteredFb().filter(f => fbStatus(f) === 'new').length;
+  const scope = projectFilter === 'all' ? HUB.projects : [projById(projectFilter)];
+
+  app.innerHTML = `
+    <h1 class="page-title">Dashboard</h1>
+    <p class="page-sub">Status on ${HUB.today}</p>
+    <div class="tiles">
+      ${tile('Learners', users.length, { iconName: 'users' })}
+      ${tile('Active this week', activeWeek, { iconName: 'clock' })}
+      ${tile('Need attention', flagged, { iconName: 'alert', alert: flagged > 0 })}
+      ${tile('New feedback', newFb, { iconName: 'inbox' })}
+    </div>
+    <div class="card">
+      <h2 class="card-title">Needs attention</h2>
+      ${attentionRowsHTML(users, { showProject: projectFilter === 'all' })}
+    </div>
+    <div class="grid-2">
+      ${scope.map(p => `<div class="card" style="margin-bottom:0">
+        <h2 class="card-title">${orgShort(p)} <span class="hint">${p.name}</span></h2>
+        ${funnelHTML(p.funnel)}
+      </div>`).join('')}
+    </div>`;
+}
+
+/* ── People (global table + project column) ── */
+function people() {
+  const users = filteredUsers();
+  const draw = () => {
+    app.innerHTML = `
+      <div class="toolbar" style="justify-content:space-between">
+        <div><h1 class="page-title">People</h1><p class="page-sub" style="margin:0">${users.length} participants${projectFilter === 'all' ? ' across all projects' : ` at ${orgShort(projById(projectFilter))}`}</p></div>
+        <span style="display:flex;gap:8px">
+          <button class="btn ghost sm" onclick="toast('Bulk CSV invite — kept from the current app (dry-run preview, then commit)')">Bulk invite (CSV)</button>
+          <button class="btn red sm" id="invite-btn">${icon('plus', 13)} Invite</button>
+        </span>
+      </div>
+      <div class="toolbar">
+        <span class="search">${icon('search', 14)}<input placeholder="Search name or email…"></span>
+        <div class="pills">
+          <button class="pill active">All</button><button class="pill">Active</button>
+          <button class="pill">Invited</button><button class="pill">Needs attention</button>
+        </div>
+      </div>
+      <div class="card rows-clickable" style="padding:6px 10px">${peopleTableHTML(users, { showProject: projectFilter === 'all' })}</div>`;
+    wirePeopleTable(app, draw);
+    document.getElementById('invite-btn').addEventListener('click', () => {
+      if (projectFilter === 'all') { toast('Pick a company in the Viewing switcher first'); return; }
+      openInviteModal(projById(projectFilter));
+    });
+    app.querySelectorAll('tr.row').forEach(row => {
+      row.style.cursor = 'pointer';
+      row.addEventListener('click', e => {
+        if (e.target.closest('input, button')) return;
+        location.hash = `#/people/${row.dataset.uid}`;
+      });
+    });
+  };
+  draw();
+}
+
+/* ── User detail (People → click a row) ── */
+function userDetail(uid) {
+  const u = HUB.users.find(x => x.id === uid);
+  if (!u) { location.hash = '#/people'; return; }
+  const p = projById(u.projectId);
+  const s = u.survey;
+
+  const assessmentHTML = s ? `
+    <div class="toolbar" style="margin-bottom:6px">
+      ${levelBadge(s.level)}
+      <span class="chip ${s.band === 'regular' ? 'warn' : s.band === 'embedded' ? 'good' : 'neutral'}">${s.band}</span>
+      <span class="chip good">${s.safety}</span>
+      <span class="subtext" style="margin-left:auto">completed ${s.completed}</span>
+    </div>
+    <h3 class="tmpl-label" style="margin-top:14px">Competencies</h3>
+    ${s.competencies.map(c => `<div class="qa-row">
+      <div class="qa-q">${c.q}</div>
+      <div class="qa-a"><span>“${c.a}”</span>${rungPill(c.rung)}</div>
+    </div>`).join('')}
+    <h3 class="tmpl-label" style="margin-top:18px">Usage</h3>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+      <span class="chip outline">${s.usage.frequency}</span>
+      ${s.usage.tools.map(t => `<span class="chip neutral">${t}</span>`).join('')}
+      ${s.usage.contexts.map(c => `<span class="chip outline">${c}</span>`).join('')}
+    </div>
+    <h3 class="tmpl-label" style="margin-top:18px">Open questions</h3>
+    ${s.open.map(o => `<div class="qa-row">
+      <div class="qa-q">${o.q}</div>
+      <p class="fb-quote" style="margin:6px 0 0">“${o.a}”</p>
+    </div>`).join('')}`
+    : `<div class="empty">No completed assessment yet${u.flags.includes('assessment-pending') ? ' — activated but not started' : u.status === 'invited' ? ' — invite not yet redeemed' : ''}.
+       <div style="margin-top:10px"><button class="btn ghost sm" onclick="toast('Reminder email — not in this mock yet')">${icon('mail', 13)} Send reminder</button></div></div>`;
+
+  const progressHTML = u.trackProgress
+    ? Object.entries(u.trackProgress).map(([tid, pct]) =>
+        `<div class="track-progress-row"><span style="font-weight:600;color:var(--ink)">${trackById(tid).name}</span>${progressBar(pct)}</div>`).join('')
+    : (u.status === 'invited' ? '<div class="empty">Not started.</div>' : `<div class="track-progress-row"><span style="font-weight:600;color:var(--ink)">Overall</span>${progressBar(u.progress)}</div>`);
+
+  app.innerHTML = `
+    <div class="breadcrumb"><a href="#/people">People</a><span class="sep">/</span><span class="here">${u.name}</span></div>
+    <div class="detail-head">
+      <span class="avatar big">${initials(u.name)}</span>
+      <span class="who">
+        <h1>${u.name}</h1>
+        <span class="sub">${u.email} · <span class="chip outline" title="${orgFull(p)}">${orgShort(p)}</span> ${statusChip(u)} <span class="subtext">last active ${lastActiveText(u)}</span></span>
+      </span>
+      <span style="margin-left:auto"><button class="btn ghost sm" onclick="location.hash='#/assignments'">${icon('grid', 13)} Assignments</button></span>
+    </div>
+    <div class="grid-31">
+      <div class="card"><h2 class="card-title">Assessment results <span class="hint">the answers behind the maturity level</span></h2>${assessmentHTML}</div>
+      <div>
+        <div class="card"><h2 class="card-title">Account</h2>
+          <div class="acct-row"><span class="lbl">Role</span>
+            <span class="select-look">${u.role} ${icon('chevD', 13)}</span>
+            <span class="subtext">user / user+ / admin</span></div>
+          <div class="acct-row"><span class="lbl">Maturity</span>
+            ${levelBadge(u.level)}
+            <span class="select-look" style="margin-left:auto" onclick="toast('Pin level — overrides the assessed level for path gating')">Pin level… ${icon('chevD', 13)}</span></div>
+          <div class="acct-row"><span class="lbl">Password</span>
+            <button class="btn ghost sm" onclick="toast('Emails a reset link (status shown here, link copyable as fallback)')">${icon('mail', 13)} Send reset link</button></div>
+          <div class="acct-row"><span class="lbl">Danger</span>
+            <button class="btn ghost sm btn-danger" onclick="toast('Two-step confirm, then delete with cascade — kept from current app')">Remove participant</button></div>
+        </div>
+        <div class="card"><h2 class="card-title">Learning progress <span class="hint">assigned tracks</span></h2>${progressHTML}</div>
+      </div>
+    </div>`;
+}
+
+/* ── Invite modal (single invite; bulk CSV stays its own flow) ── */
+function openInviteModal(p) {
+  const defaults = HUB.tracks.filter(t => p.defaults[t.id]).map(t => t.name).join(', ');
+  const ov = document.createElement('div');
+  ov.className = 'modal-overlay';
+  ov.innerHTML = `<div class="modal">
+    <h2>Invite participant</h2>
+    <p class="page-sub" style="margin:0">${orgFull(p)}</p>
+    <label class="field-label">First name</label><input placeholder="First name">
+    <label class="field-label">Last name</label><input placeholder="Last name">
+    <label class="field-label">Email</label><input placeholder="name@company.com">
+    <div class="note-banner" style="margin:16px 0 0">New participants automatically get this project's defaults: <b>${defaults}</b>. Adjust per person in Assignments afterwards.</div>
+    <div class="foot">
+      <button class="btn primary" data-m="email">${icon('mail', 13)} Send email invite</button>
+      <button class="btn ghost" data-m="link">Create invite link only</button>
+      <button class="btn subtle" data-m="cancel" style="margin-left:auto">Cancel</button>
+    </div>
+  </div>`;
+  ov.addEventListener('click', e => {
+    if (e.target === ov) ov.remove();
+    const m = e.target.closest('[data-m]');
+    if (!m) return;
+    if (m.dataset.m === 'cancel') ov.remove();
+    else { toast(m.dataset.m === 'email' ? 'Invite created + emailed (defaults applied)' : 'Invite link created — copy & share (defaults applied)'); ov.remove(); }
+  });
+  document.body.appendChild(ov);
+}
+
+/* ── Assignments (needs a project context) ── */
+function assignments() {
+  if (projectFilter === 'all') {
+    app.innerHTML = `
+      <h1 class="page-title">Assignments</h1>
+      <p class="page-sub">Pick a company — assignments are managed per project.</p>
+      <div class="proj-grid">${HUB.projects.map(p => `
+        <div class="proj-card" onclick="projectFilter='${p.id}';render()">
+          <div class="company">${p.name}</div><h3>${orgShort(p)}</h3>
+          <div class="stats"><span><b>${usersOf(p.id).length}</b> participants</span>
+          <span><b>${Object.values(p.defaults).filter(Boolean).length}</b> default tracks</span></div>
+          <div class="foot"><span class="open">Manage ${icon('chevR', 14)}</span></div>
+        </div>`).join('')}</div>`;
+    return;
+  }
+  const p = projById(projectFilter);
+  app.innerHTML = `
+    <h1 class="page-title">Assignments</h1>
+    <p class="page-sub">${orgFull(p)}</p>
+    <div class="note-banner">Top row sets <b>project defaults</b> — what every new participant gets automatically. Cells below override per person. Use the <b>content scope tree</b> on the left to switch between track, module and lesson level.</div>
+    <div class="card" style="padding:0" id="matrix-slot"></div>`;
+  mountMatrix(document.getElementById('matrix-slot'), p, usersOf(p.id));
+}
+
+/* ── Feedback (global queue) ── */
+function feedback() {
+  app.innerHTML = `
+    <h1 class="page-title">Feedback</h1>
+    <p class="page-sub">Review what learners report; accepted items land on the content backlog.</p>
+    <div id="fb-slot"></div>`;
+  mountFeedback(document.getElementById('fb-slot'), filteredFb(), { showProject: projectFilter === 'all' });
+}
+
+/* ── Projects (list + light detail) ── */
+function projects() {
+  app.innerHTML = `
+    <h1 class="page-title">Projects</h1>
+    <p class="page-sub">Project settings live here; day-to-day work happens in People / Assignments / Feedback with the project filter.</p>
+    ${HUB.projects.map(p => `
+      <div class="card">
+        <div class="toolbar" style="margin-bottom:0;justify-content:space-between">
+          <div><h2 class="card-title" style="margin:0">${orgShort(p)} <span class="hint">${p.name} · created ${p.created}</span></h2></div>
+          <span style="display:flex;gap:8px">
+            <button class="btn ghost sm" onclick="projectFilter='${p.id}';location.hash='#/people'">People</button>
+            <button class="btn ghost sm" onclick="projectFilter='${p.id}';location.hash='#/assignments'">Assignments</button>
+            <button class="btn ghost sm" onclick="projectFilter='${p.id}';location.hash='#/templates'">Email templates</button>
+          </span>
+        </div>
+        <div class="section-gap"></div>
+        ${componentsHTML(p)}
+      </div>`).join('')}`;
+}
+
+/* ── Email templates (per project, scoped like Assignments) ── */
+function templates() {
+  if (projectFilter === 'all') {
+    app.innerHTML = `
+      <h1 class="page-title">Email templates</h1>
+      <p class="page-sub">Pick a company — invite and reset emails are customized per project.</p>
+      <div class="proj-grid">${HUB.projects.map(p => `
+        <div class="proj-card" onclick="projectFilter='${p.id}';render()">
+          <div class="company">${p.name}</div><h3>${orgShort(p)}</h3>
+          <div class="foot"><span class="open">Edit templates ${icon('chevR', 14)}</span></div>
+        </div>`).join('')}</div>`;
+    return;
+  }
+  const p = projById(projectFilter);
+  let purpose = 'invitation';
+  const TEMPLATES = {
+    invitation: {
+      subject: "You're invited to the delaware AI Enablement Hub",
+      tokens: ['invite_link', 'first_name', 'last_name', 'project_name', 'ttl_days', 'login_url'],
+      required: 'invite_link',
+      body: `Hi {{first_name}},
+
+You've been invited to the **AI Enablement Hub**, delaware's learning platform for the AI enablement programme.
+
+Set a password with your personal invite link:
+
+{{invite_link}}
+
+The invite link is valid for {{ttl_days}} and can be used once. If you weren't expecting this email, you can ignore it.`,
+    },
+    reset: {
+      subject: 'Reset your AI Enablement Hub password',
+      tokens: ['reset_link', 'first_name', 'last_name', 'ttl_days'],
+      required: 'reset_link',
+      body: `Hi {{first_name}},
+
+A password reset was requested for your account. Set a new password with the link below:
+
+{{reset_link}}
+
+The link is valid for {{ttl_days}} and can be used once. Your current password keeps working until you set a new one.`,
+    },
+  };
+  const draw = () => {
+    const t = TEMPLATES[purpose];
+    app.innerHTML = `
+      <h1 class="page-title">Email templates</h1>
+      <p class="page-sub">${orgFull(p)} — the emails this project's participants receive.</p>
+      <div class="card">
+        <div class="toolbar" style="margin-bottom:14px">
+          <div class="pills">
+            <button class="pill${purpose === 'invitation' ? ' active' : ''}" data-p="invitation">Invitation</button>
+            <button class="pill${purpose === 'reset' ? ' active' : ''}" data-p="reset">Password reset</button>
+          </div>
+          <span class="chip neutral" style="margin-left:auto" title="No custom template saved for this project — the default is used">default</span>
+        </div>
+        <p class="tmpl-help">Write the message in Markdown (**bold**, lists, [links](url)). Insert a <code>{{token}}</code> where you want a value filled in — the message must include <code>{{${t.required}}}</code>, which becomes the clickable link wherever you place it.</p>
+        <label class="tmpl-label">Subject</label>
+        <input class="tmpl-subject" value="${t.subject.replace(/"/g, '&quot;')}">
+        <label class="tmpl-label">Message body</label>
+        <div class="token-row">${t.tokens.map(k => `<button class="token-chip" onclick="toast('Inserts {{${k}}} at the cursor')">{{${k}}}</button>`).join('')}</div>
+        <textarea class="tmpl-body" rows="12">${t.body}</textarea>
+        <div style="display:flex;gap:10px;margin-top:16px">
+          <button class="btn primary" onclick="toast('Save — existing endpoint: PUT /api/admin/projects/{id}/email-templates/{purpose}')">Save template</button>
+          <button class="btn ghost" onclick="toast('Server-rendered preview — kept from the current app')">Preview</button>
+          <button class="btn subtle" style="margin-left:auto" onclick="toast('Reset to default — kept from the current app')">Reset to default</button>
+        </div>
+      </div>`;
+    app.querySelectorAll('.pills .pill').forEach(pb =>
+      pb.addEventListener('click', () => { purpose = pb.dataset.p; draw(); }));
+  };
+  draw();
+}
+
+/* ── Setup ── */
+function setup() {
+  const rows = HUB.companies.map(cc => {
+    const projs = HUB.projects.filter(p => p.companyId === cc.id);
+    return `<div class="comp-row"><span class="name">${cc.name}</span>
+      <span class="subtext">${projs.length} project${projs.length === 1 ? '' : 's'} — ${projs.map(p => p.name).join(' · ')}</span></div>`;
+  }).join('');
+  app.innerHTML = `
+    <h1 class="page-title">Setup</h1>
+    <p class="page-sub">Create the client structure participants are invited into.</p>
+    <div class="grid-2">
+      <div class="card"><h2 class="card-title">New company</h2>
+        <span class="search" style="width:100%"><input placeholder="Company name…"></span>
+        <div class="section-gap"></div>
+        <button class="btn primary sm" onclick="toast('Create company — not wired in this mock')">Create company</button>
+      </div>
+      <div class="card"><h2 class="card-title">New project</h2>
+        <span class="select-look" style="width:100%;justify-content:space-between">Select company… ${icon('chevD', 14)}</span>
+        <div class="section-gap"></div>
+        <span class="search" style="width:100%"><input placeholder="Project name…"></span>
+        <div class="section-gap"></div>
+        <button class="btn primary sm" onclick="toast('Create project — not wired in this mock')">Create project</button>
+      </div>
+    </div>
+    <div class="card"><h2 class="card-title">Existing</h2>${rows}</div>`;
+}
+
+window.addEventListener('hashchange', render);
+render();
+</script>
+</body>
+</html>
