@@ -195,6 +195,11 @@ export default function Admin() {
     lesson: 'assigned_lesson_ids',
   } as const
 
+  async function refetchLearningData() {
+    const { data } = await client.GET('/api/admin/learning')
+    if (data) setLearningData(data)
+  }
+
   async function toggleLearningItem(action: 'track' | 'module' | 'lesson', userId: string, itemId: string, currentlyAssigned: boolean) {
     const key = `${action}-${userId}-${itemId}`
     setTogglingItem(key)
@@ -216,7 +221,7 @@ export default function Admin() {
           })
       if (error) {
         setActionError(errorMessage(error, `Failed to update ${action} assignment.`))
-      } else {
+      } else if (action === 'lesson') {
         setLearningData(prev => ({
           ...prev,
           users: prev.users.map(u => {
@@ -227,6 +232,10 @@ export default function Admin() {
             return { ...u, [listField]: ids }
           }),
         }))
+      } else {
+        // Track/module toggles now cascade to modules/lessons server-side —
+        // refetch rather than re-deriving the cascade client-side.
+        await refetchLearningData()
       }
     } catch { setActionError('Network error.') }
     setTogglingItem(null)
@@ -255,7 +264,7 @@ export default function Admin() {
           })
       if (error) {
         setActionError(errorMessage(error, `Failed to update ${kind} assignments.`))
-      } else {
+      } else if (kind === 'lessons') {
         setLearningData(prev => ({
           ...prev,
           users: prev.users.map(u => {
@@ -266,6 +275,10 @@ export default function Admin() {
             return { ...u, [listField]: next }
           }),
         }))
+      } else {
+        // Track/module bulk toggles now cascade to modules/lessons server-side —
+        // refetch rather than re-deriving the cascade client-side.
+        await refetchLearningData()
       }
     } catch { setActionError('Network error.') }
     setTogglingItem(null)
