@@ -18,10 +18,13 @@ from src.db.models import Lesson, Module, Track, UserTrack
 from tests.fixtures.auth import auth_headers
 from tests.fixtures.factories import (
     VALID_ANSWERS,
+    create_company,
     create_lesson,
     create_module,
+    create_project,
     create_track,
     create_user,
+    unlock_component,
 )
 
 if TYPE_CHECKING:
@@ -95,6 +98,9 @@ class IntroWorld:
 
 @pytest_asyncio.fixture
 async def introworld(db_session: AsyncSession) -> IntroWorld:
+    company = await create_company(db_session, "Intro Co")
+    project = await create_project(db_session, company, "Intro Project")
+    await unlock_component(db_session, project, "learning")
     intro = await create_track(db_session, "Introduction", is_introduction=True, sort_order=0)
     intro_mod = await create_module(db_session, intro, "Welcome", sort_order=0)
     intro_lessons = [
@@ -104,7 +110,9 @@ async def introworld(db_session: AsyncSession) -> IntroWorld:
     explore_mod = await create_module(db_session, explore, "GI Module", sort_order=0)
     await create_lesson(db_session, explore_mod, "GI L0", sort_order=0)
     # Learner has NO survey (no maturity) and NO assignment rows at all.
-    learner = await create_user(db_session, email="intro-learner@example.com")
+    learner = await create_user(
+        db_session, email="intro-learner@example.com", project_id=project.id
+    )
     return IntroWorld(intro, intro_mod, intro_lessons, explore, explore_mod, learner)
 
 

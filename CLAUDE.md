@@ -89,16 +89,25 @@ the full dated build story for each is in the **Appendix** at the bottom of this
    scoring-port notes. `design-frontend.md` / `design-database.md` for Batches 4–6.
 4. `db/README.md` — database roles, credentials locations, migration/verification procedures.
 
-## Locking, prerequisites & preview (as-built; reviewed 2026-07-06)
+## Locking, prerequisites & preview (as-built; reviewed 2026-07-06; component lock became a
+real server-side gate 2026-07-23)
 
 - **Two independent lock systems that never interact:**
   - **Component level** (`assessment`/`learning`/`interview` hub tiles): `project_component_settings`
     over `DEFAULT_LOCKED = {assessment: false, learning: true, interview: true}`
     (`core/constants.py`), resolved server-side (`org_service.resolve_components`), served by
-    `GET /api/me/journey`, rendered ONLY on JourneyHome. `hidden` = card filtered out entirely;
+    `GET /api/me/journey`, rendered on JourneyHome. `hidden` = card filtered out entirely;
     `locked` = greyed inert card (title/description still visible). Completing the assessment
     does NOT unlock learning — despite the "Unlocks after assessment" copy and the
-    "Being built" badge, unlock is a manual admin component toggle.
+    "Being built" badge, unlock is a manual admin component toggle. **Hard-gated server-side
+    since 2026-07-23:** `require_component_unlocked` (`core/dependencies/components.py`) is a
+    router-level dependency on `survey.py` (component="assessment") and `learning.py`
+    (component="learning") — a caller whose project has the component hidden or locked gets a
+    403 `ComponentLockedError`, not just a greyed-out tile. This is a project-level gate, not a
+    role check: admin and `user+` are NOT exempt (see the user+ role design doc — component
+    locks were explicitly called out as "not a learning-path requirement"), so an admin/user+
+    account with no project (or a project where learning hasn't been unlocked yet) is gated
+    too. `interview` has no live endpoint yet, so nothing to gate there.
   - **Module level**: explicit `module_prerequisites` edge table (composite PK; only DB
     constraint is `not_self` — nothing blocks cross-track or cyclic edges; the frontend drops
     cross-track predecessors from layout and rank-guards cycles, but such rows would still
@@ -106,15 +115,23 @@ the full dated build story for each is in the **Appendix** at the bottom of this
     `LearningPath.tsx::isModuleUnlocked`: unlocked ⇔ admin OR no prereqs OR every prereq has
     assigned-lesson `total > 0 && completed === total` (counts are the caller's ASSIGNED
     lessons since the lesson-assignment feature). Graph layout ranks by prerequisite depth;
-    `sort_order` is only a tie-breaker + the "next module in track" hop.
+    `sort_order` is only a tie-breaker + the "next module in track" hop. **Still frontend-only**
+    (see below) — the 2026-07-23 hard gate covers component-level locks only.
 - **No prerequisites between tracks** (the dotted general→tool graph edge is decorative,
   `trackId: null`) and **none between lessons** (`sort_order` only; the sidebar allows
   skipping ahead; the quiz gate blocks "Mark as complete", not navigation).
-- **Locks and assignments are visibility filters, NOT access control** (documented design,
-  design-backend.md authz matrix): learning endpoints check auth + existence only —
-  `GET /api/lessons/{id}` serves `content_blocks` for any lesson to any authenticated user,
-  `PUT …/progress` accepts locked/unassigned lessons, and route guards check session only,
-  so `/learning` and deep lesson URLs bypass both component and module locks.
+- **Maturity gating, assignment, and module prerequisites remain visibility filters, NOT
+  access control** (component-level locks are the one exception since 2026-07-23 — see
+  above): `GET /api/lessons/{id}` still serves `content_blocks` for any lesson to any
+  authenticated user regardless of maturity/assignment/prerequisites (as long as their
+  project's `learning` component is unlocked), `PUT …/progress` still accepts
+  unassigned/not-yet-unlocked-by-prerequisite lessons, and route guards check session only. A
+  logged-in user whose project has `learning` unlocked can still fetch/complete any lesson by
+  UUID regardless of maturity, module prerequisites, or whether it's assigned to them at all —
+  closing that remaining gap would need a server-side port of `LearningPath.tsx`'s
+  prerequisite-DAG check (it doesn't exist on the backend today) plus wiring maturity +
+  assignment checks (already computed server-side for display) into `learning_service.py`'s
+  `lesson_detail`/`module_lessons`/`save_progress` and `feedback_service.py`'s `submit`.
 - **Lock display:** graph node at 45% opacity + padlock badge; ModulePopup swaps to
   "Complete the required modules first…" with a disabled grey "Locked" button (the `disabled`
   attribute is the only guard — `handleStart` has no lock check); JourneyHome greyed card +
@@ -123,8 +140,10 @@ the full dated build story for each is in the **Appendix** at the bottom of this
 - **Known quirks (accepted as-is 2026-07-06):** a prereq module with 0 assigned lessons locks
   its dependents forever (0/0 also disables the popup start button, so it's admin-visible);
   an UNASSIGNED prerequisite locks dependents with no edge drawn to explain why;
-  `?edit=true` shows the lesson editor UI to non-admins (saves 403 via the admin-only PATCH);
-  `GET /api/learning/graph` returns ALL track/module titles with `assigned` flags.
+  `?edit=true` shows the lesson editor UI to non-admins (saves 403 via the admin-only PATCH,
+  but loading the lesson for preview now also needs the admin's own project's `learning`
+  component unlocked, per the 2026-07-23 gate above); `GET /api/learning/graph` returns ALL
+  track/module titles with `assigned` flags.
 
 ## Deployment (2026-07-03) — LIVE on Azure Container Apps
 

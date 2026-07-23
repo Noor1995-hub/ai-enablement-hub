@@ -15,11 +15,14 @@ from tests.fixtures.factories import (
     assign_module,
     assign_track,
     complete_lesson,
+    create_company,
     create_lesson,
     create_module,
     create_prerequisite,
+    create_project,
     create_track,
     create_user,
+    unlock_component,
 )
 
 if TYPE_CHECKING:
@@ -44,10 +47,14 @@ class World:
     lessons: list[Lesson]
     lesson_a2: Lesson
     learner: User
+    project_id: uuid.UUID
 
 
 @pytest_asyncio.fixture
 async def world(db_session: AsyncSession) -> World:
+    company = await create_company(db_session, "Learning World Co")
+    project = await create_project(db_session, company, "Learning World Project")
+    await unlock_component(db_session, project, "learning")
     track_a = await create_track(db_session, "Track A", sort_order=0, color="#123456")
     track_b = await create_track(db_session, "Track B", sort_order=1, track_type="tool")
     module_a1 = await create_module(db_session, track_a, "A1", sort_order=0)
@@ -56,13 +63,17 @@ async def world(db_session: AsyncSession) -> World:
     await create_prerequisite(db_session, module_a2, module_a1)
     lessons = [await create_lesson(db_session, module_a1, f"L{i}", sort_order=i) for i in range(3)]
     lesson_a2 = await create_lesson(db_session, module_a2, "A2-L0", sort_order=0)
-    learner = await create_user(db_session, email="graph-learner@example.com")
+    learner = await create_user(
+        db_session, email="graph-learner@example.com", project_id=project.id
+    )
     await assign_track(db_session, learner, track_a)
     await assign_module(db_session, learner, module_a2)
     for lesson in [*lessons, lesson_a2]:
         await assign_lesson(db_session, learner, lesson)
     await complete_lesson(db_session, learner, lessons[0], {"q1": "answer"})
-    return World(track_a, track_b, module_a1, module_a2, module_b1, lessons, lesson_a2, learner)
+    return World(
+        track_a, track_b, module_a1, module_a2, module_b1, lessons, lesson_a2, learner, project.id
+    )
 
 
 class TestGraph:
@@ -104,7 +115,9 @@ class TestGraph:
     ) -> None:
         """lesson_count is the caller's curriculum, not the module inventory;
         completed lessons that are not assigned do not count either."""
-        partial = await create_user(db_session, email="partial-learner@example.com")
+        partial = await create_user(
+            db_session, email="partial-learner@example.com", project_id=world.project_id
+        )
         await assign_track(db_session, partial, world.track_a)
         await assign_module(db_session, partial, world.module_a1)
         await assign_lesson(db_session, partial, world.lessons[0])
@@ -141,7 +154,9 @@ class TestModuleLessons:
     ) -> None:
         """ALL lessons come back (the admin ModulePanel uses this endpoint);
         `assigned` is per-caller and next skips unassigned lessons."""
-        partial = await create_user(db_session, email="partial-lessons@example.com")
+        partial = await create_user(
+            db_session, email="partial-lessons@example.com", project_id=world.project_id
+        )
         await assign_lesson(db_session, partial, world.lessons[0])
         await assign_lesson(db_session, partial, world.lessons[2])
         await complete_lesson(db_session, partial, world.lessons[0])
@@ -228,7 +243,9 @@ class TestLessonDetail:
     async def test_next_skips_unassigned_lessons(
         self, client: AsyncClient, world: World, db_session: AsyncSession, test_settings: Settings
     ) -> None:
-        partial = await create_user(db_session, email="partial-detail@example.com")
+        partial = await create_user(
+            db_session, email="partial-detail@example.com", project_id=world.project_id
+        )
         await assign_lesson(db_session, partial, world.lessons[0])
         await assign_lesson(db_session, partial, world.lessons[2])
 
@@ -246,7 +263,9 @@ class TestLessonDetail:
     ) -> None:
         """The hop still names the next module, but with none of its lessons
         assigned there is no next lesson to land on."""
-        partial = await create_user(db_session, email="partial-hop@example.com")
+        partial = await create_user(
+            db_session, email="partial-hop@example.com", project_id=world.project_id
+        )
         await assign_lesson(db_session, partial, world.lessons[2])
 
         body = (
