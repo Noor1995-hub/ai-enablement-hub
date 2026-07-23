@@ -20,7 +20,7 @@ export default function SurveyResults({ survey }: { survey: AdminSurvey }) {
   return (
     <div>
       {/* overall result */}
-      <div style={{ padding: '14px 16px', background: '#FAFAF9', border: '1px solid #F0EFED', borderRadius: 8, marginBottom: 20 }}>
+      <div style={{ padding: '12px 14px', background: '#FAFAF9', border: '1px solid #F0EFED', borderRadius: 8, marginBottom: 16 }}>
         <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           {survey.score_level && (
             <div>
@@ -48,7 +48,7 @@ export default function SurveyResults({ survey }: { survey: AdminSurvey }) {
 
       {/* identity */}
       {(survey.job_title || survey.department) && (
-        <div style={{ marginBottom: 16, padding: '10px 12px', background: '#FAFAF9', borderRadius: 6, border: '1px solid #F0EFED' }}>
+        <div style={{ marginBottom: 14, padding: '9px 12px', background: '#FAFAF9', borderRadius: 6, border: '1px solid #F0EFED' }}>
           <p style={s.surveyQLabel}>Role</p>
           <p style={{ fontSize: 13, color: '#3C3C3C', margin: 0 }}>
             {[survey.job_title, survey.department].filter(Boolean).join(' · ')}
@@ -57,8 +57,8 @@ export default function SurveyResults({ survey }: { survey: AdminSurvey }) {
       )}
 
       {/* competency Q&As */}
-      <p style={{ ...s.panelSectionTitle, marginBottom: 12 }}>Competency answers</p>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
+      <p style={{ ...s.panelSectionTitle, marginBottom: 10 }}>Competency answers</p>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 16 }}>
         {COMPETENCY_QA.map(({ key, field, label, options, multi }) => {
           const rung = survey[RUNG_FIELDS[key]]
           const raw  = survey[field]
@@ -71,7 +71,7 @@ export default function SurveyResults({ survey }: { survey: AdminSurvey }) {
           }
 
           return (
-            <div key={key} style={{ padding: '12px 14px', background: '#FAFAF9', borderRadius: 8, border: '1px solid #F0EFED' }}>
+            <div key={key} style={{ padding: '10px 12px', background: '#FAFAF9', borderRadius: 8, border: '1px solid #F0EFED' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, marginBottom: answerText ? 8 : 0 }}>
                 <span style={{ fontSize: 11, fontFamily: 'var(--dlw-font-ui)', fontWeight: 600, color: '#8A8A8A', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                   {label}
@@ -92,8 +92,8 @@ export default function SurveyResults({ survey }: { survey: AdminSurvey }) {
       {/* usage context */}
       {(survey.b_freq || survey.b_breadth || survey.b_attitude || survey.b_readiness) && (
         <>
-          <p style={{ ...s.panelSectionTitle, marginBottom: 12 }}>Usage context</p>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 20 }}>
+          <p style={{ ...s.panelSectionTitle, marginBottom: 10 }}>Usage context</p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 16 }}>
             {survey.b_freq && (
               <div style={{ padding: '10px 12px', background: '#FAFAF9', borderRadius: 6, border: '1px solid #F0EFED' }}>
                 <p style={s.surveyQLabel}>Frequency</p>
@@ -125,19 +125,21 @@ export default function SurveyResults({ survey }: { survey: AdminSurvey }) {
       {/* open questions */}
       {(survey.q_excitement || survey.q_timesink) && (
         <>
-          <p style={{ ...s.panelSectionTitle, marginBottom: 12 }}>Open questions</p>
-          {survey.q_excitement && (
-            <div style={s.surveyQRow}>
-              <p style={s.surveyQLabel}>What excites them about AI</p>
-              <p style={s.surveyQText}>{survey.q_excitement}</p>
-            </div>
-          )}
-          {survey.q_timesink && (
-            <div style={s.surveyQRow}>
-              <p style={s.surveyQLabel}>Biggest time sink they'd like help with</p>
-              <p style={s.surveyQText}>{survey.q_timesink}</p>
-            </div>
-          )}
+          <p style={{ ...s.panelSectionTitle, marginBottom: 10 }}>Open questions</p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            {survey.q_excitement && (
+              <div>
+                <p style={s.surveyQLabel}>What excites them about AI</p>
+                <p style={s.surveyQText}>{survey.q_excitement}</p>
+              </div>
+            )}
+            {survey.q_timesink && (
+              <div>
+                <p style={s.surveyQLabel}>Biggest time sink they'd like help with</p>
+                <p style={s.surveyQText}>{survey.q_timesink}</p>
+              </div>
+            )}
+          </div>
         </>
       )}
     </div>

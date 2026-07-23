@@ -41,7 +41,7 @@ const unassignAllBtn: CSSProperties = {
 }
 
 const maturityBox: CSSProperties = {
-  marginTop: 18, padding: '14px 16px', background: '#FAFAF9',
+  marginTop: 14, padding: '12px 14px', background: '#FAFAF9',
   border: '1px solid #F0EFED', borderRadius: 8,
 }
 
@@ -181,7 +181,7 @@ export default function ParticipantDetail({
             const bulkModulesBusy = togglingItem === `bulk-modules-${learningUser.id}-${track.id}`
             return (
               <div key={track.id} style={{ borderBottom: '1px solid #F5F5F5' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 0' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ width: 8, height: 8, borderRadius: '50%', background: resolveTrackColor(track), flexShrink: 0 }} />
                     <span style={{ fontSize: 14, fontWeight: 600, color: '#101820' }}>{track.name}</span>

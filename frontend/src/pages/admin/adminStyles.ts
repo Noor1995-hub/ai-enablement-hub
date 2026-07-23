@@ -199,15 +199,14 @@ export const s = {
     background: 'none', border: 'none', cursor: 'pointer', fontSize: 20,
     color: '#B6B6B6', padding: 0, lineHeight: 1, marginTop: 2,
   },
-  panelBody: { padding: '24px 28px', flex: 1 },
-  panelSection: { marginBottom: 32 },
+  panelBody: { padding: '14px 28px', flex: 1 },
+  panelSection: { marginBottom: 20 },
   panelSectionTitle: {
     fontFamily: 'var(--dlw-font-ui)', fontWeight: 600, fontSize: 11,
-    letterSpacing: '0.1em', textTransform: 'uppercase', color: '#8A8A8A', marginBottom: 14,
+    letterSpacing: '0.1em', textTransform: 'uppercase', color: '#8A8A8A', marginBottom: 10,
   },
 
   /* survey */
-  surveyQRow:     { marginBottom: 14 },
   surveyQLabel:   { fontSize: 11, fontWeight: 600, color: '#8A8A8A', marginBottom: 5, fontFamily: 'var(--dlw-font-ui)', letterSpacing: '0.04em', textTransform: 'uppercase' },
   surveyQText:    { fontSize: 13, color: '#3C3C3C', lineHeight: 1.6, background: '#FAFAF9', padding: '10px 12px', borderRadius: 6, border: '1px solid #F0EFED' },
   noSurvey:       { fontSize: 13, color: '#B6B6B6', fontWeight: 300, padding: '20px 0' },
