@@ -226,6 +226,7 @@ class AdminUserService:
         if await self._content.count_tracks_by_ids(unique_ids) != len(unique_ids):
             raise NotFoundError("Track")
         await self._assignments.set_user_tracks(user_id, unique_ids, assigned)
+        await self._cascade_to_modules_and_lessons(user_id, unique_ids, assigned)
 
     async def set_module_assignments(
         self, user_id: uuid.UUID, module_ids: list[uuid.UUID], assigned: bool

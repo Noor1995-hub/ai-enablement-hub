@@ -588,6 +588,29 @@ class TestAssignments:
             )
         ).status_code == 404
 
+    async def test_bulk_assign_tracks_cascades_to_modules_and_lessons(
+        self, client: AsyncClient, db_session: AsyncSession, org: Org
+    ) -> None:
+        user = await create_user(db_session, email="cascade-bulk-tracks@example.com")
+        track_a = await create_track(db_session, "Cascade Bulk A", sort_order=0)
+        track_b = await create_track(db_session, "Cascade Bulk B", sort_order=1)
+        module_a = await create_module(db_session, track_a, "Cascade Bulk Module A")
+        module_b = await create_module(db_session, track_b, "Cascade Bulk Module B")
+        lesson_a = await create_lesson(db_session, module_a, "Cascade Bulk Lesson A")
+        lesson_b = await create_lesson(db_session, module_b, "Cascade Bulk Lesson B")
+
+        response = await client.put(
+            f"/api/admin/users/{user.id}/tracks",
+            json={"track_ids": [str(track_a.id), str(track_b.id)], "assigned": True},
+            headers=org.headers,
+        )
+        assert response.status_code == 204
+
+        overview = (await client.get("/api/admin/learning", headers=org.headers)).json()
+        entry = next(u for u in overview["users"] if u["id"] == str(user.id))
+        assert sorted(entry["assigned_module_ids"]) == sorted([str(module_a.id), str(module_b.id)])
+        assert sorted(entry["assigned_lesson_ids"]) == sorted([str(lesson_a.id), str(lesson_b.id)])
+
 
 class TestSurveyResults:
     async def test_levels_bulk_lookup(
