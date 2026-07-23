@@ -172,6 +172,31 @@ class AdminUserService:
         if await self._content.get_track(track_id) is None:
             raise NotFoundError("Track")
         await self._assignments.set_user_track(user_id, track_id, assigned)
+        await self._cascade_to_modules_and_lessons(user_id, [track_id], assigned)
+
+    async def _cascade_module_and_lesson_ids(
+        self, track_ids: list[uuid.UUID]
+    ) -> tuple[list[uuid.UUID], list[uuid.UUID]]:
+        """All module ids under the given tracks, and all lesson ids under those modules."""
+        track_id_set = set(track_ids)
+        modules = [m for m in await self._content.list_modules() if m.track_id in track_id_set]
+        module_ids = [m.id for m in modules]
+        module_id_set = set(module_ids)
+        lessons = [
+            le
+            for le in await self._content.list_lesson_summaries()
+            if le.module_id in module_id_set
+        ]
+        return module_ids, [le.id for le in lessons]
+
+    async def _cascade_to_modules_and_lessons(
+        self, user_id: uuid.UUID, track_ids: list[uuid.UUID], assigned: bool
+    ) -> None:
+        module_ids, lesson_ids = await self._cascade_module_and_lesson_ids(track_ids)
+        if module_ids:
+            await self._assignments.set_user_modules(user_id, module_ids, assigned)
+        if lesson_ids:
+            await self._assignments.set_user_lessons(user_id, lesson_ids, assigned)
 
     async def set_module_assignment(
         self, user_id: uuid.UUID, module_id: uuid.UUID, assigned: bool

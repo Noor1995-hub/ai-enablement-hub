@@ -323,6 +323,65 @@ class TestAssignments:
         ).json()
         assert next(t for t in graph["tracks"] if t["id"] == str(track.id))["assigned"] is False
 
+    async def test_assign_track_cascades_to_modules_and_lessons(
+        self, client: AsyncClient, db_session: AsyncSession, org: Org
+    ) -> None:
+        user = await create_user(db_session, email="cascade-track@example.com")
+        track = await create_track(db_session, "Cascade Track")
+        module = await create_module(db_session, track, "Cascade Module")
+        lesson = await create_lesson(db_session, module, "Cascade Lesson")
+
+        response = await client.put(
+            f"/api/admin/users/{user.id}/tracks/{track.id}",
+            json={"assigned": True},
+            headers=org.headers,
+        )
+        assert response.status_code == 204
+
+        overview = (await client.get("/api/admin/learning", headers=org.headers)).json()
+        entry = next(u for u in overview["users"] if u["id"] == str(user.id))
+        assert entry["assigned_track_ids"] == [str(track.id)]
+        assert entry["assigned_module_ids"] == [str(module.id)]
+        assert entry["assigned_lesson_ids"] == [str(lesson.id)]
+
+    async def test_unassign_track_cascades_to_modules_and_lessons(
+        self, client: AsyncClient, db_session: AsyncSession, org: Org
+    ) -> None:
+        user = await create_user(db_session, email="cascade-track-off@example.com")
+        track = await create_track(db_session, "Cascade Off Track")
+        module = await create_module(db_session, track, "Cascade Off Module")
+        await create_lesson(db_session, module, "Cascade Off Lesson")
+        url = f"/api/admin/users/{user.id}/tracks/{track.id}"
+        assert (
+            await client.put(url, json={"assigned": True}, headers=org.headers)
+        ).status_code == 204
+
+        response = await client.put(url, json={"assigned": False}, headers=org.headers)
+        assert response.status_code == 204
+
+        overview = (await client.get("/api/admin/learning", headers=org.headers)).json()
+        entry = next(u for u in overview["users"] if u["id"] == str(user.id))
+        assert entry["assigned_track_ids"] == []
+        assert entry["assigned_module_ids"] == []
+        assert entry["assigned_lesson_ids"] == []
+
+    async def test_assign_track_with_no_modules_does_not_error(
+        self, client: AsyncClient, db_session: AsyncSession, org: Org
+    ) -> None:
+        user = await create_user(db_session, email="cascade-empty-track@example.com")
+        track = await create_track(db_session, "Empty Cascade Track")
+
+        response = await client.put(
+            f"/api/admin/users/{user.id}/tracks/{track.id}",
+            json={"assigned": True},
+            headers=org.headers,
+        )
+        assert response.status_code == 204
+        overview = (await client.get("/api/admin/learning", headers=org.headers)).json()
+        entry = next(u for u in overview["users"] if u["id"] == str(user.id))
+        assert entry["assigned_track_ids"] == [str(track.id)]
+        assert entry["assigned_module_ids"] == []
+
     async def test_assign_module_and_learning_overview(
         self, client: AsyncClient, db_session: AsyncSession, org: Org
     ) -> None:
