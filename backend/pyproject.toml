@@ -39,6 +39,7 @@ dev = [
     "aiosqlite~=0.20",
     "ruff~=0.11",
     "poethepoet~=0.30",
+    "pytest-xdist>=3.8.0",
 ]
 prod = [
     "httptools",
@@ -47,7 +48,7 @@ prod = [
 [tool.poe.tasks]
 dev = "python -m src.main"
 startup = "python startup.py"
-test = "pytest tests -v"
+test = "pytest tests -v -n auto"
 format = "ruff format ."
 lint = "ruff check ."
 ty = "uvx ty check ."
