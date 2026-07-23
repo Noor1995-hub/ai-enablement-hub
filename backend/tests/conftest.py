@@ -8,6 +8,7 @@ import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from pydantic import SecretStr
+from sqlalchemy import text
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.pool import NullPool
@@ -85,12 +86,41 @@ def test_settings() -> Settings:
 
 
 @pytest_asyncio.fixture(scope="session")
-async def engine() -> AsyncGenerator[AsyncEngine]:
-    engine = create_async_engine(_test_database_url(), poolclass=NullPool)
+async def engine(worker_id: str) -> AsyncGenerator[AsyncEngine]:
+    """Pooled (not NullPool) so tests in this worker reuse physical connections
+    instead of paying a fresh TCP/TLS handshake to Azure per test. Under
+    pytest-xdist each worker process runs this fixture independently against
+    the SAME remote database, so every worker but "master" (i.e. running under
+    -n) gets its own Postgres schema — otherwise two workers' drop_all/
+    create_all would race on the same tables mid-run."""
+    schema = "public" if worker_id == "master" else f"test_{worker_id}"
+    url = _test_database_url()
+    if schema != "public":
+        # Create the schema on a throwaway connection BEFORE the real engine
+        # (whose search_path already points at it) opens its first connection.
+        # SQLAlchemy probes current_schema() once per engine and caches it; if
+        # that probe ran first, Postgres would find the schema missing and
+        # silently fall back to "public" for search_path resolution, so the
+        # dialect would cache "public" as the default — then create_all's
+        # existence-check would see this worker's tables already in "public"
+        # (left over from a prior serial/master run) and skip creating them
+        # here, leaving this worker's schema empty. Bootstrapping the schema
+        # first closes that race.
+        bootstrap_engine = create_async_engine(url, poolclass=NullPool)
+        async with bootstrap_engine.begin() as conn:
+            await conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{schema}"'))
+        await bootstrap_engine.dispose()
+    engine = create_async_engine(
+        url,
+        connect_args={"server_settings": {"search_path": f'"{schema}",public'}},
+    )
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
     yield engine
+    if schema != "public":
+        async with engine.begin() as conn:
+            await conn.execute(text(f'DROP SCHEMA IF EXISTS "{schema}" CASCADE'))
     await engine.dispose()
 
 

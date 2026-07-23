@@ -21,6 +21,7 @@ from tests.fixtures.factories import (
     create_survey,
     create_track,
     create_user,
+    unlock_component,
 )
 
 if TYPE_CHECKING:
@@ -43,6 +44,9 @@ class Org:
 async def org(db_session: AsyncSession, test_settings: Settings) -> Org:
     company = await create_company(db_session, "Dir Co")
     project = await create_project(db_session, company, "Dir Project")
+    # A few tests below route their own users' graph/module-lessons calls
+    # through the component-lock gate — unlock once here rather than per-test.
+    await unlock_component(db_session, project, "learning")
     admin = await create_user(db_session, email="dir-admin@example.com", role="admin")
     return Org(company, project, admin, auth_headers(admin, test_settings))
 
@@ -302,7 +306,9 @@ class TestAssignments:
     async def test_assign_and_unassign_track(
         self, client: AsyncClient, db_session: AsyncSession, org: Org, test_settings: Settings
     ) -> None:
-        user = await create_user(db_session, email="assignee@example.com")
+        user = await create_user(
+            db_session, email="assignee@example.com", project_id=org.project.id
+        )
         track = await create_track(db_session, "Assign Track")
         url = f"/api/admin/users/{user.id}/tracks/{track.id}"
 
@@ -403,7 +409,9 @@ class TestAssignments:
     async def test_assign_and_unassign_lesson(
         self, client: AsyncClient, db_session: AsyncSession, org: Org, test_settings: Settings
     ) -> None:
-        user = await create_user(db_session, email="lesson-assignee@example.com")
+        user = await create_user(
+            db_session, email="lesson-assignee@example.com", project_id=org.project.id
+        )
         track = await create_track(db_session, "Lesson Track")
         module = await create_module(db_session, track, "Lesson Module")
         lesson = await create_lesson(db_session, module, "Assignable Lesson")

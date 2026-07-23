@@ -34,6 +34,7 @@ from src.routers import (
     survey,
 )
 from src.services.exceptions import (
+    ComponentLockedError,
     ConflictError,
     DomainError,
     NotFoundError,
@@ -225,6 +226,11 @@ async def not_found_handler(request: Request, exc: NotFoundError) -> JSONRespons
 @app.exception_handler(ConflictError)
 async def conflict_handler(request: Request, exc: ConflictError) -> JSONResponse:
     return _error_response(409, exc.message)
+
+
+@app.exception_handler(ComponentLockedError)
+async def component_locked_handler(request: Request, exc: ComponentLockedError) -> JSONResponse:
+    return _error_response(403, exc.message)
 
 
 @app.exception_handler(DomainError)

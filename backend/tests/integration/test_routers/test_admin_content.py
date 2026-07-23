@@ -9,7 +9,15 @@ from typing import TYPE_CHECKING
 import pytest_asyncio
 
 from tests.fixtures.auth import auth_headers
-from tests.fixtures.factories import create_lesson, create_module, create_track, create_user
+from tests.fixtures.factories import (
+    create_company,
+    create_lesson,
+    create_module,
+    create_project,
+    create_track,
+    create_user,
+    unlock_component,
+)
 
 if TYPE_CHECKING:
     from httpx import AsyncClient
@@ -22,6 +30,16 @@ if TYPE_CHECKING:
 async def admin_headers(db_session: AsyncSession, test_settings: Settings) -> dict[str, str]:
     admin = await create_user(db_session, email="content-admin@example.com", role="admin")
     return auth_headers(admin, test_settings)
+
+
+@pytest_asyncio.fixture
+async def learning_project_id(db_session: AsyncSession) -> uuid.UUID:
+    """A project with `learning` unlocked, for the viewer users below that hit
+    the component-lock-gated learning endpoints (graph/modules/lessons)."""
+    company = await create_company(db_session, "Content Viewer Co")
+    project = await create_project(db_session, company, "Content Viewer Project")
+    await unlock_component(db_session, project, "learning")
+    return project.id
 
 
 class TestTrackReads:
@@ -142,6 +160,7 @@ class TestCreateModule:
         db_session: AsyncSession,
         admin_headers: dict[str, str],
         test_settings: Settings,
+        learning_project_id: uuid.UUID,
     ) -> None:
         track = await create_track(db_session, "Prereq Track")
         base = await create_module(db_session, track, "Base", sort_order=0)
@@ -157,7 +176,9 @@ class TestCreateModule:
         assert response.status_code == 201
         module_id = response.json()["id"]
 
-        user = await create_user(db_session, email="prereq-viewer@example.com")
+        user = await create_user(
+            db_session, email="prereq-viewer@example.com", project_id=learning_project_id
+        )
         graph = (
             await client.get("/api/learning/graph", headers=auth_headers(user, test_settings))
         ).json()
@@ -325,6 +346,7 @@ class TestLessons:
         db_session: AsyncSession,
         admin_headers: dict[str, str],
         test_settings: Settings,
+        learning_project_id: uuid.UUID,
     ) -> None:
         from sqlalchemy import func, select
 
@@ -334,7 +356,9 @@ class TestLessons:
         track = await create_track(db_session, "Delete Track")
         module = await create_module(db_session, track, "Delete Module")
         lesson = await create_lesson(db_session, module, "Doomed")
-        user = await create_user(db_session, email="lesson-loser@example.com")
+        user = await create_user(
+            db_session, email="lesson-loser@example.com", project_id=learning_project_id
+        )
         await complete_lesson(db_session, user, lesson)
 
         response = await client.delete(f"/api/admin/lessons/{lesson.id}", headers=admin_headers)
@@ -359,6 +383,7 @@ class TestReorderLessons:
         db_session: AsyncSession,
         admin_headers: dict[str, str],
         test_settings: Settings,
+        learning_project_id: uuid.UUID,
     ) -> None:
         track = await create_track(db_session, "Reorder Track")
         module = await create_module(db_session, track, "Reorder Module")
@@ -371,7 +396,9 @@ class TestReorderLessons:
         )
         assert response.status_code == 204
 
-        user = await create_user(db_session, email="reorder-viewer@example.com")
+        user = await create_user(
+            db_session, email="reorder-viewer@example.com", project_id=learning_project_id
+        )
         listed = (
             await client.get(
                 f"/api/modules/{module.id}/lessons", headers=auth_headers(user, test_settings)

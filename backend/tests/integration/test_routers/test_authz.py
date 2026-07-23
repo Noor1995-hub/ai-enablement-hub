@@ -34,6 +34,7 @@ from tests.fixtures.factories import (
     create_survey,
     create_track,
     create_user,
+    unlock_component,
 )
 from tests.fixtures.media import TEST_STORAGE, RecordingUploader
 
@@ -62,11 +63,21 @@ class Seed:
 async def seed(db_session: AsyncSession) -> Seed:
     company = await create_company(db_session, "Matrix Co")
     project = await create_project(db_session, company, "Matrix Project")
+    await unlock_component(db_session, project, "learning")
     track = await create_track(db_session, "Matrix Track")
     module = await create_module(db_session, track, "Matrix Module")
     lesson = await create_lesson(db_session, module, "Matrix Lesson")
     admin = await create_user(
-        db_session, email="matrix-admin@example.com", role="admin", password="hunter2hunter2"
+        db_session,
+        email="matrix-admin@example.com",
+        role="admin",
+        password="hunter2hunter2",
+        # The component lock isn't a role check (admin is not exempt — see
+        # test_component_lock.py::test_admin_is_not_exempt) — this matrix's
+        # blanket "admin succeeds everywhere non-admin-only" needs the admin
+        # to actually belong to a project with `learning` unlocked, same as
+        # a real onboarded admin account would.
+        project_id=project.id,
     )
     user = await create_user(
         db_session,
@@ -460,11 +471,14 @@ class TestIronRule:
     async def test_progress_isolated_between_users(
         self, client: AsyncClient, db_session: AsyncSession, test_settings: Settings
     ) -> None:
+        company = await create_company(db_session, "Iso Co")
+        project = await create_project(db_session, company, "Iso Project")
+        await unlock_component(db_session, project, "learning")
         track = await create_track(db_session, "Iso Track")
         module = await create_module(db_session, track, "Iso Module")
         lesson = await create_lesson(db_session, module, "Iso Lesson")
-        alice = await create_user(db_session, email="iso-alice@example.com")
-        bob = await create_user(db_session, email="iso-bob@example.com")
+        alice = await create_user(db_session, email="iso-alice@example.com", project_id=project.id)
+        bob = await create_user(db_session, email="iso-bob@example.com", project_id=project.id)
         await complete_lesson(db_session, bob, lesson)
         await assign_track(db_session, bob, track)
         await assign_module(db_session, bob, module)

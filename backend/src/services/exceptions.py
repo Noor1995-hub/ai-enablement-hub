@@ -2,6 +2,7 @@ from __future__ import annotations
 
 __all__ = [
     "AuthError",
+    "ComponentLockedError",
     "ConflictError",
     "DomainError",
     "DuplicateCompanyNameError",
@@ -66,6 +67,15 @@ class NotFoundError(DomainError):
 
     def __init__(self, entity: str) -> None:
         super().__init__(f"{entity} not found")
+
+
+class ComponentLockedError(DomainError):
+    """The caller's project has this hub component (assessment/learning/
+    interview) hidden or locked — a project-level gate, not a role check;
+    admin and user+ are not exempt (see the user+ role design doc). → 403"""
+
+    def __init__(self, component: str) -> None:
+        super().__init__(f"The {component} component is not available for your project")
 
 
 class ConflictError(DomainError):

@@ -6,6 +6,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, status
 
 from src.core.dependencies.auth import get_current_user
+from src.core.dependencies.components import require_component_unlocked
 from src.core.dependencies.domain import get_learning_service, get_maturity_service
 from src.core.dependencies.storage import get_media_service
 from src.db.models import User
@@ -21,7 +22,11 @@ from src.services.media_service import MediaService
 
 __all__ = ["router"]
 
-router = APIRouter(prefix="/api", tags=["learning"])
+router = APIRouter(
+    prefix="/api",
+    tags=["learning"],
+    dependencies=[Depends(require_component_unlocked("learning"))],
+)
 
 CurrentUserDep = Annotated[User, Depends(get_current_user)]
 LearningServiceDep = Annotated[LearningService, Depends(get_learning_service)]

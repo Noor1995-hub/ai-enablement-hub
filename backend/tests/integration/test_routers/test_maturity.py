@@ -30,6 +30,7 @@ from tests.fixtures.factories import (
     create_survey,
     create_track,
     create_user,
+    unlock_component,
 )
 
 if TYPE_CHECKING:
@@ -64,6 +65,7 @@ class MWorld:
 async def mworld(db_session: AsyncSession) -> MWorld:
     company = await create_company(db_session, "Maturity Co")
     project = await create_project(db_session, company, "Maturity Project")
+    await unlock_component(db_session, project, "learning")
     gi = await create_track(db_session, "General I", sort_order=0, required_level="explore")
     gii = await create_track(db_session, "General II", sort_order=1, required_level="practitioner")
     tool = await create_track(

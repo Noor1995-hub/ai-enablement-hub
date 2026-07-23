@@ -5,6 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 
 from src.core.dependencies.auth import get_current_user
+from src.core.dependencies.components import require_component_unlocked
 from src.core.dependencies.domain import get_survey_service
 from src.db.models import SurveyResponse, User
 from src.schemas.survey import (
@@ -16,7 +17,11 @@ from src.services.survey_service import SurveyService
 
 __all__ = ["router"]
 
-router = APIRouter(prefix="/api/survey", tags=["survey"])
+router = APIRouter(
+    prefix="/api/survey",
+    tags=["survey"],
+    dependencies=[Depends(require_component_unlocked("assessment"))],
+)
 
 CurrentUserDep = Annotated[User, Depends(get_current_user)]
 SurveyServiceDep = Annotated[SurveyService, Depends(get_survey_service)]

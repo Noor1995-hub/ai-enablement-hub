@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+
 from src.core.security import hash_password
 from src.db.models import (
     Company,
@@ -10,6 +12,7 @@ from src.db.models import (
     Module,
     ModulePrerequisite,
     Project,
+    ProjectComponentSetting,
     SurveyResponse,
     Track,
     User,
@@ -35,6 +38,7 @@ __all__ = [
     "create_survey",
     "create_track",
     "create_user",
+    "unlock_component",
 ]
 
 
@@ -82,6 +86,29 @@ async def create_project(session: AsyncSession, company: Company, name: str = "R
     """Bare project row — deliberately without component settings, so tests can
     cover the defaults fallback. Use the POST endpoint for the full behavior."""
     return await _persist(session, Project(name=name, company_id=company.id))
+
+
+async def unlock_component(
+    session: AsyncSession,
+    project: Project,
+    component: str,
+    *,
+    hidden: bool = False,
+    locked: bool = False,
+) -> None:
+    """Directly upsert a component row — the component-lock hard gate
+    (require_component_unlocked) 403s any caller whose project has it hidden or
+    locked, so any test exercising that component's endpoints needs this (the
+    `locked=True` override lets tests also cover the still-locked case)."""
+    stmt = pg_insert(ProjectComponentSetting).values(
+        project_id=project.id, component=component, hidden=hidden, locked=locked
+    )
+    stmt = stmt.on_conflict_do_update(
+        index_elements=["project_id", "component"],
+        set_={"hidden": stmt.excluded.hidden, "locked": stmt.excluded.locked},
+    )
+    await session.execute(stmt)
+    await session.commit()
 
 
 async def create_track(
