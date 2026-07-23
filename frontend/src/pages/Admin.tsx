@@ -16,7 +16,6 @@ import type {
 import { s } from './admin/adminStyles'
 import ProjectsView from './admin/ProjectsView'
 import ProjectDetailView, { type SelectedProject } from './admin/ProjectDetailView'
-import UserPanel from './admin/UserPanel'
 import SetupView from './admin/SetupView'
 
 // God-component structure kept for parity (A1 noted, deferred). The old file's
@@ -37,7 +36,6 @@ export default function Admin() {
   const [selectedProject, setSelectedProject] = useState<SelectedProject | null>(null)
   // user detail panel
   const [panelUserId, setPanelUserId] = useState<string | null>(null)
-  const [panelUserData, setPanelUserData] = useState<AdminUser | null>(null)
   const [panelSurvey, setPanelSurvey] = useState<AdminSurvey | null | undefined>(undefined) // undefined=not loaded, null=no survey
   const [loadingPanel, setLoadingPanel] = useState(false)
 
@@ -140,7 +138,6 @@ export default function Admin() {
   function openProject(project: ProjectOut, companyName: string) {
     setSelectedProject({ ...project, company_name: companyName })
     setPanelUserId(null)
-    setPanelUserData(null)
     setPanelSurvey(undefined)
     setResetLinks({})
     setActionError(null)
@@ -153,9 +150,12 @@ export default function Admin() {
   }
 
   /* ── user detail panel ── */
-  async function openUserPanel(panelUser: AdminUser) {
+  async function toggleUserPanel(panelUser: AdminUser) {
+    if (panelUserId === panelUser.id) {
+      setPanelUserId(null)
+      return
+    }
     setPanelUserId(panelUser.id)
-    setPanelUserData(panelUser)
     setPanelSurvey(undefined)
     setLoadingPanel(true)
     try {
@@ -308,14 +308,12 @@ export default function Admin() {
   /* ── maturity override (modelled on handleRoleToggle) ── */
   async function handleSetMaturity(userId: string, level: string | null) {
     const prevUsers = projectUsers
-    const prevPanel = panelUserData
     setSavingMaturity(true)
     // Optimistically reflect the pin (effective follows on the reconcile below).
     const applyOverride = (u: AdminUser): AdminUser => ({
       ...u, maturity_override: level, effective_maturity: level ?? u.effective_maturity,
     })
     setProjectUsers(prev => prev.map(u => (u.id === userId ? applyOverride(u) : u)))
-    setPanelUserData(p => (p && p.id === userId ? applyOverride(p) : p))
     try {
       const { error } = await client.PUT('/api/admin/users/{user_id}/maturity', {
         params: { path: { user_id: userId } },
@@ -323,7 +321,6 @@ export default function Admin() {
       })
       if (error) {
         setProjectUsers(prevUsers)
-        setPanelUserData(prevPanel)
         setActionError(errorMessage(error, 'Failed to update maturity level.'))
       } else if (selectedProject) {
         // Reconcile effective_maturity authoritatively — completion can raise it
@@ -331,14 +328,10 @@ export default function Admin() {
         const { data } = await client.GET('/api/admin/users', {
           params: { query: { project_id: selectedProject.id } },
         })
-        if (data) {
-          setProjectUsers(data.users)
-          setPanelUserData(p => (p ? (data.users.find(u => u.id === p.id) ?? p) : p))
-        }
+        if (data) setProjectUsers(data.users)
       }
     } catch {
       setProjectUsers(prevUsers)
-      setPanelUserData(prevPanel)
       setActionError('Network error.')
     }
     setSavingMaturity(false)
@@ -445,6 +438,19 @@ export default function Admin() {
               error: componentError,
               toggling: togglingComponent,
             }}
+            panel={{
+              expandedUserId: panelUserId,
+              survey: panelSurvey,
+              loading: loadingPanel,
+              learningUser: panelLearningUser,
+              tracks,
+              learningData,
+              togglingItem,
+              savingMaturity,
+              onToggleLearning: toggleLearningItem,
+              onBulkAssign: bulkAssignLearningItems,
+              onSetMaturity: handleSetMaturity,
+            }}
             handlers={{
               onBack: closeProject,
               onToggleComponent: toggleComponent,
@@ -454,7 +460,7 @@ export default function Admin() {
               onGenerateResetLink: handleGenerateResetLink,
               onCopyResetLink: copyResetLink,
               onDismissResetLink: userId => setResetLinks(prev => { const n = { ...prev }; delete n[userId]; return n }),
-              onOpenUserPanel: openUserPanel,
+              onToggleUserPanel: toggleUserPanel,
               onProjectRefresh: () => loadProjectData(selectedProject.id),
             }}
           />
@@ -468,24 +474,6 @@ export default function Admin() {
           />
         )}
       </main>
-
-      {/* ── User detail panel ── */}
-      {panelUserId && (
-        <UserPanel
-          user={panelUserData}
-          survey={panelSurvey}
-          loadingPanel={loadingPanel}
-          learningUser={panelLearningUser}
-          tracks={tracks}
-          learningData={learningData}
-          togglingItem={togglingItem}
-          savingMaturity={savingMaturity}
-          onToggleLearning={toggleLearningItem}
-          onBulkAssign={bulkAssignLearningItems}
-          onSetMaturity={handleSetMaturity}
-          onClose={() => setPanelUserId(null)}
-        />
-      )}
     </div>
   )
 }

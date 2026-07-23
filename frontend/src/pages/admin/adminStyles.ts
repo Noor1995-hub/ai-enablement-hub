@@ -193,38 +193,20 @@ export const s = {
   projectViewCo:    { fontSize: 13, fontWeight: 300, color: '#8A8A8A', marginLeft: 4 },
 
   /* user detail panel */
-  panelOverlay: {
-    position: 'fixed', inset: 0, background: 'rgba(0,0,0,.18)', zIndex: 50,
-    display: 'flex', justifyContent: 'flex-end',
-  },
-  panel: {
-    // height:100% (not 100vh): the :root CSS zoom of 1.25 multiplies vh units,
-    // so 100vh renders ~125% of the screen and the last tracks fall below the
-    // fold, unreachable. The overlay is fixed/inset:0 and sized correctly, so
-    // filling it keeps the panel exactly one viewport tall and scrollable.
-    width: 560, maxWidth: '95vw', height: '100%', background: '#fff',
-    borderLeft: '1px solid #E2E2E2', overflowY: 'auto', display: 'flex', flexDirection: 'column',
-  },
-  panelHeader: {
-    padding: '24px 28px 20px', borderBottom: '1px solid #F0EFED',
-    display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
-    position: 'sticky', top: 0, background: '#fff', zIndex: 1,
-  },
+  // panelClose is still used by BulkInviteModal.tsx's modal header — kept
+  // even though the old inline-detail component (its original consumer) is gone.
   panelClose: {
     background: 'none', border: 'none', cursor: 'pointer', fontSize: 20,
     color: '#B6B6B6', padding: 0, lineHeight: 1, marginTop: 2,
   },
-  panelName: { fontFamily: 'var(--dlw-font-body)', fontWeight: 700, fontSize: 18, color: '#101820', marginBottom: 4 },
-  panelMeta: { fontSize: 13, fontWeight: 300, color: '#8A8A8A' },
-  panelBody: { padding: '24px 28px', flex: 1 },
-  panelSection: { marginBottom: 32 },
+  panelBody: { padding: '14px 28px', flex: 1 },
+  panelSection: { marginBottom: 20 },
   panelSectionTitle: {
     fontFamily: 'var(--dlw-font-ui)', fontWeight: 600, fontSize: 11,
-    letterSpacing: '0.1em', textTransform: 'uppercase', color: '#8A8A8A', marginBottom: 14,
+    letterSpacing: '0.1em', textTransform: 'uppercase', color: '#8A8A8A', marginBottom: 10,
   },
 
   /* survey */
-  surveyQRow:     { marginBottom: 14 },
   surveyQLabel:   { fontSize: 11, fontWeight: 600, color: '#8A8A8A', marginBottom: 5, fontFamily: 'var(--dlw-font-ui)', letterSpacing: '0.04em', textTransform: 'uppercase' },
   surveyQText:    { fontSize: 13, color: '#3C3C3C', lineHeight: 1.6, background: '#FAFAF9', padding: '10px 12px', borderRadius: 6, border: '1px solid #F0EFED' },
   noSurvey:       { fontSize: 13, color: '#B6B6B6', fontWeight: 300, padding: '20px 0' },

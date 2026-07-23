@@ -1,12 +1,13 @@
 import React, { useState } from 'react'
 import { client, errorMessage } from '../../api/client'
 import type { ComponentKey } from '../../lib/constants'
-import type { AdminUser, ComponentState, EmailStatus } from '../../types/domain'
+import type { AdminLearning, AdminLearningUser, AdminSurvey, AdminUser, ComponentState, EmailStatus, Track } from '../../types/domain'
 import type { ResetLinkEntry } from '../Admin'
 import { s, COMPONENT_KEYS, COMPONENT_LABELS } from './adminStyles'
 import { LevelBadge, Field, formatDate } from './adminHelpers'
 import BulkInviteModal from './BulkInviteModal'
 import EmailTemplatesCard from './EmailTemplatesCard'
+import ParticipantDetail from './ParticipantDetail'
 import { levelByCode } from '../../lib/levels'
 
 /*
@@ -48,6 +49,20 @@ interface ComponentAccessProps {
   toggling: string | null
 }
 
+interface UserDetailPanelProps {
+  expandedUserId: string | null
+  survey: AdminSurvey | null | undefined
+  loading: boolean
+  learningUser: AdminLearningUser | null
+  tracks: Track[]
+  learningData: AdminLearning
+  togglingItem: string | null
+  savingMaturity: boolean
+  onToggleLearning: (action: 'track' | 'module' | 'lesson', userId: string, itemId: string, currentlyAssigned: boolean) => void
+  onBulkAssign: (kind: 'tracks' | 'modules' | 'lessons', userId: string, groupId: string, ids: string[], assigned: boolean) => void
+  onSetMaturity: (userId: string, level: string | null) => void
+}
+
 interface Handlers {
   onBack: () => void
   onToggleComponent: (comp: ComponentKey, current: ComponentState, field: 'hidden' | 'locked') => void
@@ -57,7 +72,7 @@ interface Handlers {
   onGenerateResetLink: (userId: string) => void
   onCopyResetLink: (userId: string) => void
   onDismissResetLink: (userId: string) => void
-  onOpenUserPanel: (user: AdminUser) => void
+  onToggleUserPanel: (user: AdminUser) => void
   onProjectRefresh?: () => void
 }
 
@@ -65,6 +80,7 @@ interface ProjectDetailViewProps {
   project: SelectedProject
   participants: ParticipantsProps
   componentAccess: ComponentAccessProps
+  panel: UserDetailPanelProps
   handlers: Handlers
 }
 
@@ -79,6 +95,7 @@ export default function ProjectDetailView({
   project,
   participants,
   componentAccess,
+  panel,
   handlers,
 }: ProjectDetailViewProps) {
   const {
@@ -92,8 +109,14 @@ export default function ProjectDetailView({
   } = componentAccess
 
   const {
+    expandedUserId, survey: panelSurvey, loading: loadingPanel, learningUser: panelLearningUser,
+    tracks: panelTracks, learningData: panelLearningData, togglingItem: panelTogglingItem,
+    savingMaturity: panelSavingMaturity, onToggleLearning, onBulkAssign, onSetMaturity,
+  } = panel
+
+  const {
     onBack, onToggleComponent, onRoleChange, onDelete, onSetConfirmDelete,
-    onGenerateResetLink, onCopyResetLink, onDismissResetLink, onOpenUserPanel,
+    onGenerateResetLink, onCopyResetLink, onDismissResetLink, onToggleUserPanel,
     onProjectRefresh,
   } = handlers
 
@@ -272,10 +295,13 @@ export default function ProjectDetailView({
                     <td style={{ ...s.td, ...s.tdName }}>
                       <button
                         type="button"
-                        style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontWeight: 700, fontSize: 14, color: '#101820', textDecoration: 'underline', textDecorationColor: '#E2E2E2', fontFamily: 'inherit' }}
-                        onClick={() => onOpenUserPanel(u)}
+                        style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontWeight: 700, fontSize: 14, color: '#101820', textDecoration: 'underline', textDecorationColor: '#E2E2E2', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6 }}
+                        onClick={() => onToggleUserPanel(u)}
                       >
                         {u.first_name} {u.last_name}
+                        <span style={{ fontSize: 9, color: '#B6B6B6', textDecoration: 'none' }}>
+                          {expandedUserId === u.id ? '▼' : '▶'}
+                        </span>
                       </button>
                     </td>
                     <td style={s.td}>{u.email}</td>
@@ -343,6 +369,25 @@ export default function ProjectDetailView({
                       </div>
                     </td>
                   </tr>
+                  {expandedUserId === u.id && (
+                    <tr>
+                      <td colSpan={7} style={{ padding: '0 24px 28px', borderBottom: '1px solid #F5F5F5' }}>
+                        <ParticipantDetail
+                          user={u}
+                          survey={panelSurvey}
+                          loadingPanel={loadingPanel}
+                          learningUser={panelLearningUser}
+                          tracks={panelTracks}
+                          learningData={panelLearningData}
+                          togglingItem={panelTogglingItem}
+                          savingMaturity={panelSavingMaturity}
+                          onToggleLearning={onToggleLearning}
+                          onBulkAssign={onBulkAssign}
+                          onSetMaturity={onSetMaturity}
+                        />
+                      </td>
+                    </tr>
+                  )}
                   {resetLinks[u.id] && (
                     <tr>
                       <td colSpan={7} style={{ padding: '0 24px 14px', borderBottom: '1px solid #F5F5F5' }}>
