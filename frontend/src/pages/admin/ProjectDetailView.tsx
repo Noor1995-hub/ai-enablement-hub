@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { client, errorMessage } from '../../api/client'
 import type { ComponentKey } from '../../lib/constants'
 import type { AdminLearning, AdminLearningUser, AdminSurvey, AdminUser, ComponentState, EmailStatus, Track } from '../../types/domain'
@@ -9,6 +9,7 @@ import BulkInviteModal from './BulkInviteModal'
 import EmailTemplatesCard from './EmailTemplatesCard'
 import ParticipantDetail from './ParticipantDetail'
 import { levelByCode } from '../../lib/levels'
+import { getRectZoomFactor } from '../../lib/uiZoom'
 
 /*
  * Props are grouped into logical objects to keep the signature manageable.
@@ -129,6 +130,21 @@ export default function ProjectDetailView({
   const [copied, setCopied] = useState(false)
   const [inviteOpen, setInviteOpen] = useState(false)
   const [bulkOpen, setBulkOpen] = useState(false)
+
+  // The inline expansion can be much taller than the viewport (a full survey
+  // plus every track), so cap it to a scrollable box instead of pushing the
+  // whole page down. Plain `vh` overshoots by the site's baked-in 1.25 zoom
+  // (see UserPanel's old height comment) — divide by the measured zoom
+  // factor so the box's real on-screen height matches the intended fraction
+  // of the actual viewport.
+  const [detailMaxHeight, setDetailMaxHeight] = useState<number>()
+  useEffect(() => {
+    if (!expandedUserId) return
+    const update = () => setDetailMaxHeight((window.innerHeight * 0.7) / getRectZoomFactor())
+    update()
+    window.addEventListener('resize', update)
+    return () => window.removeEventListener('resize', update)
+  }, [expandedUserId])
 
   const valid = inviteForm.email.includes('@') && inviteForm.first_name.trim() && inviteForm.last_name.trim()
 
@@ -372,19 +388,21 @@ export default function ProjectDetailView({
                   {expandedUserId === u.id && (
                     <tr>
                       <td colSpan={7} style={{ padding: '0 24px 28px', borderBottom: '1px solid #F5F5F5' }}>
-                        <ParticipantDetail
-                          user={u}
-                          survey={panelSurvey}
-                          loadingPanel={loadingPanel}
-                          learningUser={panelLearningUser}
-                          tracks={panelTracks}
-                          learningData={panelLearningData}
-                          togglingItem={panelTogglingItem}
-                          savingMaturity={panelSavingMaturity}
-                          onToggleLearning={onToggleLearning}
-                          onBulkAssign={onBulkAssign}
-                          onSetMaturity={onSetMaturity}
-                        />
+                        <div style={{ maxHeight: detailMaxHeight, overflowY: 'auto' }}>
+                          <ParticipantDetail
+                            user={u}
+                            survey={panelSurvey}
+                            loadingPanel={loadingPanel}
+                            learningUser={panelLearningUser}
+                            tracks={panelTracks}
+                            learningData={panelLearningData}
+                            togglingItem={panelTogglingItem}
+                            savingMaturity={panelSavingMaturity}
+                            onToggleLearning={onToggleLearning}
+                            onBulkAssign={onBulkAssign}
+                            onSetMaturity={onSetMaturity}
+                          />
+                        </div>
                       </td>
                     </tr>
                   )}
