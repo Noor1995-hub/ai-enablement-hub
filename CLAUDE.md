@@ -61,6 +61,9 @@ the full dated build story for each is in the **Appendix** at the bottom of this
 - **Auth** (password + invite/reset + Entra OIDC) — Appendix (Batch 2 + the Entra entry).
 - **Learning path, locks & maturity gating** — "Locking, prerequisites & preview" below;
   specs `2026-07-14-learning-path-level-headers-design.md`, `2026-07-20-below-level-free-review-design.md`.
+- **Cascading track/module assignment** — assigning a track/module now auto-assigns
+  everything under it (full resync, both ways) —
+  `specs/2026-07-23-cascading-track-module-assignment-design.md`; `services/admin_user_service.py`.
 - **Introduction level** — `specs/2026-07-17-introduction-level-design.md` (+ plan).
 - **`user+` role** — `specs/2026-07-22-user-plus-role-design.md`.
 - **Lesson feedback** — `specs/2026-07-14-lesson-feedback-design.md`; `routers/feedback.py`.
@@ -488,16 +491,20 @@ this file; drop into this appendix for the full backstory of any one feature.
 - **Lesson assignment (2026-07-06, post-Batch 6):** per-lesson assignment via new
   `user_lessons` table (mirrors user_modules; migration `a3f8c1d2e4b7` backfills all lessons
   of every existing user↔module assignment, so current learners keep what they see today).
-  Semantics: assigning a module does NOT auto-assign its lessons — the admin picks lessons in
-  the UserPanel (module row expands to a lesson list) or clicks "+ add all lessons"; tracks
-  got "+ add all modules". Every level (tracks section header / track's module list / module's
-  lesson list) has BOTH "+ add all" and "− unassign all" buttons (shown only when applicable).
+  Semantics (as of 2026-07-06; **superseded 2026-07-23, see the Cascading
+  track/module assignment entry below**): assigning a module does NOT auto-assign its lessons —
+  the admin picks lessons in the UserPanel (module row expands to a lesson list) or clicks
+  "+ add all lessons"; tracks got "+ add all modules". Every level (tracks section header /
+  track's module list / module's lesson list) has BOTH "+ add all" and "− unassign all" buttons
+  (shown only when applicable).
   Bulk = ONE call: `PUT /api/admin/users/{id}/tracks` / `…/modules` /
   `…/lessons` `{track_ids|module_ids|lesson_ids, assigned}` (404 if any id unknown, 422 on
   empty list);
-  single lesson toggle = `PUT …/lessons/{lesson_id} {assigned}`. Unassigning a module/track
+  single lesson toggle = `PUT …/lessons/{lesson_id} {assigned}`. ~~Unassigning a module/track
   KEEPS the child assignment rows (same keep-rows semantics the old track→module pair already
-  had — reassigning restores the previous selection). Learner side: graph `lesson_count`/
+  had — reassigning restores the previous selection).~~ **Superseded 2026-07-23:** unassigning
+  now cascades to child rows too, and reassigning is a full resync (see below). Learner side:
+  graph `lesson_count`/
   `completed_lesson_count` now count ONLY the caller's assigned lessons (one SQL in
   AssignmentRepository.assigned_lesson_counts_by_module); `GET /api/modules/{id}/lessons`
   returns ALL lessons with per-caller `assigned` flags (admin ModulePanel needs all — learner
@@ -646,3 +653,20 @@ this file; drop into this appendix for the full backstory of any one feature.
   live 2026-07-07 (see the Deployment section). Not browser-verified this session (no browser
   automation tool available) — spot-check the two buttons on ProjectDetailView before relying
   on it.
+
+- **Cascading track/module assignment (2026-07-23):** assigning a track or module to a user
+  now auto-assigns every module/lesson underneath it; unassigning cascades the same way.
+  Full resync semantics — reassigning a track/module always sets *all* its descendants back
+  to assigned, even ones an admin had previously hand-unassigned (there is no stable
+  "assign track, then hand-curate one lesson off" customization across a toggle of the
+  ancestor). `AdminUserService.set_track_assignment(s)`/`set_module_assignment(s)`
+  (`backend/src/services/admin_user_service.py`) compute the descendant module/lesson ids via
+  two new private helpers (`_cascade_module_and_lesson_ids`, `_cascade_lesson_ids`) built on
+  the existing `ContentRepository.list_modules()`/`list_lesson_summaries()` reads, then bulk-write
+  `user_modules`/`user_lessons` alongside the target level. No schema change, no new endpoints,
+  no repository interface change. Lesson-level assignment is unchanged (lessons have no
+  children). `Admin.tsx`'s track/module toggle handlers (`toggleLearningItem`,
+  `bulkAssignLearningItems`) now refetch `GET /api/admin/learning` on success instead of
+  optimistically patching one assignment array, since a single toggle can change three arrays
+  at once; lesson toggles keep the prior optimistic patch (no cascade there). Spec:
+  `docs/superpowers/specs/2026-07-23-cascading-track-module-assignment-design.md`.
