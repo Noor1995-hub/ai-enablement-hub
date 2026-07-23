@@ -250,6 +250,7 @@ class AdminUserService:
         if await self._content.count_modules_by_ids(unique_ids) != len(unique_ids):
             raise NotFoundError("Module")
         await self._assignments.set_user_modules(user_id, unique_ids, assigned)
+        await self._cascade_to_lessons(user_id, unique_ids, assigned)
 
     async def set_lesson_assignments(
         self, user_id: uuid.UUID, lesson_ids: list[uuid.UUID], assigned: bool
