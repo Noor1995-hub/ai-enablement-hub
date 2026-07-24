@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext'
 import Admin from './pages/Admin'
 import Assessment from './pages/Assessment'
 import AuthCallback from './pages/AuthCallback'
+import DevChat from './pages/DevChat'
 import InviteRedirect from './pages/InviteRedirect'
 import JourneyHome from './pages/JourneyHome'
 import LearningPathNew from './pages/LearningPathNew'
@@ -69,6 +70,10 @@ function AppRoutes() {
       <Route path="/learning" element={session ? <LearningPathNew /> : <Navigate to="/login" replace />} />
       <Route path="/learning/lesson/:lessonId" element={session ? <LessonPage /> : <Navigate to="/login" replace />} />
       <Route path="/interview" element={session ? <ComingSoon /> : <Navigate to="/login" replace />} />
+      {/* Temporary Batch A dev-only verification route for the AI chat foundation
+          (chat + AI-enable toggle harness). Delete once Batch B mounts ChatPanel
+          for real. */}
+      <Route path="/dev-chat" element={session ? <DevChat /> : <Navigate to="/login" replace />} />
       <Route path="/invite/:id" element={<InviteRedirect />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
       <Route path="*" element={<Navigate to={needsPassword ? '/set-password' : session ? '/' : '/login'} replace />} />
