@@ -398,36 +398,68 @@ class AbstractAssignmentRepository(ABC):
         users in ONE query (avoids the per-user N+1 on the admin directory)."""
 
     @abstractmethod
-    async def set_user_track(self, user_id: uuid.UUID, track_id: uuid.UUID, assigned: bool) -> None:
+    async def set_user_track(
+        self,
+        user_id: uuid.UUID,
+        track_id: uuid.UUID,
+        assigned: bool,
+        *,
+        assigned_via: str = "manual",
+    ) -> None:
         """Idempotent upsert (assigned) or delete (unassigned)."""
 
     @abstractmethod
     async def set_user_module(
-        self, user_id: uuid.UUID, module_id: uuid.UUID, assigned: bool
+        self,
+        user_id: uuid.UUID,
+        module_id: uuid.UUID,
+        assigned: bool,
+        *,
+        assigned_via: str = "manual",
     ) -> None:
         """Idempotent upsert (assigned) or delete (unassigned)."""
 
     @abstractmethod
     async def set_user_lesson(
-        self, user_id: uuid.UUID, lesson_id: uuid.UUID, assigned: bool
+        self,
+        user_id: uuid.UUID,
+        lesson_id: uuid.UUID,
+        assigned: bool,
+        *,
+        assigned_via: str = "manual",
     ) -> None:
         """Idempotent upsert (assigned) or delete (unassigned)."""
 
     @abstractmethod
     async def set_user_tracks(
-        self, user_id: uuid.UUID, track_ids: list[uuid.UUID], assigned: bool
+        self,
+        user_id: uuid.UUID,
+        track_ids: list[uuid.UUID],
+        assigned: bool,
+        *,
+        assigned_via: str = "manual",
     ) -> None:
         """Bulk variant of set_user_track, one statement + commit."""
 
     @abstractmethod
     async def set_user_modules(
-        self, user_id: uuid.UUID, module_ids: list[uuid.UUID], assigned: bool
+        self,
+        user_id: uuid.UUID,
+        module_ids: list[uuid.UUID],
+        assigned: bool,
+        *,
+        assigned_via: str = "manual",
     ) -> None:
         """Bulk variant of set_user_module, one statement + commit."""
 
     @abstractmethod
     async def set_user_lessons(
-        self, user_id: uuid.UUID, lesson_ids: list[uuid.UUID], assigned: bool
+        self,
+        user_id: uuid.UUID,
+        lesson_ids: list[uuid.UUID],
+        assigned: bool,
+        *,
+        assigned_via: str = "manual",
     ) -> None:
         """Bulk variant of set_user_lesson, one statement + commit."""
 

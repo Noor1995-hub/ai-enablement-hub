@@ -83,11 +83,18 @@ class AssignmentRepository(AbstractAssignmentRepository):
             counts.setdefault(user_id, {})[module_id] = (assigned, completed)
         return counts
 
-    async def set_user_track(self, user_id: uuid.UUID, track_id: uuid.UUID, assigned: bool) -> None:
+    async def set_user_track(
+        self,
+        user_id: uuid.UUID,
+        track_id: uuid.UUID,
+        assigned: bool,
+        *,
+        assigned_via: str = "manual",
+    ) -> None:
         if assigned:
             stmt = (
                 pg_insert(UserTrack)
-                .values(user_id=user_id, track_id=track_id)
+                .values(user_id=user_id, track_id=track_id, assigned_via=assigned_via)
                 .on_conflict_do_nothing(index_elements=["user_id", "track_id"])
             )
             await self._session.execute(stmt)
@@ -100,12 +107,17 @@ class AssignmentRepository(AbstractAssignmentRepository):
         await self._session.commit()
 
     async def set_user_module(
-        self, user_id: uuid.UUID, module_id: uuid.UUID, assigned: bool
+        self,
+        user_id: uuid.UUID,
+        module_id: uuid.UUID,
+        assigned: bool,
+        *,
+        assigned_via: str = "manual",
     ) -> None:
         if assigned:
             stmt = (
                 pg_insert(UserModule)
-                .values(user_id=user_id, module_id=module_id)
+                .values(user_id=user_id, module_id=module_id, assigned_via=assigned_via)
                 .on_conflict_do_nothing(index_elements=["user_id", "module_id"])
             )
             await self._session.execute(stmt)
@@ -118,12 +130,17 @@ class AssignmentRepository(AbstractAssignmentRepository):
         await self._session.commit()
 
     async def set_user_lesson(
-        self, user_id: uuid.UUID, lesson_id: uuid.UUID, assigned: bool
+        self,
+        user_id: uuid.UUID,
+        lesson_id: uuid.UUID,
+        assigned: bool,
+        *,
+        assigned_via: str = "manual",
     ) -> None:
         if assigned:
             stmt = (
                 pg_insert(UserLesson)
-                .values(user_id=user_id, lesson_id=lesson_id)
+                .values(user_id=user_id, lesson_id=lesson_id, assigned_via=assigned_via)
                 .on_conflict_do_nothing(index_elements=["user_id", "lesson_id"])
             )
             await self._session.execute(stmt)
@@ -136,12 +153,22 @@ class AssignmentRepository(AbstractAssignmentRepository):
         await self._session.commit()
 
     async def set_user_tracks(
-        self, user_id: uuid.UUID, track_ids: list[uuid.UUID], assigned: bool
+        self,
+        user_id: uuid.UUID,
+        track_ids: list[uuid.UUID],
+        assigned: bool,
+        *,
+        assigned_via: str = "manual",
     ) -> None:
         if assigned:
             stmt = (
                 pg_insert(UserTrack)
-                .values([{"user_id": user_id, "track_id": tid} for tid in track_ids])
+                .values(
+                    [
+                        {"user_id": user_id, "track_id": tid, "assigned_via": assigned_via}
+                        for tid in track_ids
+                    ]
+                )
                 .on_conflict_do_nothing(index_elements=["user_id", "track_id"])
             )
             await self._session.execute(stmt)
@@ -154,12 +181,22 @@ class AssignmentRepository(AbstractAssignmentRepository):
         await self._session.commit()
 
     async def set_user_modules(
-        self, user_id: uuid.UUID, module_ids: list[uuid.UUID], assigned: bool
+        self,
+        user_id: uuid.UUID,
+        module_ids: list[uuid.UUID],
+        assigned: bool,
+        *,
+        assigned_via: str = "manual",
     ) -> None:
         if assigned:
             stmt = (
                 pg_insert(UserModule)
-                .values([{"user_id": user_id, "module_id": mid} for mid in module_ids])
+                .values(
+                    [
+                        {"user_id": user_id, "module_id": mid, "assigned_via": assigned_via}
+                        for mid in module_ids
+                    ]
+                )
                 .on_conflict_do_nothing(index_elements=["user_id", "module_id"])
             )
             await self._session.execute(stmt)
@@ -172,12 +209,22 @@ class AssignmentRepository(AbstractAssignmentRepository):
         await self._session.commit()
 
     async def set_user_lessons(
-        self, user_id: uuid.UUID, lesson_ids: list[uuid.UUID], assigned: bool
+        self,
+        user_id: uuid.UUID,
+        lesson_ids: list[uuid.UUID],
+        assigned: bool,
+        *,
+        assigned_via: str = "manual",
     ) -> None:
         if assigned:
             stmt = (
                 pg_insert(UserLesson)
-                .values([{"user_id": user_id, "lesson_id": lid} for lid in lesson_ids])
+                .values(
+                    [
+                        {"user_id": user_id, "lesson_id": lid, "assigned_via": assigned_via}
+                        for lid in lesson_ids
+                    ]
+                )
                 .on_conflict_do_nothing(index_elements=["user_id", "lesson_id"])
             )
             await self._session.execute(stmt)
