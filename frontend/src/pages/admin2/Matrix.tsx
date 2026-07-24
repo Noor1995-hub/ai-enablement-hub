@@ -227,7 +227,13 @@ export default function Matrix({
       {columns.length === 0 ? (
         <div className="adm-matrix-msg">
           <EmptyState
-            title={level.level === 'modules' ? 'No modules in this track' : 'No lessons in this module'}
+            title={
+              level.level === 'tracks'
+                ? 'No tracks available'
+                : level.level === 'modules'
+                  ? 'No modules in this track'
+                  : 'No lessons in this module'
+            }
           />
         </div>
       ) : (

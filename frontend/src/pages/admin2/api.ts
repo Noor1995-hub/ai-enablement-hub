@@ -368,11 +368,28 @@ async function setDefaults({ projectId, trackIds }: SetDefaultsInput): Promise<v
   if (error) throw new Error(errorMessage(error, 'Failed to save default tracks.'))
 }
 
+/** Full-replace of a project's default tracks — optimistic on
+ * `['admin','defaults',projectId]` so the matrix's defaults prop advances at
+ * click time (successive toggles then compose from fresh state instead of a
+ * stale pre-refetch snapshot); `onError` rolls the snapshot back and the caller
+ * surfaces the failure via `isError`. Only the defaults key is touched — the
+ * PUT does not retro-apply to participants (that is the separate apply action),
+ * so no users/learning invalidation here. */
 export function useSetDefaults() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: setDefaults,
-    onSuccess: (_data, variables) => {
+    onMutate: async ({ projectId, trackIds }) => {
+      const key = ['admin', 'defaults', projectId] as const
+      await queryClient.cancelQueries({ queryKey: key })
+      const previous = queryClient.getQueryData<DefaultsResponse>(key)
+      queryClient.setQueryData<DefaultsResponse>(key, { track_ids: trackIds })
+      return { key, previous }
+    },
+    onError: (_error, _variables, context) => {
+      if (context) queryClient.setQueryData(context.key, context.previous)
+    },
+    onSettled: (_data, _error, variables) => {
       void queryClient.invalidateQueries({ queryKey: ['admin', 'defaults', variables.projectId] })
     },
   })
