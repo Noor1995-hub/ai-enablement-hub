@@ -328,6 +328,13 @@ _MATRIX: list[tuple[str, str, Any, Any, bool]] = [
         lambda s: {"track_ids": [str(s.track.id)]},
         True,
     ),
+    (
+        "defaults-apply",
+        "POST",
+        lambda s: f"/api/admin/projects/{s.project.id}/defaults/apply",
+        lambda s: None,
+        True,
+    ),
 ]
 
 

@@ -18,7 +18,8 @@ class DefaultsUpdateRequest(BaseModel):
 
 
 class ApplyDefaultsResponse(BaseModel):
-    """Reserved for the later "apply defaults to existing users" endpoint —
-    not wired to any router yet."""
+    """Response of POST .../defaults/apply — how many of the project's
+    existing users the additive backfill ran over (regardless of whether the
+    project currently has any default tracks configured)."""
 
     users_updated: int

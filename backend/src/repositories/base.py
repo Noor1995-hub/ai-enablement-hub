@@ -104,6 +104,10 @@ class AbstractUserRepository(ABC):
     async def delete(self, user: User) -> None:
         """Single DELETE; FK cascades wipe tokens/sessions/progress/survey."""
 
+    @abstractmethod
+    async def ids_for_project(self, project_id: uuid.UUID) -> list[uuid.UUID]:
+        """Every user id bound to the project (apply-defaults backfill)."""
+
 
 class AbstractAuthTokenRepository(ABC):
     """Single-use invite/reset tokens (auth_tokens)."""

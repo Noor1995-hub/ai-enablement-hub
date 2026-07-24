@@ -107,13 +107,15 @@ class AdminUserService:
         project = await self._org.get_project(project_id)
         if project is None:
             raise NotFoundError("Project")
-        return await self._users.create(
+        user = await self._users.create(
             email=normalised,
             first_name=first_name.strip(),
             last_name=last_name.strip(),
             company_id=project.company_id,
             project_id=project.id,
         )
+        await self._materialize_defaults(user.id, project.id)
+        return user
 
     async def existing_emails(self, emails: list[str]) -> set[str]:
         """Subset of the given (normalized) emails that already have a user row."""
@@ -139,15 +141,15 @@ class AdminUserService:
         for first_name, last_name, email in rows:
             if await self._users.get_by_email(email) is not None:
                 continue
-            created.append(
-                await self._users.create(
-                    email=email,
-                    first_name=first_name,
-                    last_name=last_name,
-                    company_id=project.company_id,
-                    project_id=project.id,
-                )
+            user = await self._users.create(
+                email=email,
+                first_name=first_name,
+                last_name=last_name,
+                company_id=project.company_id,
+                project_id=project.id,
             )
+            await self._materialize_defaults(user.id, project.id)
+            created.append(user)
         return created
 
     async def set_role(self, user_id: uuid.UUID, role: str) -> None:
@@ -184,13 +186,22 @@ class AdminUserService:
         return module_ids, await self._cascade_lesson_ids(module_ids)
 
     async def _cascade_to_modules_and_lessons(
-        self, user_id: uuid.UUID, track_ids: list[uuid.UUID], assigned: bool
+        self,
+        user_id: uuid.UUID,
+        track_ids: list[uuid.UUID],
+        assigned: bool,
+        *,
+        assigned_via: str = "manual",
     ) -> None:
         module_ids, lesson_ids = await self._cascade_module_and_lesson_ids(track_ids)
         if module_ids:
-            await self._assignments.set_user_modules(user_id, module_ids, assigned)
+            await self._assignments.set_user_modules(
+                user_id, module_ids, assigned, assigned_via=assigned_via
+            )
         if lesson_ids:
-            await self._assignments.set_user_lessons(user_id, lesson_ids, assigned)
+            await self._assignments.set_user_lessons(
+                user_id, lesson_ids, assigned, assigned_via=assigned_via
+            )
 
     async def set_module_assignment(
         self, user_id: uuid.UUID, module_id: uuid.UUID, assigned: bool
@@ -213,11 +224,18 @@ class AdminUserService:
         return [le.id for le in lessons]
 
     async def _cascade_to_lessons(
-        self, user_id: uuid.UUID, module_ids: list[uuid.UUID], assigned: bool
+        self,
+        user_id: uuid.UUID,
+        module_ids: list[uuid.UUID],
+        assigned: bool,
+        *,
+        assigned_via: str = "manual",
     ) -> None:
         lesson_ids = await self._cascade_lesson_ids(module_ids)
         if lesson_ids:
-            await self._assignments.set_user_lessons(user_id, lesson_ids, assigned)
+            await self._assignments.set_user_lessons(
+                user_id, lesson_ids, assigned, assigned_via=assigned_via
+            )
 
     async def set_lesson_assignment(
         self, user_id: uuid.UUID, lesson_id: uuid.UUID, assigned: bool
@@ -318,6 +336,25 @@ class AdminUserService:
         if await self._content.count_tracks_by_ids(unique_ids) != len(unique_ids):
             raise NotFoundError("Track")
         await self._org.set_default_tracks(project_id, unique_ids)
+
+    async def _materialize_defaults(self, user_id: uuid.UUID, project_id: uuid.UUID) -> None:
+        """Copy the project's default tracks (plus cascade) onto a user, additively."""
+        track_ids = await self._org.default_track_ids(project_id)
+        if not track_ids:
+            return
+        await self._assignments.set_user_tracks(user_id, track_ids, True, assigned_via="default")
+        await self._cascade_to_modules_and_lessons(user_id, track_ids, True, assigned_via="default")
+
+    async def apply_project_defaults(self, project_id: uuid.UUID) -> int:
+        """Backfill defaults onto every existing participant. Additive only —
+        ON CONFLICT DO NOTHING means manual rows keep their provenance and
+        nothing is ever removed."""
+        if await self._org.get_project(project_id) is None:
+            raise NotFoundError("Project")
+        user_ids = await self._users.ids_for_project(project_id)
+        for user_id in user_ids:
+            await self._materialize_defaults(user_id, project_id)
+        return len(user_ids)
 
     async def get_user(self, user_id: uuid.UUID) -> User:
         user = await self._users.get_by_id(user_id)

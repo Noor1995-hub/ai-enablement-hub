@@ -99,3 +99,7 @@ class UserRepository(AbstractUserRepository):
     async def delete(self, user: User) -> None:
         await self._session.delete(user)
         await self._session.commit()
+
+    async def ids_for_project(self, project_id: uuid.UUID) -> list[uuid.UUID]:
+        result = await self._session.execute(select(User.id).where(User.project_id == project_id))
+        return list(result.scalars().all())

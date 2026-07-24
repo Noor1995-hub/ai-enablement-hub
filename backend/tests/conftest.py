@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pytest
 import pytest_asyncio
@@ -11,7 +11,9 @@ from pydantic import SecretStr
 from sqlalchemy import text
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.pool import NullPool
+from sqlalchemy.schema import DropTable
 
 from src.core.configs.auth import AuthSettings
 from src.core.configs.settings import Settings
@@ -98,6 +100,14 @@ def test_settings() -> Settings:
         email=None,
         storage=None,
     )
+
+
+@compiles(DropTable, "postgresql")
+def _drop_table_cascade(element: DropTable, compiler: Any, **kwargs: Any) -> str:
+    """The shared test DB can hold leftover tables from other branches' test
+    runs, with FKs pointing at our tables; CASCADE lets the schema reset
+    succeed while leaving those foreign tables themselves alone."""
+    return compiler.visit_drop_table(element) + " CASCADE"
 
 
 @pytest_asyncio.fixture(scope="session")
