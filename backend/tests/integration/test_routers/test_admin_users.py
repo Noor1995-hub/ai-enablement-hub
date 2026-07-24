@@ -855,3 +855,115 @@ class TestSurveyResults:
     async def test_user_survey_unknown_user_is_404(self, client: AsyncClient, org: Org) -> None:
         response = await client.get(f"/api/admin/surveys/{uuid.uuid4()}", headers=org.headers)
         assert response.status_code == 404
+
+
+class TestMultiUserBulk:
+    """POST /api/admin/assignments/bulk — many-users × one content kind."""
+
+    async def test_bulk_assign_tracks_cascades_for_every_user(
+        self, client: AsyncClient, db_session: AsyncSession, test_settings: Settings
+    ) -> None:
+        from src.db.models import UserLesson, UserTrack
+
+        admin = await create_user(db_session, email="mb1@x.test", role="admin")
+        u1 = await create_user(db_session, email="mb-u1@x.test")
+        u2 = await create_user(db_session, email="mb-u2@x.test")
+        track = await create_track(db_session)
+        module = await create_module(db_session, track)
+        lesson = await create_lesson(db_session, module)
+        resp = await client.post(
+            "/api/admin/assignments/bulk",
+            json={
+                "user_ids": [str(u1.id), str(u2.id)],
+                "track_ids": [str(track.id)],
+                "assigned": True,
+            },
+            headers=auth_headers(admin, test_settings),
+        )
+        assert resp.status_code == 204
+        for uid in (u1.id, u2.id):
+            tracks = (
+                (await db_session.execute(select(UserTrack).where(UserTrack.user_id == uid)))
+                .scalars()
+                .all()
+            )
+            lessons = (
+                (await db_session.execute(select(UserLesson).where(UserLesson.user_id == uid)))
+                .scalars()
+                .all()
+            )
+            assert [t.track_id for t in tracks] == [track.id]
+            assert [t.assigned_via for t in tracks] == ["manual"]
+            assert [le.lesson_id for le in lessons] == [lesson.id]
+
+    async def test_unknown_user_404_writes_nothing(
+        self, client: AsyncClient, db_session: AsyncSession, test_settings: Settings
+    ) -> None:
+        from src.db.models import UserTrack
+
+        admin = await create_user(db_session, email="mb2@x.test", role="admin")
+        u1 = await create_user(db_session, email="mb-u3@x.test")
+        track = await create_track(db_session)
+        resp = await client.post(
+            "/api/admin/assignments/bulk",
+            json={
+                "user_ids": [str(u1.id), str(uuid.uuid4())],
+                "track_ids": [str(track.id)],
+                "assigned": True,
+            },
+            headers=auth_headers(admin, test_settings),
+        )
+        assert resp.status_code == 404
+        assert (await db_session.execute(select(UserTrack))).scalars().all() == []
+
+    async def test_two_content_kinds_422(
+        self, client: AsyncClient, db_session: AsyncSession, test_settings: Settings
+    ) -> None:
+        admin = await create_user(db_session, email="mb3@x.test", role="admin")
+        u1 = await create_user(db_session, email="mb-u4@x.test")
+        track = await create_track(db_session)
+        module = await create_module(db_session, track)
+        resp = await client.post(
+            "/api/admin/assignments/bulk",
+            json={
+                "user_ids": [str(u1.id)],
+                "track_ids": [str(track.id)],
+                "module_ids": [str(module.id)],
+                "assigned": True,
+            },
+            headers=auth_headers(admin, test_settings),
+        )
+        assert resp.status_code == 422
+
+    async def test_no_content_kind_422(
+        self, client: AsyncClient, db_session: AsyncSession, test_settings: Settings
+    ) -> None:
+        admin = await create_user(db_session, email="mb4@x.test", role="admin")
+        u1 = await create_user(db_session, email="mb-u5@x.test")
+        resp = await client.post(
+            "/api/admin/assignments/bulk",
+            json={"user_ids": [str(u1.id)], "assigned": True},
+            headers=auth_headers(admin, test_settings),
+        )
+        assert resp.status_code == 422
+
+    async def test_bulk_unassign_removes_cascaded_rows(
+        self, client: AsyncClient, db_session: AsyncSession, test_settings: Settings
+    ) -> None:
+        from src.db.models import UserLesson
+
+        admin = await create_user(db_session, email="mb5@x.test", role="admin")
+        u1 = await create_user(db_session, email="mb-u6@x.test")
+        track = await create_track(db_session)
+        module = await create_module(db_session, track)
+        await create_lesson(db_session, module)
+        headers = auth_headers(admin, test_settings)
+        body = {"user_ids": [str(u1.id)], "track_ids": [str(track.id)]}
+        await client.post(
+            "/api/admin/assignments/bulk", json={**body, "assigned": True}, headers=headers
+        )
+        resp = await client.post(
+            "/api/admin/assignments/bulk", json={**body, "assigned": False}, headers=headers
+        )
+        assert resp.status_code == 204
+        assert (await db_session.execute(select(UserLesson))).scalars().all() == []

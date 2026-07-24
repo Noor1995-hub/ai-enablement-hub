@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
 __all__ = [
     "AdminLearningLessonOut",
@@ -15,6 +15,7 @@ __all__ = [
     "AdminUserOut",
     "AdminUsersResponse",
     "AssignmentRequest",
+    "BulkAssignmentRequest",
     "BulkInviteReport",
     "BulkInviteRow",
     "BulkInviteSummary",
@@ -143,6 +144,25 @@ class BulkModuleAssignmentRequest(BaseModel):
 class BulkLessonAssignmentRequest(BaseModel):
     lesson_ids: list[uuid.UUID] = Field(min_length=1)
     assigned: bool
+
+
+class BulkAssignmentRequest(BaseModel):
+    """Many-users × one content kind (spec §4.2). Exactly one of the three id
+    lists must be provided; all provided lists must be non-empty."""
+
+    user_ids: list[uuid.UUID] = Field(min_length=1)
+    track_ids: list[uuid.UUID] | None = Field(default=None, min_length=1)
+    module_ids: list[uuid.UUID] | None = Field(default=None, min_length=1)
+    lesson_ids: list[uuid.UUID] | None = Field(default=None, min_length=1)
+    assigned: bool
+
+    @model_validator(mode="after")
+    def _exactly_one_kind(self) -> BulkAssignmentRequest:
+        provided = [x for x in (self.track_ids, self.module_ids, self.lesson_ids) if x is not None]
+        if len(provided) != 1:
+            msg = "provide exactly one of track_ids, module_ids or lesson_ids"
+            raise ValueError(msg)
+        return self
 
 
 class AdminLearningModuleOut(BaseModel):

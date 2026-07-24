@@ -108,6 +108,10 @@ class AbstractUserRepository(ABC):
     async def ids_for_project(self, project_id: uuid.UUID) -> list[uuid.UUID]:
         """Every user id bound to the project (apply-defaults backfill)."""
 
+    @abstractmethod
+    async def count_by_ids(self, user_ids: list[uuid.UUID]) -> int:
+        """How many of the given user ids exist (bulk-assignment validation)."""
+
 
 class AbstractAuthTokenRepository(ABC):
     """Single-use invite/reset tokens (auth_tokens)."""

@@ -256,6 +256,13 @@ _MATRIX: list[tuple[str, str, Any, Any, bool]] = [
         lambda s: {"lesson_ids": [str(s.lesson.id)], "assigned": True},
         True,
     ),
+    (
+        "assignments-bulk",
+        "POST",
+        lambda s: "/api/admin/assignments/bulk",
+        lambda s: {"user_ids": [str(s.other.id)], "track_ids": [str(s.track.id)], "assigned": True},
+        True,
+    ),
     ("admin-learning", "GET", lambda s: "/api/admin/learning", lambda s: None, True),
     (
         "survey-levels",

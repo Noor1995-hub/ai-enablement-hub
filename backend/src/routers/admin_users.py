@@ -25,6 +25,7 @@ from src.schemas.admin_users import (
     AdminUserOut,
     AdminUsersResponse,
     AssignmentRequest,
+    BulkAssignmentRequest,
     BulkInviteReport,
     BulkInviteRow,
     BulkInviteSummary,
@@ -364,6 +365,20 @@ async def set_user_lessons(
 ) -> None:
     """Bulk assign/unassign lessons ("Add all lessons"); 404 if any id is unknown."""
     await admin_user_service.set_lesson_assignments(user_id, body.lesson_ids, body.assigned)
+
+
+@router.post("/assignments/bulk", status_code=status.HTTP_204_NO_CONTENT)
+async def bulk_assign(body: BulkAssignmentRequest, admin_user_service: AdminUserServiceDep) -> None:
+    """Many-users × one content kind ("assign N users to this track/module/
+    lesson"); 404 if any user or content id is unknown, validated before any
+    write. The schema enforces exactly one of track_ids/module_ids/lesson_ids."""
+    await admin_user_service.bulk_assign(
+        body.user_ids,
+        track_ids=body.track_ids,
+        module_ids=body.module_ids,
+        lesson_ids=body.lesson_ids,
+        assigned=body.assigned,
+    )
 
 
 @router.get("/learning", response_model=AdminLearningResponse)

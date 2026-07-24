@@ -281,6 +281,41 @@ class AdminUserService:
             raise NotFoundError("Lesson")
         await self._assignments.set_user_lessons(user_id, unique_ids, assigned)
 
+    async def bulk_assign(
+        self,
+        user_ids: list[uuid.UUID],
+        *,
+        track_ids: list[uuid.UUID] | None = None,
+        module_ids: list[uuid.UUID] | None = None,
+        lesson_ids: list[uuid.UUID] | None = None,
+        assigned: bool,
+    ) -> None:
+        """Many-users bulk (spec §4.2): validate everything, then write per user.
+        404 if ANY user or content id is unknown — before any write."""
+        unique_users = list(set(user_ids))
+        if await self._users.count_by_ids(unique_users) != len(unique_users):
+            raise NotFoundError("User")
+        if track_ids is not None:
+            unique_ids = list(set(track_ids))
+            if await self._content.count_tracks_by_ids(unique_ids) != len(unique_ids):
+                raise NotFoundError("Track")
+            for user_id in unique_users:
+                await self._assignments.set_user_tracks(user_id, unique_ids, assigned)
+                await self._cascade_to_modules_and_lessons(user_id, unique_ids, assigned)
+        elif module_ids is not None:
+            unique_ids = list(set(module_ids))
+            if await self._content.count_modules_by_ids(unique_ids) != len(unique_ids):
+                raise NotFoundError("Module")
+            for user_id in unique_users:
+                await self._assignments.set_user_modules(user_id, unique_ids, assigned)
+                await self._cascade_to_lessons(user_id, unique_ids, assigned)
+        elif lesson_ids is not None:
+            unique_ids = list(set(lesson_ids))
+            if await self._content.count_lessons_by_ids(unique_ids) != len(unique_ids):
+                raise NotFoundError("Lesson")
+            for user_id in unique_users:
+                await self._assignments.set_user_lessons(user_id, unique_ids, assigned)
+
     async def learning_overview(self) -> dict[str, Any]:
         """Modules + lessons + users with their assignments (admin learning panel)."""
         modules = await self._content.list_modules()

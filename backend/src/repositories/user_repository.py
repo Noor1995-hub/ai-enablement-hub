@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import aliased
 
 from src.db.models import Company, Project, User
@@ -103,3 +103,9 @@ class UserRepository(AbstractUserRepository):
     async def ids_for_project(self, project_id: uuid.UUID) -> list[uuid.UUID]:
         result = await self._session.execute(select(User.id).where(User.project_id == project_id))
         return list(result.scalars().all())
+
+    async def count_by_ids(self, user_ids: list[uuid.UUID]) -> int:
+        result = await self._session.execute(
+            select(func.count()).select_from(User).where(User.id.in_(user_ids))
+        )
+        return int(result.scalar_one())
