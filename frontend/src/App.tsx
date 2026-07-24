@@ -7,8 +7,10 @@ import AdminShell from './pages/admin2/AdminShell'
 import AssignmentsPage from './pages/admin2/AssignmentsPage'
 import DashboardPage from './pages/admin2/DashboardPage'
 import FeedbackPage from './pages/admin2/FeedbackPage'
-import Placeholder from './pages/admin2/Placeholder'
 import PeoplePage from './pages/admin2/PeoplePage'
+import ProjectsPage from './pages/admin2/ProjectsPage'
+import SetupPage from './pages/admin2/SetupPage'
+import TemplatesPage from './pages/admin2/TemplatesPage'
 import UserDetailPage from './pages/admin2/UserDetailPage'
 import Assessment from './pages/Assessment'
 import AuthCallback from './pages/AuthCallback'
@@ -75,9 +77,9 @@ function AppRoutes() {
         <Route path="people/:userId" element={<UserDetailPage />} />
         <Route path="assignments" element={<AssignmentsPage />} />
         <Route path="feedback" element={<FeedbackPage />} />
-        <Route path="projects" element={<Placeholder />} />
-        <Route path="templates" element={<Placeholder />} />
-        <Route path="setup" element={<Placeholder />} />
+        <Route path="projects" element={<ProjectsPage />} />
+        <Route path="templates" element={<TemplatesPage />} />
+        <Route path="setup" element={<SetupPage />} />
       </Route>
       {/* Old panel stays reachable until Phase D cuts over; same guard. */}
       <Route path="/admin-old" element={
