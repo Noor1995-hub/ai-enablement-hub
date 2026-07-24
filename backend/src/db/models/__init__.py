@@ -6,6 +6,7 @@ from src.db.models.company import (
     ProjectComponentSetting,
     ProjectEmailTemplate,
 )
+from src.db.models.conversation import Conversation, Message
 from src.db.models.feedback import Feedback
 from src.db.models.learning import Curriculum, Lesson, Module, ModulePrerequisite, Track
 from src.db.models.survey import SurveyResponse
@@ -15,10 +16,12 @@ __all__ = [
     "AuthSession",
     "AuthToken",
     "Company",
+    "Conversation",
     "Curriculum",
     "Feedback",
     "Lesson",
     "LessonProgress",
+    "Message",
     "Module",
     "ModulePrerequisite",
     "Project",
