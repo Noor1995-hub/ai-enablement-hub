@@ -46,6 +46,7 @@ dev = [
 ]
 prod = [
     "httptools",
+    "anthropic",
 ]
 
 [tool.poe.tasks]
