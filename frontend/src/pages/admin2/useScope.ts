@@ -13,6 +13,13 @@ export interface Scope {
  * for free via the URL. */
 export function useScope(): Scope {
   const [searchParams, setSearchParams] = useSearchParams()
+  // useSearchParams rebuilds its URLSearchParams instance on every render tied
+  // to the location (even when ?project= itself hasn't changed), so memoizing
+  // on searchParams itself would defeat the memo. Derive the one value we
+  // actually care about first and memoize on that instead — the returned
+  // object is then referentially stable across navigations that don't touch
+  // the project scope.
+  const projectId = searchParams.get('project')
 
   const setProject = useCallback((id: string | null) => {
     setSearchParams(prev => {
@@ -23,5 +30,5 @@ export function useScope(): Scope {
     })
   }, [setSearchParams])
 
-  return useMemo(() => ({ projectId: searchParams.get('project'), setProject }), [searchParams, setProject])
+  return useMemo(() => ({ projectId, setProject }), [projectId, setProject])
 }

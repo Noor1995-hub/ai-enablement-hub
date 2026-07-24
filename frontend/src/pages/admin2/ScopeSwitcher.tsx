@@ -24,13 +24,20 @@ export default function ScopeSwitcher() {
   const { projectId, setProject } = useScope()
   // A formal hooks module lands in a later task; this query stays
   // co-located with the one component that needs it for now.
-  const { data: options, isLoading } = useQuery({
+  const { data: options, isLoading, error } = useQuery({
     queryKey: ['admin', 'companies'],
     queryFn: fetchProjectOptions,
   })
 
   const scoped = projectId !== null
   const selectValue = projectId ?? 'all'
+  // A deep-linked/reloaded ?project= id has nowhere to match until the
+  // options load (or if the load fails outright) — without a stand-in
+  // <option>, the browser just renders the <select> blank/deselected even
+  // though the pill is styled as scoped. Render one so the value always
+  // has somewhere to land.
+  const matched = scoped ? options?.some(o => o.id === projectId) : true
+  const syntheticLabel = isLoading ? 'Loading project…' : error ? 'Project (details unavailable)' : projectId
 
   return (
     <div className="adm-scope-switch">
@@ -44,6 +51,7 @@ export default function ScopeSwitcher() {
           onChange={e => setProject(e.target.value === 'all' ? null : e.target.value)}
         >
           <option value="all">All projects</option>
+          {scoped && !matched && <option value={projectId ?? ''}>{syntheticLabel}</option>}
           {options?.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
         </select>
         {scoped && (
@@ -57,6 +65,7 @@ export default function ScopeSwitcher() {
           </button>
         )}
       </span>
+      {error && <span className="adm-scope-error" title={error.message}>Couldn't load projects</span>}
     </div>
   )
 }

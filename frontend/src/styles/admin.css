@@ -122,6 +122,10 @@
   font-size: 13px; line-height: 1;
 }
 .adm-scope-clear:hover { background: #fff; }
+.adm-scope-error {
+  font-size: 12px; font-weight: 600; color: var(--adm-red-deep);
+  white-space: nowrap; cursor: help;
+}
 
 /* ── Shell layout ────────────────────────────────────────────────────── */
 .adm-shell { display: flex; min-height: calc(100vh - 56px); background: var(--adm-surface); }

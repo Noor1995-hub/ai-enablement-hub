@@ -30,7 +30,7 @@ export default function AdminShell() {
   return (
     <QueryClientProvider client={queryClient}>
       <header className="adm-topbar">
-        <Link className="adm-brand" to="/admin">
+        <Link className="adm-brand" to={{ pathname: '/admin', search: search ? `?${search}` : '' }}>
           <img className="adm-brand-logo" src="/assets/logo/delaware-wordmark.svg" alt="delaware" />
           <span className="adm-admin-tag">Admin</span>
         </Link>
