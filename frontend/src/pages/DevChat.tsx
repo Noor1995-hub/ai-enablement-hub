@@ -21,18 +21,26 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 export default function DevChat() {
   const [projectId, setProjectId] = useState('')
   const [settings, setSettings] = useState<Record<string, { enabled: boolean }> | null>(null)
+  const [loadedProjectId, setLoadedProjectId] = useState<string | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [togglingKind, setTogglingKind] = useState<ChatKind | null>(null)
   const [toggleMessage, setToggleMessage] = useState<string | null>(null)
+  const [toggleIsError, setToggleIsError] = useState(false)
 
   const trimmedId = projectId.trim()
   const validId = UUID_RE.test(trimmedId)
+  // The displayed `settings` were fetched for `loadedProjectId`, which can go
+  // stale the moment the input is edited without re-clicking "Load state".
+  // Toggling against a mismatched id would write to the wrong project, so the
+  // toggle buttons stay disabled until the id in the box matches what's shown.
+  const idMismatch = settings !== null && trimmedId !== loadedProjectId
 
   const loadState = async () => {
     if (!UUID_RE.test(trimmedId)) {
       setLoadError('Enter a valid project id (UUID) first.')
       setSettings(null)
+      setLoadedProjectId(null)
       return
     }
     setLoading(true)
@@ -43,12 +51,15 @@ export default function DevChat() {
       })
       if (data) {
         setSettings(data.settings)
+        setLoadedProjectId(trimmedId)
       } else {
         setSettings(null)
+        setLoadedProjectId(null)
         setLoadError(errorMessage(error, 'Failed to load AI settings.'))
       }
     } catch {
       setSettings(null)
+      setLoadedProjectId(null)
       setLoadError('Network error while loading AI settings.')
     } finally {
       setLoading(false)
@@ -56,26 +67,29 @@ export default function DevChat() {
   }
 
   const toggleKind = async (kind: ChatKind) => {
-    if (!UUID_RE.test(trimmedId)) {
-      setLoadError('Enter a valid project id (UUID) first.')
+    if (!UUID_RE.test(trimmedId) || trimmedId !== loadedProjectId) {
+      setLoadError('Load state for this project id first.')
       return
     }
     const current = settings?.[kind]?.enabled ?? false
     const next = !current
     setTogglingKind(kind)
     setToggleMessage(null)
+    setToggleIsError(false)
     try {
       const { error } = await client.PUT('/api/admin/projects/{project_id}/ai/{kind}', {
         params: { path: { project_id: trimmedId, kind } },
         body: { enabled: next },
       })
       if (error) {
+        setToggleIsError(true)
         setToggleMessage(errorMessage(error, `Failed to ${next ? 'enable' : 'disable'} ${kind}.`))
       } else {
         setToggleMessage(`${kind}: ${next ? 'enabled' : 'disabled'}.`)
         await loadState()
       }
     } catch {
+      setToggleIsError(true)
       setToggleMessage('Network error while updating the AI setting.')
     } finally {
       setTogglingKind(null)
@@ -104,10 +118,19 @@ export default function DevChat() {
         </div>
 
         {loadError && <div style={{ color: '#C42828', fontSize: 13, marginBottom: 8 }}>{loadError}</div>}
-        {toggleMessage && <div style={{ color: '#1A1A1A', fontSize: 13, marginBottom: 8 }}>{toggleMessage}</div>}
+        {toggleMessage && (
+          <div style={{ color: toggleIsError ? '#C42828' : '#1A1A1A', fontSize: 13, marginBottom: 8 }}>
+            {toggleMessage}
+          </div>
+        )}
 
         {settings && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {idMismatch && (
+              <div style={{ color: '#8A8A8A', fontSize: 12 }}>
+                Input no longer matches the loaded project. Load state for this project id first.
+              </div>
+            )}
             {KINDS.map((kind) => {
               const enabled = settings[kind]?.enabled ?? false
               return (
@@ -115,7 +138,11 @@ export default function DevChat() {
                   <span style={{ fontSize: 14 }}>
                     {kind}: <strong>{enabled ? 'enabled' : 'disabled'}</strong>
                   </span>
-                  <button type="button" onClick={() => void toggleKind(kind)} disabled={togglingKind === kind}>
+                  <button
+                    type="button"
+                    onClick={() => void toggleKind(kind)}
+                    disabled={togglingKind === kind || idMismatch}
+                  >
                     {togglingKind === kind ? '…' : enabled ? 'Disable' : 'Enable'}
                   </button>
                 </div>
