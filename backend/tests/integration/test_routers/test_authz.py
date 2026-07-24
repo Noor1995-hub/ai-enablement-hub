@@ -89,10 +89,16 @@ async def seed(db_session: AsyncSession) -> Seed:
         project_id=project.id,
     )
     other = await create_user(db_session, email="matrix-other@example.com")
-    # For the "chat-conversations-list" _MATRIX entry below — GET
-    # /api/chat/conversations is ungated by the AI-surface setting, but a
-    # real conversation for the seed user keeps the list endpoint's happy
-    # path exercised the same way seed.lesson etc. exercise theirs.
+    # For the "chat-conversations-list" _MATRIX entry below — this fixture's
+    # `client` has test_settings.llm=None, so get_llm_service -> get_chat_service
+    # resolve to None and GET /api/chat/conversations 404s "Chat is not
+    # configured" for every caller here, before chat_service.list_conversations
+    # is ever reached. The matrix row still validly exercises anonymous->401 and
+    # "no accidental admin-only gate" for this endpoint; it does NOT exercise the
+    # 200/list-content happy path (that's covered by test_chat.py's
+    # TestListAndGetConversations, whose `chat_client` fixture wires a real
+    # ChatService). The seeded conversation below is future-proofing for this
+    # fixture only — harmless now, but not actually read by this matrix row.
     conversation = await ConversationRepository(db_session).create(user_id=user.id, kind="chatbot")
     return Seed(company, project, track, module, lesson, admin, user, other, conversation)
 

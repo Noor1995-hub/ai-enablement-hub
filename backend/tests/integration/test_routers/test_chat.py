@@ -277,3 +277,17 @@ class TestListAndGetConversations:
             f"/api/chat/conversations/{conversation.id}", headers=auth_headers(other, test_settings)
         )
         assert response.status_code == 404
+
+    async def test_detail_anonymous_is_401(
+        self, chat_client: Callable[[FakeLlmClient], AsyncClient]
+    ) -> None:
+        client = chat_client(FakeLlmClient(chunks=[]))
+        response = await client.get(f"/api/chat/conversations/{uuid.uuid4()}")
+        assert response.status_code == 401
+
+    async def test_list_anonymous_is_401(
+        self, chat_client: Callable[[FakeLlmClient], AsyncClient]
+    ) -> None:
+        client = chat_client(FakeLlmClient(chunks=[]))
+        response = await client.get("/api/chat/conversations?kind=chatbot")
+        assert response.status_code == 401
