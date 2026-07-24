@@ -52,6 +52,15 @@ function parseSseLine(
   return null
 }
 
+/** Drops a trailing empty assistant placeholder bubble, if present. Used to clean up the
+ * optimistic placeholder that `send` appends before the request resolves, when the request
+ * fails before any tokens arrive. Leaves other message arrays untouched. */
+function dropTrailingEmptyAssistant(prev: ChatUiMessage[]): ChatUiMessage[] {
+  if (prev.length === 0) return prev
+  const last = prev[prev.length - 1]
+  return last.role === 'assistant' && last.content === '' ? prev.slice(0, -1) : prev
+}
+
 export function useChat(kind: ChatKind) {
   const [messages, setMessages] = useState<ChatUiMessage[]>([])
   const [conversationId, setConversationId] = useState<string | null>(null)
@@ -74,6 +83,7 @@ export function useChat(kind: ChatKind) {
         })
         if (!response.ok || !response.body) {
           setError(`Chat request failed (${response.status})`)
+          setMessages(dropTrailingEmptyAssistant)
           setLoading(false)
           return
         }
@@ -97,11 +107,15 @@ export function useChat(kind: ChatKind) {
             if (parsed.event === 'token') {
               const { text } = parsed.data as { text: string }
               setMessages((prev) => {
+                // Defensive: if `startNew()` or `loadConversation()` reset/replaced `messages`
+                // while this stream was in flight, the assistant placeholder this stream is
+                // meant to update may no longer be the last message (or may not exist at all).
+                // Drop the stray token rather than indexing into an empty/unrelated array.
+                if (prev.length === 0) return prev
+                const last = prev[prev.length - 1]
+                if (last.role !== 'assistant') return prev
                 const next = [...prev]
-                next[next.length - 1] = {
-                  role: 'assistant',
-                  content: next[next.length - 1].content + text,
-                }
+                next[next.length - 1] = { role: 'assistant', content: last.content + text }
                 return next
               })
             } else if (parsed.event === 'done') {
@@ -115,6 +129,7 @@ export function useChat(kind: ChatKind) {
         }
       } catch {
         setError('Connection lost while streaming the reply.')
+        setMessages(dropTrailingEmptyAssistant)
       } finally {
         setLoading(false)
       }

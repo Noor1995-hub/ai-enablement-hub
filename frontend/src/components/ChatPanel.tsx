@@ -26,10 +26,10 @@ export default function ChatPanel({ kind }: ChatPanelProps) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', maxWidth: 480, fontFamily: 'var(--dlw-font-body)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', padding: 12, borderBottom: '1px solid #E2E2E2' }}>
-        <button type="button" onClick={startNew} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+        <button type="button" onClick={startNew} disabled={loading} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
           + New conversation
         </button>
-        <button type="button" onClick={() => setShowHistory((v) => !v)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+        <button type="button" onClick={() => setShowHistory((v) => !v)} disabled={loading} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
           History
         </button>
       </div>
