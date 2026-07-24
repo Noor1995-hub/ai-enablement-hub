@@ -612,11 +612,44 @@ async function toggleComponent({ projectId, component, hidden, locked }: ToggleC
   if (error) throw new Error(errorMessage(error, 'Failed to update component access.'))
 }
 
+/** Optimistic on `['admin','components',projectId]` — mirrors
+ * `useSetDefaults`'s onMutate-snapshot-onError-rollback shape (same family as
+ * `useToggleAssignment`/`usePatchFeedback`). Needed because `onSettled`'s
+ * `invalidateQueries` is fire-and-forget: a caller whose "busy" flag clears as
+ * soon as `mutateAsync` resolves (ProjectsPage's per-component toggle rows)
+ * would otherwise read the stale pre-mutation cache on a second rapid toggle
+ * and silently revert the first one (Task 19 review finding — e.g. unlock
+ * Learning, then immediately toggle its visibility: the second PUT's `locked`
+ * field must see the already-unlocked value, not the value from before the
+ * first click). The optimistic patch lands synchronously at click time
+ * (onMutate runs before the network call), so it composes correctly across
+ * rapid sequential toggles on the same or different fields; `hidden`/`locked`
+ * are optional on the input, so only the field(s) the caller actually passed
+ * are merged into the cached component's state. */
 export function useToggleComponent() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: toggleComponent,
-    onSuccess: (_data, variables) => {
+    onMutate: async ({ projectId, component, hidden, locked }) => {
+      const key = ['admin', 'components', projectId] as const
+      await queryClient.cancelQueries({ queryKey: key })
+      const previous = queryClient.getQueryData<Record<string, ComponentState>>(key)
+      if (previous) {
+        const current = previous[component] ?? { hidden: false, locked: false }
+        queryClient.setQueryData<Record<string, ComponentState>>(key, {
+          ...previous,
+          [component]: {
+            hidden: hidden ?? current.hidden,
+            locked: locked ?? current.locked,
+          },
+        })
+      }
+      return { key, previous }
+    },
+    onError: (_error, _variables, context) => {
+      if (context?.previous) queryClient.setQueryData(context.key, context.previous)
+    },
+    onSettled: (_data, _error, variables) => {
       void queryClient.invalidateQueries({ queryKey: ['admin', 'components', variables.projectId] })
     },
   })
