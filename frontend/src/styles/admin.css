@@ -518,3 +518,112 @@
 /* Bar + the "modules assigned" disambiguation label (fix round 1, Minor
    finding) share the row's second grid column. */
 .adm-track-progress-meta { display: flex; align-items: center; gap: 8px; }
+
+/* ── Assignments matrix (Task 17) ─────────────────────────────────────────
+   Backs frontend/src/pages/admin2/{AssignmentsPage,ContentTree,Matrix}.tsx.
+   Ported from docs/design-prototypes/admin-redesign/{styles.css,common.js}
+   (`.assign-layout`, `.content-tree`, `.matrix*`, `.cell`, `.legend`, and the
+   `.proj-card` picker grid) onto the --adm-* tokens above; the semantic table
+   hairlines (#EEEEEC / #FAFAF8 / #FBFAF8) and the partial-cell border (#F3D9A9)
+   are the prototype's literals, kept like the other admin table rules already
+   do (no brand token names them). */
+
+/* Unscoped company/project picker — the prototype's proj-card look. The
+   Projects screen (Task 19) may later lift these into a shared card; kept
+   local here rather than pre-abstracted. */
+.adm-proj-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+.adm-proj-card {
+  background: var(--adm-white); border: 1px solid var(--adm-border); border-radius: var(--adm-radius);
+  padding: 20px 22px 18px; cursor: pointer; text-align: left; width: 100%; display: block;
+  transition: border-color 150ms, box-shadow 150ms;
+}
+.adm-proj-card:hover { border-color: var(--adm-red-deep); box-shadow: var(--adm-shadow-lg); }
+.adm-proj-card-company { font-family: var(--dlw-font-ui); font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--adm-muted); }
+.adm-proj-card-name { margin: 3px 0 14px; font-family: var(--dlw-font-body); font-size: 17px; font-weight: 700; color: var(--adm-ink); }
+.adm-proj-card-foot { display: flex; align-items: center; margin-top: 12px; }
+.adm-proj-card-open { margin-left: auto; font-size: 13px; font-weight: 600; color: var(--adm-red-deep); display: flex; align-items: center; gap: 4px; }
+
+/* Two-pane layout: content scope tree (left) + matrix (right), inside a
+   padding-less card so the tree's border-right reaches the card edges. */
+.adm-matrix-card { padding: 0; overflow: hidden; }
+.adm-assign-layout { display: grid; grid-template-columns: 218px 1fr; align-items: stretch; }
+
+/* Content scope tree */
+.adm-content-tree {
+  border-right: 1px solid var(--adm-border); padding: 14px 12px 14px 6px;
+  display: flex; flex-direction: column; gap: 1px;
+}
+.adm-tree-title { font-family: var(--dlw-font-ui); font-size: 10px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--adm-faint); padding: 0 10px 8px; }
+.adm-tree-item {
+  display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
+  border: none; background: none; border-radius: var(--adm-radius-sm);
+  font-family: var(--dlw-font-body); font-size: 13px; font-weight: 500; color: var(--adm-text);
+  padding: 7px 10px; cursor: pointer;
+}
+.adm-tree-item:hover { background: var(--adm-surface); }
+.adm-tree-item.active { background: var(--adm-red-tint); color: var(--adm-red-deep); font-weight: 600; }
+.adm-tree-item.root { margin-bottom: 6px; }
+.adm-tree-item.root svg { color: var(--adm-muted); }
+.adm-tree-item.active.root svg { color: var(--adm-red-deep); }
+.adm-tree-item.sub { padding-left: 30px; font-size: 12.5px; }
+.adm-tree-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+.adm-tree-chev { margin-left: auto; display: flex; color: var(--adm-faint); transition: transform 150ms; }
+.adm-tree-chev.open { transform: rotate(90deg); }
+.adm-tree-foot { font-size: 11px; color: var(--adm-faint); padding: 12px 10px 0; line-height: 1.5; margin-top: auto; }
+
+/* Matrix side (breadcrumb + table + legend) */
+.adm-matrix-side { min-width: 0; padding-left: 4px; }
+.adm-matrix-nav { display: flex; align-items: center; gap: 6px; padding: 12px 14px 10px; flex-wrap: wrap; }
+.adm-crumb {
+  border: none; background: none; font-family: var(--dlw-font-ui); font-size: 13px;
+  font-weight: 500; color: var(--adm-muted); padding: 2px 4px; border-radius: 4px; cursor: pointer;
+}
+.adm-crumb:hover { color: var(--adm-red-deep); background: var(--adm-red-tint); }
+.adm-crumb.here { color: var(--adm-ink); font-weight: 700; cursor: default; }
+.adm-crumb-sep { color: var(--adm-faint); display: flex; }
+.adm-matrix-hint { margin-left: auto; font-size: 12px; color: var(--adm-faint); }
+
+/* Inline mutation-error line + apply-defaults hint. */
+.adm-matrix-msg { padding: 0 14px 8px; }
+.adm-matrix-msg .adm-form-msg { margin-top: 0; }
+.adm-apply-hint {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 8px 14px 10px; font-family: var(--dlw-font-body); font-size: 12.5px; color: var(--adm-muted);
+}
+
+.adm-matrix-wrap { overflow-x: auto; }
+.adm-matrix { border-collapse: collapse; font-family: var(--dlw-font-body); font-size: 13px; min-width: 100%; }
+.adm-matrix th {
+  font-family: var(--dlw-font-ui); font-size: 10.5px; font-weight: 600; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--adm-muted); padding: 8px 10px;
+  border-bottom: 1px solid var(--adm-border); text-align: center; white-space: nowrap;
+}
+.adm-matrix th.adm-matrix-rowhead, .adm-matrix td.adm-matrix-rowhead {
+  text-align: left; position: sticky; left: 0; background: var(--adm-white); z-index: 2;
+  min-width: 200px; box-shadow: inset -1px 0 0 var(--adm-border);
+}
+.adm-matrix-lvl { display: block; font-size: 9.5px; letter-spacing: .08em; color: var(--adm-muted); margin-top: 1px; text-transform: none; }
+.adm-matrix-lvl-dot { display: inline-block; width: 6px; height: 6px; border-radius: 2px; margin-right: 4px; vertical-align: 1px; }
+.adm-matrix td { padding: 6px 10px; border-bottom: 1px solid #EEEEEC; text-align: center; }
+.adm-matrix tbody tr:hover td { background: #FAFAF8; }
+.adm-matrix .adm-defaults-row td { background: #FBFAF8; border-bottom: 1px solid var(--adm-border); }
+.adm-matrix .adm-defaults-row td.adm-matrix-rowhead { font-weight: 700; color: var(--adm-ink); background: #FBFAF8; }
+.adm-defaults-label { font-weight: 400; }
+
+/* Cells — the four assignment states. */
+.adm-cell {
+  width: 26px; height: 26px; border-radius: 7px; border: 1.5px solid var(--adm-border);
+  display: inline-flex; align-items: center; justify-content: center;
+  background: #fff; color: transparent; transition: border-color 120ms, background 120ms;
+  padding: 0; cursor: pointer;
+}
+.adm-cell:hover:not(:disabled) { border-color: var(--adm-faint); }
+.adm-cell:disabled { cursor: default; }
+.adm-cell-yes  { background: var(--adm-red-deep); border-color: var(--adm-red-deep); color: #fff; }
+.adm-cell-def  { background: var(--adm-red-tint); border-color: var(--adm-red-border); color: var(--adm-red-deep); }
+.adm-cell-part { background: var(--adm-warn-bg); border-color: #F3D9A9; color: var(--adm-warn-text); }
+
+.adm-legend { display: flex; gap: 18px; align-items: center; font-size: 12.5px; color: var(--adm-muted); flex-wrap: wrap; padding: 12px 14px 16px; }
+.adm-legend-item { display: inline-flex; align-items: center; gap: 6px; }
+.adm-legend .adm-cell { pointer-events: none; transform: scale(.85); }
+.adm-legend-spacer { margin-left: auto; }

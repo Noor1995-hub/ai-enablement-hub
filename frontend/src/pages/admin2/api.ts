@@ -255,12 +255,82 @@ async function toggleAssignment({ userId, kind, id, assigned }: ToggleAssignment
   if (error) throw new Error(errorMessage(error, 'Failed to update assignment.'))
 }
 
-/** Single track/module/lesson toggle for one user. */
+/** Add ids to (or remove them from) an assignment array, deduped. Returns the
+ * original reference untouched when there is nothing to change. */
+function mergeAssignmentIds(current: string[], delta: string[], assigned: boolean): string[] {
+  if (delta.length === 0) return current
+  if (assigned) return [...new Set([...current, ...delta])]
+  const remove = new Set(delta)
+  return current.filter(id => !remove.has(id))
+}
+
+/** Mirror the server's FULL-RESYNC cascade (the cascading-assignment feature)
+ * onto one cached learning-user so the optimistic matrix matches what a refetch
+ * returns: toggling a track patches the track + ALL its module + ALL their
+ * lesson ids; a module patches the module + its lesson ids; a lesson only
+ * itself. `default_*_ids` are intentionally left untouched — a user-cell toggle
+ * never rewrites default provenance (the cell stops reading the default arrays
+ * once the id leaves `assigned_*_ids`, and `onSettled` reconciles the exact
+ * provenance on refetch). */
+function cascadeToggleUser(
+  user: AdminLearningUserEnriched,
+  kind: AssignmentKind,
+  targetId: string,
+  assigned: boolean,
+  modules: AdminLearningResponseEnriched['modules'],
+  lessons: AdminLearningResponseEnriched['lessons'],
+): AdminLearningUserEnriched {
+  let trackIds: string[] = []
+  let moduleIds: string[] = []
+  let lessonIds: string[] = []
+  if (kind === 'track') {
+    trackIds = [targetId]
+    moduleIds = modules.filter(m => m.track_id === targetId).map(m => m.id)
+    const moduleIdSet = new Set(moduleIds)
+    lessonIds = lessons.filter(l => moduleIdSet.has(l.module_id)).map(l => l.id)
+  } else if (kind === 'module') {
+    moduleIds = [targetId]
+    lessonIds = lessons.filter(l => l.module_id === targetId).map(l => l.id)
+  } else {
+    lessonIds = [targetId]
+  }
+  return {
+    ...user,
+    assigned_track_ids: mergeAssignmentIds(user.assigned_track_ids, trackIds, assigned),
+    assigned_module_ids: mergeAssignmentIds(user.assigned_module_ids, moduleIds, assigned),
+    assigned_lesson_ids: mergeAssignmentIds(user.assigned_lesson_ids, lessonIds, assigned),
+  }
+}
+
+/** Single track/module/lesson toggle for one user — optimistic (Phase C /
+ * Assignments matrix). `onMutate` patches every cached `['admin','learning']`
+ * response with the local cascade mirror above; `onError` rolls the snapshots
+ * back; `onSettled` invalidates users/learning/dashboard (preserving the prior
+ * invalidation set) so the server's authoritative resync always wins. */
 export function useToggleAssignment() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: toggleAssignment,
-    onSuccess: () => {
+    onMutate: async ({ userId, kind, id, assigned }) => {
+      await queryClient.cancelQueries({ queryKey: ['admin', 'learning'] })
+      const snapshots = queryClient.getQueriesData<AdminLearningResponseEnriched>({
+        queryKey: ['admin', 'learning'],
+      })
+      for (const [key, data] of snapshots) {
+        if (!data) continue
+        queryClient.setQueryData<AdminLearningResponseEnriched>(key, {
+          ...data,
+          users: data.users.map(u =>
+            u.id === userId ? cascadeToggleUser(u, kind, id, assigned, data.modules, data.lessons) : u,
+          ),
+        })
+      }
+      return { snapshots }
+    },
+    onError: (_error, _variables, context) => {
+      context?.snapshots.forEach(([key, data]) => queryClient.setQueryData(key, data))
+    },
+    onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ['admin', 'users'] })
       void queryClient.invalidateQueries({ queryKey: ['admin', 'learning'] })
       void queryClient.invalidateQueries({ queryKey: ['admin', 'dashboard'] })
