@@ -515,3 +515,6 @@
 .adm-track-progress-row { display: grid; grid-template-columns: 110px 1fr; gap: 12px; align-items: center; margin-bottom: 10px; font-size: 13px; }
 .adm-track-progress-row:last-child { margin-bottom: 0; }
 .adm-track-progress-name { font-family: var(--dlw-font-body); font-weight: 600; color: var(--adm-ink); }
+/* Bar + the "modules assigned" disambiguation label (fix round 1, Minor
+   finding) share the row's second grid column. */
+.adm-track-progress-meta { display: flex; align-items: center; gap: 8px; }

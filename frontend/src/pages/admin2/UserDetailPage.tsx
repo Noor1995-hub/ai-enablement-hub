@@ -101,7 +101,14 @@ export default function UserDetailPage() {
   }
 
   return (
-    <div>
+    // Keyed on userId: React Router keeps the same UserDetailPage element
+    // mounted across a param-only navigation (people/:userId -> a different
+    // :userId), so without this key AccountCard's local state (copied,
+    // resetDismissed), its mutation objects, and ConfirmButton's internal
+    // "armed" state would all survive a switch to a different user — an
+    // armed "Confirm removal" for user A could fire one click later on user
+    // B. The key forces the whole subtree to unmount/remount per user.
+    <div key={userId}>
       <div className="adm-breadcrumb">
         <Link to={{ pathname: '/admin/people', search: peopleSearch }}>People</Link>
         <span className="adm-breadcrumb-sep">/</span>
@@ -261,6 +268,11 @@ function AccountCard({ user, survey, onDeleted }: AccountCardProps) {
         </select>
         <span className="adm-subtext">user / user+ / admin</span>
       </div>
+      {setRole.isError && (
+        <p className="adm-form-msg adm-form-msg-err">
+          {setRole.error instanceof Error ? setRole.error.message : 'Failed to update the role.'}
+        </p>
+      )}
 
       {/* Maturity pin — ported verbatim from ParticipantDetail.tsx: same
           value (`maturity_override ?? ''`), same two option groups ("From
@@ -289,6 +301,11 @@ function AccountCard({ user, survey, onDeleted }: AccountCardProps) {
           ))}
         </select>
       </div>
+      {setMaturity.isError && (
+        <p className="adm-form-msg adm-form-msg-err">
+          {setMaturity.error instanceof Error ? setMaturity.error.message : 'Failed to update the maturity level.'}
+        </p>
+      )}
 
       <div className="adm-acct-row">
         <span className="adm-acct-label">Password</span>
@@ -301,6 +318,11 @@ function AccountCard({ user, survey, onDeleted }: AccountCardProps) {
           {resetLink.isPending ? <Spinner size="sm" /> : <MailIcon />} Send reset link
         </button>
       </div>
+      {resetLink.isError && (
+        <p className="adm-form-msg adm-form-msg-err">
+          {resetLink.error instanceof Error ? resetLink.error.message : 'Failed to generate a reset link.'}
+        </p>
+      )}
 
       {/* Reset-link result — same emailed/failed/plain copy + copyable
           fallback as the old ResetLinkEntry (ProjectDetailView.tsx), reusing
@@ -335,6 +357,11 @@ function AccountCard({ user, survey, onDeleted }: AccountCardProps) {
           onConfirm={handleDelete}
         />
       </div>
+      {deleteUser.isError && (
+        <p className="adm-form-msg adm-form-msg-err">
+          {deleteUser.error instanceof Error ? deleteUser.error.message : 'Failed to remove this participant.'}
+        </p>
+      )}
     </Card>
   )
 }
@@ -352,6 +379,11 @@ function LearningProgressCard({ user, projectId }: { user: AdminUserEnriched; pr
   const learningQuery = useLearning(projectId)
 
   const loading = tracksQuery.isLoading || learningQuery.isLoading
+  // Both queries can fail independently; either one failing means the module
+  // counts below can't be trusted, so surface it rather than silently
+  // rendering the same "No tracks assigned" the mock uses for a genuinely
+  // empty user (same ErrorState-with-retry pattern as the Assessment card).
+  const error = tracksQuery.error ?? learningQuery.error
   const assignedTracks = [...(tracksQuery.data ?? [])]
     .filter(track => user.assigned_track_ids.includes(track.id))
     .sort((a, b) => a.sort_order - b.sort_order)
@@ -362,6 +394,14 @@ function LearningProgressCard({ user, projectId }: { user: AdminUserEnriched; pr
         <div className="adm-loading">
           <Spinner />
         </div>
+      ) : error ? (
+        <ErrorState
+          message={error instanceof Error ? error.message : 'Failed to load learning progress.'}
+          onRetry={() => {
+            void tracksQuery.refetch()
+            void learningQuery.refetch()
+          }}
+        />
       ) : assignedTracks.length === 0 ? (
         <EmptyState title="No tracks assigned" />
       ) : (
@@ -373,7 +413,14 @@ function LearningProgressCard({ user, projectId }: { user: AdminUserEnriched; pr
           return (
             <div key={track.id} className="adm-track-progress-row">
               <span className="adm-track-progress-name">{track.name}</span>
-              <ProgressBar completed={completed} total={trackModuleIds.length} />
+              <span className="adm-track-progress-meta">
+                <ProgressBar completed={completed} total={trackModuleIds.length} />
+                {/* This is assignment coverage (modules assigned vs. the track's
+                    total), NOT lesson/module completion — no per-track completion
+                    field exists in the admin enrichment types yet. Spelled out so
+                    "3/5" can't be misread as "3 of 5 done". */}
+                <span className="adm-subtext">modules assigned</span>
+              </span>
             </div>
           )
         })
