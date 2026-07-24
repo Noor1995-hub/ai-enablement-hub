@@ -19,6 +19,7 @@ from src.core.dependencies.database import get_session
 from src.core.dependencies.settings import get_settings
 from src.core.dependencies.storage import get_media_service
 from src.core.security import create_access_token
+from src.db.models import Feedback
 from src.main import app
 from src.services.media_service import MediaService
 from tests.fixtures.auth import auth_headers, bearer
@@ -57,6 +58,7 @@ class Seed:
     admin: User
     user: User
     other: User
+    feedback: Feedback
 
 
 @pytest_asyncio.fixture
@@ -87,7 +89,11 @@ async def seed(db_session: AsyncSession) -> Seed:
         project_id=project.id,
     )
     other = await create_user(db_session, email="matrix-other@example.com")
-    return Seed(company, project, track, module, lesson, admin, user, other)
+    feedback = Feedback(user_id=user.id, lesson_id=lesson.id, message="Matrix feedback")
+    db_session.add(feedback)
+    await db_session.commit()
+    await db_session.refresh(feedback)
+    return Seed(company, project, track, module, lesson, admin, user, other, feedback)
 
 
 # (name, method, path builder, body builder, admin_only)
@@ -340,6 +346,14 @@ _MATRIX: list[tuple[str, str, Any, Any, bool]] = [
         "POST",
         lambda s: f"/api/admin/projects/{s.project.id}/defaults/apply",
         lambda s: None,
+        True,
+    ),
+    ("feedback-admin-list", "GET", lambda s: "/api/admin/feedback", lambda s: None, True),
+    (
+        "feedback-admin-patch",
+        "PATCH",
+        lambda s: f"/api/admin/feedback/{s.feedback.id}",
+        lambda s: {"status": "accepted"},
         True,
     ),
 ]

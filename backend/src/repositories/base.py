@@ -375,6 +375,41 @@ class AbstractFeedbackRepository(ABC):
     @abstractmethod
     async def create(self, user_id: uuid.UUID, lesson_id: uuid.UUID, message: str) -> Feedback: ...
 
+    @abstractmethod
+    async def get_by_id(self, feedback_id: uuid.UUID) -> Feedback | None: ...
+
+    @abstractmethod
+    async def set_status(
+        self, feedback: Feedback, status: str, reviewed_by: uuid.UUID | None
+    ) -> None:
+        """Update status + reviewer stamp; reviewed_by=None clears reviewed_at too."""
+
+    @abstractmethod
+    async def list_admin(
+        self,
+        *,
+        status: str | None = None,
+        track_id: uuid.UUID | None = None,
+        project_id: uuid.UUID | None = None,
+        limit: int,
+        offset: int,
+    ) -> list[Any]:
+        """Joined admin queue rows (feedback + reporter/org/lesson/module/track names)."""
+
+    @abstractmethod
+    async def count_admin(
+        self,
+        *,
+        status: str | None = None,
+        track_id: uuid.UUID | None = None,
+        project_id: uuid.UUID | None = None,
+    ) -> int:
+        """Total rows matching the same filters as list_admin (pagination total)."""
+
+    @abstractmethod
+    async def count_new(self, project_id: uuid.UUID | None = None) -> int:
+        """How many feedback rows are still status='new', optionally scoped to a project."""
+
 
 class AbstractAssignmentRepository(ABC):
     """user_tracks / user_modules / user_lessons assignment links."""
