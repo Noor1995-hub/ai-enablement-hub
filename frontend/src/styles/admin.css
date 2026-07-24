@@ -153,3 +153,174 @@
   margin-left: auto; font-size: 11px; font-weight: 600; color: var(--adm-red-deep);
   background: #fff; border: 1px solid var(--adm-red-border); border-radius: 999px; padding: 0 7px;
 }
+
+/* ── Component kit (Task 13) ─────────────────────────────────────────────
+   Rules below back frontend/src/pages/admin2/kit/*. Copied/tokenized from
+   docs/design-prototypes/admin-redesign/styles.css onto the --adm-* tokens
+   above; only rules the kit components actually use are ported here —
+   screen-specific blocks (assignment matrix, feedback queue, project cards,
+   funnels, etc.) stay with their own Phase C tasks. */
+
+/* ── Cards & tiles ───────────────────────────────────────────────────── */
+.adm-card {
+  background: var(--adm-white); border: 1px solid var(--adm-border); border-radius: var(--adm-radius);
+  padding: 22px 24px; margin-bottom: 20px;
+}
+.adm-card-title {
+  font-family: var(--dlw-font-ui); font-size: 11px; font-weight: 600; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--adm-muted); margin: 0 0 16px;
+  display: flex; align-items: center; gap: 8px;
+}
+.adm-card-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; text-transform: none; letter-spacing: 0; }
+
+.adm-tile {
+  background: var(--adm-white); border: 1px solid var(--adm-border); border-radius: var(--adm-radius);
+  padding: 16px 18px 14px;
+}
+.adm-tile-label { font-family: var(--dlw-font-body); font-size: 12px; font-weight: 600; color: var(--adm-muted); }
+.adm-tile-value { font-size: 30px; font-weight: 800; color: var(--adm-ink); line-height: 1.15; margin-top: 4px; }
+.adm-tile-alert .adm-tile-value { color: var(--adm-red-deep); }
+
+/* ── Chips ───────────────────────────────────────────────────────────── */
+.adm-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--dlw-font-ui); font-size: 11.5px; font-weight: 600;
+  padding: 2px 9px; border-radius: 999px; white-space: nowrap;
+}
+.adm-chip-default { background: var(--adm-surface); color: var(--adm-muted); }
+.adm-chip-good    { background: var(--adm-good-bg); color: var(--adm-good-text); }
+.adm-chip-warn    { background: var(--adm-warn-bg); color: var(--adm-warn-text); }
+.adm-chip-info    { background: var(--adm-info-bg); color: var(--adm-info-text); }
+.adm-chip-red     { background: var(--adm-red-tint); color: var(--adm-red-deep); }
+.adm-chip-dot { width: 7px; height: 7px; border-radius: 2px; flex-shrink: 0; }
+
+/* ── Buttons — the small shared set the kit's own controls need
+   (ConfirmButton, ErrorState's retry, BulkBar action slots); screens add
+   more variants as later tasks need them. ── */
+.adm-btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-family: var(--dlw-font-ui); font-size: 13px; font-weight: 600; border-radius: var(--adm-radius-sm);
+  padding: 8px 14px; border: 1px solid transparent; cursor: pointer;
+  transition: background 150ms, border-color 150ms, color 150ms;
+}
+.adm-btn:disabled { opacity: .6; cursor: default; }
+.adm-btn-primary { background: var(--adm-ink); color: #fff; }
+.adm-btn-primary:hover:not(:disabled) { background: #000; }
+.adm-btn-red { background: var(--adm-red-deep); color: #fff; }
+.adm-btn-red:hover:not(:disabled) { background: var(--adm-red); }
+.adm-btn-ghost { background: #fff; border-color: var(--adm-border); color: var(--adm-text); }
+.adm-btn-ghost:hover:not(:disabled) { border-color: var(--adm-faint); color: var(--adm-ink); }
+.adm-btn-subtle { background: none; border-color: transparent; color: var(--adm-muted); padding: 6px 10px; }
+.adm-btn-subtle:hover:not(:disabled) { color: var(--adm-red-deep); }
+.adm-btn-sm { padding: 5px 10px; font-size: 12px; }
+.adm-btn-danger { color: var(--adm-red-deep); }
+.adm-btn-danger:hover:not(:disabled) { border-color: var(--adm-red-border); background: var(--adm-red-tint); }
+
+/* ── Toolbar (search + filter pills row) ────────────────────────────── */
+.adm-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+.adm-search {
+  display: flex; align-items: center; gap: 8px; background: var(--adm-white);
+  border: 1px solid var(--adm-border); border-radius: var(--adm-radius-sm); padding: 7px 12px;
+  font-size: 13px; color: var(--adm-muted); min-width: 240px;
+}
+.adm-search svg { flex-shrink: 0; }
+.adm-search input {
+  border: none; outline: none; font-family: var(--dlw-font-body); font-size: 13px;
+  flex: 1; background: none; color: var(--adm-text);
+}
+.adm-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+.adm-pill {
+  border: 1px solid var(--adm-border); background: var(--adm-white); border-radius: 999px;
+  font-family: var(--dlw-font-body); font-size: 12.5px; font-weight: 500; color: var(--adm-muted);
+  padding: 5px 13px; cursor: pointer;
+}
+.adm-pill:hover { color: var(--adm-ink); }
+.adm-pill.active { background: var(--adm-ink); border-color: var(--adm-ink); color: #fff; font-weight: 600; }
+.adm-pill-n { font-weight: 700; margin-left: 3px; }
+.adm-select-look {
+  display: inline-flex; align-items: center; gap: 8px; background: var(--adm-white);
+  border: 1px solid var(--adm-border); border-radius: var(--adm-radius-sm);
+  padding: 7px 12px; font-family: var(--dlw-font-body); font-size: 13px; font-weight: 500; color: var(--adm-text);
+}
+.adm-select-look svg { color: var(--adm-muted); }
+
+/* ── Table ───────────────────────────────────────────────────────────── */
+.adm-table { width: 100%; border-collapse: collapse; font-family: var(--dlw-font-body); font-size: 13.5px; }
+.adm-table th {
+  font-family: var(--dlw-font-ui); font-size: 10.5px; font-weight: 600; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--adm-muted); text-align: left;
+  padding: 8px 12px; border-bottom: 1px solid var(--adm-border); white-space: nowrap;
+}
+.adm-table td { padding: 11px 12px; border-bottom: 1px solid #EEEEEC; vertical-align: middle; }
+.adm-table tr:last-child td { border-bottom: none; }
+.adm-table-row-clickable { cursor: pointer; }
+.adm-table-row-clickable:hover td { background: #FAFAF8; }
+.adm-table-row-selected td { background: var(--adm-red-tint); }
+.adm-table-check { width: 34px; }
+.adm-table input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--adm-red-deep); cursor: pointer; }
+
+/* ── Progress bar (text label + bar — no color-only encoding) ───────── */
+.adm-progress { display: flex; align-items: center; gap: 9px; min-width: 140px; }
+.adm-progress-track { flex: 1; height: 6px; background: var(--adm-warm); border-radius: 999px; overflow: hidden; }
+.adm-progress-fill { height: 100%; background: var(--adm-red-deep); border-radius: 999px; }
+.adm-progress-label { font-family: var(--dlw-font-body); font-size: 12px; font-weight: 600; color: var(--adm-text); white-space: nowrap; }
+
+/* ── Bulk action bar ─────────────────────────────────────────────────── */
+.adm-bulkbar {
+  position: sticky; bottom: 16px; z-index: 20;
+  display: flex; align-items: center; gap: 10px;
+  background: var(--adm-ink); color: #fff; border-radius: 12px;
+  padding: 10px 12px 10px 18px; box-shadow: var(--adm-shadow-lg);
+  margin-top: 16px;
+}
+.adm-bulkbar-count { font-family: var(--dlw-font-body); font-size: 13px; font-weight: 600; margin-right: 6px; }
+.adm-bulkbar-actions { display: flex; align-items: center; gap: 8px; }
+.adm-bulkbar .adm-btn-ghost { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.22); color: #fff; }
+.adm-bulkbar .adm-btn-ghost:hover:not(:disabled) { border-color: #fff; }
+.adm-bulkbar-close {
+  margin-left: auto; background: none; border: none; color: rgba(255,255,255,.6);
+  font-size: 16px; padding: 4px 8px; cursor: pointer;
+}
+.adm-bulkbar-close:hover { color: #fff; }
+
+/* ── Modal ───────────────────────────────────────────────────────────── */
+.adm-modal-overlay {
+  position: fixed; inset: 0; background: rgba(16,24,32,.45);
+  display: flex; align-items: center; justify-content: center; z-index: 50;
+}
+.adm-modal {
+  background: var(--adm-white); border-radius: 14px; width: 500px; max-width: 92vw;
+  padding: 26px 28px 22px; box-shadow: var(--adm-shadow-lg);
+}
+.adm-modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.adm-modal-title { margin: 0; font-family: var(--dlw-font-body); font-size: 18px; font-weight: 800; color: var(--adm-ink); }
+.adm-modal-close { background: none; border: none; color: var(--adm-muted); font-size: 15px; padding: 2px 4px; cursor: pointer; }
+.adm-modal-close:hover { color: var(--adm-ink); }
+.adm-modal-body { margin-top: 8px; }
+.adm-modal-footer { display: flex; align-items: center; gap: 10px; margin-top: 18px; }
+
+/* ── Two-step confirm (ConfirmButton) — never window.confirm ────────── */
+.adm-confirm { display: inline-flex; align-items: center; gap: 8px; }
+
+/* ── Empty / error states ────────────────────────────────────────────── */
+.adm-empty { text-align: center; color: var(--adm-muted); padding: 36px 20px; font-size: 13.5px; }
+.adm-empty-title { margin: 0; font-weight: 600; color: var(--adm-text); }
+.adm-empty-hint { margin: 6px 0 0; font-size: 12.5px; color: var(--adm-faint); }
+.adm-error {
+  text-align: center; padding: 36px 20px; font-size: 13.5px;
+  color: var(--adm-red-deep); background: var(--adm-red-tint); border: 1px solid var(--adm-red-border);
+  border-radius: var(--adm-radius);
+}
+.adm-error-message { margin: 0 0 12px; font-weight: 600; }
+
+/* ── Spinner (new — no prototype equivalent; ports the app's existing
+   frontend/src/components/Spinner.tsx look onto CSS classes) ──────────── */
+.adm-spinner { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.adm-spinner-md { width: 32px; height: 32px; }
+.adm-spinner-sm { width: 14px; height: 14px; }
+.adm-spinner-track { stroke: var(--adm-border); stroke-width: 3; }
+.adm-spinner-arc {
+  stroke: var(--adm-red-deep); stroke-width: 3; stroke-dasharray: 40 44; stroke-linecap: round;
+  transform-origin: 50% 50%; animation: adm-spin 0.9s linear infinite;
+}
+@keyframes adm-spin { to { transform: rotate(360deg); } }

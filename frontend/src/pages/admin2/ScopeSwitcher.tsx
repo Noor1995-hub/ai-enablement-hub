@@ -1,18 +1,9 @@
-import { useQuery } from '@tanstack/react-query'
-import { client, errorMessage } from '../../api/client'
+import { useCompanies } from './api'
 import { useScope } from './useScope'
 
 interface ProjectOption {
   id: string
   label: string // "Company · Project", matching the prototype's orgFull()
-}
-
-async function fetchProjectOptions(): Promise<ProjectOption[]> {
-  const { data, error } = await client.GET('/api/admin/companies')
-  if (!data) throw new Error(errorMessage(error, 'Failed to load companies.'))
-  return data.companies.flatMap(company =>
-    company.projects.map(project => ({ id: project.id, label: `${company.name} · ${project.name}` })),
-  )
 }
 
 /** The scope switcher is the navigation anchor of the new admin shell: pick a
@@ -22,12 +13,10 @@ async function fetchProjectOptions(): Promise<ProjectOption[]> {
  * scoped so it's never ambiguous what's being viewed. */
 export default function ScopeSwitcher() {
   const { projectId, setProject } = useScope()
-  // A formal hooks module lands in a later task; this query stays
-  // co-located with the one component that needs it for now.
-  const { data: options, isLoading, error } = useQuery({
-    queryKey: ['admin', 'companies'],
-    queryFn: fetchProjectOptions,
-  })
+  const { data: companies, isLoading, error } = useCompanies()
+  const options: ProjectOption[] | undefined = companies?.flatMap(company =>
+    company.projects.map(project => ({ id: project.id, label: `${company.name} · ${project.name}` })),
+  )
 
   const scoped = projectId !== null
   const selectValue = projectId ?? 'all'
