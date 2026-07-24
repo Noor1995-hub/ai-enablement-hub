@@ -14,9 +14,11 @@ if TYPE_CHECKING:
         AuthSession,
         AuthToken,
         Company,
+        Conversation,
         Feedback,
         Lesson,
         LessonProgress,
+        Message,
         Module,
         ModulePrerequisite,
         Project,
@@ -35,8 +37,10 @@ __all__ = [
     "AbstractAuthSessionRepository",
     "AbstractAuthTokenRepository",
     "AbstractContentRepository",
+    "AbstractConversationRepository",
     "AbstractEmailTemplateRepository",
     "AbstractFeedbackRepository",
+    "AbstractMessageRepository",
     "AbstractOrgRepository",
     "AbstractProgressRepository",
     "AbstractSurveyRepository",
@@ -452,3 +456,51 @@ class AbstractProgressRepository(ABC):
         self, user_id: uuid.UUID, lesson_id: uuid.UUID, answers: dict[str, Any]
     ) -> None:
         """ON CONFLICT (user_id, lesson_id): update answers, keep completed_at."""
+
+
+class AbstractConversationRepository(ABC):
+    """conversations — one row per chat session."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    @abstractmethod
+    async def create(
+        self, *, user_id: uuid.UUID, kind: str, context_ref: str | None = None
+    ) -> Conversation: ...
+
+    @abstractmethod
+    async def get_by_id(self, conversation_id: uuid.UUID) -> Conversation | None: ...
+
+    @abstractmethod
+    async def list_for_user(self, user_id: uuid.UUID, kind: str) -> list[Conversation]:
+        """Newest-first, for the history list."""
+
+    @abstractmethod
+    async def touch(self, conversation_id: uuid.UUID) -> None:
+        """Bump updated_at (a child message insert doesn't do this automatically)."""
+
+
+class AbstractMessageRepository(ABC):
+    """messages — every chat turn, both sides (the 'save all dialogue' table)."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    @abstractmethod
+    async def create(
+        self,
+        conversation_id: uuid.UUID,
+        *,
+        role: str,
+        content: str,
+        metadata: dict[str, Any] | None,
+    ) -> Message: ...
+
+    @abstractmethod
+    async def list_for_conversation(self, conversation_id: uuid.UUID) -> list[Message]:
+        """Chronological, for the conversation-detail view."""
+
+    @abstractmethod
+    async def list_recent(self, conversation_id: uuid.UUID, *, limit: int) -> list[Message]:
+        """Last `limit` messages, chronological order (window cap sent to the model)."""
