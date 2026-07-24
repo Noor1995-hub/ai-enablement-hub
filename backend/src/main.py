@@ -28,6 +28,7 @@ from src.routers import (
     admin_users,
     auth,
     auth_entra,
+    chat,
     feedback,
     learning,
     me,
@@ -181,6 +182,7 @@ app.include_router(admin_users.router)
 app.include_router(admin_email_templates.router)
 app.include_router(admin_content.router)
 app.include_router(admin_media.router)
+app.include_router(chat.router)
 app.include_router(feedback.router)
 
 # Single error shape for the frontend: {"error": {"code", "message"[, "fields"]}}

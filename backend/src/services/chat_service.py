@@ -10,7 +10,7 @@ from src.services.exceptions import NotFoundError
 from src.services.prompts import load_prompt
 
 if TYPE_CHECKING:
-    from src.db.models import Conversation
+    from src.db.models import Conversation, Message
     from src.repositories.base import AbstractConversationRepository, AbstractMessageRepository
     from src.services.llm_service import LlmClient, LlmUsage
 
@@ -62,6 +62,18 @@ class ChatService:
         if conversation is None or conversation.user_id != user_id:
             raise NotFoundError("Conversation")
         return conversation
+
+    async def list_conversations(self, *, user_id: uuid.UUID, kind: str) -> list[Conversation]:
+        return await self._conversations.list_for_user(user_id, kind)
+
+    async def get_conversation_detail(
+        self, *, user_id: uuid.UUID, conversation_id: uuid.UUID
+    ) -> tuple[Conversation, list[Message]]:
+        conversation = await self._conversations.get_by_id(conversation_id)
+        if conversation is None or conversation.user_id != user_id:
+            raise NotFoundError("Conversation")
+        messages = await self._messages.list_for_conversation(conversation_id)
+        return conversation, messages
 
     async def send_message(
         self, *, conversation: Conversation, content: str
