@@ -33,6 +33,7 @@
   --adm-warn-text:  #B45309;
   --adm-info-bg:    #EEF2FF;
   --adm-info-text:  #4B5CC4;
+  --adm-info-border: #D9DFF6;
   --adm-red-tint:   #FFF0EF;
   --adm-red-border: #FBCFCC;
 
@@ -372,3 +373,85 @@
 .adm-level-bar-track { height: 14px; background: var(--adm-warm); border-radius: 4px; overflow: hidden; }
 .adm-level-bar { height: 100%; border-radius: 4px; min-width: 2px; }
 .adm-level-n { font-family: var(--dlw-font-body); font-size: 13px; font-weight: 700; color: var(--adm-ink); }
+
+/* ── People (Task 15) ───────────────────────────────────────────────────
+   Rules below back frontend/src/pages/admin2/{PeoplePage,InviteModal}.tsx.
+   Ported from docs/design-prototypes/admin-redesign/{styles.css,common.js}
+   (`.user-cell`, `.note-banner`, `.modal .field-label/input`, `.check`-style
+   assign list is new — no prototype equivalent, the mock's assign flow just
+   toasts) onto the --adm-* tokens above. */
+
+/* Page header row (title+sub on the left, action buttons on the right) —
+   generic enough for later screens (Assignments, Feedback, …) to reuse. */
+.adm-page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.adm-page-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+
+/* Small muted helper line — gating hints, modal subtitles, busy notices. */
+.adm-hint { font-size: 12.5px; color: var(--adm-muted); margin: 0 0 12px; }
+/* Generic vertical spacer between stacked blocks inside a modal body. */
+.adm-modal-section { margin-top: 14px; }
+/* Pushes a trailing element (e.g. a modal footer's Cancel button) to the
+   far side of its flex container. */
+.adm-push-right { margin-left: auto; }
+
+/* Inline form feedback (invite result, bulk-mutation errors). */
+.adm-form-msg { font-size: 12.5px; margin-top: 10px; }
+.adm-form-msg-ok { color: var(--adm-good-text); }
+.adm-form-msg-err { color: var(--adm-red-deep); }
+
+/* Modal text fields (InviteModal). */
+.adm-field { margin-bottom: 14px; }
+.adm-field-label {
+  display: block; font-family: var(--dlw-font-ui); font-size: 11px; font-weight: 600;
+  letter-spacing: .08em; text-transform: uppercase; color: var(--adm-muted); margin: 0 0 6px;
+}
+.adm-field-input {
+  width: 100%; border: 1px solid var(--adm-border); border-radius: var(--adm-radius-sm);
+  padding: 9px 12px; font: inherit; color: var(--adm-ink); box-sizing: border-box;
+}
+.adm-field-input:focus { outline: none; border-color: var(--adm-faint); }
+
+/* Project-defaults banner (invite modal). */
+.adm-note-banner {
+  background: var(--adm-info-bg); border: 1px solid var(--adm-info-border); color: var(--adm-info-text);
+  border-radius: var(--adm-radius-sm); padding: 9px 14px; font-size: 12.5px; margin-bottom: 14px;
+}
+
+/* Invite-link result box (copy-to-clipboard fallback). */
+.adm-link-box { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--adm-border); }
+.adm-link-box-label { font-size: 12px; font-weight: 600; color: var(--adm-muted); margin: 0 0 8px; }
+.adm-link-row { display: flex; gap: 8px; align-items: center; }
+.adm-link-input {
+  flex: 1; border: 1px solid var(--adm-border); border-radius: var(--adm-radius-sm);
+  padding: 8px 12px; font-size: 13px; color: var(--adm-text); background: var(--adm-surface);
+}
+
+/* Scrollable checkbox list (assign-content modal's track/module/lesson pick). */
+.adm-check-list { max-height: 260px; overflow-y: auto; border: 1px solid var(--adm-border); border-radius: var(--adm-radius-sm); padding: 4px; }
+.adm-check-row {
+  display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+  font-family: var(--dlw-font-body); font-size: 13px; color: var(--adm-text);
+  border-radius: var(--adm-radius-sm); cursor: pointer;
+}
+.adm-check-row:hover { background: var(--adm-surface); }
+.adm-check-row input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--adm-red-deep); cursor: pointer; }
+
+/* Participant cell (avatar + name/email stack). */
+.adm-user-cell { display: flex; align-items: center; gap: 11px; }
+.adm-user-avatar {
+  width: 30px; height: 30px; border-radius: 50%; background: var(--adm-warm); color: var(--adm-ink);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--dlw-font-ui); font-size: 11px; font-weight: 600; flex-shrink: 0;
+}
+.adm-user-name { font-family: var(--dlw-font-body); font-weight: 600; color: var(--adm-ink); font-size: 13.5px; line-height: 1.3; }
+.adm-user-email { font-family: var(--dlw-font-body); font-size: 12px; color: var(--adm-muted); }
+.adm-subtext { font-family: var(--dlw-font-body); font-size: 12px; color: var(--adm-muted); }
+
+/* Maturity cell (LevelBadge + admin-pin marker). */
+.adm-maturity { display: inline-flex; align-items: center; gap: 5px; }
+.adm-maturity-pin { font-size: 11px; color: var(--adm-info-text); }
+
+/* Pager (below the people table). */
+.adm-pager { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; }
+.adm-pager-actions { display: flex; align-items: center; gap: 8px; }
+.adm-pager-info { font-family: var(--dlw-font-body); font-size: 12.5px; color: var(--adm-muted); }
