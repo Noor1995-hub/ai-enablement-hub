@@ -1,21 +1,24 @@
 # AI Agents in the Hub — feasibility, design & provider setup (Foundry / Anthropic API)
 
-> **Status:** planning / not started (as of 2026-07-10). This is the doc to point a fresh session
+> **Status:** planning / not started (as of 2026-07-23). This is the doc to point a fresh session
 > at. It captures the feasibility discussion, the agreed design, the isolation/performance answers,
-> and the concrete setup for BOTH provider options (§8 Foundry, §8b Anthropic API). Nothing here is
-> built yet.
+> and the concrete setup for the chosen provider (§8b Anthropic API), plus the Foundry alternative
+> kept as reference (§8). Nothing here is built yet.
 >
 > **Amended 2026-07-10** after a design challenge — see the "Resolved" list at the end of §10.
 >
-> **Provider (REOPENED 2026-07-10 — now an OPEN choice, see §7 + §8/§8b):** originally decided
-> 2026-07-09 as **Azure AI Foundry** ("data stays in the delaware tenant; rules out Anthropic API").
-> Reopened because (a) **all `claude-*` models have quota limit 0 in every region of the
-> subscription** (verified 2026-07-10; unlocking needs a subscription-level quota request, likely
-> via IT), and (b) Claude on Foundry is **GlobalStandard-only** (processing not EU-pinned), so
-> "in-tenant" is weaker than assumed — the real comparison is *Microsoft contract / global
-> processing* vs *Anthropic contract / US processing under DPA + SCCs*. Matthias has access to an
-> Anthropic API key. Both ways of working are specced below; the `LlmClient` seam makes the choice
-> an env-var switch (`LLM__PROVIDER`), not an architecture change.
+> **PROVIDER DECIDED 2026-07-23: Anthropic API (direct), Option B — see §7/§8b.** Originally decided
+> 2026-07-09 as Azure AI Foundry, reopened 2026-07-10 (Claude quota 0 everywhere on Foundry;
+> GlobalStandard-only processing weakened the "in-tenant" rationale), resolved once **IT confirmed
+> direct use of the Anthropic API key is allowed** (2026-07-23) — the "dev/test data only until IT
+> sign-off" gate in §8b is cleared. Decision drivers (not just "Claude is generally stronger"): the
+> interviewer surface's own requirement for a model good at goal-driven probing + structured
+> extraction, and the Haiku 4.5 / Sonnet 5 / Opus 4.8 tiering answers the "one model vs small+strong
+> split" open question for free, in one vendor/one SDK. Counter-consideration noted and accepted:
+> this is the app's first non-Azure vendor dependency and first feature-specific live secret
+> (ACS/Entra/Azure PG are all Azure-native with keyless managed identity). The Foundry path in §8 is
+> kept as-is (not deleted) since the `LlmClient` seam preserves it as an option if the calculus ever
+> changes — see the switching-cost note added to §7.
 
 ## 1. What we want to build
 
@@ -159,29 +162,43 @@ by hub admins to improve the hub."* — and give the internal privacy owner a he
 
 ## 7. Provider / SDK / model decisions
 
-### Provider: OPEN CHOICE (reopened 2026-07-10) — Foundry (Option A) vs Anthropic API (Option B)
+### Provider: DECIDED 2026-07-23 — Anthropic API (Option B)
 
-Both are viable; the code is provider-agnostic behind the `LlmClient` seam. At a glance:
+Reopened 2026-07-10, resolved 2026-07-23 once IT confirmed direct use of the Anthropic API key is
+allowed. Comparison kept for reference (Option A remains available via the `LlmClient` seam if the
+calculus ever changes):
 
-| | **Option A: Azure AI Foundry** | **Option B: Anthropic API (direct)** |
+| | **Option A: Azure AI Foundry** | **Option B: Anthropic API (direct) — CHOSEN** |
 |---|---|---|
 | Data path | delaware Azure sub, Microsoft terms; GlobalStandard = global (non-EU-pinned) processing | Anthropic (US) under DPA + SCCs; no training on API data; ~30-day retention |
 | Models available today | `gpt-4o` (already deployed + verified), gpt-5.x/mini tiers, DeepSeek, Mistral, Grok, Llama, Phi. **NO Claude** (quota 0 everywhere — needs request) | All Claude models immediately (Haiku 4.5 / Sonnet 5 / Opus 4.8) |
 | Auth | Managed identity (keyless, recommended) or key | API key only (container-app secret) |
 | SDK | `openai` → `AsyncAzureOpenAI` | `anthropic` → `AsyncAnthropic` (native SDK, **no OpenAI-compat shim**) |
-| Blocker | Claude quota request (subscription-scoped; Matthias is RG-Owner only → likely IT) | IT governance sign-off before any real user data |
+| Blocker | Claude quota request (subscription-scoped; Matthias is RG-Owner only → likely IT) — not pursued | none — IT cleared direct key use 2026-07-23 |
 | Config | `LLM__PROVIDER=foundry` + `LLM__ENDPOINT`/`LLM__DEPLOYMENT`/`LLM__API_VERSION` | `LLM__PROVIDER=anthropic` + `LLM__MODEL` + `LLM__API_KEY` |
 
-**Way of working while the choice is open:**
-- Build **one `LlmClient` Protocol + two thin adapters** (`FoundryLlmClient`, `AnthropicLlmClient`),
-  selected by `LLM__PROVIDER`. Everything downstream (ChatService, persistence, streaming router,
-  prompts) is provider-blind.
-- **Prototype on whichever unblocks fastest.** Anthropic key = dev/test accounts only until IT
-  signs off; Foundry `gpt-4o` is already usable with zero setup.
-- **Run both unblocking tracks in parallel:** file the Foundry Claude quota request, and put the
-  governance question to IT ("Anthropic API under DPA/SCCs vs Claude-on-Foundry GlobalStandard vs
-  OpenAI-on-Foundry — which are acceptable?").
-- The production decision is then a config flip, made per the IT answer — no code rework either way.
+**Decision drivers (2026-07-23):** the interviewer surface explicitly wants a model that's good at
+goal-driven probing + structured extraction (§4) — Claude Opus 4.8 fits that better than gpt-4o.
+The Haiku 4.5 / Sonnet 5 / Opus 4.8 tiering also answers the open "one model vs small+strong split"
+question (§10) for free, in one vendor/one SDK — Foundry would need a second deployed model family
+to get the same split. Counter-consideration, accepted knowingly: this is the app's first
+non-Azure vendor dependency and first feature-specific live secret (ACS/Entra/Azure PG are all
+Azure-native with keyless managed identity) — mitigated by the key-hygiene step in §8b (dedicated
+workspace + spend cap, not a personal dev key).
+
+**Build provider-agnostic anyway:** one `LlmClient` Protocol, `AnthropicLlmClient` as the only
+adapter built for v1, selected by `LLM__PROVIDER=anthropic`. Everything downstream (ChatService,
+persistence, streaming router, prompts) stays provider-blind — cheap insurance, not because the
+choice is still open.
+
+**Switching cost if this is ever revisited:** NOT a bare env-var flip — the seam isolates the
+change to one new adapter class, but that class has real content: client construction/auth,
+system-prompt handling (Anthropic's top-level `system` param vs OpenAI's `role:"system"` message),
+translating the streaming event shapes, structured-JSON output for the interviewer (Anthropic has
+no native JSON mode — forced `tool_use`; OpenAI has `response_format: json_schema`), and mapping
+each SDK's exceptions to `DomainError`. Realistic estimate for a second adapter once the first
+exists and the Protocol is solid: half a day to a day, including its own tests. Contained and
+low-risk, not a rewrite — but budget for it as real work, not a config change.
 
 ### Option A — SDK: `openai` (`AsyncAzureOpenAI`) against the Foundry endpoint
 **Deliberate deviation from Microsoft's `get_azure_bestpractices_ai_app` recommendation** (which
@@ -217,10 +234,12 @@ catalog (`az cognitiveservices account deployment list`, or the Foundry portal /
 and use the current deployment name. The deployment name is what goes in `LLM__DEPLOYMENT`.
 (For Option B the "model" is just an ID string — pricing table in §8b.)
 
-## 8. Option A — Azure AI Foundry setup (concrete)
+## 8. Option A — Azure AI Foundry setup (concrete, kept as reference — not the chosen path)
 
-> **All Azure mutations below are ask-first** (per the standing rule — read-only queries are fine).
-> Nothing here has been run.
+> **Not pursued for v1** (Anthropic API chosen 2026-07-23, see §7). Kept here because the
+> `LlmClient` seam preserves this as a real fallback — nothing below is stale, it's just not the
+> next thing to build. All Azure mutations below are ask-first (per the standing rule — read-only
+> queries are fine). Nothing here has been run.
 
 **Existing resources (verified 2026-07-09, read-only, RG `imaginemore-playground`,
 sub `e2b785b0-d93d-4c19-9537-4f752f759cb1`, swedencentral):**
@@ -303,18 +322,26 @@ threadpool pattern (fine for ACS's ~1s email sends) breaks here: a streaming cha
 for 10–60s and the default threadpool has ~40 threads, so a handful of concurrent chats would
 exhaust it on the single replica. Async-all-the-way also matches `python-be-architecture.md`.
 
-## 8b. Option B — Anthropic API setup (concrete)
+## 8b. Option B — Anthropic API setup (concrete) — CHOSEN PATH FOR V1
 
-> **Prerequisite for production:** IT governance sign-off — chat data (incl. injected lesson
-> content / assessment answers) goes to Anthropic (US) under their DPA + SCCs instead of staying
-> under the Azure agreement. **Dev/prototyping with test accounts only is fine meanwhile.**
-> Matthias has access to an API key (2026-07-10).
+> **IT governance sign-off cleared 2026-07-23** — direct use of the Anthropic API key is allowed;
+> the "dev/test only" gate that applied through 2026-07-10 no longer applies. Matthias has access
+> to an API key. **Step 1 below (key hygiene) is the next concrete action.**
 
 ### Steps
-1. **Key hygiene first:** in the Anthropic Console, check which org/workspace the existing key
-   belongs to and its spend/rate limits. For anything shared: a **dedicated workspace for the hub
-   with its own key and a monthly spend cap** — never a personal dev key wired into the container
-   app.
+1. **Key hygiene, split by environment (clarified 2026-07-23 — dev is NOT blocked on this):**
+   - **Local dev (unblocks Batch A immediately):** use Matthias's existing personal/dev Anthropic
+     key in local `backend/.env` via `LLM__API_KEY` — same precedent as the local `AUTH__JWT_SECRET`
+     (root CLAUDE.md "Key facts"), git-ignored, dev-only blast radius. Worth a quick **read-only**
+     check in the Anthropic Console first (which org/workspace it belongs to, its spend/rate
+     limits) so dev testing doesn't quietly eat someone else's budget — but that's it, no setup
+     required to start building. The code never cares which key it holds:
+     `settings.llm.api_key` is just a `SecretStr` env var.
+   - **Before this is ever wired into the Container App (i.e. before prod, before any real user's
+     data flows through it):** create a **dedicated workspace for the hub with its own key and a
+     monthly spend cap** — never a personal dev key in the container app. Swapping is then
+     `az containerapp secret set` + `--set-env-vars` (ask-first, same pattern as
+     `acs-connection-string`) — no code change, no redeploy of the adapter.
 2. **Install:** `pip install anthropic` (backend `prod` deps via uv). Native SDK only (§7).
 3. **Backend config** (same `Settings.llm: LlmSettings | None` seam, `SecretStr` for the key):
    - `LLM__PROVIDER=anthropic`, `LLM__MODEL=<id from the table below>`, `LLM__API_KEY=<key>`.
@@ -353,8 +380,8 @@ Batch A) — the token-scoped-tools rule from §5 is provider-independent.
 
 ## 9. Suggested batch plan (in the style of `rebuild-plan.md`)
 - **Batch A — Foundation:** `LlmService` + config/DI seam (**provider-agnostic:** `LlmClient`
-  Protocol + `LLM__PROVIDER`-selected adapter, so the open provider choice doesn't block this
-  batch), `conversations`/`messages` tables +
+  Protocol + `LLM__PROVIDER`-selected adapter — `AnthropicLlmClient` is the only adapter built for
+  v1 per §7, Foundry stays swappable via the seam if ever revisited), `conversations`/`messages` tables +
   migration, `ChatService`/repositories (incl. disconnect-safe persistence), streaming
   `POST /api/chat/{kind}` + the conversation list/continue endpoints, `useChat` + `<ChatPanel>`
   with history list, **guardrails** (max output tokens, per-user rate limit via `core/ratelimit.py`,
@@ -370,17 +397,13 @@ Batch A) — the token-scoped-tools rule from §5 is provider-independent.
   storage, admin conversation-viewer in `Admin.tsx`. A few days.
 
 ## 10. Open decisions / to confirm next session
-- **PROVIDER (reopened 2026-07-10): Foundry (Option A, §8) vs Anthropic API (Option B, §8b).**
-  Deliberately left open. Unblock both in parallel: file the Foundry Claude quota request AND ask
-  IT the governance question (Anthropic API under DPA/SCCs vs Claude-on-Foundry GlobalStandard vs
-  OpenAI-on-Foundry — which are acceptable?). Until decided: build provider-agnostic
-  (`LLM__PROVIDER`), prototype on either (Anthropic key = test data only).
-- Exact model deployment(s): one small model for all, or small for helpers + stronger for interviewer?
-- Managed identity (recommended) vs API-key secret for the first prototype.
-- Reuse `imaginemore-playground-mf` for prototype (yes, recommended) vs wait for a dedicated
-  resource at the hosting move.
+- Exact model split: leaning toward Haiku 4.5 for the chatbot/assessment/lesson helpers + Opus 4.8
+  for the interviewer (the tiering that motivated the provider choice, §7) — not yet locked in;
+  confirm once real transcripts show whether Haiku is sufficient for the helpers.
 - Exact value of N for the history window cap.
-- Whether to enable extra Foundry content filtering beyond the built-in defaults.
+- Foundry-specific items (managed identity vs key, reusing `imaginemore-playground-mf`, extra
+  content filtering) are moot for v1 now that §8 isn't the chosen path — revisit only if Anthropic
+  is ever swapped out.
 
 **Resolved 2026-07-10 (moved out of open):** conversation lifecycle = new conversation per
 widget-open + history list with resume; plain window cap instead of a running summary; guardrails
@@ -389,3 +412,9 @@ persistence required; assessment surface redefined from "clarifier" to "deep-div
 admin viewer renders transcripts as plain text; tool-call loop recommended deferred out of Batch A;
 prompts live as text files in the repo (2026-07-10; DB + admin edit screen only if live-tweaking
 ever becomes a need).
+
+**Resolved 2026-07-23 (moved out of open):** provider = Anthropic API direct (Option B, §7/§8b) —
+IT cleared direct use of the API key, closing the "dev/test only" gate that applied from
+2026-07-10; `AsyncAnthropic` mandatory (the async-all-the-way rule from 2026-07-10 applies
+provider-independently, §8b); Foundry (§8) stays documented as a fallback via the `LlmClient`
+seam, not built for v1.
