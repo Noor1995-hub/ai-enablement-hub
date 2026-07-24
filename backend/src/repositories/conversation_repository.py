@@ -2,8 +2,9 @@
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime
 
-from sqlalchemy import func, select, update
+from sqlalchemy import select, update
 
 from src.db.models import Conversation
 from src.repositories.base import AbstractConversationRepository
@@ -15,7 +16,20 @@ class ConversationRepository(AbstractConversationRepository):
     async def create(
         self, *, user_id: uuid.UUID, kind: str, context_ref: str | None = None
     ) -> Conversation:
-        conversation = Conversation(user_id=user_id, kind=kind, context_ref=context_ref)
+        # created_at/updated_at are set here (rather than left to the columns'
+        # server-side `now()` default) because `now()` is fixed at transaction
+        # start: two conversations created back-to-back within the same
+        # transaction — as every request handler's unit-of-work is, and as
+        # every test's savepoint-wrapped session is — would otherwise get an
+        # identical timestamp and break chronological ordering.
+        now = datetime.now(UTC)
+        conversation = Conversation(
+            user_id=user_id,
+            kind=kind,
+            context_ref=context_ref,
+            created_at=now,
+            updated_at=now,
+        )
         self._session.add(conversation)
         await self._session.commit()
         await self._session.refresh(conversation)
@@ -39,6 +53,6 @@ class ConversationRepository(AbstractConversationRepository):
         await self._session.execute(
             update(Conversation)
             .where(Conversation.id == conversation_id)
-            .values(updated_at=func.now())
+            .values(updated_at=datetime.now(UTC))
         )
         await self._session.commit()
