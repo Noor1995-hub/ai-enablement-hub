@@ -3,6 +3,7 @@ from src.db.models.auth import AuthSession, AuthToken
 from src.db.models.company import (
     Company,
     Project,
+    ProjectAiSetting,
     ProjectComponentSetting,
     ProjectEmailTemplate,
 )
@@ -25,6 +26,7 @@ __all__ = [
     "Module",
     "ModulePrerequisite",
     "Project",
+    "ProjectAiSetting",
     "ProjectComponentSetting",
     "ProjectEmailTemplate",
     "SurveyResponse",

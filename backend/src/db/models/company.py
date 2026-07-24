@@ -18,7 +18,13 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from src.db.base import Base
 
-__all__ = ["Company", "Project", "ProjectComponentSetting", "ProjectEmailTemplate"]
+__all__ = [
+    "Company",
+    "Project",
+    "ProjectAiSetting",
+    "ProjectComponentSetting",
+    "ProjectEmailTemplate",
+]
 
 
 class Company(Base):
@@ -102,3 +108,26 @@ class ProjectEmailTemplate(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
+
+
+class ProjectAiSetting(Base):
+    """Per-project paid-feature gate for the 4 AI chat surfaces — a hard
+    enforcement gate, NOT the visibility-only pattern ProjectComponentSetting
+    uses (see the design doc's rationale)."""
+
+    __tablename__ = "project_ai_settings"
+    __table_args__ = (
+        UniqueConstraint("project_id", "kind"),
+        CheckConstraint("kind IN ('chatbot', 'assessment', 'lesson', 'interview')", name="kind"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    project_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("projects.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    kind: Mapped[str] = mapped_column(Text, nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
