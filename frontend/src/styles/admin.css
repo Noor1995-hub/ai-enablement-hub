@@ -627,3 +627,40 @@
 .adm-legend-item { display: inline-flex; align-items: center; gap: 6px; }
 .adm-legend .adm-cell { pointer-events: none; transform: scale(.85); }
 .adm-legend-spacer { margin-left: auto; }
+
+/* ── Feedback queue (Task 18) ─────────────────────────────────────────────
+   Backs frontend/src/pages/admin2/FeedbackPage.tsx. Ported from
+   docs/design-prototypes/admin-redesign/{styles.css,common.js} `.fb-*` /
+   `.loc-chip` / `.filter-row` onto the --adm-* tokens above — the prototype's
+   `.chip` type pill and `.ai-box` are the parked AI-triage preview (spec
+   §3.5: "no type chip and no AI-triage box" at launch) and are deliberately
+   NOT ported. */
+.adm-filter-row { margin-top: -4px; }
+.adm-filter-label {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--dlw-font-ui); font-size: 11px; font-weight: 600; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--adm-muted);
+}
+
+.adm-fb-card { background: var(--adm-white); border: 1px solid var(--adm-border); border-radius: var(--adm-radius); padding: 18px 20px; margin-bottom: 14px; }
+.adm-fb-card-done { opacity: .62; }
+.adm-fb-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+.adm-fb-when { margin-left: auto; font-size: 12px; color: var(--adm-faint); }
+.adm-fb-loc { display: flex; align-items: center; gap: 5px; margin: 0 0 10px; flex-wrap: wrap; }
+.adm-loc-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--dlw-font-ui); font-size: 12px; font-weight: 600; color: var(--adm-text);
+  background: var(--adm-surface); border: 1px solid var(--adm-border); border-radius: 999px;
+  padding: 3px 11px;
+}
+button.adm-loc-chip { cursor: pointer; }
+button.adm-loc-chip:hover { border-color: var(--adm-red-deep); color: var(--adm-red-deep); }
+.adm-loc-dot { display: inline-block; width: 7px; height: 7px; border-radius: 2px; flex-shrink: 0; }
+.adm-loc-label {
+  font-size: 9px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--adm-faint); margin-right: 1px;
+}
+button.adm-loc-chip:hover .adm-loc-label { color: var(--adm-red-deep); }
+.adm-fb-quote { font-size: 14.5px; color: var(--adm-ink); margin: 0 0 12px; padding-left: 12px; border-left: 3px solid var(--adm-warm); }
+.adm-fb-foot { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.adm-fb-actions { margin-left: auto; display: flex; gap: 8px; }

@@ -142,19 +142,24 @@ export interface FeedbackParams {
   track?: string
   project: string | null
   page?: number
+  /** Defaults to FEEDBACK_PAGE_SIZE. The sidebar badge overrides this to 1 —
+   * carried in the query key (below) so that call never collides with a
+   * paginated list's cache entry. */
+  limit?: number
 }
 
-const FEEDBACK_PAGE_SIZE = 50
+export const FEEDBACK_PAGE_SIZE = 50
 
 async function fetchFeedback(params: FeedbackParams): Promise<AdminFeedbackListResponse> {
-  const offset = ((params.page ?? 1) - 1) * FEEDBACK_PAGE_SIZE
+  const limit = params.limit ?? FEEDBACK_PAGE_SIZE
+  const offset = ((params.page ?? 1) - 1) * limit
   const { data, error } = await rawRequest<AdminFeedbackListResponse>('GET', '/api/admin/feedback', {
     params: {
       query: {
         status: params.status,
         track_id: params.track,
         project_id: params.project ?? undefined,
-        limit: FEEDBACK_PAGE_SIZE,
+        limit,
         offset,
       },
     },
@@ -168,7 +173,7 @@ export function useFeedback(params: FeedbackParams) {
     queryKey: [
       'admin',
       'feedback',
-      { status: params.status, track: params.track, project: params.project, page: params.page },
+      { status: params.status, track: params.track, project: params.project, page: params.page, limit: params.limit },
     ] as const,
     queryFn: () => fetchFeedback(params),
   })
@@ -440,11 +445,36 @@ async function patchFeedback({ id, status }: PatchFeedbackInput): Promise<void> 
   if (error) throw new Error(errorMessage(error, 'Failed to update the feedback status.'))
 }
 
+/** Optimistic status flip (Task 18 / Feedback queue) — mirrors
+ * `useToggleAssignment`/`useSetDefaults`'s onMutate-snapshot-onError-rollback
+ * shape. Patches the item's `status` in EVERY cached `['admin','feedback']`
+ * page it appears in (the list query and the New-count/badge query share the
+ * same prefix), but never removes it from a list — a card whose status no
+ * longer matches the active pill stays visible (dimmed) until `onSettled`'s
+ * invalidation brings back the server's authoritative page, which also
+ * refreshes the sidebar badge for free (same query key prefix). */
 export function usePatchFeedback() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: patchFeedback,
-    onSuccess: () => {
+    onMutate: async ({ id, status }) => {
+      await queryClient.cancelQueries({ queryKey: ['admin', 'feedback'] })
+      const snapshots = queryClient.getQueriesData<AdminFeedbackListResponse>({
+        queryKey: ['admin', 'feedback'],
+      })
+      for (const [key, data] of snapshots) {
+        if (!data) continue
+        queryClient.setQueryData<AdminFeedbackListResponse>(key, {
+          ...data,
+          items: data.items.map(item => (item.id === id ? { ...item, status } : item)),
+        })
+      }
+      return { snapshots }
+    },
+    onError: (_error, _variables, context) => {
+      context?.snapshots.forEach(([key, data]) => queryClient.setQueryData(key, data))
+    },
+    onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ['admin', 'feedback'] })
       void queryClient.invalidateQueries({ queryKey: ['admin', 'dashboard'] })
     },

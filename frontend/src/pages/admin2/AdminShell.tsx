@@ -3,8 +3,10 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, NavLink, Outlet, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import '../../styles/admin.css'
+import { useFeedback } from './api'
 import { NAV_ITEMS, type NavIconKey } from './nav'
 import ScopeSwitcher from './ScopeSwitcher'
+import { useScope } from './useScope'
 
 // One client for the whole admin2 shell — its children (dashboard, people,
 // etc.) all read through this via useQuery. Created once per mount, not per
@@ -45,7 +47,14 @@ export default function AdminShell() {
       <div className="adm-shell">
         <nav className="adm-sidebar">
           {NAV_ITEMS.map(item => (
-            <SidebarLink key={item.key} label={item.label} icon={item.icon} path={item.path} search={search} />
+            <SidebarLink
+              key={item.key}
+              label={item.label}
+              icon={item.icon}
+              path={item.path}
+              search={search}
+              badge={item.key === 'feedback' ? <FeedbackNavBadge /> : undefined}
+            />
           ))}
         </nav>
         <main className="adm-main">
@@ -63,9 +72,10 @@ interface SidebarLinkProps {
   icon: NavIconKey
   path: string
   search: string
+  badge?: ReactNode
 }
 
-function SidebarLink({ label, icon, path, search }: SidebarLinkProps) {
+function SidebarLink({ label, icon, path, search, badge }: SidebarLinkProps) {
   const to = { pathname: path ? `/admin/${path}` : '/admin', search: search ? `?${search}` : '' }
 
   return (
@@ -76,8 +86,26 @@ function SidebarLink({ label, icon, path, search }: SidebarLinkProps) {
     >
       <NavIcon name={icon} />
       {label}
+      {badge}
     </NavLink>
   )
+}
+
+/** New-feedback count for the sidebar "Feedback" item — a dedicated
+ * `{status:'new', limit:1}` query, project-scoped like every other screen
+ * (spec §3.5 has no "always global" language), and deliberately the SAME
+ * query key FeedbackPage's own "New" pill count fires, so the two share one
+ * cache entry: triaging an item there invalidates `['admin','feedback']` on
+ * settle, which refreshes this badge for free. Rendered as a child of
+ * AdminShell's own `<QueryClientProvider>` (not called directly in
+ * AdminShell's body) — that provider covers its JSX children, not the
+ * component instantiating it. */
+function FeedbackNavBadge() {
+  const scope = useScope()
+  const { data } = useFeedback({ status: 'new', project: scope.projectId, limit: 1 })
+  const count = data?.total
+  if (!count) return null
+  return <span className="adm-nav-count">{count}</span>
 }
 
 function UserChip() {

@@ -6,6 +6,7 @@ import Admin from './pages/Admin'
 import AdminShell from './pages/admin2/AdminShell'
 import AssignmentsPage from './pages/admin2/AssignmentsPage'
 import DashboardPage from './pages/admin2/DashboardPage'
+import FeedbackPage from './pages/admin2/FeedbackPage'
 import Placeholder from './pages/admin2/Placeholder'
 import PeoplePage from './pages/admin2/PeoplePage'
 import UserDetailPage from './pages/admin2/UserDetailPage'
@@ -73,7 +74,7 @@ function AppRoutes() {
         <Route path="people" element={<PeoplePage />} />
         <Route path="people/:userId" element={<UserDetailPage />} />
         <Route path="assignments" element={<AssignmentsPage />} />
-        <Route path="feedback" element={<Placeholder />} />
+        <Route path="feedback" element={<FeedbackPage />} />
         <Route path="projects" element={<Placeholder />} />
         <Route path="templates" element={<Placeholder />} />
         <Route path="setup" element={<Placeholder />} />
