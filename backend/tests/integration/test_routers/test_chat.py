@@ -121,7 +121,54 @@ class TestSendChatMessage:
         events = _parse_sse(raw)
         assert [e for e, _ in events] == ["token", "token", "done"]
         assert events[0][1] == {"text": "Hi"}
-        assert events[2][1]["truncated"] is False
+        done_data = events[2][1]
+        assert done_data["truncated"] is False
+        # Pins the `done` event's contract for Task 15's frontend: usage must
+        # mirror FakeLlmClient's default (input_tokens=10, output_tokens=len(chunks)),
+        # and conversation_id must be present and a valid uuid string.
+        assert done_data["usage"] == {"input_tokens": 10, "output_tokens": 2}
+        assert uuid.UUID(done_data["conversation_id"])
+
+    async def test_21st_call_in_window_is_429_with_retry_after(
+        self,
+        chat_client: Callable[[FakeLlmClient], AsyncClient],
+        db_session: AsyncSession,
+        test_settings: Settings,
+    ) -> None:
+        """Mirrors test_cross_cutting.py's TestLoginRateLimit/TestSetPasswordRateLimit
+        convention: hammer the endpoint N+1 times on the same key and assert the
+        over-limit call is 429 + Retry-After. `_prepare_chat_message` enforces the
+        SHORT window first (`chat:{user.id}`, max_calls=20/300s), so the 21st call
+        here trips `_RATE_LIMITED_SHORT` before the DAILY check (`chat-daily:{user.id}`,
+        max_calls=200/86400s) is ever reached — the daily path shares the exact same
+        `RateLimiter.is_limited` call and is covered by inspection rather than a
+        201-iteration loop. `rate_limiter` is a process-global reset by conftest's
+        autouse `_reset_rate_limiter` fixture before/after every test, so this test
+        is deterministic and can't leak counters into other tests."""
+        company = await create_company(db_session, "Chat Rate Limit Co")
+        project = await create_project(db_session, company, "Chat Rate Limit Project")
+        user = await create_user(
+            db_session,
+            email="chat-rate-limited@example.com",
+            company_id=company.id,
+            project_id=project.id,
+        )
+        await _enable_ai(db_session, project.id, "chatbot")
+
+        client = chat_client(FakeLlmClient(chunks=["hi"]))
+        for _ in range(20):
+            response = await client.post(
+                "/api/chat/chatbot",
+                json={"content": "hi"},
+                headers=auth_headers(user, test_settings),
+            )
+            assert response.status_code == 200
+
+        response = await client.post(
+            "/api/chat/chatbot", json={"content": "hi"}, headers=auth_headers(user, test_settings)
+        )
+        assert response.status_code == 429
+        assert response.headers["Retry-After"] == "60"
 
     async def test_403_when_ai_disabled(
         self,
