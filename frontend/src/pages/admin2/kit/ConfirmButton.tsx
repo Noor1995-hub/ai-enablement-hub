@@ -31,7 +31,21 @@ export function ConfirmButton({ label, confirmLabel, onConfirm, busy = false }: 
     [],
   )
 
+  // A mutation going into flight disables both buttons, which blurs whichever one held
+  // focus — that's not a "clicked away" signal, so cancel (rather than let a stale timer
+  // fire) any disarm already pending from before `busy` flipped true.
+  useEffect(() => {
+    if (busy && disarmTimer.current) {
+      clearTimeout(disarmTimer.current)
+      disarmTimer.current = null
+    }
+  }, [busy])
+
   function handleBlur(e: FocusEvent<HTMLSpanElement>) {
+    // Disabling the focused button (busy=true) fires this same blur — disabled buttons
+    // can't be clicked, so there's nothing to guard against; arming the disarm timer here
+    // would revert to the unarmed, enabled label button mid-mutation.
+    if (busy) return
     // relatedTarget is the element gaining focus (null if focus leaves the
     // document, e.g. a click on a non-focusable area) — only disarm when
     // it's outside this Confirm/Cancel pair.
