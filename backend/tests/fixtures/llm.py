@@ -20,7 +20,9 @@ __all__ = [
 
 class FakeAnthropicMessage:
     def __init__(self, input_tokens: int, output_tokens: int) -> None:
-        self.usage = type("Usage", (), {"input_tokens": input_tokens, "output_tokens": output_tokens})()
+        self.usage = type(
+            "Usage", (), {"input_tokens": input_tokens, "output_tokens": output_tokens}
+        )()
 
 
 class FakeAnthropicStream:
@@ -78,7 +80,10 @@ class FakeLlmReplyStream:
         return self
 
     async def __aexit__(
-        self, exc_type: type[BaseException] | None, exc: BaseException | None, tb: TracebackType | None
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
     ) -> None:
         return None
 

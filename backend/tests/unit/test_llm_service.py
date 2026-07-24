@@ -1,13 +1,15 @@
 from __future__ import annotations
 
-from tests.fixtures.llm import FakeAsyncAnthropic
-
 from src.services.llm_service import AnthropicLlmClient
+from tests.fixtures.llm import FakeAsyncAnthropic
 
 
 async def test_anthropic_client_streams_chunks_and_reports_usage() -> None:
     fake_sdk = FakeAsyncAnthropic(chunks=["Hel", "lo!"], usage=(12, 3))
-    client = AnthropicLlmClient(fake_sdk, model="claude-haiku-4-5")
+    client = AnthropicLlmClient(
+        fake_sdk,  # ty: ignore[invalid-argument-type]
+        model="claude-haiku-4-5",
+    )
 
     collected: list[str] = []
     async with client.stream_reply(

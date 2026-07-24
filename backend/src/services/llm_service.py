@@ -45,20 +45,20 @@ class _AnthropicReplyStream:
         self._stream: object | None = None
 
     async def __aenter__(self) -> _AnthropicReplyStream:
-        self._stream = await self._manager.__aenter__()  # type: ignore[attr-defined]
+        self._stream = await self._manager.__aenter__()  # ty: ignore[unresolved-attribute]
         return self
 
     async def __aexit__(self, *exc: object) -> None:
-        await self._manager.__aexit__(*exc)  # type: ignore[attr-defined]
+        await self._manager.__aexit__(*exc)  # ty: ignore[unresolved-attribute]
 
     async def __aiter__(self) -> AsyncIterator[str]:
         assert self._stream is not None
-        async for chunk in self._stream.text_stream:  # type: ignore[attr-defined]
+        async for chunk in self._stream.text_stream:  # ty: ignore[unresolved-attribute]
             yield chunk
 
     async def usage(self) -> LlmUsage:
         assert self._stream is not None
-        final = await self._stream.get_final_message()  # type: ignore[attr-defined]
+        final = await self._stream.get_final_message()  # ty: ignore[unresolved-attribute]
         return LlmUsage(final.usage.input_tokens, final.usage.output_tokens)
 
 
@@ -73,6 +73,9 @@ class AnthropicLlmClient:
         self, *, system: str, messages: list[dict[str, str]], max_tokens: int
     ) -> _AnthropicReplyStream:
         manager = self._client.messages.stream(
-            model=self._model, max_tokens=max_tokens, system=system, messages=messages
+            model=self._model,
+            max_tokens=max_tokens,
+            system=system,
+            messages=messages,  # ty: ignore[invalid-argument-type]
         )
         return _AnthropicReplyStream(manager)
