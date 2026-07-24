@@ -9,6 +9,9 @@ from src.core.dependencies.auth import require_admin
 from src.core.dependencies.domain import get_org_service
 from src.db.models import Company, Project
 from src.schemas.admin_org import (
+    AiSettingsResponse,
+    AiSurfaceState,
+    AiSurfaceUpdateRequest,
     CompaniesResponse,
     CompanyCreateRequest,
     CompanyOut,
@@ -73,3 +76,21 @@ async def put_component(
 ) -> None:
     """Partial upsert: omitted flags keep their stored (or default) value."""
     await org_service.set_component(project_id, component, hidden=body.hidden, locked=body.locked)
+
+
+@router.get("/projects/{project_id}/ai", response_model=AiSettingsResponse)
+async def get_ai_settings(project_id: uuid.UUID, org_service: OrgServiceDep) -> AiSettingsResponse:
+    settings = await org_service.resolve_ai_settings(project_id)
+    return AiSettingsResponse(
+        settings={kind: AiSurfaceState(enabled=enabled) for kind, enabled in settings.items()}
+    )
+
+
+@router.put("/projects/{project_id}/ai/{kind}", status_code=status.HTTP_204_NO_CONTENT)
+async def put_ai_setting(
+    project_id: uuid.UUID,
+    kind: Literal["chatbot", "assessment", "lesson", "interview"],
+    body: AiSurfaceUpdateRequest,
+    org_service: OrgServiceDep,
+) -> None:
+    await org_service.set_ai_surface(project_id, kind, enabled=body.enabled)

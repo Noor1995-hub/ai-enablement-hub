@@ -166,3 +166,53 @@ class TestComponents:
             headers=admin_headers,
         )
         assert response.status_code == 422
+
+
+class TestAiSettings:
+    async def test_get_defaults_all_false(
+        self, client: AsyncClient, db_session: AsyncSession, test_settings: Settings
+    ) -> None:
+        admin = await create_user(db_session, email="ai-settings-admin@example.com", role="admin")
+        company = await create_company(db_session, "AI Settings Co")
+        project = await create_project(db_session, company, "AI Settings Project")
+
+        response = await client.get(
+            f"/api/admin/projects/{project.id}/ai", headers=auth_headers(admin, test_settings)
+        )
+
+        assert response.status_code == 200
+        settings = response.json()["settings"]
+        assert all(v["enabled"] is False for v in settings.values())
+        assert set(settings) == {"chatbot", "assessment", "lesson", "interview"}
+
+    async def test_put_enables_one_surface(
+        self, client: AsyncClient, db_session: AsyncSession, test_settings: Settings
+    ) -> None:
+        admin = await create_user(db_session, email="ai-settings-admin-2@example.com", role="admin")
+        company = await create_company(db_session, "AI Settings Co 2")
+        project = await create_project(db_session, company, "AI Settings Project 2")
+
+        put_response = await client.put(
+            f"/api/admin/projects/{project.id}/ai/chatbot",
+            json={"enabled": True},
+            headers=auth_headers(admin, test_settings),
+        )
+        assert put_response.status_code == 204
+
+        get_response = await client.get(
+            f"/api/admin/projects/{project.id}/ai", headers=auth_headers(admin, test_settings)
+        )
+        assert get_response.json()["settings"]["chatbot"]["enabled"] is True
+        assert get_response.json()["settings"]["lesson"]["enabled"] is False
+
+    async def test_non_admin_is_403(
+        self, client: AsyncClient, db_session: AsyncSession, test_settings: Settings
+    ) -> None:
+        user = await create_user(db_session, email="ai-settings-user@example.com")
+        company = await create_company(db_session, "AI Settings Co 3")
+        project = await create_project(db_session, company, "AI Settings Project 3")
+
+        response = await client.get(
+            f"/api/admin/projects/{project.id}/ai", headers=auth_headers(user, test_settings)
+        )
+        assert response.status_code == 403
