@@ -20,6 +20,7 @@ from src.core.dependencies.settings import get_settings
 from src.core.dependencies.storage import get_media_service
 from src.core.security import create_access_token
 from src.main import app
+from src.repositories.conversation_repository import ConversationRepository
 from src.services.media_service import MediaService
 from tests.fixtures.auth import auth_headers, bearer
 from tests.fixtures.factories import (
@@ -44,7 +45,7 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
     from src.core.configs.settings import Settings
-    from src.db.models import Company, Lesson, Module, Project, Track, User
+    from src.db.models import Company, Conversation, Lesson, Module, Project, Track, User
 
 
 @dataclass
@@ -57,6 +58,7 @@ class Seed:
     admin: User
     user: User
     other: User
+    conversation: Conversation
 
 
 @pytest_asyncio.fixture
@@ -87,7 +89,12 @@ async def seed(db_session: AsyncSession) -> Seed:
         project_id=project.id,
     )
     other = await create_user(db_session, email="matrix-other@example.com")
-    return Seed(company, project, track, module, lesson, admin, user, other)
+    # For the "chat-conversations-list" _MATRIX entry below — GET
+    # /api/chat/conversations is ungated by the AI-surface setting, but a
+    # real conversation for the seed user keeps the list endpoint's happy
+    # path exercised the same way seed.lesson etc. exercise theirs.
+    conversation = await ConversationRepository(db_session).create(user_id=user.id, kind="chatbot")
+    return Seed(company, project, track, module, lesson, admin, user, other, conversation)
 
 
 # (name, method, path builder, body builder, admin_only)
@@ -313,6 +320,19 @@ _MATRIX: list[tuple[str, str, Any, Any, bool]] = [
         lambda s: f"/api/admin/modules/{s.module.id}/lessons/order",
         lambda s: {"lesson_ids": [str(s.lesson.id)]},
         True,
+    ),
+    # POST /api/chat/{kind} is deliberately NOT here: it has a third gating
+    # dimension (the project's AI setting) this flat matrix can't model — see
+    # TestSendChatMessage in test_chat.py. GET /api/chat/conversations/{id}
+    # (detail) needs a real per-seed-user conversation id too awkward for this
+    # table's path-builder shape — see TestListAndGetConversations, also in
+    # test_chat.py. Only the plain auth-gated list endpoint fits here.
+    (
+        "chat-conversations-list",
+        "GET",
+        lambda s: "/api/chat/conversations?kind=chatbot",
+        lambda s: None,
+        False,
     ),
 ]
 
