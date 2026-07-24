@@ -206,6 +206,13 @@ _MATRIX: list[tuple[str, str, Any, Any, bool]] = [
         True,
     ),
     (
+        "reminder",
+        "POST",
+        lambda s: f"/api/admin/users/{s.other.id}/reminder",
+        lambda s: None,
+        True,
+    ),
+    (
         "role-patch",
         "PATCH",
         lambda s: f"/api/admin/users/{s.other.id}",

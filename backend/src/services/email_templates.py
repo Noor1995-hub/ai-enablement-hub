@@ -22,9 +22,11 @@ from src.services.exceptions import InvalidEmailTemplateError
 __all__ = [
     "ALLOWED_TOKENS",
     "DEFAULT_TEMPLATES",
+    "REMINDER_TEMPLATE",
     "REQUIRED_LINK_TOKEN",
     "EmailContent",
     "EmailTemplate",
+    "build_reminder_tokens",
     "build_tokens",
     "render_email",
     "validate_template",
@@ -180,3 +182,36 @@ DEFAULT_TEMPLATES: dict[str, EmailTemplate] = {
         ),
     ),
 }
+
+
+# The reminder nudge is NOT per-project-customizable (spec §3.6 lists only the
+# Invitation/Password reset pills) — always rendered from this constant, never
+# from project_email_templates/EmailTemplateService. The login link is a bare
+# {{login_url}} token, matching DEFAULT_TEMPLATES' link placement (a raw URL
+# token becomes a clickable autolink; Markdown link syntax is never used).
+REMINDER_TEMPLATE = EmailTemplate(
+    subject="Continue your AI learning journey",
+    body_markdown=(
+        "Hi {{first_name}},\n\n"
+        "You have learning content waiting for you on the AI Enablement Hub"
+        "{{project_suffix}}.\n\n"
+        "{{login_url}}\n\n"
+        "See you there!"
+    ),
+)
+
+
+def build_reminder_tokens(
+    *, first_name: str, last_name: str, project_name: str, login_url: str
+) -> dict[str, str]:
+    """Token values for REMINDER_TEMPLATE. Not purpose-keyed like build_tokens
+    (that function serves the customizable invite/reset templates whose
+    allowed-token vocabulary varies by purpose) — the reminder template has one
+    fixed shape."""
+    return {
+        "first_name": first_name,
+        "last_name": last_name,
+        "project_name": project_name,
+        "project_suffix": f" for {project_name}" if project_name else "",
+        "login_url": login_url,
+    }

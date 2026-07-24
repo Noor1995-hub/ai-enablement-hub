@@ -36,6 +36,7 @@ from src.schemas.admin_users import (
     InviteRequest,
     LinkResponse,
     MaturityOverrideRequest,
+    ReminderResponse,
     RoleUpdateRequest,
     SurveyLevelsResponse,
     UserSurveyResponse,
@@ -43,6 +44,7 @@ from src.schemas.admin_users import (
 from src.services.admin_user_service import AdminUserService
 from src.services.email_service import EmailService
 from src.services.email_template_service import EmailTemplateService
+from src.services.email_templates import REMINDER_TEMPLATE, build_reminder_tokens, render_email
 from src.services.exceptions import PayloadTooLargeError
 from src.services.invite_csv import MAX_INVITE_CSV_BYTES, build_preview, parse_invite_csv
 from src.services.maturity_service import MaturityService
@@ -281,6 +283,36 @@ async def create_reset_link(
         login_url=None,
     )
     return LinkResponse(link=link, email_status=email_status)
+
+
+@router.post("/users/{user_id}/reminder", response_model=ReminderResponse)
+async def send_reminder(
+    user_id: uuid.UUID,
+    admin_user_service: AdminUserServiceDep,
+    settings: SettingsDep,
+    limiter: RateLimiterDep,
+    email_service: EmailServiceDep,
+) -> ReminderResponse:
+    """Nudge a learner who has content waiting. The template is a fixed
+    module constant (not per-project-customizable, unlike invite/reset) —
+    rendered directly via render_email, with no EmailTemplateService lookup."""
+    user, project_name = await admin_user_service.reminder_context(user_id)
+    if limiter.is_limited(f"reminder:{user.email}"):
+        raise _RATE_LIMITED
+    if email_service is None:
+        return ReminderResponse(email_status="disabled")
+    content = render_email(
+        REMINDER_TEMPLATE.subject,
+        REMINDER_TEMPLATE.body_markdown,
+        tokens=build_reminder_tokens(
+            first_name=user.first_name,
+            last_name=user.last_name,
+            project_name=project_name,
+            login_url=f"{settings.app.url.rstrip('/')}/login",
+        ),
+    )
+    sent = await email_service.send(user.email, content)
+    return ReminderResponse(email_status="sent" if sent else "failed")
 
 
 @router.patch("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)

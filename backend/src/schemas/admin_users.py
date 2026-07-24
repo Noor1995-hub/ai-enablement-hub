@@ -26,6 +26,7 @@ __all__ = [
     "InviteRequest",
     "LinkResponse",
     "MaturityOverrideRequest",
+    "ReminderResponse",
     "RoleUpdateRequest",
     "SurveyLevelsResponse",
     "UserSurveyResponse",
@@ -84,6 +85,11 @@ EmailStatus = Literal["sent", "failed", "disabled", "skipped"]
 
 class LinkResponse(BaseModel):
     link: str
+    email_status: EmailStatus
+
+
+class ReminderResponse(BaseModel):
+    # Never "skipped" — the reminder endpoint has no link-only variant.
     email_status: EmailStatus
 
 

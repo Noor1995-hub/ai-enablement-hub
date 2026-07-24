@@ -397,6 +397,19 @@ class AdminUserService:
             raise NotFoundError("User")
         return user
 
+    async def reminder_context(self, user_id: uuid.UUID) -> tuple[User, str]:
+        """The user + their project name ("" when unassigned) for the
+        reminder email — 404 for an unknown user."""
+        user = await self._users.get_by_id(user_id)
+        if user is None:
+            raise NotFoundError("User")
+        project_name = ""
+        if user.project_id is not None:
+            project = await self._org.get_project(user.project_id)
+            if project is not None:
+                project_name = project.name
+        return user, project_name
+
     async def _assignment_maps(
         self,
     ) -> tuple[
