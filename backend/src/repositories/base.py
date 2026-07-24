@@ -22,6 +22,7 @@ if TYPE_CHECKING:
         Module,
         ModulePrerequisite,
         Project,
+        ProjectAiSetting,
         ProjectComponentSetting,
         ProjectEmailTemplate,
         SurveyResponse,
@@ -207,6 +208,14 @@ class AbstractOrgRepository(ABC):
     @abstractmethod
     async def upsert_component_setting(
         self, project_id: uuid.UUID, component: str, *, hidden: bool, locked: bool
+    ) -> None: ...
+
+    @abstractmethod
+    async def get_ai_settings(self, project_id: uuid.UUID) -> list[ProjectAiSetting]: ...
+
+    @abstractmethod
+    async def upsert_ai_setting(
+        self, project_id: uuid.UUID, kind: str, *, enabled: bool
     ) -> None: ...
 
 

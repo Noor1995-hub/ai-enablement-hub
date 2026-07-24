@@ -6,7 +6,7 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
-from src.db.models import Company, Project, ProjectComponentSetting
+from src.db.models import Company, Project, ProjectAiSetting, ProjectComponentSetting
 from src.repositories.base import AbstractOrgRepository
 
 __all__ = ["OrgRepository"]
@@ -70,6 +70,26 @@ class OrgRepository(AbstractOrgRepository):
         stmt = stmt.on_conflict_do_update(
             index_elements=["project_id", "component"],
             set_={"hidden": stmt.excluded.hidden, "locked": stmt.excluded.locked},
+        )
+        await self._session.execute(stmt)
+        await self._session.commit()
+
+    async def get_ai_settings(self, project_id: uuid.UUID) -> list[ProjectAiSetting]:
+        # populate_existing: upsert_ai_setting below writes via a raw ON CONFLICT
+        # DO UPDATE, which never touches the ORM identity map — without this, a
+        # row already loaded earlier in the same session would keep returning
+        # its pre-upsert (stale) `enabled` value instead of the fresh one.
+        result = await self._session.execute(
+            select(ProjectAiSetting)
+            .where(ProjectAiSetting.project_id == project_id)
+            .execution_options(populate_existing=True)
+        )
+        return list(result.scalars().all())
+
+    async def upsert_ai_setting(self, project_id: uuid.UUID, kind: str, *, enabled: bool) -> None:
+        stmt = pg_insert(ProjectAiSetting).values(project_id=project_id, kind=kind, enabled=enabled)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["project_id", "kind"], set_={"enabled": stmt.excluded.enabled}
         )
         await self._session.execute(stmt)
         await self._session.commit()

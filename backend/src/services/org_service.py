@@ -12,6 +12,8 @@ if TYPE_CHECKING:
 
 __all__ = ["OrgService"]
 
+_AI_KINDS = ("chatbot", "assessment", "lesson", "interview")
+
 
 class OrgService:
     def __init__(self, org: AbstractOrgRepository) -> None:
@@ -94,3 +96,16 @@ class OrgService:
         await self._org.upsert_component_setting(
             project_id, component, hidden=hidden, locked=locked
         )
+
+    async def resolve_ai_settings(self, project_id: uuid.UUID | None) -> dict[str, bool]:
+        """enabled per AI kind, False fallback for missing rows or no project."""
+        if project_id is None:
+            return dict.fromkeys(_AI_KINDS, False)
+        rows = await self._org.get_ai_settings(project_id)
+        by_kind = {row.kind: row.enabled for row in rows}
+        return {kind: by_kind.get(kind, False) for kind in _AI_KINDS}
+
+    async def set_ai_surface(self, project_id: uuid.UUID, kind: str, *, enabled: bool) -> None:
+        if await self._org.get_project(project_id) is None:
+            raise NotFoundError("Project")
+        await self._org.upsert_ai_setting(project_id, kind, enabled=enabled)
