@@ -7,6 +7,7 @@ import AdminShell from './pages/admin2/AdminShell'
 import DashboardPage from './pages/admin2/DashboardPage'
 import Placeholder from './pages/admin2/Placeholder'
 import PeoplePage from './pages/admin2/PeoplePage'
+import UserDetailPage from './pages/admin2/UserDetailPage'
 import Assessment from './pages/Assessment'
 import AuthCallback from './pages/AuthCallback'
 import InviteRedirect from './pages/InviteRedirect'
@@ -69,7 +70,7 @@ function AppRoutes() {
       }>
         <Route index element={<DashboardPage />} />
         <Route path="people" element={<PeoplePage />} />
-        <Route path="people/:userId" element={<Placeholder />} />
+        <Route path="people/:userId" element={<UserDetailPage />} />
         <Route path="assignments" element={<Placeholder />} />
         <Route path="feedback" element={<Placeholder />} />
         <Route path="projects" element={<Placeholder />} />

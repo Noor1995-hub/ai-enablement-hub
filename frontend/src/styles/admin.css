@@ -455,3 +455,63 @@
 .adm-pager { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; }
 .adm-pager-actions { display: flex; align-items: center; gap: 8px; }
 .adm-pager-info { font-family: var(--dlw-font-body); font-size: 12.5px; color: var(--adm-muted); }
+
+/* ── User detail (Task 16) ────────────────────────────────────────────────
+   Rules below back frontend/src/pages/admin2/UserDetailPage.tsx. Ported from
+   docs/design-prototypes/admin-redesign/styles.css (`.breadcrumb`,
+   `.detail-head`, `.grid-31`, `.acct-row`, `.track-progress-row`) onto the
+   --adm-* tokens above; the reset-link result box reuses the `.adm-link-box`
+   family Task 15's InviteModal already established rather than duplicating
+   it. */
+
+.adm-breadcrumb { display: flex; align-items: center; gap: 8px; font-family: var(--dlw-font-body); font-size: 13px; color: var(--adm-muted); margin-bottom: 14px; }
+.adm-breadcrumb a { text-decoration: none; color: var(--adm-muted); }
+.adm-breadcrumb a:hover { color: var(--adm-red-deep); }
+.adm-breadcrumb-sep { color: var(--adm-faint); }
+.adm-breadcrumb-here { color: var(--adm-ink); font-weight: 600; }
+
+.adm-detail-head { display: flex; align-items: center; gap: 16px; margin-bottom: 22px; }
+.adm-avatar-big {
+  width: 54px; height: 54px; border-radius: 50%; background: var(--adm-warm); color: var(--adm-ink);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  font-family: var(--dlw-font-ui); font-size: 18px; font-weight: 600;
+}
+.adm-detail-who { display: flex; flex-direction: column; }
+.adm-detail-name { margin: 0; font-family: var(--dlw-font-body); font-size: 22px; font-weight: 800; color: var(--adm-ink); }
+.adm-detail-sub {
+  font-family: var(--dlw-font-body); font-size: 13px; color: var(--adm-muted);
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 3px;
+}
+
+/* Assessment card (2fr) + stacked Account/Learning progress cards (1fr). */
+.adm-grid-31 { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; align-items: start; }
+.adm-card-hint {
+  text-transform: none; letter-spacing: 0; font-family: var(--dlw-font-body);
+  font-weight: 400; font-size: 12px; color: var(--adm-faint);
+}
+
+/* Account card rows (Role / Maturity / Password / Danger). */
+.adm-acct-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #EEEEEC; font-size: 13.5px; }
+.adm-acct-row:last-child { border-bottom: none; }
+.adm-acct-label {
+  font-family: var(--dlw-font-ui); font-size: 11px; font-weight: 600; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--adm-muted); min-width: 96px;
+}
+
+/* Native select — role + maturity pin. Role color mapping mirrors the old
+   panel's roleBadgeColor (frontend/src/pages/admin/ProjectDetailView.tsx):
+   admin = dark/white, user+ = indigo tint, user = neutral. */
+.adm-select {
+  font-family: var(--dlw-font-body); font-size: 13px; font-weight: 600;
+  border: 1px solid var(--adm-border); border-radius: var(--adm-radius-sm);
+  padding: 6px 10px; background: var(--adm-white); color: var(--adm-text); cursor: pointer;
+}
+.adm-select:disabled { opacity: .6; cursor: default; }
+.adm-role-select-admin { background: var(--adm-ink); color: #fff; border-color: var(--adm-ink); }
+.adm-role-select-user-plus { background: var(--adm-info-bg); color: var(--adm-info-text); border-color: var(--adm-info-border); }
+.adm-role-select-user { background: var(--adm-surface); color: var(--adm-muted); }
+
+/* Learning progress rows (one per assigned track). */
+.adm-track-progress-row { display: grid; grid-template-columns: 110px 1fr; gap: 12px; align-items: center; margin-bottom: 10px; font-size: 13px; }
+.adm-track-progress-row:last-child { margin-bottom: 0; }
+.adm-track-progress-name { font-family: var(--dlw-font-body); font-weight: 600; color: var(--adm-ink); }
