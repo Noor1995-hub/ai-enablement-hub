@@ -81,7 +81,10 @@ class ChatService:
                     chunks.append(text)
                     yield TokenEvent(text)
                 usage = await reply.usage()
-        except GeneratorExit:
+        except (GeneratorExit, asyncio.CancelledError):
+            # Both a client disconnect (GeneratorExit, injected by aclose()) and an
+            # ASGI-level task cancellation (asyncio.CancelledError) mid-stream mean
+            # the reply is incomplete -> mark it truncated before persisting.
             truncated = True
             raise
         finally:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import uuid
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
@@ -71,3 +72,54 @@ async def test_send_message_streams_tokens_then_done_and_persists() -> None:
     assert assistant_call.kwargs["role"] == "assistant"
     assert assistant_call.kwargs["content"] == "Hello!"
     assert assistant_call.kwargs["metadata"]["truncated"] is False
+
+
+async def test_send_message_persists_partial_on_disconnect() -> None:
+    llm = FakeLlmClient(chunks=["Hel", "lo!"])
+    service, _, messages = _service(llm)
+    conversation = SimpleNamespace(id=uuid.uuid4(), user_id=uuid.uuid4(), kind="chatbot")
+
+    agen = service.send_message(
+        conversation=conversation,  # ty: ignore[invalid-argument-type]
+        content="hi",
+    )
+    first = await agen.__anext__()  # consume one TokenEvent
+    assert first == TokenEvent("Hel")
+    # aclose/athrow aren't part of the declared AsyncIterator return type, but the
+    # object returned by an async-generator function has them at runtime.
+    await agen.aclose()  # ty: ignore[unresolved-attribute]  # -> GeneratorExit -> disconnect
+
+    # user turn + partial assistant turn both persisted; assistant marked truncated
+    assert messages.create.await_count == 2
+    _user_call, assistant_call = messages.create.await_args_list
+    assert assistant_call.kwargs["role"] == "assistant"
+    assert assistant_call.kwargs["metadata"]["truncated"] is True
+    # partial content = only the chunk that was appended before the yield that got
+    # interrupted (chunks.append happens before the yield, so only "Hel" made it in;
+    # "lo!" was never appended because the for-loop never resumed after the close).
+    assert assistant_call.kwargs["content"] == "Hel"
+
+
+async def test_send_message_persists_partial_on_cancellation() -> None:
+    llm = FakeLlmClient(chunks=["Hel", "lo!"])
+    service, _, messages = _service(llm)
+    conversation = SimpleNamespace(id=uuid.uuid4(), user_id=uuid.uuid4(), kind="chatbot")
+
+    agen = service.send_message(
+        conversation=conversation,  # ty: ignore[invalid-argument-type]
+        content="hi",
+    )
+    first = await agen.__anext__()  # consume one TokenEvent
+    assert first == TokenEvent("Hel")
+
+    # simulate ASGI-level task cancellation mid-stream (distinct from a client
+    # disconnect / GeneratorExit): athrow propagates CancelledError back out since
+    # the generator re-raises the same exception it was thrown.
+    with pytest.raises(asyncio.CancelledError):
+        await agen.athrow(asyncio.CancelledError)  # ty: ignore[unresolved-attribute]
+
+    assert messages.create.await_count == 2
+    _user_call, assistant_call = messages.create.await_args_list
+    assert assistant_call.kwargs["role"] == "assistant"
+    assert assistant_call.kwargs["metadata"]["truncated"] is True
+    assert assistant_call.kwargs["content"] == "Hel"
