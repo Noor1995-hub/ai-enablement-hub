@@ -47,6 +47,21 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
             item.add_marker(pytest.mark.unit)
         elif f"{os.sep}integration{os.sep}" in path:
             item.add_marker(pytest.mark.integration)
+            # Integration tests hit a real remote Postgres; retry once on a
+            # transient blip instead of forcing a manual re-run/diagnosis.
+            # Unit tests are pure/mocked, so a failure there is never
+            # transient and shouldn't be retried.
+            item.add_marker(pytest.mark.flaky(reruns=1, reruns_delay=1))
+
+
+def pytest_xdist_auto_num_workers(config: pytest.Config) -> int:
+    """`-n auto` otherwise claims every logical core with no headroom, which
+    leaves no room for OS/background activity — plausibly what caused a
+    one-off pile of transient DB-setup errors under full-core parallel load.
+    Leaving 2 cores free keeps most of the parallel speedup (measured: ~14
+    workers ≈ 100s, 4 workers ≈ 210s for the full suite) while giving the
+    box some slack."""
+    return max(1, (os.cpu_count() or 2) - 2)
 
 
 def _test_database_url() -> URL:
