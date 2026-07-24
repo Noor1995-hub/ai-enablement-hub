@@ -8,6 +8,9 @@ from pydantic import BaseModel, ConfigDict, field_validator
 from src.schemas.me import ComponentState
 
 __all__ = [
+    "AiSettingsResponse",
+    "AiSurfaceState",
+    "AiSurfaceUpdateRequest",
     "CompaniesResponse",
     "CompanyCreateRequest",
     "CompanyOut",
@@ -72,3 +75,15 @@ class ComponentsResponse(BaseModel):
 class ComponentUpdateRequest(BaseModel):
     hidden: bool | None = None
     locked: bool | None = None
+
+
+class AiSurfaceState(BaseModel):
+    enabled: bool
+
+
+class AiSettingsResponse(BaseModel):
+    settings: dict[str, AiSurfaceState]
+
+
+class AiSurfaceUpdateRequest(BaseModel):
+    enabled: bool
