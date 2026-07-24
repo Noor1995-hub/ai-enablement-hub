@@ -48,6 +48,26 @@ export default function FeedbackPage() {
   const tracksQuery = useTracks()
   const sortedTracks = [...(tracksQuery.data ?? [])].sort((a, b) => a.sort_order - b.sort_order)
 
+  // `data ? … : 1` keeps this computed every render (including while loading,
+  // before data exists) so the clamp effect right below — a hook — can stay
+  // above the early returns and never skip a render's worth of hook calls.
+  const totalPages = data ? Math.max(1, Math.ceil(data.total / FEEDBACK_PAGE_SIZE)) : 1
+
+  // A triage action can shrink the CURRENT filter's result set out from under
+  // whatever page the admin is sitting on — e.g. accepting the last "new"
+  // item on page 2 of 2 drops the server's total to exactly one page.
+  // usePatchFeedback's onSettled refetch then comes back with 0 items for a
+  // now out-of-range offset even though total > 0 elsewhere (page 1). Clamp
+  // back into range whenever the data we have says the current page no
+  // longer exists. Deliberately a separate effect from the filter-change
+  // reset above (different trigger, different target value — clamping to
+  // `totalPages` here would fight that effect's unconditional reset to `1`
+  // on every filter change if they were merged) — harmless if both fire in
+  // the same commit, since a same-value setState is a no-op.
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages)
+  }, [page, totalPages])
+
   if (isLoading) {
     return (
       <div className="adm-loading">
@@ -59,8 +79,6 @@ export default function FeedbackPage() {
   if (error || !data) {
     return <ErrorState message={error?.message ?? 'Failed to load feedback.'} onRetry={() => void refetch()} />
   }
-
-  const totalPages = Math.max(1, Math.ceil(data.total / FEEDBACK_PAGE_SIZE))
 
   return (
     <div>
