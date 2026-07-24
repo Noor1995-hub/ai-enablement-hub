@@ -303,6 +303,22 @@ class AdminUserService:
             ],
         }
 
+    async def get_project_defaults(self, project_id: uuid.UUID) -> list[uuid.UUID]:
+        if await self._org.get_project(project_id) is None:
+            raise NotFoundError("Project")
+        return await self._org.default_track_ids(project_id)
+
+    async def set_project_defaults(self, project_id: uuid.UUID, track_ids: list[uuid.UUID]) -> None:
+        """Full replace; an empty list clears the project's defaults (deliberately
+        different from the bulk-assign 422-on-empty convention — PUT here is a
+        full replace, not an add/remove-many operation)."""
+        if await self._org.get_project(project_id) is None:
+            raise NotFoundError("Project")
+        unique_ids = list(set(track_ids))
+        if await self._content.count_tracks_by_ids(unique_ids) != len(unique_ids):
+            raise NotFoundError("Track")
+        await self._org.set_default_tracks(project_id, unique_ids)
+
     async def get_user(self, user_id: uuid.UUID) -> User:
         user = await self._users.get_by_id(user_id)
         if user is None:

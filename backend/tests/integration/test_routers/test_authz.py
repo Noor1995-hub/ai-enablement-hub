@@ -314,6 +314,20 @@ _MATRIX: list[tuple[str, str, Any, Any, bool]] = [
         lambda s: {"lesson_ids": [str(s.lesson.id)]},
         True,
     ),
+    (
+        "defaults-get",
+        "GET",
+        lambda s: f"/api/admin/projects/{s.project.id}/defaults",
+        lambda s: None,
+        True,
+    ),
+    (
+        "defaults-put",
+        "PUT",
+        lambda s: f"/api/admin/projects/{s.project.id}/defaults",
+        lambda s: {"track_ids": [str(s.track.id)]},
+        True,
+    ),
 ]
 
 

@@ -205,6 +205,14 @@ class AbstractOrgRepository(ABC):
         self, project_id: uuid.UUID, component: str, *, hidden: bool, locked: bool
     ) -> None: ...
 
+    @abstractmethod
+    async def default_track_ids(self, project_id: uuid.UUID) -> list[uuid.UUID]:
+        """Track ids every new participant of the project receives at invite time."""
+
+    @abstractmethod
+    async def set_default_tracks(self, project_id: uuid.UUID, track_ids: list[uuid.UUID]) -> None:
+        """Full replace of the project's default tracks."""
+
 
 class AbstractEmailTemplateRepository(ABC):
     """Per-project invite/reset email overrides (project_email_templates)."""
