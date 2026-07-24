@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import DateTime, ForeignKey, UniqueConstraint, func, text
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Text, UniqueConstraint, func, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -15,7 +15,10 @@ __all__ = ["LessonProgress", "UserLesson", "UserModule", "UserTrack"]
 
 class UserTrack(Base):
     __tablename__ = "user_tracks"
-    __table_args__ = (UniqueConstraint("user_id", "track_id"),)
+    __table_args__ = (
+        UniqueConstraint("user_id", "track_id"),
+        CheckConstraint("assigned_via IN ('manual','default')", name="assigned_via"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
@@ -32,11 +35,15 @@ class UserTrack(Base):
     assigned_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+    assigned_via: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'manual'"))
 
 
 class UserModule(Base):
     __tablename__ = "user_modules"
-    __table_args__ = (UniqueConstraint("user_id", "module_id"),)
+    __table_args__ = (
+        UniqueConstraint("user_id", "module_id"),
+        CheckConstraint("assigned_via IN ('manual','default')", name="assigned_via"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
@@ -53,11 +60,15 @@ class UserModule(Base):
     assigned_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+    assigned_via: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'manual'"))
 
 
 class UserLesson(Base):
     __tablename__ = "user_lessons"
-    __table_args__ = (UniqueConstraint("user_id", "lesson_id"),)
+    __table_args__ = (
+        UniqueConstraint("user_id", "lesson_id"),
+        CheckConstraint("assigned_via IN ('manual','default')", name="assigned_via"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
@@ -74,6 +85,7 @@ class UserLesson(Base):
     assigned_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+    assigned_via: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'manual'"))
 
 
 class LessonProgress(Base):
