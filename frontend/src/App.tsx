@@ -4,6 +4,7 @@ import Spinner from './components/Spinner'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import Admin from './pages/Admin'
 import AdminShell from './pages/admin2/AdminShell'
+import DashboardPage from './pages/admin2/DashboardPage'
 import Placeholder from './pages/admin2/Placeholder'
 import Assessment from './pages/Assessment'
 import AuthCallback from './pages/AuthCallback'
@@ -65,7 +66,7 @@ function AppRoutes() {
           : role !== 'admin' ? <Navigate to="/" replace />
           : <AdminShell />
       }>
-        <Route index element={<Placeholder />} />
+        <Route index element={<DashboardPage />} />
         <Route path="people" element={<Placeholder />} />
         <Route path="people/:userId" element={<Placeholder />} />
         <Route path="assignments" element={<Placeholder />} />

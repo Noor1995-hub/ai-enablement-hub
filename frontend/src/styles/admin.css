@@ -324,3 +324,51 @@
   transform-origin: 50% 50%; animation: adm-spin 0.9s linear infinite;
 }
 @keyframes adm-spin { to { transform: rotate(360deg); } }
+
+/* ── Page header (generic — every /admin2 screen renders this pair) ────── */
+.adm-page-title { font-family: var(--dlw-font-body); font-weight: 800; font-size: 24px; color: var(--adm-ink); margin: 0 0 2px; }
+.adm-page-sub { font-family: var(--dlw-font-body); font-size: 14px; color: var(--adm-muted); margin: 0 0 24px; }
+.adm-loading { display: flex; align-items: center; justify-content: center; padding: 60px 0; }
+
+/* ── Layout utilities ────────────────────────────────────────────────── */
+.adm-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+
+/* ── Dashboard (Task 14) ─────────────────────────────────────────────────
+   Tiles reuse the kit's .adm-tile; rules below are the dashboard-only
+   pieces — needs-attention list, activation funnel, maturity distribution —
+   ported from docs/design-prototypes/admin-redesign/{styles.css,common.js}. */
+.adm-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
+
+/* Needs-attention list */
+.adm-attn { display: flex; flex-direction: column; }
+.adm-attn-row {
+  display: flex; align-items: center; gap: 14px; padding: 11px 4px;
+  border-bottom: 1px solid #EEEEEC; font-family: var(--dlw-font-body); font-size: 13.5px;
+}
+.adm-attn-row:last-child { border-bottom: none; }
+.adm-attn-who { font-weight: 600; color: var(--adm-ink); min-width: 150px; }
+.adm-attn-why { color: var(--adm-muted); flex: 1; }
+.adm-attn-act { display: flex; align-items: center; gap: 8px; }
+.adm-attn-feedback { font-size: 12px; color: var(--adm-muted); white-space: nowrap; }
+
+/* Activation funnel — single-hue ordinal ramp; every step's count and
+   step-conversion % render as text alongside the bar (accessibility: no
+   color-only encoding anywhere on this screen). */
+.adm-funnel-row { display: grid; grid-template-columns: 150px 1fr 110px; align-items: center; gap: 12px; margin-bottom: 10px; }
+.adm-funnel-row:last-child { margin-bottom: 0; }
+.adm-funnel-stage { font-family: var(--dlw-font-body); font-size: 13px; font-weight: 600; color: var(--adm-text); text-align: right; }
+.adm-funnel-bar-track { height: 22px; border-radius: 5px; background: transparent; }
+.adm-funnel-bar { height: 100%; border-radius: 5px; min-width: 3px; }
+.adm-funnel-meta { font-family: var(--dlw-font-body); font-size: 12.5px; color: var(--adm-muted); white-space: nowrap; }
+.adm-funnel-meta b { color: var(--adm-ink); font-size: 13.5px; }
+
+/* Maturity distribution — one labeled bar row per level; NEVER a stacked
+   bar (the four adjacent brand level colors fail contrast/CVD validation
+   next to each other — spec §3.1). */
+.adm-level-row { display: grid; grid-template-columns: 130px 1fr 40px; align-items: center; gap: 12px; margin-bottom: 9px; }
+.adm-level-row:last-child { margin-bottom: 0; }
+.adm-level-badge { display: inline-flex; align-items: center; gap: 6px; font-family: var(--dlw-font-body); font-size: 12.5px; font-weight: 600; color: var(--adm-text); white-space: nowrap; }
+.adm-level-swatch { width: 9px; height: 9px; border-radius: 3px; flex-shrink: 0; }
+.adm-level-bar-track { height: 14px; background: var(--adm-warm); border-radius: 4px; overflow: hidden; }
+.adm-level-bar { height: 100%; border-radius: 4px; min-width: 2px; }
+.adm-level-n { font-family: var(--dlw-font-body); font-size: 13px; font-weight: 700; color: var(--adm-ink); }
