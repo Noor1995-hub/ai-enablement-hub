@@ -1,0 +1,70 @@
+import { useQuery } from '@tanstack/react-query'
+import { client, errorMessage } from '../../api/client'
+import { useScope } from './useScope'
+
+interface ProjectOption {
+  id: string
+  label: string // "Company · Project", matching the prototype's orgFull()
+}
+
+async function fetchProjectOptions(): Promise<ProjectOption[]> {
+  const { data, error } = await client.GET('/api/admin/companies')
+  if (!data) throw new Error(errorMessage(error, 'Failed to load companies.'))
+  return data.companies.flatMap(company =>
+    company.projects.map(project => ({ id: project.id, label: `${company.name} · ${project.name}` })),
+  )
+}
+
+/** The scope switcher is the navigation anchor of the new admin shell: pick a
+ * project once (or clear back to "All projects") and every section that
+ * reads useScope() follows — see docs/design-prototypes/admin-redesign
+ * option-b.html's scope-switch. Lives in the topbar, goes red-tinted when
+ * scoped so it's never ambiguous what's being viewed. */
+export default function ScopeSwitcher() {
+  const { projectId, setProject } = useScope()
+  // A formal hooks module lands in a later task; this query stays
+  // co-located with the one component that needs it for now.
+  const { data: options, isLoading } = useQuery({
+    queryKey: ['admin', 'companies'],
+    queryFn: fetchProjectOptions,
+  })
+
+  const scoped = projectId !== null
+  const selectValue = projectId ?? 'all'
+
+  return (
+    <div className="adm-scope-switch">
+      <span className="adm-scope-viewing">Viewing</span>
+      <span className={`adm-scope-pill${scoped ? ' scoped' : ''}`}>
+        <FolderIcon />
+        <select
+          className="adm-scope-select"
+          value={selectValue}
+          disabled={isLoading}
+          onChange={e => setProject(e.target.value === 'all' ? null : e.target.value)}
+        >
+          <option value="all">All projects</option>
+          {options?.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+        </select>
+        {scoped && (
+          <button
+            type="button"
+            className="adm-scope-clear"
+            title="Back to all projects"
+            onClick={() => setProject(null)}
+          >
+            ✕
+          </button>
+        )}
+      </span>
+    </div>
+  )
+}
+
+function FolderIcon() {
+  return (
+    <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+    </svg>
+  )
+}

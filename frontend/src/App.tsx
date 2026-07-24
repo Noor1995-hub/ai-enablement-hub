@@ -3,6 +3,8 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from
 import Spinner from './components/Spinner'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import Admin from './pages/Admin'
+import AdminShell from './pages/admin2/AdminShell'
+import Placeholder from './pages/admin2/Placeholder'
 import Assessment from './pages/Assessment'
 import AuthCallback from './pages/AuthCallback'
 import InviteRedirect from './pages/InviteRedirect'
@@ -59,6 +61,21 @@ function AppRoutes() {
           : session ? <JourneyHome /> : <Navigate to="/login" replace />
       } />
       <Route path="/admin" element={
+        !session ? <Navigate to="/login" replace />
+          : role !== 'admin' ? <Navigate to="/" replace />
+          : <AdminShell />
+      }>
+        <Route index element={<Placeholder />} />
+        <Route path="people" element={<Placeholder />} />
+        <Route path="people/:userId" element={<Placeholder />} />
+        <Route path="assignments" element={<Placeholder />} />
+        <Route path="feedback" element={<Placeholder />} />
+        <Route path="projects" element={<Placeholder />} />
+        <Route path="templates" element={<Placeholder />} />
+        <Route path="setup" element={<Placeholder />} />
+      </Route>
+      {/* Old panel stays reachable until Phase D cuts over; same guard. */}
+      <Route path="/admin-old" element={
         !session ? <Navigate to="/login" replace />
           : role !== 'admin' ? <Navigate to="/" replace />
           : <Admin />

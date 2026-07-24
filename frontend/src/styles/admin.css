@@ -1,0 +1,151 @@
+/* Admin2 — the routed admin shell (topbar, sidebar, scope switcher).
+   Real CSS classes (prefix `adm-`), imported ONCE by AdminShell — the
+   deliberate break from the old panel's inline-CSSProperties convention.
+   Layout/values are lifted verbatim from
+   docs/design-prototypes/admin-redesign/{option-b.html,styles.css} (same
+   --dlw-zoom: 1.25 root as the live app, so no re-tuning needed); raw hex
+   values there are swapped for --adm-* aliases onto the app's existing
+   brand tokens (frontend/src/index.css) so this stylesheet never hardcodes
+   a color the design system already names. Extended per-component in later
+   Phase B/C tasks — this file only carries the shell + nav for now. */
+
+:root {
+  /* Brand */
+  --adm-red:        var(--dlw-dot-red);
+  --adm-red-deep:   var(--dlw-primary-red);
+  --adm-red-dark:   var(--dlw-sub-red-2);
+
+  /* Neutrals */
+  --adm-ink:        var(--dlw-black);
+  --adm-text:       var(--dlw-text);
+  --adm-muted:      var(--dlw-muted);
+  --adm-faint:      var(--dlw-faint);
+  --adm-border:     var(--dlw-border);
+  --adm-surface:    var(--dlw-surface);
+  --adm-warm:       var(--dlw-warm-grey);
+  --adm-white:      var(--dlw-white);
+
+  /* Semantic literals — the prototype adds these on top of the brand
+     palette; no equivalent app token exists yet, so they stay literal. */
+  --adm-good-bg:    #EDFAF4;
+  --adm-good-text:  #1D7A52;
+  --adm-warn-bg:    #FFF8EC;
+  --adm-warn-text:  #B45309;
+  --adm-info-bg:    #EEF2FF;
+  --adm-info-text:  #4B5CC4;
+  --adm-red-tint:   #FFF0EF;
+  --adm-red-border: #FBCFCC;
+
+  /* Radii/shadows mapped onto the app's existing scale */
+  --adm-radius:     var(--dlw-radius-lg);
+  --adm-radius-sm:  var(--dlw-radius-md);
+  --adm-shadow:     var(--dlw-shadow-card);
+  --adm-shadow-lg:  var(--dlw-shadow-lg);
+}
+
+/* ── Top bar ─────────────────────────────────────────────────────────── */
+.adm-topbar {
+  display: flex; align-items: center; gap: 20px;
+  height: 56px; padding: 0 24px;
+  background: var(--adm-white); border-bottom: 1px solid var(--adm-border);
+  position: sticky; top: 0; z-index: 30;
+}
+.adm-brand {
+  display: flex; align-items: center; gap: 10px;
+  font-family: var(--dlw-font-ui); font-weight: 800; font-size: 15px;
+  color: var(--adm-ink); white-space: nowrap; text-decoration: none;
+}
+.adm-brand-logo { height: 20px; width: auto; display: block; }
+.adm-admin-tag {
+  font-family: var(--dlw-font-ui); font-size: 10px; font-weight: 600; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--adm-red-deep); background: var(--adm-red-tint);
+  padding: 3px 9px; border-radius: 999px;
+}
+.adm-topbar-right { margin-left: auto; display: flex; align-items: center; gap: 20px; }
+.adm-app-link {
+  font-family: var(--dlw-font-body); font-size: 13px; color: var(--adm-muted);
+  text-decoration: none; display: flex; align-items: center; gap: 6px;
+}
+.adm-app-link:hover { color: var(--adm-ink); }
+.adm-avatar {
+  width: 32px; height: 32px; border-radius: 50%; background: var(--adm-ink); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--dlw-font-ui); font-size: 12px; font-weight: 600; flex-shrink: 0;
+}
+
+/* User chip — trigger + dropdown, adapted from AppNav's pattern (name +
+   initials avatar + sign-out), kept minimal for the topbar's tighter height. */
+.adm-user-chip { position: relative; }
+.adm-user-trigger {
+  display: flex; align-items: center; gap: 10px; cursor: pointer;
+  background: none; border: none; padding: 0; font: inherit; color: inherit;
+}
+.adm-user-name {
+  font-family: var(--dlw-font-body); font-weight: 700; font-size: 13px; color: var(--adm-ink);
+}
+.adm-user-dropdown {
+  position: absolute; top: calc(100% + 10px); right: 0; background: var(--adm-white);
+  border: 1px solid var(--adm-border); border-radius: var(--adm-radius-sm);
+  box-shadow: var(--adm-shadow-lg); min-width: 170px; z-index: 100; overflow: hidden;
+}
+.adm-user-dropdown-item {
+  display: block; width: 100%; text-align: left; padding: 12px 16px;
+  background: none; border: none; font-family: var(--dlw-font-body);
+  font-weight: 600; font-size: 14px; color: var(--adm-text); cursor: pointer;
+}
+.adm-user-dropdown-item:hover { background: var(--adm-surface); }
+.adm-user-dropdown-item.danger { color: var(--adm-muted); }
+.adm-user-dropdown-item.danger:hover { color: var(--adm-red-deep); }
+
+/* ── Scope switcher — the project context that follows navigation ──────
+   Always visible in the top bar; turns red-tinted when scoped so it's
+   never ambiguous what data the admin is looking at. */
+.adm-scope-switch { display: flex; align-items: center; gap: 8px; }
+.adm-scope-viewing {
+  font-family: var(--dlw-font-ui); font-size: 10px; font-weight: 600; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--adm-faint);
+}
+.adm-scope-pill {
+  display: inline-flex; align-items: center; gap: 8px;
+  border: 1.5px solid var(--adm-border); background: var(--adm-white); border-radius: 999px;
+  padding: 6px 8px 6px 14px; font-family: var(--dlw-font-ui); font-size: 13px; font-weight: 600;
+  color: var(--adm-text);
+}
+.adm-scope-pill.scoped { border-color: var(--adm-red-deep); background: var(--adm-red-tint); color: var(--adm-red-dark); }
+.adm-scope-select {
+  border: none; outline: none; background: none; font: inherit; color: inherit;
+  cursor: pointer; max-width: 320px;
+}
+.adm-scope-clear {
+  border: none; background: none; color: var(--adm-red-deep); display: flex;
+  align-items: center; justify-content: center; padding: 3px; border-radius: 50%; cursor: pointer;
+  font-size: 13px; line-height: 1;
+}
+.adm-scope-clear:hover { background: #fff; }
+
+/* ── Shell layout ────────────────────────────────────────────────────── */
+.adm-shell { display: flex; min-height: calc(100vh - 56px); background: var(--adm-surface); }
+.adm-sidebar {
+  width: 216px; flex-shrink: 0; background: var(--adm-white);
+  border-right: 1px solid var(--adm-border); padding: 16px 10px;
+  position: sticky; top: 56px; height: calc(100vh - 56px); overflow-y: auto;
+}
+.adm-main { flex: 1; min-width: 0; }
+.adm-container { max-width: 1220px; margin: 0 auto; padding: 28px 32px 80px; }
+
+/* ── Nav items ───────────────────────────────────────────────────────── */
+.adm-nav-item {
+  display: flex; align-items: center; gap: 11px; width: 100%;
+  padding: 9px 12px; margin-bottom: 2px; border: none; background: none;
+  border-radius: var(--adm-radius-sm); font-family: var(--dlw-font-body);
+  font-size: 13.5px; font-weight: 500; color: var(--adm-text);
+  position: relative; text-align: left; text-decoration: none;
+}
+.adm-nav-item svg { color: var(--adm-muted); flex-shrink: 0; }
+.adm-nav-item:hover { background: var(--adm-surface); }
+.adm-nav-item.active { background: var(--adm-red-tint); color: var(--adm-red-deep); font-weight: 600; }
+.adm-nav-item.active svg { color: var(--adm-red-deep); }
+.adm-nav-item .adm-nav-count {
+  margin-left: auto; font-size: 11px; font-weight: 600; color: var(--adm-red-deep);
+  background: #fff; border: 1px solid var(--adm-red-border); border-radius: 999px; padding: 0 7px;
+}

@@ -13,6 +13,7 @@
     "typecheck": "tsc -b"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.101.4",
     "framer-motion": "^12.41.0",
     "openapi-fetch": "^0.13.5",
     "react": "^18.3.1",
