@@ -384,6 +384,7 @@ export function useSetRole() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['admin', 'users'] })
       void queryClient.invalidateQueries({ queryKey: ['admin', 'learning'] })
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'dashboard'] })
     },
   })
 }
