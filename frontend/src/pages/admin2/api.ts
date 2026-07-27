@@ -9,7 +9,6 @@ import type {
   AdminLearningResponseEnriched,
   AdminLearningUserEnriched,
   AdminSurvey,
-  AdminUserEnriched,
   AdminUsersResponseEnriched,
   ApplyDefaultsResponse,
   BulkAssignmentRequest,
@@ -59,15 +58,25 @@ export interface AdminUsersParams {
   page?: number
 }
 
+// Matches the People screen's own PAGE_SIZE (PeoplePage.tsx) — kept as a local constant here
+// since `AdminUsersParams` carries a page number, not a limit.
+const ADMIN_USERS_PAGE_SIZE = 50
+
 async function fetchAdminUsers(params: AdminUsersParams): Promise<AdminUsersResponseEnriched> {
-  // q/status/page aren't backend-supported yet (plan Task 9, pagination/filters, hasn't landed
-  // on this branch) — only project_id is actually sent. The query key already carries the full
-  // param shape so screens/cache keys don't need to change once that lands.
+  const offset = ((params.page ?? 1) - 1) * ADMIN_USERS_PAGE_SIZE
   const { data, error } = await client.GET('/api/admin/users', {
-    params: { query: { project_id: params.project ?? undefined } },
+    params: {
+      query: {
+        project_id: params.project ?? undefined,
+        q: params.q,
+        status: params.status,
+        limit: ADMIN_USERS_PAGE_SIZE,
+        offset,
+      },
+    },
   })
   if (!data) throw new Error(errorMessage(error, 'Failed to load users.'))
-  return { users: data.users as AdminUserEnriched[], total: data.users.length }
+  return data
 }
 
 export function useAdminUsers(params: AdminUsersParams) {
@@ -81,18 +90,21 @@ export function useAdminUsers(params: AdminUsersParams) {
   })
 }
 
-async function fetchLearning(): Promise<AdminLearningResponseEnriched> {
-  const { data, error } = await client.GET('/api/admin/learning')
+async function fetchLearning(projectId: string | null): Promise<AdminLearningResponseEnriched> {
+  // No page params here — useLearning's callers (Matrix/Assignments) don't carry a page number,
+  // so only project_id is forwarded; modules/lessons always come back complete regardless of
+  // scope (the backend filters `users` only), matching what the matrix needs to build columns.
+  const { data, error } = await client.GET('/api/admin/learning', {
+    params: { query: { project_id: projectId ?? undefined } },
+  })
   if (!data) throw new Error(errorMessage(error, 'Failed to load the learning overview.'))
-  return { ...data, users: data.users as AdminLearningUserEnriched[], total: data.users.length }
+  return data
 }
 
-/** `projectId` isn't sent yet either (same Task 9 gap as useAdminUsers) — kept in the key for
- * cache-scoping continuity once the backend filters by it. */
 export function useLearning(projectId: string | null) {
   return useQuery({
     queryKey: ['admin', 'learning', { project: projectId }] as const,
-    queryFn: fetchLearning,
+    queryFn: () => fetchLearning(projectId),
   })
 }
 

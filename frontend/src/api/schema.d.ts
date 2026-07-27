@@ -446,7 +446,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Users */
+        /**
+         * List Users
+         * @description limit/offset/q/status are all optional — omitting them reproduces the
+         *     full list exactly as before Task 9 (the old admin panel sends no query
+         *     params). `total` is additive: count after q/status filtering, before
+         *     limit/offset slicing.
+         */
         get: operations["list_users_api_admin_users_get"];
         put?: never;
         post?: never;
@@ -518,6 +524,28 @@ export interface paths {
          *     configured, always returned); prior unused reset tokens are revoked.
          */
         post: operations["create_reset_link_api_admin_users__user_id__reset_link_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/users/{user_id}/reminder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send Reminder
+         * @description Nudge a learner who has content waiting. The template is a fixed
+         *     module constant (not per-project-customizable, unlike invite/reset) —
+         *     rendered directly via render_email, with no EmailTemplateService lookup.
+         */
+        post: operations["send_reminder_api_admin_users__user_id__reminder_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -679,6 +707,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/assignments/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk Assign
+         * @description Many-users × one content kind ("assign N users to this track/module/
+         *     lesson"); 404 if any user or content id is unknown, validated before any
+         *     write. The schema enforces exactly one of track_ids/module_ids/lesson_ids.
+         */
+        post: operations["bulk_assign_api_admin_assignments_bulk_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/learning": {
         parameters: {
             query?: never;
@@ -686,7 +736,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Learning Overview */
+        /**
+         * Get Learning Overview
+         * @description Paginates the `users` array only — `modules`/`lessons` always come back
+         *     complete. limit/offset/project_id are optional, so omitting them
+         *     reproduces the pre-Task-9 full (unscoped) list, plus the additive `total`.
+         */
         get: operations["get_learning_overview_api_admin_learning_get"];
         put?: never;
         post?: never;
@@ -998,6 +1053,97 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/projects/{project_id}/defaults": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Defaults */
+        get: operations["get_defaults_api_admin_projects__project_id__defaults_get"];
+        /** Put Defaults */
+        put: operations["put_defaults_api_admin_projects__project_id__defaults_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{project_id}/defaults/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Apply Defaults */
+        post: operations["apply_defaults_api_admin_projects__project_id__defaults_apply_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Feedback */
+        get: operations["list_feedback_api_admin_feedback_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/feedback/{feedback_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Set Feedback Status */
+        patch: operations["set_feedback_status_api_admin_feedback__feedback_id__patch"];
+        trace?: never;
+    };
+    "/api/admin/dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Dashboard
+         * @description One call for the whole dashboard screen (spec §4.4). `project_id` scopes
+         *     every aggregate to a single project; omitting it reports across all
+         *     projects. Unknown `project_id` -> 404.
+         */
+        get: operations["get_dashboard_api_admin_dashboard_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/feedback": {
         parameters: {
             query?: never;
@@ -1036,6 +1182,73 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AdminFeedbackListResponse */
+        AdminFeedbackListResponse: {
+            /** Items */
+            items: components["schemas"]["AdminFeedbackOut"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /** AdminFeedbackOut */
+        AdminFeedbackOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+            /** User Name */
+            user_name: string;
+            /** Company Name */
+            company_name: string | null;
+            /** Project Name */
+            project_name: string | null;
+            /**
+             * Lesson Id
+             * Format: uuid
+             */
+            lesson_id: string;
+            /** Lesson Title */
+            lesson_title: string;
+            /**
+             * Module Id
+             * Format: uuid
+             */
+            module_id: string;
+            /** Module Title */
+            module_title: string;
+            /**
+             * Track Id
+             * Format: uuid
+             */
+            track_id: string;
+            /** Track Name */
+            track_name: string;
+            /** Track Level */
+            track_level: string;
+            /** Message */
+            message: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "new" | "accepted" | "dismissed";
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Reviewed At */
+            reviewed_at: string | null;
+        };
         /** AdminLearningLessonOut */
         AdminLearningLessonOut: {
             /**
@@ -1078,6 +1291,8 @@ export interface components {
             lessons: components["schemas"]["AdminLearningLessonOut"][];
             /** Users */
             users: components["schemas"]["AdminLearningUserOut"][];
+            /** Total */
+            total: number;
         };
         /** AdminLearningUserOut */
         AdminLearningUserOut: {
@@ -1100,6 +1315,12 @@ export interface components {
             assigned_module_ids: string[];
             /** Assigned Lesson Ids */
             assigned_lesson_ids: string[];
+            /** Default Track Ids */
+            default_track_ids: string[];
+            /** Default Module Ids */
+            default_module_ids: string[];
+            /** Default Lesson Ids */
+            default_lesson_ids: string[];
         };
         /**
          * AdminSurveyOut
@@ -1213,16 +1434,71 @@ export interface components {
             maturity_override: string | null;
             /** Effective Maturity */
             effective_maturity: string | null;
+            /** Last Active At */
+            last_active_at: string | null;
+            /** Activated */
+            activated: boolean;
+            /** Assigned Lesson Count */
+            assigned_lesson_count: number;
+            /** Completed Lesson Count */
+            completed_lesson_count: number;
+            /** Needs Attention */
+            needs_attention: boolean;
+            /** Attention Reason */
+            attention_reason: string | null;
+            /** Default Track Ids */
+            default_track_ids: string[];
+            /** Default Module Ids */
+            default_module_ids: string[];
+            /** Default Lesson Ids */
+            default_lesson_ids: string[];
         };
         /** AdminUsersResponse */
         AdminUsersResponse: {
             /** Users */
             users: components["schemas"]["AdminUserOut"][];
+            /** Total */
+            total: number;
+        };
+        /**
+         * ApplyDefaultsResponse
+         * @description Response of POST .../defaults/apply — how many of the project's
+         *     existing users the additive backfill ran over (regardless of whether the
+         *     project currently has any default tracks configured).
+         */
+        ApplyDefaultsResponse: {
+            /** Users Updated */
+            users_updated: number;
         };
         /** AssignmentRequest */
         AssignmentRequest: {
             /** Assigned */
             assigned: boolean;
+        };
+        /** AttentionItemOut */
+        AttentionItemOut: {
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+            /** Name */
+            name: string;
+            /** Email */
+            email: string;
+            /** Project Id */
+            project_id: string | null;
+            /** Project Name */
+            project_name: string | null;
+            /** Company Name */
+            company_name: string | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "never_activated" | "not_assessed" | "stalled";
+            /** Reason */
+            reason: string;
         };
         /** AuthMethodsResponse */
         AuthMethodsResponse: {
@@ -1245,6 +1521,23 @@ export interface components {
              * @default false
              */
             dry_run: boolean;
+        };
+        /**
+         * BulkAssignmentRequest
+         * @description Many-users × one content kind (spec §4.2). Exactly one of the three id
+         *     lists must be provided; all provided lists must be non-empty.
+         */
+        BulkAssignmentRequest: {
+            /** User Ids */
+            user_ids: string[];
+            /** Track Ids */
+            track_ids?: string[] | null;
+            /** Module Ids */
+            module_ids?: string[] | null;
+            /** Lesson Ids */
+            lesson_ids?: string[] | null;
+            /** Assigned */
+            assigned: boolean;
         };
         /** BulkInviteReport */
         BulkInviteReport: {
@@ -1366,6 +1659,39 @@ export interface components {
                 [key: string]: components["schemas"]["ComponentState"];
             };
         };
+        /** DashboardResponse */
+        DashboardResponse: {
+            tiles: components["schemas"]["DashboardTiles"];
+            /** Attention */
+            attention: components["schemas"]["AttentionItemOut"][];
+            /** Funnels */
+            funnels: components["schemas"]["FunnelOut"][];
+            maturity: components["schemas"]["MaturityDistributionOut"];
+        };
+        /** DashboardTiles */
+        DashboardTiles: {
+            /** Learners */
+            learners: number;
+            /** Active Week */
+            active_week: number;
+            /** Attention */
+            attention: number;
+            /** New Feedback */
+            new_feedback: number;
+        };
+        /** DefaultsResponse */
+        DefaultsResponse: {
+            /** Track Ids */
+            track_ids: string[];
+        };
+        /**
+         * DefaultsUpdateRequest
+         * @description Full replace; an empty list clears the project's defaults.
+         */
+        DefaultsUpdateRequest: {
+            /** Track Ids */
+            track_ids: string[];
+        };
         /** EmailTemplateOut */
         EmailTemplateOut: {
             /**
@@ -1435,6 +1761,36 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** FeedbackStatusUpdateRequest */
+        FeedbackStatusUpdateRequest: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "new" | "accepted" | "dismissed";
+        };
+        /** FunnelOut */
+        FunnelOut: {
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /** Project Name */
+            project_name: string;
+            /** Company Name */
+            company_name: string;
+            /** Invited */
+            invited: number;
+            /** Activated */
+            activated: number;
+            /** Assessed */
+            assessed: number;
+            /** Started */
+            started: number;
+            /** Completed Track */
+            completed_track: number;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -1635,6 +1991,17 @@ export interface components {
             /** Refresh Token */
             refresh_token: string;
         };
+        /** MaturityDistributionOut */
+        MaturityDistributionOut: {
+            /** Explore */
+            explore: number;
+            /** Practitioner */
+            practitioner: number;
+            /** Integrator */
+            integrator: number;
+            /** Multiplier */
+            multiplier: number;
+        };
         /** MaturityOverrideRequest */
         MaturityOverrideRequest: {
             /** Level */
@@ -1783,6 +2150,14 @@ export interface components {
         RefreshRequest: {
             /** Refresh Token */
             refresh_token: string;
+        };
+        /** ReminderResponse */
+        ReminderResponse: {
+            /**
+             * Email Status
+             * @enum {string}
+             */
+            email_status: "sent" | "failed" | "disabled" | "skipped";
         };
         /** RoleUpdateRequest */
         RoleUpdateRequest: {
@@ -2739,6 +3114,10 @@ export interface operations {
         parameters: {
             query?: {
                 project_id?: string | null;
+                q?: string | null;
+                status?: ("active" | "invited" | "attention") | null;
+                limit?: number | null;
+                offset?: number;
             };
             header?: never;
             path?: never;
@@ -2850,6 +3229,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LinkResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    send_reminder_api_admin_users__user_id__reminder_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReminderResponse"];
                 };
             };
             /** @description Validation Error */
@@ -3159,9 +3569,44 @@ export interface operations {
             };
         };
     };
-    get_learning_overview_api_admin_learning_get: {
+    bulk_assign_api_admin_assignments_bulk_post: {
         parameters: {
             query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkAssignmentRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_learning_overview_api_admin_learning_get: {
+        parameters: {
+            query?: {
+                project_id?: string | null;
+                limit?: number | null;
+                offset?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -3175,6 +3620,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminLearningResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -3665,6 +4119,200 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MediaUploadOut"];
+                };
+            };
+        };
+    };
+    get_defaults_api_admin_projects__project_id__defaults_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DefaultsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_defaults_api_admin_projects__project_id__defaults_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DefaultsUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    apply_defaults_api_admin_projects__project_id__defaults_apply_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplyDefaultsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_feedback_api_admin_feedback_get: {
+        parameters: {
+            query?: {
+                status?: ("new" | "accepted" | "dismissed") | null;
+                track_id?: string | null;
+                project_id?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminFeedbackListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_feedback_status_api_admin_feedback__feedback_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                feedback_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FeedbackStatusUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_dashboard_api_admin_dashboard_get: {
+        parameters: {
+            query?: {
+                project_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

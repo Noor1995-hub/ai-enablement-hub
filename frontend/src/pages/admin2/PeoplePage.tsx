@@ -30,12 +30,11 @@ const STATUS_PILLS: { value: StatusFilter; label: string }[] = [
 
 const ROLE_LABEL: Record<string, string> = { admin: 'Admin', 'user+': 'User+', user: 'User' }
 
-/** People screen (spec §3.2, `/admin/people`). Server-driven-shaped search +
- * status pills + pager per the contract — see the "interim-state caveat" in
- * the task brief: `useAdminUsers` already threads {q,status,page} through
- * its cache key, but until backend Task 9 lands, `fetchAdminUsers` only
- * sends `project_id` and every "page"/filter renders the same full list.
- * That is accepted interim behavior, not something to work around here.
+/** People screen (spec §3.2, `/admin/people`). Server-driven search + status
+ * pills + pager per the contract — `useAdminUsers` threads {q,status,page}
+ * through its cache key AND (since the Task 11 reconciliation) `fetchAdminUsers`
+ * forwards q/status/limit/offset to the backend and reads the server-computed
+ * `total`, so search/filter/pagination are fully functional, not client-side.
  * Prototype: docs/design-prototypes/admin-redesign option-b.html `people()`
  * + common.js `peopleTableHTML()` / `wirePeopleTable()`. */
 export default function PeoplePage() {

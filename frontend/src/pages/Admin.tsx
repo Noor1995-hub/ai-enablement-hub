@@ -80,7 +80,7 @@ export default function Admin() {
   /* ── learning data (all users) ──
    * The old file also tracked loadingLearning; it was destructured but never
    * rendered anywhere (dead, same class as D3) — not ported. */
-  const [learningData, setLearningData] = useState<AdminLearning>({ modules: [], lessons: [], users: [] })
+  const [learningData, setLearningData] = useState<AdminLearning>({ modules: [], lessons: [], users: [], total: 0 })
   const [togglingItem, setTogglingItem] = useState<string | null>(null)
 
   /* ── global errors ── */

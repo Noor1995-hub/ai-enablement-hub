@@ -33,148 +33,45 @@ export type EmailTemplate = components['schemas']['EmailTemplateOut']
 export type EmailTemplatePurpose = EmailTemplate['purpose']
 export type EmailTemplatePreview = components['schemas']['EmailTemplatePreviewResponse']
 
-// --- INTERIM admin-redesign types: replace with generated schema aliases after gen:api (plan Task 11) ---
-// The admin-panel-redesign plan's backend Phase A ships these endpoints ahead of a schema
-// regen (dashboard + pagination/enrichment specifically aren't wired into the live backend on
-// this branch yet — see docs/superpowers/plans/2026-07-23-admin-panel-redesign.md). Field
-// names/types below are copied verbatim from that plan's schema definitions (§Task 3/4
-// DefaultsResponse/DefaultsUpdateRequest/ApplyDefaultsResponse, §Task 5 BulkAssignmentRequest,
-// §Task 6 AdminFeedbackOut/AdminFeedbackListResponse/FeedbackStatusUpdateRequest, §Task 7
-// ReminderResponse, §Task 8 AdminUserOut additive fields, §Task 10 DashboardResponse block).
-// Once Task 11 (the plan's Phase A checkpoint) regenerates schema.d.ts, delete this block and
-// replace each alias below with the real `components['schemas'][...]` one.
+// --- Admin-redesign types: aliased onto the generated schema (plan Task 11 gen:api swap) ---
+// These used to be hand-written interim types (copied verbatim from the plan's schema
+// definitions) predating the backend's Phase A endpoints. Now that schema.d.ts is regenerated,
+// every one of them has a real `components['schemas'][...]` counterpart — the zero-drift
+// cross-check done during Task 13 held, so this is a pure aliasing swap, not a redefinition.
 
 // §Task 3/4 — project default tracks
-export interface DefaultsResponse {
-  track_ids: string[]
-}
-export interface DefaultsUpdateRequest {
-  track_ids: string[]
-}
-export interface ApplyDefaultsResponse {
-  users_updated: number
-}
+export type DefaultsResponse = components['schemas']['DefaultsResponse']
+export type DefaultsUpdateRequest = components['schemas']['DefaultsUpdateRequest']
+export type ApplyDefaultsResponse = components['schemas']['ApplyDefaultsResponse']
 
 // §Task 5 — multi-user bulk assignment
-export interface BulkAssignmentRequest {
-  user_ids: string[]
-  track_ids?: string[] | null
-  module_ids?: string[] | null
-  lesson_ids?: string[] | null
-  assigned: boolean
-}
+export type BulkAssignmentRequest = components['schemas']['BulkAssignmentRequest']
 
 // §Task 6 — feedback triage
-export type FeedbackStatus = 'new' | 'accepted' | 'dismissed'
-
-export interface AdminFeedbackOut {
-  id: string
-  user_id: string
-  user_name: string
-  company_name: string | null
-  project_name: string | null
-  lesson_id: string
-  lesson_title: string
-  module_id: string
-  module_title: string
-  track_id: string
-  track_name: string
-  track_level: string
-  message: string
-  status: FeedbackStatus
-  created_at: string
-  reviewed_at: string | null
-}
-
-export interface AdminFeedbackListResponse {
-  items: AdminFeedbackOut[]
-  total: number
-  limit: number
-  offset: number
-}
-
-export interface FeedbackStatusUpdateRequest {
-  status: FeedbackStatus
-}
+export type AdminFeedbackOut = components['schemas']['AdminFeedbackOut']
+export type FeedbackStatus = AdminFeedbackOut['status']
+export type AdminFeedbackListResponse = components['schemas']['AdminFeedbackListResponse']
+export type FeedbackStatusUpdateRequest = components['schemas']['FeedbackStatusUpdateRequest']
 
 // §Task 7 — reminder email
-export interface ReminderResponse {
-  email_status: EmailStatus
-}
+export type ReminderResponse = components['schemas']['ReminderResponse']
 
 // §Task 10 — dashboard aggregates
-export interface DashboardTiles {
-  learners: number
-  active_week: number
-  attention: number
-  new_feedback: number
-}
+export type DashboardTiles = components['schemas']['DashboardTiles']
+export type AttentionItemOut = components['schemas']['AttentionItemOut']
+export type AttentionKind = AttentionItemOut['kind']
+export type FunnelOut = components['schemas']['FunnelOut']
+export type MaturityDistributionOut = components['schemas']['MaturityDistributionOut']
+export type DashboardResponse = components['schemas']['DashboardResponse']
 
-export type AttentionKind = 'never_activated' | 'not_assessed' | 'stalled'
-
-export interface AttentionItemOut {
-  user_id: string
-  name: string
-  email: string
-  project_id: string | null
-  project_name: string | null
-  company_name: string | null
-  kind: AttentionKind
-  reason: string
-}
-
-export interface FunnelOut {
-  project_id: string
-  project_name: string
-  company_name: string
-  invited: number
-  activated: number
-  assessed: number
-  started: number
-  completed_track: number
-}
-
-export interface MaturityDistributionOut {
-  explore: number
-  practitioner: number
-  integrator: number
-  multiplier: number
-}
-
-export interface DashboardResponse {
-  tiles: DashboardTiles
-  attention: AttentionItemOut[]
-  funnels: FunnelOut[]
-  maturity: MaturityDistributionOut
-}
-
-// §Task 8 — AdminUserOut's coming enrichment fields + §Task 9's `total` envelope field.
-// Extension types over the generated shape rather than redefining it whole.
-export type AdminUserEnriched = AdminUser & {
-  last_active_at: string | null
-  activated: boolean
-  assigned_lesson_count: number
-  completed_lesson_count: number
-  needs_attention: boolean
-  attention_reason: string | null
-  default_track_ids: string[]
-  default_module_ids: string[]
-  default_lesson_ids: string[]
-}
-
-export type AdminLearningUserEnriched = AdminLearningUser & {
-  default_track_ids: string[]
-  default_module_ids: string[]
-  default_lesson_ids: string[]
-}
-
-export type AdminUsersResponseEnriched = {
-  users: AdminUserEnriched[]
-  total: number
-}
-
-export type AdminLearningResponseEnriched = Omit<AdminLearning, 'users'> & {
-  users: AdminLearningUserEnriched[]
-  total: number
-}
-// --- end INTERIM admin-redesign types ---
+// §Task 8 — AdminUserOut's enrichment fields (last_active_at, activated, assigned/completed
+// lesson counts, needs_attention/attention_reason, default_*_ids) and AdminLearningUserOut's
+// default_*_ids are now real generated fields (not client-only extensions), and §Task 9's
+// `total` envelope field is real on both AdminUsersResponse and AdminLearningResponse — so
+// these "*Enriched" names are now plain aliases onto the base generated types, kept only so
+// existing screen imports don't churn.
+export type AdminUserEnriched = AdminUser
+export type AdminLearningUserEnriched = AdminLearningUser
+export type AdminUsersResponseEnriched = components['schemas']['AdminUsersResponse']
+export type AdminLearningResponseEnriched = components['schemas']['AdminLearningResponse']
+// --- end admin-redesign types ---
