@@ -255,6 +255,33 @@ real server-side gate 2026-07-23)
   + `/api/auth/methods` green. NOT browser-verified (no browser automation) — spot-check: set a
   learner to user+ via the admin User/User+/Admin dropdown, confirm `/learning` shows everything
   unlocked and `/admin` still redirects them away.
+- **Redeployed 2026-07-27** (`ai-enablement-hub:20260727-133456`, revision `--0000022`,
+  user-approved): the **admin panel redesign** — a function-first routed shell under `/admin/*`
+  (Dashboard · People · user detail · Assignments matrix · Feedback · Projects · Email templates ·
+  Setup; `frontend/src/pages/admin2/`) replacing the old single-page `Admin.tsx` panel, plus the
+  backend that feeds it (project default assignments + `assigned_via` provenance, multi-user bulk
+  assignment, feedback triage, reminder email, status/progress/attention enrichment,
+  pagination/filters, dashboard aggregates). Spec/plan `2026-07-23-admin-panel-redesign-*`; built
+  subagent-driven (ledger `.superpowers/sdd/progress.md`). Shipped from `main`:
+  `feature/admin-panel-redesign` fast-forward-merged into `main` (`7f5e35e..3eec8a9`) and pushed to
+  `origin`; deployed from a **fresh `git worktree` of the pushed commit** per the deploy discipline
+  below (so the working dir's staged/untracked files stayed out of the build context). Migrations
+  applied to prod via `startup.py`: this branch's two migrations were **re-parented onto Matthias's
+  chat-foundation migration `12bf5f54a1e4`** (both originally chained off `e2f3a4b5c6d7`), so this
+  deploy applied `12bf5f54a1e4` (his chat tables `conversations`/`messages`/`project_ai_settings` —
+  **empty and unused until his ai-chat app code ships**) + `b5c6d7e8f9a0` (project_track_defaults +
+  `assigned_via`) + `c6d7e8f9a0b1` (feedback status columns). **Prod alembic head is now
+  `c6d7e8f9a0b1`** (progression: `e2f3a4b5c6d7` → `12bf5f54a1e4` → `b5c6d7e8f9a0` → `c6d7e8f9a0b1`).
+  Post-deploy `/api/health` `{"status":"ok"}` + `/api/auth/methods` `{"password":true,"entra":false}`
+  green on revision `--0000022` (`latestReadyRevision == latestRevision`, `runningStatus: Running`);
+  healthy startup ⇒ the migrations applied cleanly (they run before the port binds). **NOT fully
+  browser-verified on prod** — the People table-overflow and Projects-scope-filter fixes were
+  verified live against the local dev stack, but the full spec §7 five-flow walk was not completed;
+  spot-check `/admin` on prod (log in, scan Dashboard, People search/filter/pager, Assignments
+  matrix + defaults, Feedback triage). **Cross-team:** prod now carries Matthias's (empty) chat
+  tables ahead of his own ai-chat deploy — his eventual deploy finds `12bf5f54a1e4` already applied
+  (no-op); his pending AI-settings UI must target `admin2/ProjectsPage.tsx`, not the deleted
+  `ProjectDetailView.tsx`.
 - **Source control / branching (documented 2026-07-22).** Work happens on feature branches
   (`feature/*`) and on the longer-lived `introduction-level` branch; `main` is the integration
   line. **`.\deploy.ps1` builds the image from the working directory, NOT from git** — so prod
