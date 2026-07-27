@@ -1,8 +1,12 @@
 """project defaults and assignment provenance
 
 Revision ID: b5c6d7e8f9a0
-Revises: e2f3a4b5c6d7
+Revises: 12bf5f54a1e4
 Create Date: 2026-07-23
+
+Re-parented 2026-07-27 onto Matthias's chat-foundation migration (12bf5f54a1e4),
+which the shared dev DB already had applied. Both originally chained off
+e2f3a4b5c6d7; single-chain policy — this branch merged second, so it re-parents.
 
 """
 
@@ -13,7 +17,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "b5c6d7e8f9a0"
-down_revision: str | None = "e2f3a4b5c6d7"
+down_revision: str | None = "12bf5f54a1e4"
 branch_labels = None
 depends_on = None
 
