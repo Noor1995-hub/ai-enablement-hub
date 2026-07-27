@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any
+from collections.abc import Mapping
+from typing import cast
 
 __all__ = ["KNOWN_BLOCK_TYPES", "validate_content_blocks"]
 
@@ -48,21 +49,21 @@ def _validate_block(i: int, block: object) -> list[str]:
     if not isinstance(block_id, str) or not block_id:
         errs.append(f"{where} missing non-empty string 'id'")
     btype = block.get("type")
-    if btype not in KNOWN_BLOCK_TYPES:
+    if not isinstance(btype, str) or btype not in KNOWN_BLOCK_TYPES:
         errs.append(f"{where} has unknown type {btype!r}")
         return errs
-    errs.extend(_validate_fields(where, btype, block))
+    errs.extend(_validate_fields(where, btype, cast(Mapping[str, object], block)))
     return errs
 
 
-def _require_str(where: str, block: dict[str, Any], field: str) -> list[str]:
+def _require_str(where: str, block: Mapping[str, object], field: str) -> list[str]:
     value = block.get(field)
     if not isinstance(value, str) or not value:
         return [f"{where}.{field} must be a non-empty string"]
     return []
 
 
-def _validate_fields(where: str, btype: str, block: dict[str, Any]) -> list[str]:
+def _validate_fields(where: str, btype: str, block: Mapping[str, object]) -> list[str]:
     errs: list[str] = []
     if btype in ("paragraph", "callout", "kicker"):
         errs += _require_str(where, block, "text")
@@ -100,7 +101,7 @@ def _validate_fields(where: str, btype: str, block: dict[str, Any]) -> list[str]
     return errs
 
 
-def _validate_card_group(where: str, block: dict[str, Any]) -> list[str]:
+def _validate_card_group(where: str, block: Mapping[str, object]) -> list[str]:
     cards = block.get("cards")
     if not isinstance(cards, list) or not cards:
         return [f"{where}.cards must be a non-empty list"]
@@ -110,12 +111,13 @@ def _validate_card_group(where: str, block: dict[str, Any]) -> list[str]:
         if not isinstance(card, dict):
             errs.append(f"{cwhere} must be an object")
             continue
-        errs += _require_str(cwhere, card, "title")
-        errs += _require_str(cwhere, card, "body")
+        card_fields = cast(Mapping[str, object], card)
+        errs += _require_str(cwhere, card_fields, "title")
+        errs += _require_str(cwhere, card_fields, "body")
     return errs
 
 
-def _validate_quiz(where: str, block: dict[str, Any]) -> list[str]:
+def _validate_quiz(where: str, block: Mapping[str, object]) -> list[str]:
     questions = block.get("questions")
     if not isinstance(questions, list) or not questions:
         return [f"{where}.questions must be a non-empty list"]
@@ -125,8 +127,9 @@ def _validate_quiz(where: str, block: dict[str, Any]) -> list[str]:
         if not isinstance(question, dict):
             errs.append(f"{qwhere} must be an object")
             continue
-        errs += _require_str(qwhere, question, "q")
-        errs += _require_str(qwhere, question, "explanation")
+        question_fields = cast(Mapping[str, object], question)
+        errs += _require_str(qwhere, question_fields, "q")
+        errs += _require_str(qwhere, question_fields, "explanation")
         options = question.get("options")
         if (
             not isinstance(options, list)
@@ -145,7 +148,7 @@ def _validate_quiz(where: str, block: dict[str, Any]) -> list[str]:
     return errs
 
 
-def _validate_interactive(where: str, block: dict[str, Any]) -> list[str]:
+def _validate_interactive(where: str, block: Mapping[str, object]) -> list[str]:
     mode = block.get("mode")
     if mode not in _INTERACTIVE_MODES:
         return [f"{where}.mode must be one of sort|predict|spot_the_flaw"]
