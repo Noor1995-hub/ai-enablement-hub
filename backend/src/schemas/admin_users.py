@@ -80,6 +80,9 @@ class AdminUserOut(BaseModel):
 
 class AdminUsersResponse(BaseModel):
     users: list[AdminUserOut]
+    # Task 9: total AFTER q/status filtering, BEFORE limit/offset slicing —
+    # additive; the old admin panel (no query params) ignores unknown fields.
+    total: int
 
 
 class InviteRequest(BaseModel):
@@ -219,6 +222,9 @@ class AdminLearningResponse(BaseModel):
     modules: list[AdminLearningModuleOut]
     lessons: list[AdminLearningLessonOut]
     users: list[AdminLearningUserOut]
+    # Task 9: total users AFTER project_id filtering, BEFORE limit/offset
+    # slicing — modules/lessons are never paginated. Additive field.
+    total: int
 
 
 class SurveyLevelsResponse(BaseModel):

@@ -73,9 +73,11 @@ class AbstractUserRepository(ABC):
 
     @abstractmethod
     async def list_with_org_names(
-        self, project_id: uuid.UUID | None = None
+        self, project_id: uuid.UUID | None = None, q: str | None = None
     ) -> list[tuple[User, str | None, str | None]]:
-        """(user, company_name, project_name) newest-first, optionally by project."""
+        """(user, company_name, project_name) newest-first, optionally by
+        project and/or a case-insensitive substring match over first_name,
+        last_name, email (q)."""
 
     @abstractmethod
     async def list_for_learning(self) -> list[tuple[User, str | None, str | None]]:

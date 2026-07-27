@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from src.core.attention import attention_for
 from src.core.constants import advance_level
@@ -49,8 +49,16 @@ class AdminUserService:
         self._sessions = sessions
         self._progress = progress
 
-    async def list_users(self, project_id: uuid.UUID | None = None) -> list[dict[str, Any]]:
-        rows = await self._users.list_with_org_names(project_id)
+    async def list_users(
+        self,
+        project_id: uuid.UUID | None = None,
+        *,
+        q: str | None = None,
+        status: Literal["active", "invited", "attention"] | None = None,
+        limit: int | None = None,
+        offset: int = 0,
+    ) -> tuple[list[dict[str, Any]], int]:
+        rows = await self._users.list_with_org_names(project_id, q)
         users = [user for user, _, _ in rows]
         user_ids = [user.id for user in users]
         (
@@ -141,7 +149,22 @@ class AdminUserService:
                     "default_lesson_ids": default_lesson_map.get(user.id, []),
                 }
             )
-        return result
+
+        # Task 9: status is computed (not a column), so it's filtered here in
+        # Python after the enrichment above, rather than pushed into SQL — at
+        # our scale (tens to low hundreds of users per project) this is a
+        # deliberate, documented tradeoff over adding a second query shape.
+        if status is not None:
+            if status == "active":
+                result = [u for u in result if u["activated"]]
+            elif status == "invited":
+                result = [u for u in result if not u["activated"]]
+            else:  # "attention"
+                result = [u for u in result if u["needs_attention"]]
+
+        total = len(result)
+        page = result[offset : offset + limit] if limit is not None else result[offset:]
+        return page, total
 
     async def _effective_maturity_map(
         self,
@@ -385,11 +408,25 @@ class AdminUserService:
             for user_id in unique_users:
                 await self._assignments.set_user_lessons(user_id, unique_ids, assigned)
 
-    async def learning_overview(self) -> dict[str, Any]:
-        """Modules + lessons + users with their assignments (admin learning panel)."""
+    async def learning_overview(
+        self,
+        *,
+        project_id: uuid.UUID | None = None,
+        limit: int | None = None,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        """Modules + lessons + users with their assignments (admin learning
+        panel). Only the `users` array is paginated/filtered — modules/lessons
+        are always returned complete. project_id scopes the matrix to one
+        project (the spec's intent — the matrix lists everyone today); it is
+        applied here in Python since list_for_learning() has no project
+        parameter (Task 9 keeps the repository change scoped to
+        list_with_org_names's `q`)."""
         modules = await self._content.list_modules()
         lessons = await self._content.list_lesson_summaries()
         rows = await self._users.list_for_learning()
+        if project_id is not None:
+            rows = [row for row in rows if row[0].project_id == project_id]
         (
             track_map,
             module_map,
@@ -398,6 +435,24 @@ class AdminUserService:
             default_module_map,
             default_lesson_map,
         ) = await self._assignment_maps_for([user.id for user, _, _ in rows])
+        users = [
+            {
+                "id": user.id,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "project_name": project_name,
+                "company_name": company_name,
+                "assigned_track_ids": track_map.get(user.id, []),
+                "assigned_module_ids": module_map.get(user.id, []),
+                "assigned_lesson_ids": lesson_map.get(user.id, []),
+                "default_track_ids": default_track_map.get(user.id, []),
+                "default_module_ids": default_module_map.get(user.id, []),
+                "default_lesson_ids": default_lesson_map.get(user.id, []),
+            }
+            for user, project_name, company_name in rows
+        ]
+        total = len(users)
+        page = users[offset : offset + limit] if limit is not None else users[offset:]
         return {
             "modules": [
                 {
@@ -417,22 +472,8 @@ class AdminUserService:
                 }
                 for lesson in lessons
             ],
-            "users": [
-                {
-                    "id": user.id,
-                    "first_name": user.first_name,
-                    "last_name": user.last_name,
-                    "project_name": project_name,
-                    "company_name": company_name,
-                    "assigned_track_ids": track_map.get(user.id, []),
-                    "assigned_module_ids": module_map.get(user.id, []),
-                    "assigned_lesson_ids": lesson_map.get(user.id, []),
-                    "default_track_ids": default_track_map.get(user.id, []),
-                    "default_module_ids": default_module_map.get(user.id, []),
-                    "default_lesson_ids": default_lesson_map.get(user.id, []),
-                }
-                for user, project_name, company_name in rows
-            ],
+            "users": page,
+            "total": total,
         }
 
     async def get_project_defaults(self, project_id: uuid.UUID) -> list[uuid.UUID]:

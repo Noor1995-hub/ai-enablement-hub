@@ -120,9 +120,21 @@ async def _email_the_link(
 async def list_users(
     admin_user_service: AdminUserServiceDep,
     project_id: Annotated[uuid.UUID | None, Query()] = None,
+    q: Annotated[str | None, Query()] = None,
+    status: Annotated[Literal["active", "invited", "attention"] | None, Query()] = None,
+    limit: Annotated[int | None, Query(ge=1, le=200)] = None,
+    offset: Annotated[int, Query(ge=0)] = 0,
 ) -> AdminUsersResponse:
-    users = await admin_user_service.list_users(project_id)
-    return AdminUsersResponse(users=[AdminUserOut.model_validate(user) for user in users])
+    """limit/offset/q/status are all optional — omitting them reproduces the
+    full list exactly as before Task 9 (the old admin panel sends no query
+    params). `total` is additive: count after q/status filtering, before
+    limit/offset slicing."""
+    users, total = await admin_user_service.list_users(
+        project_id, q=q, status=status, limit=limit, offset=offset
+    )
+    return AdminUsersResponse(
+        users=[AdminUserOut.model_validate(user) for user in users], total=total
+    )
 
 
 @router.post("/invites", response_model=LinkResponse, status_code=status.HTTP_201_CREATED)
@@ -414,8 +426,19 @@ async def bulk_assign(body: BulkAssignmentRequest, admin_user_service: AdminUser
 
 
 @router.get("/learning", response_model=AdminLearningResponse)
-async def get_learning_overview(admin_user_service: AdminUserServiceDep) -> AdminLearningResponse:
-    return AdminLearningResponse(**await admin_user_service.learning_overview())
+async def get_learning_overview(
+    admin_user_service: AdminUserServiceDep,
+    project_id: Annotated[uuid.UUID | None, Query()] = None,
+    limit: Annotated[int | None, Query(ge=1, le=200)] = None,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> AdminLearningResponse:
+    """Paginates the `users` array only — `modules`/`lessons` always come back
+    complete. limit/offset/project_id are optional, so omitting them
+    reproduces the pre-Task-9 full (unscoped) list, plus the additive `total`."""
+    overview = await admin_user_service.learning_overview(
+        project_id=project_id, limit=limit, offset=offset
+    )
+    return AdminLearningResponse(**overview)
 
 
 @router.get("/surveys", response_model=SurveyLevelsResponse)

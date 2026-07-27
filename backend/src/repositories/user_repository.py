@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import aliased
 
 from src.db.models import Company, Project, User
@@ -42,7 +42,7 @@ class UserRepository(AbstractUserRepository):
         await self._session.refresh(user)
 
     async def list_with_org_names(
-        self, project_id: uuid.UUID | None = None
+        self, project_id: uuid.UUID | None = None, q: str | None = None
     ) -> list[tuple[User, str | None, str | None]]:
         stmt = (
             select(User, Company.name, Project.name)
@@ -52,6 +52,15 @@ class UserRepository(AbstractUserRepository):
         )
         if project_id is not None:
             stmt = stmt.where(User.project_id == project_id)
+        if q:
+            pattern = f"%{q}%"
+            stmt = stmt.where(
+                or_(
+                    User.first_name.ilike(pattern),
+                    User.last_name.ilike(pattern),
+                    User.email.ilike(pattern),
+                )
+            )
         result = await self._session.execute(stmt)
         return [(user, company, project) for user, company, project in result.all()]
 

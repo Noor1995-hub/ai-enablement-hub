@@ -1039,3 +1039,118 @@ class TestAdminUserEnrichment:
         overview = (await client.get("/api/admin/learning", headers=org.headers)).json()
         entry = next(u for u in overview["users"] if u["id"] == str(user.id))
         assert entry["default_track_ids"] == [str(track.id)]
+
+
+class TestAdminUsersPagination:
+    """Task 9: q/status filters + limit/offset pagination on /admin/users and
+    /admin/learning. limit/offset/q/status are all optional and additive —
+    the live old admin panel calls these endpoints with no query params and
+    must keep getting the full list back (plus the new `total` field)."""
+
+    async def _seed_five_learners(self, db_session: AsyncSession, org: Org) -> None:
+        # Two activated (password set), two invited-only, one activated — a
+        # 3/2 split lets status=invited assert an exact 2-user subset.
+        await create_user(
+            db_session,
+            email="alice@example.com",
+            password="pw-alice-1",
+            project_id=org.project.id,
+        )
+        await create_user(
+            db_session,
+            email="bob@example.com",
+            password="pw-bob-1",
+            project_id=org.project.id,
+        )
+        await create_user(db_session, email="carol@example.com", project_id=org.project.id)
+        await create_user(db_session, email="dave@example.com", project_id=org.project.id)
+        await create_user(
+            db_session,
+            email="eve@example.com",
+            password="pw-eve-1",
+            project_id=org.project.id,
+        )
+
+    async def test_no_params_returns_full_list_with_total(
+        self, client: AsyncClient, db_session: AsyncSession, org: Org
+    ) -> None:
+        """(a) back-compat: omitting limit/offset/q/status reproduces today's
+        full list, plus the new additive `total` field."""
+        await self._seed_five_learners(db_session, org)
+        response = await client.get(
+            f"/api/admin/users?project_id={org.project.id}", headers=org.headers
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert len(body["users"]) == 5
+        assert body["total"] == 5
+
+    async def test_limit_and_offset_page_the_list(
+        self, client: AsyncClient, db_session: AsyncSession, org: Org
+    ) -> None:
+        """(b) limit=2&offset=2 returns a 2-user page while total still
+        reflects the full filtered set."""
+        await self._seed_five_learners(db_session, org)
+        response = await client.get(
+            f"/api/admin/users?project_id={org.project.id}&limit=2&offset=2",
+            headers=org.headers,
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert len(body["users"]) == 2
+        assert body["total"] == 5
+
+    async def test_q_filters_by_name_or_email(
+        self, client: AsyncClient, db_session: AsyncSession, org: Org
+    ) -> None:
+        """(c) q does a case-insensitive ILIKE over first/last name + email."""
+        await self._seed_five_learners(db_session, org)
+        response = await client.get(
+            f"/api/admin/users?project_id={org.project.id}&q=alice", headers=org.headers
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert len(body["users"]) == 1
+        assert body["total"] == 1
+        assert body["users"][0]["email"] == "alice@example.com"
+
+    async def test_status_invited_returns_only_non_activated_users(
+        self, client: AsyncClient, db_session: AsyncSession, org: Org
+    ) -> None:
+        """(d) status=invited returns only users who have never activated
+        (password_set False and no linked external_id) — filtered after the
+        enrichment computes `activated`, not in SQL."""
+        await self._seed_five_learners(db_session, org)
+        response = await client.get(
+            f"/api/admin/users?project_id={org.project.id}&status=invited", headers=org.headers
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["total"] == 2
+        emails = {u["email"] for u in body["users"]}
+        assert emails == {"carol@example.com", "dave@example.com"}
+        assert all(u["activated"] is False for u in body["users"])
+
+    async def test_learning_overview_paginates_users_keeps_full_content(
+        self, client: AsyncClient, db_session: AsyncSession, org: Org
+    ) -> None:
+        """(e) /api/admin/learning?limit=2 pages the `users` array only —
+        `modules`/`lessons` stay complete. Also exercises the new project_id
+        scoping (the matrix is always project-scoped per spec)."""
+        for i in range(3):
+            await create_user(db_session, email=f"learn{i}@example.com", project_id=org.project.id)
+        track = await create_track(db_session, "Learn Track")
+        module_a = await create_module(db_session, track, "Learn Module A")
+        module_b = await create_module(db_session, track, "Learn Module B")
+        await create_lesson(db_session, module_a, "Learn Lesson A1")
+        await create_lesson(db_session, module_b, "Learn Lesson B1")
+
+        response = await client.get(
+            f"/api/admin/learning?project_id={org.project.id}&limit=2", headers=org.headers
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert len(body["users"]) == 2
+        assert body["total"] == 3
+        assert len(body["modules"]) == 2
+        assert len(body["lessons"]) == 2
