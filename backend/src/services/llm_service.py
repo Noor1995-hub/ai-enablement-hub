@@ -2,18 +2,39 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 if TYPE_CHECKING:
     from anthropic import AsyncAnthropic
 
-__all__ = ["AnthropicLlmClient", "LlmClient", "LlmReplyStream", "LlmUsage"]
+__all__ = [
+    "AnthropicLlmClient",
+    "LlmClient",
+    "LlmError",
+    "LlmReplyStream",
+    "LlmUsage",
+    "StructuredSchema",
+]
+
+
+class LlmError(RuntimeError):
+    """Raised when the LLM response is missing an expected structured result."""
 
 
 @dataclass(frozen=True)
 class LlmUsage:
     input_tokens: int
     output_tokens: int
+
+
+@dataclass(frozen=True)
+class StructuredSchema:
+    """A forced-tool_use definition: the tool name, its description, and the
+    JSON Schema the model must fill. The returned dict matches input_schema."""
+
+    name: str
+    description: str
+    input_schema: dict[str, Any]
 
 
 class LlmReplyStream(Protocol):
@@ -34,6 +55,10 @@ class LlmClient(Protocol):
     def stream_reply(
         self, *, system: str, messages: list[dict[str, str]], max_tokens: int
     ) -> LlmReplyStream: ...
+
+    async def complete_structured(
+        self, *, system: str, prompt: str, schema: StructuredSchema, max_tokens: int
+    ) -> tuple[dict[str, Any], LlmUsage]: ...
 
 
 class _AnthropicReplyStream:
@@ -79,3 +104,27 @@ class AnthropicLlmClient:
             messages=messages,  # ty: ignore[invalid-argument-type]
         )
         return _AnthropicReplyStream(manager)
+
+    async def complete_structured(
+        self, *, system: str, prompt: str, schema: StructuredSchema, max_tokens: int
+    ) -> tuple[dict[str, Any], LlmUsage]:
+        message = await self._client.messages.create(
+            model=self._model,
+            max_tokens=max_tokens,
+            system=system,
+            messages=[{"role": "user", "content": prompt}],
+            tools=[
+                {
+                    "name": schema.name,
+                    "description": schema.description,
+                    "input_schema": schema.input_schema,
+                }
+            ],
+            tool_choice={"type": "tool", "name": schema.name},
+        )
+        usage = LlmUsage(message.usage.input_tokens, message.usage.output_tokens)
+        for block in message.content:
+            if block.type == "tool_use":
+                return dict(block.input), usage
+        msg = "model returned no tool_use block"
+        raise LlmError(msg)

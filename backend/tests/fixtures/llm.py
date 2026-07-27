@@ -13,7 +13,10 @@ __all__ = [
     "FakeAnthropicMessage",
     "FakeAnthropicStream",
     "FakeAnthropicStreamManager",
+    "FakeAnthropicToolMessage",
     "FakeLlmClient",
+    "FakeStructuredAsyncAnthropic",
+    "FakeToolUseBlock",
     "RaisingLlmClient",
 ]
 
@@ -98,16 +101,31 @@ class FakeLlmReplyStream:
 class FakeLlmClient:
     """Stubs LlmClient: streams canned chunks, reports canned usage."""
 
-    def __init__(self, chunks: list[str], usage: LlmUsage | None = None) -> None:
+    def __init__(
+        self,
+        chunks: list[str],
+        usage: LlmUsage | None = None,
+        structured: dict[str, object] | None = None,
+    ) -> None:
         self.chunks = chunks
         self.usage_value = usage or LlmUsage(input_tokens=10, output_tokens=len(chunks))
         self.calls: list[dict[str, object]] = []
+        self.structured = structured or {}
+        self.structured_calls: list[dict[str, object]] = []
 
     def stream_reply(
         self, *, system: str, messages: list[dict[str, str]], max_tokens: int
     ) -> FakeLlmReplyStream:
         self.calls.append({"system": system, "messages": messages, "max_tokens": max_tokens})
         return FakeLlmReplyStream(self.chunks, self.usage_value)
+
+    async def complete_structured(
+        self, *, system: str, prompt: str, schema: object, max_tokens: int
+    ) -> tuple[dict[str, object], LlmUsage]:
+        self.structured_calls.append(
+            {"system": system, "prompt": prompt, "schema": schema, "max_tokens": max_tokens}
+        )
+        return dict(self.structured), self.usage_value
 
 
 class RaisingLlmClient:
@@ -116,3 +134,37 @@ class RaisingLlmClient:
     def stream_reply(self, **_: object) -> FakeLlmReplyStream:
         msg = "Anthropic API unreachable"
         raise RuntimeError(msg)
+
+    async def complete_structured(self, **_: object) -> tuple[dict[str, object], LlmUsage]:
+        msg = "Anthropic API unreachable"
+        raise RuntimeError(msg)
+
+
+class FakeToolUseBlock:
+    def __init__(self, tool_input: dict[str, object]) -> None:
+        self.type = "tool_use"
+        self.input = tool_input
+
+
+class FakeAnthropicToolMessage:
+    def __init__(self, tool_input: dict[str, object], usage: tuple[int, int]) -> None:
+        self.content = [FakeToolUseBlock(tool_input)]
+        self.usage = type("Usage", (), {"input_tokens": usage[0], "output_tokens": usage[1]})()
+
+
+class _FakeStructuredMessages:
+    def __init__(self, tool_input: dict[str, object], usage: tuple[int, int]) -> None:
+        self._tool_input = tool_input
+        self._usage = usage
+        self.calls: list[dict[str, object]] = []
+
+    async def create(self, **kwargs: object) -> FakeAnthropicToolMessage:
+        self.calls.append(kwargs)
+        return FakeAnthropicToolMessage(self._tool_input, self._usage)
+
+
+class FakeStructuredAsyncAnthropic:
+    """Shaped like `AsyncAnthropic` for `AnthropicLlmClient.complete_structured`."""
+
+    def __init__(self, tool_input: dict[str, object], usage: tuple[int, int] = (20, 8)) -> None:
+        self.messages = _FakeStructuredMessages(tool_input, usage)
