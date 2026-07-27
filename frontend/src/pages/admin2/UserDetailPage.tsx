@@ -21,18 +21,18 @@ import { Card, Chip, ConfirmButton, EmptyState, ErrorState, ProgressBar, Spinner
 import type { ChipTone } from './kit'
 import { useScope } from './useScope'
 
-// The three assignable pins — same subset ParticipantDetail uses (the scoring
-// engine never produces 'multiplier', which gates nothing, so it isn't
-// offered as an override here).
+// The three assignable pins — same subset the old panel's inline participant
+// detail used (the scoring engine never produces 'multiplier', which gates
+// nothing, so it isn't offered as an override here).
 const PIN_LEVELS = LEVELS.filter(l => l.code !== 'multiplier')
 
 /** User detail screen (spec §3.3, `/admin/people/:userId`) — the full-width
- * page PeoplePage's rows link to, replacing the old inline `ParticipantDetail`
- * (kept alive in `pages/admin/` until cutover). Ports that component's
- * maturity-pin select verbatim (same value/options/onChange semantics) and
- * `ProjectDetailView`'s `roleBadgeColor`/`ResetLinkEntry` conventions onto the
- * admin2 kit + `adm-` classes, same restyle-only pattern Task 15 used for
- * `LevelBadge`/`formatDate`. Prototype:
+ * page PeoplePage's rows link to, replacing the old panel's inline
+ * participant detail component (since removed at cutover). Ports that
+ * component's maturity-pin select verbatim (same value/options/onChange
+ * semantics) and the old project detail view's `roleBadgeColor`/reset-link
+ * conventions onto the admin2 kit + `adm-` classes, same restyle-only
+ * pattern Task 15 used for `LevelBadge`/`formatDate`. Prototype:
  * docs/design-prototypes/admin-redesign option-b.html `userDetail()`. */
 export default function UserDetailPage() {
   const { userId } = useParams<{ userId: string }>()
@@ -274,11 +274,12 @@ function AccountCard({ user, survey, onDeleted }: AccountCardProps) {
         </p>
       )}
 
-      {/* Maturity pin — ported verbatim from ParticipantDetail.tsx: same
-          value (`maturity_override ?? ''`), same two option groups ("From
-          assessment" + PIN_LEVELS), same effective-level badge via
-          LevelBadge, same onChange payload (`level: value || null`). Only
-          the styling moved from inline CSSProperties to adm- classes. */}
+      {/* Maturity pin — ported verbatim from the old panel's inline
+          participant detail component: same value (`maturity_override ?? ''`),
+          same two option groups ("From assessment" + PIN_LEVELS), same
+          effective-level badge via LevelBadge, same onChange payload
+          (`level: value || null`). Only the styling moved from inline
+          CSSProperties to adm- classes. */}
       <div className="adm-acct-row">
         <span className="adm-acct-label">Maturity</span>
         {user.effective_maturity ? <LevelBadge level={user.effective_maturity} /> : <span className="adm-subtext">none yet</span>}
@@ -325,8 +326,8 @@ function AccountCard({ user, survey, onDeleted }: AccountCardProps) {
       )}
 
       {/* Reset-link result — same emailed/failed/plain copy + copyable
-          fallback as the old ResetLinkEntry (ProjectDetailView.tsx), reusing
-          the adm-link-box family InviteModal already established. */}
+          fallback as the old panel's reset-link entry (since removed),
+          reusing the adm-link-box family InviteModal already established. */}
       {resetLink.data && !resetDismissed && (
         <div className="adm-link-box">
           <p className="adm-link-box-label">

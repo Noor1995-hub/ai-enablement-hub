@@ -28,6 +28,16 @@ export type ModuleOut = components['schemas']['ModuleOut']
 // Invite/reset emails (auto-sent via ACS when configured server-side)
 export type EmailStatus = components['schemas']['LinkResponse']['email_status']
 
+// Client-side shape for a generated password-reset link, tracked per user
+// while its copy-to-clipboard/dismiss UI is open. Relocated from the old
+// admin panel (pages/Admin.tsx, removed at cutover) since it has no
+// generated-schema counterpart — it's a UI aggregate, not a response body.
+export interface ResetLinkEntry {
+  link: string
+  copied: boolean
+  emailStatus: EmailStatus
+}
+
 // Per-project email templates (admin editor)
 export type EmailTemplate = components['schemas']['EmailTemplateOut']
 export type EmailTemplatePurpose = EmailTemplate['purpose']

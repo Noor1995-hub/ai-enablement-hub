@@ -499,8 +499,8 @@
 }
 
 /* Native select — role + maturity pin. Role color mapping mirrors the old
-   panel's roleBadgeColor (frontend/src/pages/admin/ProjectDetailView.tsx):
-   admin = dark/white, user+ = indigo tint, user = neutral. */
+   panel's roleBadgeColor helper: admin = dark/white, user+ = indigo tint,
+   user = neutral. */
 .adm-select {
   font-family: var(--dlw-font-body); font-size: 13px; font-weight: 600;
   border: 1px solid var(--adm-border); border-radius: var(--adm-radius-sm);
@@ -670,8 +670,8 @@ button.adm-loc-chip:hover .adm-loc-label { color: var(--adm-red-deep); }
    Projects/Setup mostly reuse existing kit + prior-task classes verbatim
    (.adm-card, .adm-btn*, .adm-grid-2, .adm-field*, .adm-form-msg*); the
    Templates picker reuses .adm-proj-grid/.adm-proj-card (Task 17) as-is.
-   New here: the component-toggle row for Projects (ported from
-   ProjectDetailView's comp-row/switch, docs/design-prototypes/admin-redesign
+   New here: the component-toggle row for Projects (ported from the old
+   panel's comp-row/switch, docs/design-prototypes/admin-redesign
    styles.css `.comp-row`/`.switch`), the existing-companies row for Setup,
    and the EmailTemplatesCard outer-chrome neutralization for Templates. */
 

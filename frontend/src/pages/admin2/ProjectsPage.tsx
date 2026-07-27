@@ -8,9 +8,8 @@ import { Card, EmptyState, ErrorState, Spinner } from './kit'
 
 /** Projects screen (spec §3.6, `/admin/projects`) — one card per project,
  * company-first title (`Company · Project`), with the component-access
- * toggles ported from the old panel's ProjectDetailView
- * (frontend/src/pages/admin/ProjectDetailView.tsx ~440-470: same
- * visible/unlocked semantics, same `PUT …/components/{component}` call)
+ * toggles ported from the old panel's project detail view (since removed;
+ * same visible/unlocked semantics, same `PUT …/components/{component}` call)
  * plus three buttons that jump to People / Assignments / Email templates
  * pre-scoped to that project (`?project={id}`, same convention as
  * PeoplePage's row-click navigation). Prototype:

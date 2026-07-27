@@ -23,11 +23,10 @@ interface InviteForm {
 const EMPTY_FORM: InviteForm = { firstName: '', lastName: '', email: '' }
 
 /** Single-participant invite (spec §3.2). The two submit paths and the
- * email_status copy/link-box conventions are lifted from
- * frontend/src/pages/admin/ProjectDetailView.tsx's handleInvite; the
- * project-defaults banner is new to this redesign (spec §4.1 — defaults are
- * materialized server-side on invite, this banner just previews them via
- * useDefaults + useTracks). */
+ * email_status copy/link-box conventions are lifted from the old admin
+ * panel's handleInvite (since removed); the project-defaults banner is
+ * new to this redesign (spec §4.1 — defaults are materialized server-side
+ * on invite, this banner just previews them via useDefaults + useTracks). */
 export default function InviteModal({ projectId, projectName, onClose }: InviteModalProps) {
   const [form, setForm] = useState<InviteForm>(EMPTY_FORM)
   const [formMsg, setFormMsg] = useState<FormMsg | null>(null)

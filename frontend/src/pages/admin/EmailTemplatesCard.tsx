@@ -5,7 +5,7 @@ import { s } from './adminStyles'
 
 /*
  * Per-project invite/reset email editor. Owns its own data (GET/PUT/DELETE/
- * preview) so ProjectDetailView stays a thin container. The message is Markdown
+ * preview) so its host page stays a thin container. The message is Markdown
  * with {{tokens}}; the action link goes wherever the admin drops its token, and
  * rendering (Markdown → HTML) happens server-side so the preview is faithful.
  */

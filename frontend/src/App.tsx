@@ -2,7 +2,6 @@ import { useLayoutEffect } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import Spinner from './components/Spinner'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
-import Admin from './pages/Admin'
 import AdminShell from './pages/admin2/AdminShell'
 import AssignmentsPage from './pages/admin2/AssignmentsPage'
 import DashboardPage from './pages/admin2/DashboardPage'
@@ -81,12 +80,6 @@ function AppRoutes() {
         <Route path="templates" element={<TemplatesPage />} />
         <Route path="setup" element={<SetupPage />} />
       </Route>
-      {/* Old panel stays reachable until Phase D cuts over; same guard. */}
-      <Route path="/admin-old" element={
-        !session ? <Navigate to="/login" replace />
-          : role !== 'admin' ? <Navigate to="/" replace />
-          : <Admin />
-      } />
       <Route path="/assessment" element={session ? <Assessment /> : <Navigate to="/login" replace />} />
       {/* Redesign is the working page; it carries the admin edit mode too. The
           old graph page (/learning/old) + ModulePopup were removed 2026-07-09. */}
