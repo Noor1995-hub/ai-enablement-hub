@@ -10,6 +10,7 @@ import type {
   AdminLearningUserEnriched,
   AdminSurvey,
   AdminUsersResponseEnriched,
+  AiSurfaceState,
   ApplyDefaultsResponse,
   BulkAssignmentRequest,
   CompanyOut,
@@ -219,6 +220,22 @@ export function useComponents(projectId: string | null) {
   return useQuery({
     queryKey: ['admin', 'components', projectId] as const,
     queryFn: () => fetchComponents(projectId as string),
+    enabled: projectId !== null,
+  })
+}
+
+async function fetchAiSettings(projectId: string): Promise<Record<string, AiSurfaceState>> {
+  const { data, error } = await client.GET('/api/admin/projects/{project_id}/ai', {
+    params: { path: { project_id: projectId } },
+  })
+  if (!data) throw new Error(errorMessage(error, 'Failed to load AI assistant settings.'))
+  return data.settings
+}
+
+export function useAiSettings(projectId: string | null) {
+  return useQuery({
+    queryKey: ['admin', 'ai', projectId] as const,
+    queryFn: () => fetchAiSettings(projectId as string),
     enabled: projectId !== null,
   })
 }
@@ -663,6 +680,52 @@ export function useToggleComponent() {
     },
     onSettled: (_data, _error, variables) => {
       void queryClient.invalidateQueries({ queryKey: ['admin', 'components', variables.projectId] })
+    },
+  })
+}
+
+export type AiSurfaceKind = 'chatbot' | 'assessment' | 'lesson' | 'interview'
+
+export interface ToggleAiSettingInput {
+  projectId: string
+  kind: AiSurfaceKind
+  enabled: boolean
+}
+
+async function toggleAiSetting({ projectId, kind, enabled }: ToggleAiSettingInput): Promise<void> {
+  const { error } = await client.PUT('/api/admin/projects/{project_id}/ai/{kind}', {
+    params: { path: { project_id: projectId, kind } },
+    body: { enabled },
+  })
+  if (error) throw new Error(errorMessage(error, 'Failed to update the AI assistant setting.'))
+}
+
+/** Optimistic on `['admin','ai',projectId]` — same onMutate-snapshot-onError-rollback shape
+ * as `useToggleComponent` (and for the same reason: a caller whose "busy" flag clears when
+ * `mutateAsync` resolves would otherwise read the stale pre-invalidation cache on a rapid
+ * second toggle and silently revert the first). Each AI surface has a single `enabled` flag,
+ * so the patch replaces the whole surface state. */
+export function useToggleAiSetting() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: toggleAiSetting,
+    onMutate: async ({ projectId, kind, enabled }) => {
+      const key = ['admin', 'ai', projectId] as const
+      await queryClient.cancelQueries({ queryKey: key })
+      const previous = queryClient.getQueryData<Record<string, AiSurfaceState>>(key)
+      if (previous) {
+        queryClient.setQueryData<Record<string, AiSurfaceState>>(key, {
+          ...previous,
+          [kind]: { enabled },
+        })
+      }
+      return { key, previous }
+    },
+    onError: (_error, _variables, context) => {
+      if (context?.previous) queryClient.setQueryData(context.key, context.previous)
+    },
+    onSettled: (_data, _error, variables) => {
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'ai', variables.projectId] })
     },
   })
 }

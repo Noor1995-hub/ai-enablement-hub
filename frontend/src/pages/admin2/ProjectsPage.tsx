@@ -3,9 +3,18 @@ import { useNavigate } from 'react-router-dom'
 import type { ComponentKey } from '../../lib/constants'
 import type { ComponentState } from '../../types/domain'
 import { COMPONENT_KEYS, COMPONENT_LABELS } from '../admin/adminStyles'
-import { useComponents, useCompanies, useToggleComponent } from './api'
+import type { AiSurfaceKind } from './api'
+import { useAiSettings, useComponents, useCompanies, useToggleAiSetting, useToggleComponent } from './api'
 import { Card, EmptyState, ErrorState, Spinner } from './kit'
 import { useScope } from './useScope'
+
+/** AI surfaces that get their own row below the component list. `assessment` is not
+ * here — it rides as a third toggle on the Assessment component row — and `interview`
+ * is intentionally not exposed (redundant with the Interview component). */
+const AI_ROWS: { kind: AiSurfaceKind; label: string }[] = [
+  { kind: 'chatbot', label: 'Chatbot' },
+  { kind: 'lesson', label: 'Lesson helper' },
+]
 
 /** Projects screen (spec §3.6, `/admin/projects`) — one card per project,
  * company-first title (`Company · Project`), with the component-access
@@ -92,7 +101,7 @@ export default function ProjectsPage() {
               </>
             }
           >
-            <ProjectComponentToggles projectId={project.id} />
+            <ProjectSettingsToggles projectId={project.id} />
           </Card>
         ))
       )}
@@ -100,13 +109,17 @@ export default function ProjectsPage() {
   )
 }
 
-/** One `useComponents`/`useToggleComponent` pair per project card — with N
- * projects, hooks can't run in a loop at the page level, so each card owns
- * its own query/mutation via this child component (the established
- * per-row-owns-its-query pattern; c.f. Matrix.tsx at a different grain). */
-function ProjectComponentToggles({ projectId }: { projectId: string }) {
+/** One project card's settings — component access AND AI surfaces. With N projects,
+ * hooks can't run in a loop at the page level, so each card owns its own
+ * queries/mutations via this child component (the established per-row-owns-its-query
+ * pattern; c.f. Matrix.tsx at a different grain). The `assessment` AI surface rides as
+ * a third toggle on the Assessment component row; `chatbot`/`lesson` get their own rows
+ * (AI_ROWS); the `interview` surface is intentionally not exposed. */
+function ProjectSettingsToggles({ projectId }: { projectId: string }) {
   const componentsQuery = useComponents(projectId)
+  const aiQuery = useAiSettings(projectId)
   const toggleComponent = useToggleComponent()
+  const toggleAiSetting = useToggleAiSetting()
   const [busyKey, setBusyKey] = useState<string | null>(null)
 
   async function handleToggle(comp: ComponentKey, current: ComponentState, field: 'hidden' | 'locked') {
@@ -125,7 +138,17 @@ function ProjectComponentToggles({ projectId }: { projectId: string }) {
     setBusyKey(null)
   }
 
-  if (componentsQuery.isLoading) {
+  async function handleToggleAi(kind: AiSurfaceKind, currentEnabled: boolean) {
+    setBusyKey(`ai-${kind}`)
+    try {
+      await toggleAiSetting.mutateAsync({ projectId, kind, enabled: !currentEnabled })
+    } catch {
+      // surfaced below via toggleAiSetting.isError
+    }
+    setBusyKey(null)
+  }
+
+  if (componentsQuery.isLoading || aiQuery.isLoading) {
     return (
       <div className="adm-loading">
         <Spinner size="sm" />
@@ -133,16 +156,22 @@ function ProjectComponentToggles({ projectId }: { projectId: string }) {
     )
   }
 
-  if (componentsQuery.isError || !componentsQuery.data) {
+  if (componentsQuery.isError || !componentsQuery.data || aiQuery.isError || !aiQuery.data) {
     return (
       <ErrorState
-        message={componentsQuery.error?.message ?? 'Failed to load component access.'}
-        onRetry={() => void componentsQuery.refetch()}
+        message={
+          componentsQuery.error?.message ?? aiQuery.error?.message ?? 'Failed to load project settings.'
+        }
+        onRetry={() => {
+          void componentsQuery.refetch()
+          void aiQuery.refetch()
+        }}
       />
     )
   }
 
   const data = componentsQuery.data
+  const aiData = aiQuery.data
 
   return (
     <div className="adm-comp-list">
@@ -176,8 +205,43 @@ function ProjectComponentToggles({ projectId }: { projectId: string }) {
               />
               unlocked
             </label>
+            {comp === 'assessment' && (
+              <label className="adm-switch-label">
+                <button
+                  type="button"
+                  className={`adm-switch${aiData.assessment?.enabled ? ' on' : ''}`}
+                  disabled={busyKey === 'ai-assessment'}
+                  aria-pressed={aiData.assessment?.enabled ?? false}
+                  aria-label="Assessment AI enabled"
+                  onClick={() => void handleToggleAi('assessment', aiData.assessment?.enabled ?? false)}
+                />
+                AI enabled
+              </label>
+            )}
             <span className="adm-subtext adm-push-right">
               {current.hidden ? 'Hidden from journey page' : current.locked ? 'Shown as locked tile' : 'Fully available'}
+            </span>
+          </div>
+        )
+      })}
+      {AI_ROWS.map(({ kind, label }) => {
+        const enabled = aiData[kind]?.enabled ?? false
+        return (
+          <div className="adm-comp-row" key={kind}>
+            <span className="adm-comp-name">{label}</span>
+            <label className="adm-switch-label">
+              <button
+                type="button"
+                className={`adm-switch${enabled ? ' on' : ''}`}
+                disabled={busyKey === `ai-${kind}`}
+                aria-pressed={enabled}
+                aria-label={`${label} enabled for learners`}
+                onClick={() => void handleToggleAi(kind, enabled)}
+              />
+              enabled
+            </label>
+            <span className="adm-subtext adm-push-right">
+              {enabled ? 'Enabled for learners' : 'Off — hidden from learners'}
             </span>
           </div>
         )
@@ -185,6 +249,13 @@ function ProjectComponentToggles({ projectId }: { projectId: string }) {
       {toggleComponent.isError && (
         <p className="adm-form-msg adm-form-msg-err">
           {toggleComponent.error instanceof Error ? toggleComponent.error.message : 'Failed to update component access.'}
+        </p>
+      )}
+      {toggleAiSetting.isError && (
+        <p className="adm-form-msg adm-form-msg-err">
+          {toggleAiSetting.error instanceof Error
+            ? toggleAiSetting.error.message
+            : 'Failed to update the AI assistant setting.'}
         </p>
       )}
     </div>

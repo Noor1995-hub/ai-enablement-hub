@@ -87,10 +87,14 @@ function AppRoutes() {
       <Route path="/learning" element={session ? <LearningPathNew /> : <Navigate to="/login" replace />} />
       <Route path="/learning/lesson/:lessonId" element={session ? <LessonPage /> : <Navigate to="/login" replace />} />
       <Route path="/interview" element={session ? <ComingSoon /> : <Navigate to="/login" replace />} />
-      {/* Temporary Batch A dev-only verification route for the AI chat foundation
-          (chat + AI-enable toggle harness). Delete once Batch B mounts ChatPanel
-          for real. */}
-      <Route path="/dev-chat" element={session ? <DevChat /> : <Navigate to="/login" replace />} />
+      {/* Temporary Batch A dev-only verification route for the AI chat foundation.
+          Admin-only (the AI-enable toggles now live on /admin/projects; this is just
+          the ChatPanel harness). Delete once Batch B mounts ChatPanel for real. */}
+      <Route path="/dev-chat" element={
+        !session ? <Navigate to="/login" replace />
+          : role !== 'admin' ? <Navigate to="/" replace />
+          : <DevChat />
+      } />
       <Route path="/invite/:id" element={<InviteRedirect />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
       <Route path="*" element={<Navigate to={needsPassword ? '/set-password' : session ? '/' : '/login'} replace />} />
