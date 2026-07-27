@@ -363,6 +363,7 @@ _MATRIX: list[tuple[str, str, Any, Any, bool]] = [
         lambda s: {"status": "accepted"},
         True,
     ),
+    ("dashboard", "GET", lambda s: "/api/admin/dashboard", lambda s: None, True),
 ]
 
 

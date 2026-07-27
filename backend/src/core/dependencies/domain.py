@@ -26,6 +26,7 @@ from src.repositories.survey_repository import SurveyRepository
 from src.repositories.user_repository import UserRepository
 from src.services.admin_user_service import AdminUserService
 from src.services.content_service import ContentService
+from src.services.dashboard_service import DashboardService
 from src.services.email_template_service import EmailTemplateService
 from src.services.feedback_service import FeedbackService
 from src.services.learning_service import LearningService
@@ -38,6 +39,7 @@ __all__ = [
     "get_assignment_repository",
     "get_content_repository",
     "get_content_service",
+    "get_dashboard_service",
     "get_email_template_repository",
     "get_email_template_service",
     "get_feedback_repository",
@@ -151,3 +153,16 @@ def get_admin_user_service(
     progress: Annotated[ProgressRepository, Depends(get_progress_repository)],
 ) -> AdminUserService:
     return AdminUserService(users, org, assignments, content, surveys, sessions, progress)
+
+
+def get_dashboard_service(
+    users: Annotated[UserRepository, Depends(get_user_repository)],
+    org: Annotated[OrgRepository, Depends(get_org_repository)],
+    assignments: Annotated[AssignmentRepository, Depends(get_assignment_repository)],
+    content: Annotated[ContentRepository, Depends(get_content_repository)],
+    surveys: Annotated[SurveyRepository, Depends(get_survey_repository)],
+    sessions: Annotated[AuthSessionRepository, Depends(get_auth_session_repository)],
+    progress: Annotated[ProgressRepository, Depends(get_progress_repository)],
+    feedback: Annotated[FeedbackRepository, Depends(get_feedback_repository)],
+) -> DashboardService:
+    return DashboardService(users, org, assignments, content, surveys, sessions, progress, feedback)
