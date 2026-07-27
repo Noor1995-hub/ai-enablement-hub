@@ -227,16 +227,18 @@ export default function PeoplePage() {
       {bulkMessage && <p className="adm-form-msg adm-form-msg-ok">{bulkMessage}</p>}
 
       <Card>
-        <Table
-          columns={columns}
-          rows={data.users}
-          rowKey={row => row.id}
-          onRowClick={handleRowClick}
-          selectable
-          selected={selected}
-          onSelect={setSelected}
-          empty={<EmptyState title="No participants found" hint="Try a different search or filter." />}
-        />
+        <div className="adm-table-wrap">
+          <Table
+            columns={columns}
+            rows={data.users}
+            rowKey={row => row.id}
+            onRowClick={handleRowClick}
+            selectable
+            selected={selected}
+            onSelect={setSelected}
+            empty={<EmptyState title="No participants found" hint="Try a different search or filter." />}
+          />
+        </div>
       </Card>
 
       <div className="adm-pager">

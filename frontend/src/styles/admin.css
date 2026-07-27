@@ -246,6 +246,11 @@
 .adm-select-look svg { color: var(--adm-muted); }
 
 /* ── Table ───────────────────────────────────────────────────────────── */
+/* Scroll container so a wide table (many/long columns) scrolls WITHIN its
+ * card instead of spilling past it — same overflow-x mechanism as the
+ * Assignments matrix's `.adm-matrix-wrap`, scoped to the table's own
+ * wrapper so it can't affect that unrelated component. */
+.adm-table-wrap { overflow-x: auto; }
 .adm-table { width: 100%; border-collapse: collapse; font-family: var(--dlw-font-body); font-size: 13.5px; }
 .adm-table th {
   font-family: var(--dlw-font-ui); font-size: 10.5px; font-weight: 600; letter-spacing: .1em;

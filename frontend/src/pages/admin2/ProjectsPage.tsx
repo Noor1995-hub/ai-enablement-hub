@@ -5,6 +5,7 @@ import type { ComponentState } from '../../types/domain'
 import { COMPONENT_KEYS, COMPONENT_LABELS } from '../admin/adminStyles'
 import { useComponents, useCompanies, useToggleComponent } from './api'
 import { Card, EmptyState, ErrorState, Spinner } from './kit'
+import { useScope } from './useScope'
 
 /** Projects screen (spec §3.6, `/admin/projects`) — one card per project,
  * company-first title (`Company · Project`), with the component-access
@@ -14,10 +15,16 @@ import { Card, EmptyState, ErrorState, Spinner } from './kit'
  * pre-scoped to that project (`?project={id}`, same convention as
  * PeoplePage's row-click navigation). Prototype:
  * docs/design-prototypes/admin-redesign option-b.html `projects()` +
- * common.js `componentsHTML()`. */
+ * common.js `componentsHTML()`.
+ *
+ * Respects the top-level scope switcher (spec §3.6 parity with the other
+ * screens): with `?project=` set, only that project (and its parent company)
+ * renders; with no scope ("all projects"), every company/project renders,
+ * same as before this filter existed. */
 export default function ProjectsPage() {
   const companiesQuery = useCompanies()
   const navigate = useNavigate()
+  const scope = useScope()
 
   if (companiesQuery.isLoading) {
     return (
@@ -36,7 +43,9 @@ export default function ProjectsPage() {
     )
   }
 
-  const rows = companiesQuery.data.flatMap(company => company.projects.map(project => ({ company, project })))
+  const rows = companiesQuery.data
+    .flatMap(company => company.projects.map(project => ({ company, project })))
+    .filter(({ project }) => scope.projectId === null || project.id === scope.projectId)
 
   function goTo(path: string, projectId: string) {
     navigate({ pathname: path, search: `?project=${projectId}` })
