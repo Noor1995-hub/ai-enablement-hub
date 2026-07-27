@@ -33,6 +33,9 @@ ENV PATH="/app/.venv/bin:$PATH" \
 RUN useradd --create-home --uid 1000 appuser
 COPY --from=backend-deps --chown=appuser:appuser /app/.venv /app/.venv
 COPY --chown=appuser:appuser backend/src ./src
+# Runtime-loaded system prompts (services/prompts.py reads /app/prompts/<kind>.md).
+# Also un-ignored in .dockerignore, which otherwise drops all *.md from the context.
+COPY --chown=appuser:appuser backend/prompts ./prompts
 COPY --chown=appuser:appuser backend/alembic ./alembic
 COPY --chown=appuser:appuser backend/alembic.ini backend/startup.py ./
 COPY --from=frontend-build --chown=appuser:appuser /fe/dist ./static

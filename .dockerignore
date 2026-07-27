@@ -48,6 +48,13 @@ infra/**
 *.md
 **/*.md
 CLAUDE.md
+# EXCEPTION: backend/prompts/*.md are runtime-loaded system prompts (load_prompt in
+# services/prompts.py reads /app/prompts/<kind>.md), NOT docs — re-include them despite
+# the blanket *.md exclusion above (later rules win). Listed bare AND with /** for the
+# old az CLI's buggy dir matcher, same convention as the exclusions above. The Dockerfile
+# must also `COPY backend/prompts ./prompts` — .dockerignore only controls the upload.
+!backend/prompts
+!backend/prompts/**
 .claude
 .claude/**
 .gitignore
