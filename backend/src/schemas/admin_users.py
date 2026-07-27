@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
 __all__ = [
     "AdminLearningLessonOut",
@@ -15,6 +15,7 @@ __all__ = [
     "AdminUserOut",
     "AdminUsersResponse",
     "AssignmentRequest",
+    "BulkAssignmentRequest",
     "BulkInviteReport",
     "BulkInviteRow",
     "BulkInviteSummary",
@@ -25,6 +26,7 @@ __all__ = [
     "InviteRequest",
     "LinkResponse",
     "MaturityOverrideRequest",
+    "ReminderResponse",
     "RoleUpdateRequest",
     "SurveyLevelsResponse",
     "UserSurveyResponse",
@@ -59,10 +61,28 @@ class AdminUserOut(BaseModel):
     # admin table shows effective with a pin indicator when overridden.
     maturity_override: str | None
     effective_maturity: str | None
+    # Task 8 status/progress/attention/provenance enrichment (all additive).
+    # last_active_at = latest refresh-session use (null = never active);
+    # activated = password_set OR external_id linked; the two lesson counts are
+    # summed over the user's assigned lessons; needs_attention/attention_reason
+    # come from core.attention.attention_for; the default_* lists carry the
+    # "assigned via project default" provenance (the matrix's "via default" tint).
+    last_active_at: datetime | None
+    activated: bool
+    assigned_lesson_count: int
+    completed_lesson_count: int
+    needs_attention: bool
+    attention_reason: str | None
+    default_track_ids: list[uuid.UUID]
+    default_module_ids: list[uuid.UUID]
+    default_lesson_ids: list[uuid.UUID]
 
 
 class AdminUsersResponse(BaseModel):
     users: list[AdminUserOut]
+    # Task 9: total AFTER q/status filtering, BEFORE limit/offset slicing —
+    # additive; the old admin panel (no query params) ignores unknown fields.
+    total: int
 
 
 class InviteRequest(BaseModel):
@@ -83,6 +103,11 @@ EmailStatus = Literal["sent", "failed", "disabled", "skipped"]
 
 class LinkResponse(BaseModel):
     link: str
+    email_status: EmailStatus
+
+
+class ReminderResponse(BaseModel):
+    # Never "skipped" — the reminder endpoint has no link-only variant.
     email_status: EmailStatus
 
 
@@ -145,6 +170,25 @@ class BulkLessonAssignmentRequest(BaseModel):
     assigned: bool
 
 
+class BulkAssignmentRequest(BaseModel):
+    """Many-users × one content kind (spec §4.2). Exactly one of the three id
+    lists must be provided; all provided lists must be non-empty."""
+
+    user_ids: list[uuid.UUID] = Field(min_length=1)
+    track_ids: list[uuid.UUID] | None = Field(default=None, min_length=1)
+    module_ids: list[uuid.UUID] | None = Field(default=None, min_length=1)
+    lesson_ids: list[uuid.UUID] | None = Field(default=None, min_length=1)
+    assigned: bool
+
+    @model_validator(mode="after")
+    def _exactly_one_kind(self) -> BulkAssignmentRequest:
+        provided = [x for x in (self.track_ids, self.module_ids, self.lesson_ids) if x is not None]
+        if len(provided) != 1:
+            msg = "provide exactly one of track_ids, module_ids or lesson_ids"
+            raise ValueError(msg)
+        return self
+
+
 class AdminLearningModuleOut(BaseModel):
     id: uuid.UUID
     track_id: uuid.UUID
@@ -168,12 +212,19 @@ class AdminLearningUserOut(BaseModel):
     assigned_track_ids: list[uuid.UUID]
     assigned_module_ids: list[uuid.UUID]
     assigned_lesson_ids: list[uuid.UUID]
+    # Task 8: the "assigned via project default" provenance for the matrix tint.
+    default_track_ids: list[uuid.UUID]
+    default_module_ids: list[uuid.UUID]
+    default_lesson_ids: list[uuid.UUID]
 
 
 class AdminLearningResponse(BaseModel):
     modules: list[AdminLearningModuleOut]
     lessons: list[AdminLearningLessonOut]
     users: list[AdminLearningUserOut]
+    # Task 9: total users AFTER project_id filtering, BEFORE limit/offset
+    # slicing — modules/lessons are never paginated. Additive field.
+    total: int
 
 
 class SurveyLevelsResponse(BaseModel):

@@ -12,14 +12,18 @@ from typing import TYPE_CHECKING
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import select
 
 from src.core.dependencies.database import get_session
 from src.core.dependencies.email import get_email_service
 from src.core.dependencies.settings import get_settings
+from src.db.models import ProjectTrackDefault, User, UserLesson, UserModule, UserTrack
 from src.main import app
 from src.repositories.assignment_repository import AssignmentRepository
+from src.repositories.auth_session_repository import AuthSessionRepository
 from src.repositories.content_repository import ContentRepository
 from src.repositories.org_repository import OrgRepository
+from src.repositories.progress_repository import ProgressRepository
 from src.repositories.survey_repository import SurveyRepository
 from src.repositories.user_repository import UserRepository
 from src.services.admin_user_service import AdminUserService
@@ -27,7 +31,14 @@ from src.services.email_service import EmailSender, EmailService
 from src.services.exceptions import NotFoundError
 from tests.fixtures.auth import auth_headers
 from tests.fixtures.email import TEST_EMAIL, RaisingSender, RecordingSender
-from tests.fixtures.factories import create_company, create_project, create_user
+from tests.fixtures.factories import (
+    create_company,
+    create_lesson,
+    create_module,
+    create_project,
+    create_track,
+    create_user,
+)
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -41,6 +52,8 @@ def admin_user_service(db_session: AsyncSession) -> AdminUserService:
         AssignmentRepository(db_session),
         ContentRepository(db_session),
         SurveyRepository(db_session),
+        AuthSessionRepository(db_session),
+        ProgressRepository(db_session),
     )
 
 
@@ -276,3 +289,45 @@ class TestBulkInviteEndpoint:
             client, _CSV, project.id, dry_run=True, headers=auth_headers(member, test_settings)
         )
         assert resp.status_code == 403
+
+    async def test_commit_materializes_project_defaults_for_created_users(
+        self,
+        client: AsyncClient,
+        project,
+        headers,
+        db_session,
+    ) -> None:
+        """A project with a default track: every user created via the bulk CSV
+        path gets that track (+ its modules/lessons) materialized with
+        assigned_via='default', same as the single-invite path."""
+        track = await create_track(db_session)
+        module = await create_module(db_session, track)
+        lesson = await create_lesson(db_session, module)
+        db_session.add(ProjectTrackDefault(project_id=project.id, track_id=track.id))
+        await db_session.commit()
+        csv_text = "first_name,last_name,email\nDef,Ault,defaulted@acme.be\n"
+        resp = await _upload(client, csv_text, project.id, dry_run=False, headers=headers)
+        assert resp.status_code == 200
+        assert resp.json()["summary"]["created"] == 1
+
+        user = (
+            await db_session.execute(select(User).where(User.email == "defaulted@acme.be"))
+        ).scalar_one()
+        track_rows = (
+            (await db_session.execute(select(UserTrack).where(UserTrack.user_id == user.id)))
+            .scalars()
+            .all()
+        )
+        assert {(r.track_id, r.assigned_via) for r in track_rows} == {(track.id, "default")}
+        module_rows = (
+            (await db_session.execute(select(UserModule).where(UserModule.user_id == user.id)))
+            .scalars()
+            .all()
+        )
+        assert {(r.module_id, r.assigned_via) for r in module_rows} == {(module.id, "default")}
+        lesson_rows = (
+            (await db_session.execute(select(UserLesson).where(UserLesson.user_id == user.id)))
+            .scalars()
+            .all()
+        )
+        assert {(r.lesson_id, r.assigned_via) for r in lesson_rows} == {(lesson.id, "default")}

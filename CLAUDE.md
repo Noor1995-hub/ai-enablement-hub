@@ -64,6 +64,15 @@ the full dated build story for each is in the **Appendix** at the bottom of this
 - **Cascading track/module assignment** — assigning a track/module now auto-assigns
   everything under it (full resync, both ways) —
   `specs/2026-07-23-cascading-track-module-assignment-design.md`; `services/admin_user_service.py`.
+- **Admin panel redesign** — function-first routed shell under `/admin/*` (Dashboard · People ·
+  user detail · Assignments matrix · Feedback · Projects · Email templates · Setup;
+  `frontend/src/pages/admin2/`) replacing the old single-page MVP panel; adds project default
+  assignments + `assigned_via` provenance, multi-user bulk assignment, feedback triage, reminder
+  email, payload enrichment (status/progress/attention), pagination/filters, and a dashboard
+  aggregates endpoint. **Code-complete + review-approved on `feature/admin-panel-redesign`,
+  dev DB migrated — NOT browser-verified, NOT merged to `main`, NOT deployed.**
+  Spec `specs/2026-07-23-admin-panel-redesign-design.md`; plan
+  `plans/2026-07-23-admin-panel-redesign.md`; Appendix below for the full build story.
 - **Introduction level** — `specs/2026-07-17-introduction-level-design.md` (+ plan).
 - **`user+` role** — `specs/2026-07-22-user-plus-role-design.md`.
 - **Lesson feedback** — `specs/2026-07-14-lesson-feedback-design.md`; `routers/feedback.py`.
@@ -246,6 +255,33 @@ real server-side gate 2026-07-23)
   + `/api/auth/methods` green. NOT browser-verified (no browser automation) — spot-check: set a
   learner to user+ via the admin User/User+/Admin dropdown, confirm `/learning` shows everything
   unlocked and `/admin` still redirects them away.
+- **Redeployed 2026-07-27** (`ai-enablement-hub:20260727-133456`, revision `--0000022`,
+  user-approved): the **admin panel redesign** — a function-first routed shell under `/admin/*`
+  (Dashboard · People · user detail · Assignments matrix · Feedback · Projects · Email templates ·
+  Setup; `frontend/src/pages/admin2/`) replacing the old single-page `Admin.tsx` panel, plus the
+  backend that feeds it (project default assignments + `assigned_via` provenance, multi-user bulk
+  assignment, feedback triage, reminder email, status/progress/attention enrichment,
+  pagination/filters, dashboard aggregates). Spec/plan `2026-07-23-admin-panel-redesign-*`; built
+  subagent-driven (ledger `.superpowers/sdd/progress.md`). Shipped from `main`:
+  `feature/admin-panel-redesign` fast-forward-merged into `main` (`7f5e35e..3eec8a9`) and pushed to
+  `origin`; deployed from a **fresh `git worktree` of the pushed commit** per the deploy discipline
+  below (so the working dir's staged/untracked files stayed out of the build context). Migrations
+  applied to prod via `startup.py`: this branch's two migrations were **re-parented onto Matthias's
+  chat-foundation migration `12bf5f54a1e4`** (both originally chained off `e2f3a4b5c6d7`), so this
+  deploy applied `12bf5f54a1e4` (his chat tables `conversations`/`messages`/`project_ai_settings` —
+  **empty and unused until his ai-chat app code ships**) + `b5c6d7e8f9a0` (project_track_defaults +
+  `assigned_via`) + `c6d7e8f9a0b1` (feedback status columns). **Prod alembic head is now
+  `c6d7e8f9a0b1`** (progression: `e2f3a4b5c6d7` → `12bf5f54a1e4` → `b5c6d7e8f9a0` → `c6d7e8f9a0b1`).
+  Post-deploy `/api/health` `{"status":"ok"}` + `/api/auth/methods` `{"password":true,"entra":false}`
+  green on revision `--0000022` (`latestReadyRevision == latestRevision`, `runningStatus: Running`);
+  healthy startup ⇒ the migrations applied cleanly (they run before the port binds). **NOT fully
+  browser-verified on prod** — the People table-overflow and Projects-scope-filter fixes were
+  verified live against the local dev stack, but the full spec §7 five-flow walk was not completed;
+  spot-check `/admin` on prod (log in, scan Dashboard, People search/filter/pager, Assignments
+  matrix + defaults, Feedback triage). **Cross-team:** prod now carries Matthias's (empty) chat
+  tables ahead of his own ai-chat deploy — his eventual deploy finds `12bf5f54a1e4` already applied
+  (no-op); his pending AI-settings UI must target `admin2/ProjectsPage.tsx`, not the deleted
+  `ProjectDetailView.tsx`.
 - **Source control / branching (documented 2026-07-22).** Work happens on feature branches
   (`feature/*`) and on the longer-lived `introduction-level` branch; `main` is the integration
   line. **`.\deploy.ps1` builds the image from the working directory, NOT from git** — so prod
@@ -689,3 +725,43 @@ this file; drop into this appendix for the full backstory of any one feature.
   optimistically patching one assignment array, since a single toggle can change three arrays
   at once; lesson toggles keep the prior optimistic patch (no cascade there). Spec:
   `docs/superpowers/specs/2026-07-23-cascading-track-module-assignment-design.md`.
+
+- **Admin panel redesign (2026-07-27) — code-complete + review-approved on branch
+  `feature/admin-panel-redesign`; dev DB migrated; NOT browser-verified end-to-end, NOT merged
+  to `main`, NOT deployed.** Replaces the MVP admin panel with a function-first routed shell
+  under `/admin/*`. Spec `docs/superpowers/specs/2026-07-23-admin-panel-redesign-design.md`,
+  plan `docs/superpowers/plans/2026-07-23-admin-panel-redesign.md` (executed subagent-driven,
+  task-by-task with a reviewer after each; ledger `.superpowers/sdd/progress.md`).
+  - **Frontend** (`frontend/src/pages/admin2/`): routed shell `AdminShell.tsx` (sidebar + topbar +
+    `?project=` scope switcher: all-projects vs one project), a `kit/` component library
+    (Tile/Card/Chip/Table/BulkBar/Modal/Toolbar/ProgressBar/ConfirmButton/EmptyState/ErrorState/
+    Spinner), TanStack Query hooks in `api.ts` (new dep `@tanstack/react-query`), and one
+    `*Page.tsx` per section: Dashboard, People (+ InviteModal), User detail, Assignments (the
+    matrix with a project-defaults row + optimistic cell toggles), Feedback triage queue,
+    Projects, Email templates, Setup. Styles in `frontend/src/styles/admin.css` on `--dlw-*`/
+    `--adm-*` tokens.
+  - **Backend** (all additive under `/api/admin/*`): `project_track_defaults` table +
+    `assigned_via` provenance on `user_tracks`/`user_modules`/`user_lessons` (migration
+    `b5c6d7e8f9a0`); GET/PUT + `defaults/apply` project-defaults endpoints, defaults materialized
+    on invite; multi-user `POST /api/admin/assignments/bulk`; feedback triage status columns +
+    admin queue (migration `c6d7e8f9a0b1`); reminder email endpoint; admin user/learning payload
+    enrichment (status/progress/attention/provenance) with the per-user N+1 full-table scans
+    replaced by batched `*_for_users` reads; pagination + `q`/`status` filters on `/admin/users`
+    and `/admin/learning` (back-compatible — omitted params reproduce the old full-list response
+    plus an additive `total`); dashboard aggregates `GET /api/admin/dashboard`. The attention
+    rules (stalled > 14d, active ≤ 7d — spec §4.4) live in the pure `backend/src/core/attention.py`
+    shared by the People and Dashboard services (services never call services).
+  - **Migration chain:** this branch's two migrations were re-parented onto Matthias's
+    chat-foundation migration `12bf5f54a1e4` (both originally chained off `e2f3a4b5c6d7`) so the
+    shared dev DB — already at his revision — could apply them; single head `c6d7e8f9a0b1`. When
+    ai-chat-foundation and this branch both reach `main`, that re-parent is the reconciliation.
+  - **Retired at cutover** (commit deleting the old panel): `frontend/src/pages/Admin.tsx`,
+    `admin/ProjectsView.tsx`, `admin/ProjectDetailView.tsx`, `admin/ParticipantDetail.tsx`, and the
+    `/admin-old` route. Kept and reused by the new panel: `SurveyResults`, `BulkInviteModal`,
+    `EmailTemplatesCard`, `adminHelpers.tsx`, and the ported Setup forms. Follow-up cleanup:
+    `admin/SetupView.tsx` and the `ResetLinkEntry` type are now orphaned (reimplemented/relocated).
+  - **Before relying on it:** run the dev stack and browser-verify the core flows (dashboard scan,
+    project funnel + attention, People bulk-assign, matrix defaults + apply, feedback accept/
+    dismiss/undo, user-detail assessed vs not-assessed, invite defaults banner); coordinate the
+    deploy with Matthias's migration reaching prod; and note Matthias's pending AI-settings UI must
+    target `admin2/ProjectsPage.tsx`, not the deleted `ProjectDetailView`.

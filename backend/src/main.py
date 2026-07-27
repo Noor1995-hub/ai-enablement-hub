@@ -22,7 +22,10 @@ from src.repositories.auth_token_repository import AuthTokenRepository
 from src.repositories.user_repository import UserRepository
 from src.routers import (
     admin_content,
+    admin_dashboard,
+    admin_defaults,
     admin_email_templates,
+    admin_feedback,
     admin_media,
     admin_org,
     admin_users,
@@ -183,6 +186,9 @@ app.include_router(admin_email_templates.router)
 app.include_router(admin_content.router)
 app.include_router(admin_media.router)
 app.include_router(chat.router)
+app.include_router(admin_defaults.router)
+app.include_router(admin_feedback.router)
+app.include_router(admin_dashboard.router)
 app.include_router(feedback.router)
 
 # Single error shape for the frontend: {"error": {"code", "message"[, "fields"]}}

@@ -3,10 +3,16 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
-from src.db.models import Company, Project, ProjectAiSetting, ProjectComponentSetting
+from src.db.models import (
+    Company,
+    Project,
+    ProjectAiSetting,
+    ProjectComponentSetting,
+    ProjectTrackDefault,
+)
 from src.repositories.base import AbstractOrgRepository
 
 __all__ = ["OrgRepository"]
@@ -92,4 +98,19 @@ class OrgRepository(AbstractOrgRepository):
             index_elements=["project_id", "kind"], set_={"enabled": stmt.excluded.enabled}
         )
         await self._session.execute(stmt)
+        await self._session.commit()
+
+    async def default_track_ids(self, project_id: uuid.UUID) -> list[uuid.UUID]:
+        result = await self._session.execute(
+            select(ProjectTrackDefault.track_id).where(ProjectTrackDefault.project_id == project_id)
+        )
+        return list(result.scalars().all())
+
+    async def set_default_tracks(self, project_id: uuid.UUID, track_ids: list[uuid.UUID]) -> None:
+        await self._session.execute(
+            delete(ProjectTrackDefault).where(ProjectTrackDefault.project_id == project_id)
+        )
+        self._session.add_all(
+            ProjectTrackDefault(project_id=project_id, track_id=track_id) for track_id in track_ids
+        )
         await self._session.commit()

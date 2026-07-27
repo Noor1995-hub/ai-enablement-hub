@@ -25,6 +25,7 @@ from src.schemas.admin_users import (
     AdminUserOut,
     AdminUsersResponse,
     AssignmentRequest,
+    BulkAssignmentRequest,
     BulkInviteReport,
     BulkInviteRow,
     BulkInviteSummary,
@@ -35,6 +36,7 @@ from src.schemas.admin_users import (
     InviteRequest,
     LinkResponse,
     MaturityOverrideRequest,
+    ReminderResponse,
     RoleUpdateRequest,
     SurveyLevelsResponse,
     UserSurveyResponse,
@@ -42,6 +44,7 @@ from src.schemas.admin_users import (
 from src.services.admin_user_service import AdminUserService
 from src.services.email_service import EmailService
 from src.services.email_template_service import EmailTemplateService
+from src.services.email_templates import REMINDER_TEMPLATE, build_reminder_tokens, render_email
 from src.services.exceptions import PayloadTooLargeError
 from src.services.invite_csv import MAX_INVITE_CSV_BYTES, build_preview, parse_invite_csv
 from src.services.maturity_service import MaturityService
@@ -117,9 +120,21 @@ async def _email_the_link(
 async def list_users(
     admin_user_service: AdminUserServiceDep,
     project_id: Annotated[uuid.UUID | None, Query()] = None,
+    q: Annotated[str | None, Query()] = None,
+    status: Annotated[Literal["active", "invited", "attention"] | None, Query()] = None,
+    limit: Annotated[int | None, Query(ge=1, le=200)] = None,
+    offset: Annotated[int, Query(ge=0)] = 0,
 ) -> AdminUsersResponse:
-    users = await admin_user_service.list_users(project_id)
-    return AdminUsersResponse(users=[AdminUserOut.model_validate(user) for user in users])
+    """limit/offset/q/status are all optional — omitting them reproduces the
+    full list exactly as before Task 9 (the old admin panel sends no query
+    params). `total` is additive: count after q/status filtering, before
+    limit/offset slicing."""
+    users, total = await admin_user_service.list_users(
+        project_id, q=q, status=status, limit=limit, offset=offset
+    )
+    return AdminUsersResponse(
+        users=[AdminUserOut.model_validate(user) for user in users], total=total
+    )
 
 
 @router.post("/invites", response_model=LinkResponse, status_code=status.HTTP_201_CREATED)
@@ -282,6 +297,36 @@ async def create_reset_link(
     return LinkResponse(link=link, email_status=email_status)
 
 
+@router.post("/users/{user_id}/reminder", response_model=ReminderResponse)
+async def send_reminder(
+    user_id: uuid.UUID,
+    admin_user_service: AdminUserServiceDep,
+    settings: SettingsDep,
+    limiter: RateLimiterDep,
+    email_service: EmailServiceDep,
+) -> ReminderResponse:
+    """Nudge a learner who has content waiting. The template is a fixed
+    module constant (not per-project-customizable, unlike invite/reset) —
+    rendered directly via render_email, with no EmailTemplateService lookup."""
+    user, project_name = await admin_user_service.reminder_context(user_id)
+    if limiter.is_limited(f"reminder:{user.email}"):
+        raise _RATE_LIMITED
+    if email_service is None:
+        return ReminderResponse(email_status="disabled")
+    content = render_email(
+        REMINDER_TEMPLATE.subject,
+        REMINDER_TEMPLATE.body_markdown,
+        tokens=build_reminder_tokens(
+            first_name=user.first_name,
+            last_name=user.last_name,
+            project_name=project_name,
+            login_url=f"{settings.app.url.rstrip('/')}/login",
+        ),
+    )
+    sent = await email_service.send(user.email, content)
+    return ReminderResponse(email_status="sent" if sent else "failed")
+
+
 @router.patch("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def update_user_role(
     user_id: uuid.UUID, body: RoleUpdateRequest, admin_user_service: AdminUserServiceDep
@@ -366,9 +411,34 @@ async def set_user_lessons(
     await admin_user_service.set_lesson_assignments(user_id, body.lesson_ids, body.assigned)
 
 
+@router.post("/assignments/bulk", status_code=status.HTTP_204_NO_CONTENT)
+async def bulk_assign(body: BulkAssignmentRequest, admin_user_service: AdminUserServiceDep) -> None:
+    """Many-users × one content kind ("assign N users to this track/module/
+    lesson"); 404 if any user or content id is unknown, validated before any
+    write. The schema enforces exactly one of track_ids/module_ids/lesson_ids."""
+    await admin_user_service.bulk_assign(
+        body.user_ids,
+        track_ids=body.track_ids,
+        module_ids=body.module_ids,
+        lesson_ids=body.lesson_ids,
+        assigned=body.assigned,
+    )
+
+
 @router.get("/learning", response_model=AdminLearningResponse)
-async def get_learning_overview(admin_user_service: AdminUserServiceDep) -> AdminLearningResponse:
-    return AdminLearningResponse(**await admin_user_service.learning_overview())
+async def get_learning_overview(
+    admin_user_service: AdminUserServiceDep,
+    project_id: Annotated[uuid.UUID | None, Query()] = None,
+    limit: Annotated[int | None, Query(ge=1, le=200)] = None,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> AdminLearningResponse:
+    """Paginates the `users` array only — `modules`/`lessons` always come back
+    complete. limit/offset/project_id are optional, so omitting them
+    reproduces the pre-Task-9 full (unscoped) list, plus the additive `total`."""
+    overview = await admin_user_service.learning_overview(
+        project_id=project_id, limit=limit, offset=offset
+    )
+    return AdminLearningResponse(**overview)
 
 
 @router.get("/surveys", response_model=SurveyLevelsResponse)

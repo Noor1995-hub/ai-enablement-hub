@@ -2,7 +2,15 @@ import { useLayoutEffect } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import Spinner from './components/Spinner'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
-import Admin from './pages/Admin'
+import AdminShell from './pages/admin2/AdminShell'
+import AssignmentsPage from './pages/admin2/AssignmentsPage'
+import DashboardPage from './pages/admin2/DashboardPage'
+import FeedbackPage from './pages/admin2/FeedbackPage'
+import PeoplePage from './pages/admin2/PeoplePage'
+import ProjectsPage from './pages/admin2/ProjectsPage'
+import SetupPage from './pages/admin2/SetupPage'
+import TemplatesPage from './pages/admin2/TemplatesPage'
+import UserDetailPage from './pages/admin2/UserDetailPage'
 import Assessment from './pages/Assessment'
 import AuthCallback from './pages/AuthCallback'
 import DevChat from './pages/DevChat'
@@ -62,8 +70,17 @@ function AppRoutes() {
       <Route path="/admin" element={
         !session ? <Navigate to="/login" replace />
           : role !== 'admin' ? <Navigate to="/" replace />
-          : <Admin />
-      } />
+          : <AdminShell />
+      }>
+        <Route index element={<DashboardPage />} />
+        <Route path="people" element={<PeoplePage />} />
+        <Route path="people/:userId" element={<UserDetailPage />} />
+        <Route path="assignments" element={<AssignmentsPage />} />
+        <Route path="feedback" element={<FeedbackPage />} />
+        <Route path="projects" element={<ProjectsPage />} />
+        <Route path="templates" element={<TemplatesPage />} />
+        <Route path="setup" element={<SetupPage />} />
+      </Route>
       <Route path="/assessment" element={session ? <Assessment /> : <Navigate to="/login" replace />} />
       {/* Redesign is the working page; it carries the admin edit mode too. The
           old graph page (/learning/old) + ModulePopup were removed 2026-07-09. */}

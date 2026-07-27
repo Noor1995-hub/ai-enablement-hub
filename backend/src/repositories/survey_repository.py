@@ -43,3 +43,11 @@ class SurveyRepository(AbstractSurveyRepository):
             )
         )
         return {row[0]: row[1] for row in result.all()}
+
+    async def user_ids_with_survey(self, user_ids: list[uuid.UUID]) -> set[uuid.UUID]:
+        if not user_ids:
+            return set()
+        result = await self._session.execute(
+            select(SurveyResponse.user_id).where(SurveyResponse.user_id.in_(user_ids))
+        )
+        return set(result.scalars().all())

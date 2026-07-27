@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 import pytest_asyncio
@@ -12,6 +13,7 @@ from sqlalchemy import func, select
 
 from tests.fixtures.auth import auth_headers
 from tests.fixtures.factories import (
+    assign_lesson,
     assign_track,
     complete_lesson,
     create_company,
@@ -855,3 +857,300 @@ class TestSurveyResults:
     async def test_user_survey_unknown_user_is_404(self, client: AsyncClient, org: Org) -> None:
         response = await client.get(f"/api/admin/surveys/{uuid.uuid4()}", headers=org.headers)
         assert response.status_code == 404
+
+
+class TestMultiUserBulk:
+    """POST /api/admin/assignments/bulk — many-users × one content kind."""
+
+    async def test_bulk_assign_tracks_cascades_for_every_user(
+        self, client: AsyncClient, db_session: AsyncSession, test_settings: Settings
+    ) -> None:
+        from src.db.models import UserLesson, UserTrack
+
+        admin = await create_user(db_session, email="mb1@x.test", role="admin")
+        u1 = await create_user(db_session, email="mb-u1@x.test")
+        u2 = await create_user(db_session, email="mb-u2@x.test")
+        track = await create_track(db_session)
+        module = await create_module(db_session, track)
+        lesson = await create_lesson(db_session, module)
+        resp = await client.post(
+            "/api/admin/assignments/bulk",
+            json={
+                "user_ids": [str(u1.id), str(u2.id)],
+                "track_ids": [str(track.id)],
+                "assigned": True,
+            },
+            headers=auth_headers(admin, test_settings),
+        )
+        assert resp.status_code == 204
+        for uid in (u1.id, u2.id):
+            tracks = (
+                (await db_session.execute(select(UserTrack).where(UserTrack.user_id == uid)))
+                .scalars()
+                .all()
+            )
+            lessons = (
+                (await db_session.execute(select(UserLesson).where(UserLesson.user_id == uid)))
+                .scalars()
+                .all()
+            )
+            assert [t.track_id for t in tracks] == [track.id]
+            assert [t.assigned_via for t in tracks] == ["manual"]
+            assert [le.lesson_id for le in lessons] == [lesson.id]
+
+    async def test_unknown_user_404_writes_nothing(
+        self, client: AsyncClient, db_session: AsyncSession, test_settings: Settings
+    ) -> None:
+        from src.db.models import UserTrack
+
+        admin = await create_user(db_session, email="mb2@x.test", role="admin")
+        u1 = await create_user(db_session, email="mb-u3@x.test")
+        track = await create_track(db_session)
+        resp = await client.post(
+            "/api/admin/assignments/bulk",
+            json={
+                "user_ids": [str(u1.id), str(uuid.uuid4())],
+                "track_ids": [str(track.id)],
+                "assigned": True,
+            },
+            headers=auth_headers(admin, test_settings),
+        )
+        assert resp.status_code == 404
+        assert (await db_session.execute(select(UserTrack))).scalars().all() == []
+
+    async def test_two_content_kinds_422(
+        self, client: AsyncClient, db_session: AsyncSession, test_settings: Settings
+    ) -> None:
+        admin = await create_user(db_session, email="mb3@x.test", role="admin")
+        u1 = await create_user(db_session, email="mb-u4@x.test")
+        track = await create_track(db_session)
+        module = await create_module(db_session, track)
+        resp = await client.post(
+            "/api/admin/assignments/bulk",
+            json={
+                "user_ids": [str(u1.id)],
+                "track_ids": [str(track.id)],
+                "module_ids": [str(module.id)],
+                "assigned": True,
+            },
+            headers=auth_headers(admin, test_settings),
+        )
+        assert resp.status_code == 422
+
+    async def test_no_content_kind_422(
+        self, client: AsyncClient, db_session: AsyncSession, test_settings: Settings
+    ) -> None:
+        admin = await create_user(db_session, email="mb4@x.test", role="admin")
+        u1 = await create_user(db_session, email="mb-u5@x.test")
+        resp = await client.post(
+            "/api/admin/assignments/bulk",
+            json={"user_ids": [str(u1.id)], "assigned": True},
+            headers=auth_headers(admin, test_settings),
+        )
+        assert resp.status_code == 422
+
+    async def test_bulk_unassign_removes_cascaded_rows(
+        self, client: AsyncClient, db_session: AsyncSession, test_settings: Settings
+    ) -> None:
+        from src.db.models import UserLesson
+
+        admin = await create_user(db_session, email="mb5@x.test", role="admin")
+        u1 = await create_user(db_session, email="mb-u6@x.test")
+        track = await create_track(db_session)
+        module = await create_module(db_session, track)
+        await create_lesson(db_session, module)
+        headers = auth_headers(admin, test_settings)
+        body = {"user_ids": [str(u1.id)], "track_ids": [str(track.id)]}
+        await client.post(
+            "/api/admin/assignments/bulk", json={**body, "assigned": True}, headers=headers
+        )
+        resp = await client.post(
+            "/api/admin/assignments/bulk", json={**body, "assigned": False}, headers=headers
+        )
+        assert resp.status_code == 204
+        assert (await db_session.execute(select(UserLesson))).scalars().all() == []
+
+
+class TestAdminUserEnrichment:
+    """Task 8: status/progress/attention/provenance additive fields on the
+    admin user + admin learning payloads."""
+
+    async def test_stalled_learner_is_flagged_with_progress_counts(
+        self, client: AsyncClient, db_session: AsyncSession, org: Org
+    ) -> None:
+        user = await create_user(
+            db_session,
+            email="stalled@example.com",
+            password="stall-pass-1",  # activated (password_set=True)
+            project_id=org.project.id,
+        )
+        track = await create_track(db_session, "Stall Track")
+        module = await create_module(db_session, track, "Stall Module")
+        lesson_done = await create_lesson(db_session, module, "Stall Done", sort_order=0)
+        lesson_todo = await create_lesson(db_session, module, "Stall Todo", sort_order=1)
+        await assign_track(db_session, user, track)
+        await assign_lesson(db_session, user, lesson_done)
+        await assign_lesson(db_session, user, lesson_todo)
+        await create_survey(db_session, user)  # any survey row => assessed
+        progress = await complete_lesson(db_session, user, lesson_done)
+        progress.completed_at = datetime.now(UTC) - timedelta(days=20)
+        await db_session.commit()
+
+        response = await client.get(
+            f"/api/admin/users?project_id={org.project.id}", headers=org.headers
+        )
+        assert response.status_code == 200
+        entry = next(u for u in response.json()["users"] if u["email"] == "stalled@example.com")
+        assert entry["activated"] is True
+        assert entry["assigned_lesson_count"] == 2
+        assert entry["completed_lesson_count"] == 1
+        assert entry["needs_attention"] is True
+        assert "Stalled" in entry["attention_reason"]
+
+    async def test_default_provenance_surfaced_on_user_payload(
+        self, client: AsyncClient, db_session: AsyncSession, org: Org
+    ) -> None:
+        from src.db.models import UserTrack
+
+        user = await create_user(
+            db_session, email="defaulted@example.com", project_id=org.project.id
+        )
+        track = await create_track(db_session, "Default Track")
+        db_session.add(UserTrack(user_id=user.id, track_id=track.id, assigned_via="default"))
+        await db_session.commit()
+
+        response = await client.get(
+            f"/api/admin/users?project_id={org.project.id}", headers=org.headers
+        )
+        entry = next(u for u in response.json()["users"] if u["email"] == "defaulted@example.com")
+        assert entry["assigned_track_ids"] == [str(track.id)]
+        assert entry["default_track_ids"] == [str(track.id)]
+
+    async def test_learning_overview_carries_default_ids(
+        self, client: AsyncClient, db_session: AsyncSession, org: Org
+    ) -> None:
+        from src.db.models import UserTrack
+
+        user = await create_user(db_session, email="ov-default@example.com")
+        track = await create_track(db_session, "Ov Default Track")
+        db_session.add(UserTrack(user_id=user.id, track_id=track.id, assigned_via="default"))
+        await db_session.commit()
+
+        overview = (await client.get("/api/admin/learning", headers=org.headers)).json()
+        entry = next(u for u in overview["users"] if u["id"] == str(user.id))
+        assert entry["default_track_ids"] == [str(track.id)]
+
+
+class TestAdminUsersPagination:
+    """Task 9: q/status filters + limit/offset pagination on /admin/users and
+    /admin/learning. limit/offset/q/status are all optional and additive —
+    the live old admin panel calls these endpoints with no query params and
+    must keep getting the full list back (plus the new `total` field)."""
+
+    async def _seed_five_learners(self, db_session: AsyncSession, org: Org) -> None:
+        # Two activated (password set), two invited-only, one activated — a
+        # 3/2 split lets status=invited assert an exact 2-user subset.
+        await create_user(
+            db_session,
+            email="alice@example.com",
+            password="pw-alice-1",
+            project_id=org.project.id,
+        )
+        await create_user(
+            db_session,
+            email="bob@example.com",
+            password="pw-bob-1",
+            project_id=org.project.id,
+        )
+        await create_user(db_session, email="carol@example.com", project_id=org.project.id)
+        await create_user(db_session, email="dave@example.com", project_id=org.project.id)
+        await create_user(
+            db_session,
+            email="eve@example.com",
+            password="pw-eve-1",
+            project_id=org.project.id,
+        )
+
+    async def test_no_params_returns_full_list_with_total(
+        self, client: AsyncClient, db_session: AsyncSession, org: Org
+    ) -> None:
+        """(a) back-compat: omitting limit/offset/q/status reproduces today's
+        full list, plus the new additive `total` field."""
+        await self._seed_five_learners(db_session, org)
+        response = await client.get(
+            f"/api/admin/users?project_id={org.project.id}", headers=org.headers
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert len(body["users"]) == 5
+        assert body["total"] == 5
+
+    async def test_limit_and_offset_page_the_list(
+        self, client: AsyncClient, db_session: AsyncSession, org: Org
+    ) -> None:
+        """(b) limit=2&offset=2 returns a 2-user page while total still
+        reflects the full filtered set."""
+        await self._seed_five_learners(db_session, org)
+        response = await client.get(
+            f"/api/admin/users?project_id={org.project.id}&limit=2&offset=2",
+            headers=org.headers,
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert len(body["users"]) == 2
+        assert body["total"] == 5
+
+    async def test_q_filters_by_name_or_email(
+        self, client: AsyncClient, db_session: AsyncSession, org: Org
+    ) -> None:
+        """(c) q does a case-insensitive ILIKE over first/last name + email."""
+        await self._seed_five_learners(db_session, org)
+        response = await client.get(
+            f"/api/admin/users?project_id={org.project.id}&q=alice", headers=org.headers
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert len(body["users"]) == 1
+        assert body["total"] == 1
+        assert body["users"][0]["email"] == "alice@example.com"
+
+    async def test_status_invited_returns_only_non_activated_users(
+        self, client: AsyncClient, db_session: AsyncSession, org: Org
+    ) -> None:
+        """(d) status=invited returns only users who have never activated
+        (password_set False and no linked external_id) — filtered after the
+        enrichment computes `activated`, not in SQL."""
+        await self._seed_five_learners(db_session, org)
+        response = await client.get(
+            f"/api/admin/users?project_id={org.project.id}&status=invited", headers=org.headers
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["total"] == 2
+        emails = {u["email"] for u in body["users"]}
+        assert emails == {"carol@example.com", "dave@example.com"}
+        assert all(u["activated"] is False for u in body["users"])
+
+    async def test_learning_overview_paginates_users_keeps_full_content(
+        self, client: AsyncClient, db_session: AsyncSession, org: Org
+    ) -> None:
+        """(e) /api/admin/learning?limit=2 pages the `users` array only —
+        `modules`/`lessons` stay complete. Also exercises the new project_id
+        scoping (the matrix is always project-scoped per spec)."""
+        for i in range(3):
+            await create_user(db_session, email=f"learn{i}@example.com", project_id=org.project.id)
+        track = await create_track(db_session, "Learn Track")
+        module_a = await create_module(db_session, track, "Learn Module A")
+        module_b = await create_module(db_session, track, "Learn Module B")
+        await create_lesson(db_session, module_a, "Learn Lesson A1")
+        await create_lesson(db_session, module_b, "Learn Lesson B1")
+
+        response = await client.get(
+            f"/api/admin/learning?project_id={org.project.id}&limit=2", headers=org.headers
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert len(body["users"]) == 2
+        assert body["total"] == 3
+        assert len(body["modules"]) == 2
+        assert len(body["lessons"]) == 2

@@ -1,0 +1,718 @@
+/* Admin2 — the routed admin shell (topbar, sidebar, scope switcher).
+   Real CSS classes (prefix `adm-`), imported ONCE by AdminShell — the
+   deliberate break from the old panel's inline-CSSProperties convention.
+   Layout/values are lifted verbatim from
+   docs/design-prototypes/admin-redesign/{option-b.html,styles.css} (same
+   --dlw-zoom: 1.25 root as the live app, so no re-tuning needed); raw hex
+   values there are swapped for --adm-* aliases onto the app's existing
+   brand tokens (frontend/src/index.css) so this stylesheet never hardcodes
+   a color the design system already names. Extended per-component in later
+   Phase B/C tasks — this file only carries the shell + nav for now. */
+
+:root {
+  /* Brand */
+  --adm-red:        var(--dlw-dot-red);
+  --adm-red-deep:   var(--dlw-primary-red);
+  --adm-red-dark:   var(--dlw-sub-red-2);
+
+  /* Neutrals */
+  --adm-ink:        var(--dlw-black);
+  --adm-text:       var(--dlw-text);
+  --adm-muted:      var(--dlw-muted);
+  --adm-faint:      var(--dlw-faint);
+  --adm-border:     var(--dlw-border);
+  --adm-surface:    var(--dlw-surface);
+  --adm-warm:       var(--dlw-warm-grey);
+  --adm-white:      var(--dlw-white);
+
+  /* Semantic literals — the prototype adds these on top of the brand
+     palette; no equivalent app token exists yet, so they stay literal. */
+  --adm-good-bg:    #EDFAF4;
+  --adm-good-text:  #1D7A52;
+  --adm-warn-bg:    #FFF8EC;
+  --adm-warn-text:  #B45309;
+  --adm-info-bg:    #EEF2FF;
+  --adm-info-text:  #4B5CC4;
+  --adm-info-border: #D9DFF6;
+  --adm-red-tint:   #FFF0EF;
+  --adm-red-border: #FBCFCC;
+
+  /* Radii/shadows mapped onto the app's existing scale */
+  --adm-radius:     var(--dlw-radius-lg);
+  --adm-radius-sm:  var(--dlw-radius-md);
+  --adm-shadow:     var(--dlw-shadow-card);
+  --adm-shadow-lg:  var(--dlw-shadow-lg);
+}
+
+/* ── Top bar ─────────────────────────────────────────────────────────── */
+.adm-topbar {
+  display: flex; align-items: center; gap: 20px;
+  height: 56px; padding: 0 24px;
+  background: var(--adm-white); border-bottom: 1px solid var(--adm-border);
+  position: sticky; top: 0; z-index: 30;
+}
+.adm-brand {
+  display: flex; align-items: center; gap: 10px;
+  font-family: var(--dlw-font-ui); font-weight: 800; font-size: 15px;
+  color: var(--adm-ink); white-space: nowrap; text-decoration: none;
+}
+.adm-brand-logo { height: 20px; width: auto; display: block; }
+.adm-admin-tag {
+  font-family: var(--dlw-font-ui); font-size: 10px; font-weight: 600; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--adm-red-deep); background: var(--adm-red-tint);
+  padding: 3px 9px; border-radius: 999px;
+}
+.adm-topbar-right { margin-left: auto; display: flex; align-items: center; gap: 20px; }
+.adm-app-link {
+  font-family: var(--dlw-font-body); font-size: 13px; color: var(--adm-muted);
+  text-decoration: none; display: flex; align-items: center; gap: 6px;
+}
+.adm-app-link:hover { color: var(--adm-ink); }
+.adm-avatar {
+  width: 32px; height: 32px; border-radius: 50%; background: var(--adm-ink); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--dlw-font-ui); font-size: 12px; font-weight: 600; flex-shrink: 0;
+}
+
+/* User chip — trigger + dropdown, adapted from AppNav's pattern (name +
+   initials avatar + sign-out), kept minimal for the topbar's tighter height. */
+.adm-user-chip { position: relative; }
+.adm-user-trigger {
+  display: flex; align-items: center; gap: 10px; cursor: pointer;
+  background: none; border: none; padding: 0; font: inherit; color: inherit;
+}
+.adm-user-name {
+  font-family: var(--dlw-font-body); font-weight: 700; font-size: 13px; color: var(--adm-ink);
+}
+.adm-user-dropdown {
+  position: absolute; top: calc(100% + 10px); right: 0; background: var(--adm-white);
+  border: 1px solid var(--adm-border); border-radius: var(--adm-radius-sm);
+  box-shadow: var(--adm-shadow-lg); min-width: 170px; z-index: 100; overflow: hidden;
+}
+.adm-user-dropdown-item {
+  display: block; width: 100%; text-align: left; padding: 12px 16px;
+  background: none; border: none; font-family: var(--dlw-font-body);
+  font-weight: 600; font-size: 14px; color: var(--adm-text); cursor: pointer;
+}
+.adm-user-dropdown-item:hover { background: var(--adm-surface); }
+.adm-user-dropdown-item.danger { color: var(--adm-muted); }
+.adm-user-dropdown-item.danger:hover { color: var(--adm-red-deep); }
+
+/* ── Scope switcher — the project context that follows navigation ──────
+   Always visible in the top bar; turns red-tinted when scoped so it's
+   never ambiguous what data the admin is looking at. */
+.adm-scope-switch { display: flex; align-items: center; gap: 8px; }
+.adm-scope-viewing {
+  font-family: var(--dlw-font-ui); font-size: 10px; font-weight: 600; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--adm-faint);
+}
+.adm-scope-pill {
+  display: inline-flex; align-items: center; gap: 8px;
+  border: 1.5px solid var(--adm-border); background: var(--adm-white); border-radius: 999px;
+  padding: 6px 8px 6px 14px; font-family: var(--dlw-font-ui); font-size: 13px; font-weight: 600;
+  color: var(--adm-text);
+}
+.adm-scope-pill.scoped { border-color: var(--adm-red-deep); background: var(--adm-red-tint); color: var(--adm-red-dark); }
+.adm-scope-select {
+  border: none; outline: none; background: none; font: inherit; color: inherit;
+  cursor: pointer; max-width: 320px;
+}
+.adm-scope-clear {
+  border: none; background: none; color: var(--adm-red-deep); display: flex;
+  align-items: center; justify-content: center; padding: 3px; border-radius: 50%; cursor: pointer;
+  font-size: 13px; line-height: 1;
+}
+.adm-scope-clear:hover { background: #fff; }
+.adm-scope-error {
+  font-size: 12px; font-weight: 600; color: var(--adm-red-deep);
+  white-space: nowrap; cursor: help;
+}
+
+/* ── Shell layout ────────────────────────────────────────────────────── */
+.adm-shell { display: flex; min-height: calc(100vh - 56px); background: var(--adm-surface); }
+.adm-sidebar {
+  width: 216px; flex-shrink: 0; background: var(--adm-white);
+  border-right: 1px solid var(--adm-border); padding: 16px 10px;
+  position: sticky; top: 56px; height: calc(100vh - 56px); overflow-y: auto;
+}
+.adm-main { flex: 1; min-width: 0; }
+.adm-container { max-width: 1220px; margin: 0 auto; padding: 28px 32px 80px; }
+
+/* ── Nav items ───────────────────────────────────────────────────────── */
+.adm-nav-item {
+  display: flex; align-items: center; gap: 11px; width: 100%;
+  padding: 9px 12px; margin-bottom: 2px; border: none; background: none;
+  border-radius: var(--adm-radius-sm); font-family: var(--dlw-font-body);
+  font-size: 13.5px; font-weight: 500; color: var(--adm-text);
+  position: relative; text-align: left; text-decoration: none;
+}
+.adm-nav-item svg { color: var(--adm-muted); flex-shrink: 0; }
+.adm-nav-item:hover { background: var(--adm-surface); }
+.adm-nav-item.active { background: var(--adm-red-tint); color: var(--adm-red-deep); font-weight: 600; }
+.adm-nav-item.active svg { color: var(--adm-red-deep); }
+.adm-nav-item .adm-nav-count {
+  margin-left: auto; font-size: 11px; font-weight: 600; color: var(--adm-red-deep);
+  background: #fff; border: 1px solid var(--adm-red-border); border-radius: 999px; padding: 0 7px;
+}
+
+/* ── Component kit (Task 13) ─────────────────────────────────────────────
+   Rules below back frontend/src/pages/admin2/kit/*. Copied/tokenized from
+   docs/design-prototypes/admin-redesign/styles.css onto the --adm-* tokens
+   above; only rules the kit components actually use are ported here —
+   screen-specific blocks (assignment matrix, feedback queue, project cards,
+   funnels, etc.) stay with their own Phase C tasks. */
+
+/* ── Cards & tiles ───────────────────────────────────────────────────── */
+.adm-card {
+  background: var(--adm-white); border: 1px solid var(--adm-border); border-radius: var(--adm-radius);
+  padding: 22px 24px; margin-bottom: 20px;
+}
+.adm-card-title {
+  font-family: var(--dlw-font-ui); font-size: 11px; font-weight: 600; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--adm-muted); margin: 0 0 16px;
+  display: flex; align-items: center; gap: 8px;
+}
+.adm-card-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; text-transform: none; letter-spacing: 0; }
+
+.adm-tile {
+  background: var(--adm-white); border: 1px solid var(--adm-border); border-radius: var(--adm-radius);
+  padding: 16px 18px 14px;
+}
+.adm-tile-label { font-family: var(--dlw-font-body); font-size: 12px; font-weight: 600; color: var(--adm-muted); }
+.adm-tile-value { font-size: 30px; font-weight: 800; color: var(--adm-ink); line-height: 1.15; margin-top: 4px; }
+.adm-tile-alert .adm-tile-value { color: var(--adm-red-deep); }
+
+/* ── Chips ───────────────────────────────────────────────────────────── */
+.adm-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--dlw-font-ui); font-size: 11.5px; font-weight: 600;
+  padding: 2px 9px; border-radius: 999px; white-space: nowrap;
+}
+.adm-chip-default { background: var(--adm-surface); color: var(--adm-muted); }
+.adm-chip-good    { background: var(--adm-good-bg); color: var(--adm-good-text); }
+.adm-chip-warn    { background: var(--adm-warn-bg); color: var(--adm-warn-text); }
+.adm-chip-info    { background: var(--adm-info-bg); color: var(--adm-info-text); }
+.adm-chip-red     { background: var(--adm-red-tint); color: var(--adm-red-deep); }
+.adm-chip-dot { width: 7px; height: 7px; border-radius: 2px; flex-shrink: 0; }
+
+/* ── Buttons — the small shared set the kit's own controls need
+   (ConfirmButton, ErrorState's retry, BulkBar action slots); screens add
+   more variants as later tasks need them. ── */
+.adm-btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-family: var(--dlw-font-ui); font-size: 13px; font-weight: 600; border-radius: var(--adm-radius-sm);
+  padding: 8px 14px; border: 1px solid transparent; cursor: pointer;
+  transition: background 150ms, border-color 150ms, color 150ms;
+}
+.adm-btn:disabled { opacity: .6; cursor: default; }
+.adm-btn-primary { background: var(--adm-ink); color: #fff; }
+.adm-btn-primary:hover:not(:disabled) { background: #000; }
+.adm-btn-red { background: var(--adm-red-deep); color: #fff; }
+.adm-btn-red:hover:not(:disabled) { background: var(--adm-red); }
+.adm-btn-ghost { background: #fff; border-color: var(--adm-border); color: var(--adm-text); }
+.adm-btn-ghost:hover:not(:disabled) { border-color: var(--adm-faint); color: var(--adm-ink); }
+.adm-btn-subtle { background: none; border-color: transparent; color: var(--adm-muted); padding: 6px 10px; }
+.adm-btn-subtle:hover:not(:disabled) { color: var(--adm-red-deep); }
+.adm-btn-sm { padding: 5px 10px; font-size: 12px; }
+.adm-btn-danger { color: var(--adm-red-deep); }
+.adm-btn-danger:hover:not(:disabled) { border-color: var(--adm-red-border); background: var(--adm-red-tint); }
+
+/* ── Toolbar (search + filter pills row) ────────────────────────────── */
+.adm-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+.adm-search {
+  display: flex; align-items: center; gap: 8px; background: var(--adm-white);
+  border: 1px solid var(--adm-border); border-radius: var(--adm-radius-sm); padding: 7px 12px;
+  font-size: 13px; color: var(--adm-muted); min-width: 240px;
+}
+.adm-search svg { flex-shrink: 0; }
+.adm-search input {
+  border: none; outline: none; font-family: var(--dlw-font-body); font-size: 13px;
+  flex: 1; background: none; color: var(--adm-text);
+}
+.adm-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+.adm-pill {
+  border: 1px solid var(--adm-border); background: var(--adm-white); border-radius: 999px;
+  font-family: var(--dlw-font-body); font-size: 12.5px; font-weight: 500; color: var(--adm-muted);
+  padding: 5px 13px; cursor: pointer;
+}
+.adm-pill:hover { color: var(--adm-ink); }
+.adm-pill.active { background: var(--adm-ink); border-color: var(--adm-ink); color: #fff; font-weight: 600; }
+.adm-pill-n { font-weight: 700; margin-left: 3px; }
+.adm-select-look {
+  display: inline-flex; align-items: center; gap: 8px; background: var(--adm-white);
+  border: 1px solid var(--adm-border); border-radius: var(--adm-radius-sm);
+  padding: 7px 12px; font-family: var(--dlw-font-body); font-size: 13px; font-weight: 500; color: var(--adm-text);
+}
+.adm-select-look svg { color: var(--adm-muted); }
+
+/* ── Table ───────────────────────────────────────────────────────────── */
+/* Scroll container so a wide table (many/long columns) scrolls WITHIN its
+ * card instead of spilling past it — same overflow-x mechanism as the
+ * Assignments matrix's `.adm-matrix-wrap`, scoped to the table's own
+ * wrapper so it can't affect that unrelated component. */
+.adm-table-wrap { overflow-x: auto; }
+.adm-table { width: 100%; border-collapse: collapse; font-family: var(--dlw-font-body); font-size: 13.5px; }
+.adm-table th {
+  font-family: var(--dlw-font-ui); font-size: 10.5px; font-weight: 600; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--adm-muted); text-align: left;
+  padding: 8px 12px; border-bottom: 1px solid var(--adm-border); white-space: nowrap;
+}
+.adm-table td { padding: 11px 12px; border-bottom: 1px solid #EEEEEC; vertical-align: middle; }
+.adm-table tr:last-child td { border-bottom: none; }
+.adm-table-row-clickable { cursor: pointer; }
+.adm-table-row-clickable:hover td { background: #FAFAF8; }
+.adm-table-row-selected td { background: var(--adm-red-tint); }
+.adm-table-check { width: 34px; }
+.adm-table input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--adm-red-deep); cursor: pointer; }
+
+/* ── Progress bar (text label + bar — no color-only encoding) ───────── */
+.adm-progress { display: flex; align-items: center; gap: 9px; min-width: 140px; }
+.adm-progress-track { flex: 1; height: 6px; background: var(--adm-warm); border-radius: 999px; overflow: hidden; }
+.adm-progress-fill { height: 100%; background: var(--adm-red-deep); border-radius: 999px; }
+.adm-progress-label { font-family: var(--dlw-font-body); font-size: 12px; font-weight: 600; color: var(--adm-text); white-space: nowrap; }
+
+/* ── Bulk action bar ─────────────────────────────────────────────────── */
+.adm-bulkbar {
+  position: sticky; bottom: 16px; z-index: 20;
+  display: flex; align-items: center; gap: 10px;
+  background: var(--adm-ink); color: #fff; border-radius: 12px;
+  padding: 10px 12px 10px 18px; box-shadow: var(--adm-shadow-lg);
+  margin-top: 16px;
+}
+.adm-bulkbar-count { font-family: var(--dlw-font-body); font-size: 13px; font-weight: 600; margin-right: 6px; }
+.adm-bulkbar-actions { display: flex; align-items: center; gap: 8px; }
+.adm-bulkbar .adm-btn-ghost { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.22); color: #fff; }
+.adm-bulkbar .adm-btn-ghost:hover:not(:disabled) { border-color: #fff; }
+.adm-bulkbar-close {
+  margin-left: auto; background: none; border: none; color: rgba(255,255,255,.6);
+  font-size: 16px; padding: 4px 8px; cursor: pointer;
+}
+.adm-bulkbar-close:hover { color: #fff; }
+
+/* ── Modal ───────────────────────────────────────────────────────────── */
+.adm-modal-overlay {
+  position: fixed; inset: 0; background: rgba(16,24,32,.45);
+  display: flex; align-items: center; justify-content: center; z-index: 50;
+}
+.adm-modal {
+  background: var(--adm-white); border-radius: 14px; width: 500px; max-width: 92vw;
+  padding: 26px 28px 22px; box-shadow: var(--adm-shadow-lg);
+}
+.adm-modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.adm-modal-title { margin: 0; font-family: var(--dlw-font-body); font-size: 18px; font-weight: 800; color: var(--adm-ink); }
+.adm-modal-close { background: none; border: none; color: var(--adm-muted); font-size: 15px; padding: 2px 4px; cursor: pointer; }
+.adm-modal-close:hover { color: var(--adm-ink); }
+.adm-modal-body { margin-top: 8px; }
+.adm-modal-footer { display: flex; align-items: center; gap: 10px; margin-top: 18px; }
+
+/* ── Two-step confirm (ConfirmButton) — never window.confirm ────────── */
+.adm-confirm { display: inline-flex; align-items: center; gap: 8px; }
+
+/* ── Empty / error states ────────────────────────────────────────────── */
+.adm-empty { text-align: center; color: var(--adm-muted); padding: 36px 20px; font-size: 13.5px; }
+.adm-empty-title { margin: 0; font-weight: 600; color: var(--adm-text); }
+.adm-empty-hint { margin: 6px 0 0; font-size: 12.5px; color: var(--adm-faint); }
+.adm-error {
+  text-align: center; padding: 36px 20px; font-size: 13.5px;
+  color: var(--adm-red-deep); background: var(--adm-red-tint); border: 1px solid var(--adm-red-border);
+  border-radius: var(--adm-radius);
+}
+.adm-error-message { margin: 0 0 12px; font-weight: 600; }
+
+/* ── Spinner (new — no prototype equivalent; ports the app's existing
+   frontend/src/components/Spinner.tsx look onto CSS classes) ──────────── */
+.adm-spinner { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.adm-spinner-md { width: 32px; height: 32px; }
+.adm-spinner-sm { width: 14px; height: 14px; }
+.adm-spinner-track { stroke: var(--adm-border); stroke-width: 3; }
+.adm-spinner-arc {
+  stroke: var(--adm-red-deep); stroke-width: 3; stroke-dasharray: 40 44; stroke-linecap: round;
+  transform-origin: 50% 50%; animation: adm-spin 0.9s linear infinite;
+}
+@keyframes adm-spin { to { transform: rotate(360deg); } }
+
+/* ── Page header (generic — every /admin2 screen renders this pair) ────── */
+.adm-page-title { font-family: var(--dlw-font-body); font-weight: 800; font-size: 24px; color: var(--adm-ink); margin: 0 0 2px; }
+.adm-page-sub { font-family: var(--dlw-font-body); font-size: 14px; color: var(--adm-muted); margin: 0 0 24px; }
+.adm-loading { display: flex; align-items: center; justify-content: center; padding: 60px 0; }
+
+/* ── Layout utilities ────────────────────────────────────────────────── */
+.adm-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+
+/* ── Dashboard (Task 14) ─────────────────────────────────────────────────
+   Tiles reuse the kit's .adm-tile; rules below are the dashboard-only
+   pieces — needs-attention list, activation funnel, maturity distribution —
+   ported from docs/design-prototypes/admin-redesign/{styles.css,common.js}. */
+.adm-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
+
+/* Needs-attention list */
+.adm-attn { display: flex; flex-direction: column; }
+.adm-attn-row {
+  display: flex; align-items: center; gap: 14px; padding: 11px 4px;
+  border-bottom: 1px solid #EEEEEC; font-family: var(--dlw-font-body); font-size: 13.5px;
+}
+.adm-attn-row:last-child { border-bottom: none; }
+.adm-attn-who { font-weight: 600; color: var(--adm-ink); min-width: 150px; }
+.adm-attn-why { color: var(--adm-muted); flex: 1; }
+.adm-attn-act { display: flex; align-items: center; gap: 8px; }
+.adm-attn-feedback { font-size: 12px; color: var(--adm-muted); white-space: nowrap; }
+
+/* Activation funnel — single-hue ordinal ramp; every step's count and
+   step-conversion % render as text alongside the bar (accessibility: no
+   color-only encoding anywhere on this screen). */
+.adm-funnel-row { display: grid; grid-template-columns: 150px 1fr 110px; align-items: center; gap: 12px; margin-bottom: 10px; }
+.adm-funnel-row:last-child { margin-bottom: 0; }
+.adm-funnel-stage { font-family: var(--dlw-font-body); font-size: 13px; font-weight: 600; color: var(--adm-text); text-align: right; }
+.adm-funnel-bar-track { height: 22px; border-radius: 5px; background: transparent; }
+.adm-funnel-bar { height: 100%; border-radius: 5px; min-width: 3px; }
+.adm-funnel-meta { font-family: var(--dlw-font-body); font-size: 12.5px; color: var(--adm-muted); white-space: nowrap; }
+.adm-funnel-meta b { color: var(--adm-ink); font-size: 13.5px; }
+
+/* Maturity distribution — one labeled bar row per level; NEVER a stacked
+   bar (the four adjacent brand level colors fail contrast/CVD validation
+   next to each other — spec §3.1). */
+.adm-level-row { display: grid; grid-template-columns: 130px 1fr 40px; align-items: center; gap: 12px; margin-bottom: 9px; }
+.adm-level-row:last-child { margin-bottom: 0; }
+.adm-level-badge { display: inline-flex; align-items: center; gap: 6px; font-family: var(--dlw-font-body); font-size: 12.5px; font-weight: 600; color: var(--adm-text); white-space: nowrap; }
+.adm-level-swatch { width: 9px; height: 9px; border-radius: 3px; flex-shrink: 0; }
+.adm-level-bar-track { height: 14px; background: var(--adm-warm); border-radius: 4px; overflow: hidden; }
+.adm-level-bar { height: 100%; border-radius: 4px; min-width: 2px; }
+.adm-level-n { font-family: var(--dlw-font-body); font-size: 13px; font-weight: 700; color: var(--adm-ink); }
+
+/* ── People (Task 15) ───────────────────────────────────────────────────
+   Rules below back frontend/src/pages/admin2/{PeoplePage,InviteModal}.tsx.
+   Ported from docs/design-prototypes/admin-redesign/{styles.css,common.js}
+   (`.user-cell`, `.note-banner`, `.modal .field-label/input`, `.check`-style
+   assign list is new — no prototype equivalent, the mock's assign flow just
+   toasts) onto the --adm-* tokens above. */
+
+/* Page header row (title+sub on the left, action buttons on the right) —
+   generic enough for later screens (Assignments, Feedback, …) to reuse. */
+.adm-page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.adm-page-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+
+/* Small muted helper line — gating hints, modal subtitles, busy notices. */
+.adm-hint { font-size: 12.5px; color: var(--adm-muted); margin: 0 0 12px; }
+/* Generic vertical spacer between stacked blocks inside a modal body. */
+.adm-modal-section { margin-top: 14px; }
+/* Pushes a trailing element (e.g. a modal footer's Cancel button) to the
+   far side of its flex container. */
+.adm-push-right { margin-left: auto; }
+
+/* Inline form feedback (invite result, bulk-mutation errors). */
+.adm-form-msg { font-size: 12.5px; margin-top: 10px; }
+.adm-form-msg-ok { color: var(--adm-good-text); }
+.adm-form-msg-err { color: var(--adm-red-deep); }
+
+/* Modal text fields (InviteModal). */
+.adm-field { margin-bottom: 14px; }
+.adm-field-label {
+  display: block; font-family: var(--dlw-font-ui); font-size: 11px; font-weight: 600;
+  letter-spacing: .08em; text-transform: uppercase; color: var(--adm-muted); margin: 0 0 6px;
+}
+.adm-field-input {
+  width: 100%; border: 1px solid var(--adm-border); border-radius: var(--adm-radius-sm);
+  padding: 9px 12px; font: inherit; color: var(--adm-ink); box-sizing: border-box;
+}
+.adm-field-input:focus { outline: none; border-color: var(--adm-faint); }
+
+/* Project-defaults banner (invite modal). */
+.adm-note-banner {
+  background: var(--adm-info-bg); border: 1px solid var(--adm-info-border); color: var(--adm-info-text);
+  border-radius: var(--adm-radius-sm); padding: 9px 14px; font-size: 12.5px; margin-bottom: 14px;
+}
+
+/* Invite-link result box (copy-to-clipboard fallback). */
+.adm-link-box { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--adm-border); }
+.adm-link-box-label { font-size: 12px; font-weight: 600; color: var(--adm-muted); margin: 0 0 8px; }
+.adm-link-row { display: flex; gap: 8px; align-items: center; }
+.adm-link-input {
+  flex: 1; border: 1px solid var(--adm-border); border-radius: var(--adm-radius-sm);
+  padding: 8px 12px; font-size: 13px; color: var(--adm-text); background: var(--adm-surface);
+}
+
+/* Scrollable checkbox list (assign-content modal's track/module/lesson pick). */
+.adm-check-list { max-height: 260px; overflow-y: auto; border: 1px solid var(--adm-border); border-radius: var(--adm-radius-sm); padding: 4px; }
+.adm-check-row {
+  display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+  font-family: var(--dlw-font-body); font-size: 13px; color: var(--adm-text);
+  border-radius: var(--adm-radius-sm); cursor: pointer;
+}
+.adm-check-row:hover { background: var(--adm-surface); }
+.adm-check-row input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--adm-red-deep); cursor: pointer; }
+
+/* Participant cell (avatar + name/email stack). */
+.adm-user-cell { display: flex; align-items: center; gap: 11px; }
+.adm-user-avatar {
+  width: 30px; height: 30px; border-radius: 50%; background: var(--adm-warm); color: var(--adm-ink);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--dlw-font-ui); font-size: 11px; font-weight: 600; flex-shrink: 0;
+}
+.adm-user-name { font-family: var(--dlw-font-body); font-weight: 600; color: var(--adm-ink); font-size: 13.5px; line-height: 1.3; }
+.adm-user-email { font-family: var(--dlw-font-body); font-size: 12px; color: var(--adm-muted); }
+.adm-subtext { font-family: var(--dlw-font-body); font-size: 12px; color: var(--adm-muted); }
+
+/* Maturity cell (LevelBadge + admin-pin marker). */
+.adm-maturity { display: inline-flex; align-items: center; gap: 5px; }
+.adm-maturity-pin { font-size: 11px; color: var(--adm-info-text); }
+
+/* Pager (below the people table). */
+.adm-pager { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; }
+.adm-pager-actions { display: flex; align-items: center; gap: 8px; }
+.adm-pager-info { font-family: var(--dlw-font-body); font-size: 12.5px; color: var(--adm-muted); }
+
+/* ── User detail (Task 16) ────────────────────────────────────────────────
+   Rules below back frontend/src/pages/admin2/UserDetailPage.tsx. Ported from
+   docs/design-prototypes/admin-redesign/styles.css (`.breadcrumb`,
+   `.detail-head`, `.grid-31`, `.acct-row`, `.track-progress-row`) onto the
+   --adm-* tokens above; the reset-link result box reuses the `.adm-link-box`
+   family Task 15's InviteModal already established rather than duplicating
+   it. */
+
+.adm-breadcrumb { display: flex; align-items: center; gap: 8px; font-family: var(--dlw-font-body); font-size: 13px; color: var(--adm-muted); margin-bottom: 14px; }
+.adm-breadcrumb a { text-decoration: none; color: var(--adm-muted); }
+.adm-breadcrumb a:hover { color: var(--adm-red-deep); }
+.adm-breadcrumb-sep { color: var(--adm-faint); }
+.adm-breadcrumb-here { color: var(--adm-ink); font-weight: 600; }
+
+.adm-detail-head { display: flex; align-items: center; gap: 16px; margin-bottom: 22px; }
+.adm-avatar-big {
+  width: 54px; height: 54px; border-radius: 50%; background: var(--adm-warm); color: var(--adm-ink);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  font-family: var(--dlw-font-ui); font-size: 18px; font-weight: 600;
+}
+.adm-detail-who { display: flex; flex-direction: column; }
+.adm-detail-name { margin: 0; font-family: var(--dlw-font-body); font-size: 22px; font-weight: 800; color: var(--adm-ink); }
+.adm-detail-sub {
+  font-family: var(--dlw-font-body); font-size: 13px; color: var(--adm-muted);
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 3px;
+}
+
+/* Assessment card (2fr) + stacked Account/Learning progress cards (1fr). */
+.adm-grid-31 { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; align-items: start; }
+.adm-card-hint {
+  text-transform: none; letter-spacing: 0; font-family: var(--dlw-font-body);
+  font-weight: 400; font-size: 12px; color: var(--adm-faint);
+}
+
+/* Account card rows (Role / Maturity / Password / Danger). */
+.adm-acct-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #EEEEEC; font-size: 13.5px; }
+.adm-acct-row:last-child { border-bottom: none; }
+.adm-acct-label {
+  font-family: var(--dlw-font-ui); font-size: 11px; font-weight: 600; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--adm-muted); min-width: 96px;
+}
+
+/* Native select — role + maturity pin. Role color mapping mirrors the old
+   panel's roleBadgeColor helper: admin = dark/white, user+ = indigo tint,
+   user = neutral. */
+.adm-select {
+  font-family: var(--dlw-font-body); font-size: 13px; font-weight: 600;
+  border: 1px solid var(--adm-border); border-radius: var(--adm-radius-sm);
+  padding: 6px 10px; background: var(--adm-white); color: var(--adm-text); cursor: pointer;
+}
+.adm-select:disabled { opacity: .6; cursor: default; }
+.adm-role-select-admin { background: var(--adm-ink); color: #fff; border-color: var(--adm-ink); }
+.adm-role-select-user-plus { background: var(--adm-info-bg); color: var(--adm-info-text); border-color: var(--adm-info-border); }
+.adm-role-select-user { background: var(--adm-surface); color: var(--adm-muted); }
+
+/* Learning progress rows (one per assigned track). */
+.adm-track-progress-row { display: grid; grid-template-columns: 110px 1fr; gap: 12px; align-items: center; margin-bottom: 10px; font-size: 13px; }
+.adm-track-progress-row:last-child { margin-bottom: 0; }
+.adm-track-progress-name { font-family: var(--dlw-font-body); font-weight: 600; color: var(--adm-ink); }
+/* Bar + the "modules assigned" disambiguation label (fix round 1, Minor
+   finding) share the row's second grid column. */
+.adm-track-progress-meta { display: flex; align-items: center; gap: 8px; }
+
+/* ── Assignments matrix (Task 17) ─────────────────────────────────────────
+   Backs frontend/src/pages/admin2/{AssignmentsPage,ContentTree,Matrix}.tsx.
+   Ported from docs/design-prototypes/admin-redesign/{styles.css,common.js}
+   (`.assign-layout`, `.content-tree`, `.matrix*`, `.cell`, `.legend`, and the
+   `.proj-card` picker grid) onto the --adm-* tokens above; the semantic table
+   hairlines (#EEEEEC / #FAFAF8 / #FBFAF8) and the partial-cell border (#F3D9A9)
+   are the prototype's literals, kept like the other admin table rules already
+   do (no brand token names them). */
+
+/* Unscoped company/project picker — the prototype's proj-card look. The
+   Projects screen (Task 19) may later lift these into a shared card; kept
+   local here rather than pre-abstracted. */
+.adm-proj-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+.adm-proj-card {
+  background: var(--adm-white); border: 1px solid var(--adm-border); border-radius: var(--adm-radius);
+  padding: 20px 22px 18px; cursor: pointer; text-align: left; width: 100%; display: block;
+  transition: border-color 150ms, box-shadow 150ms;
+}
+.adm-proj-card:hover { border-color: var(--adm-red-deep); box-shadow: var(--adm-shadow-lg); }
+.adm-proj-card-company { font-family: var(--dlw-font-ui); font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--adm-muted); }
+.adm-proj-card-name { margin: 3px 0 14px; font-family: var(--dlw-font-body); font-size: 17px; font-weight: 700; color: var(--adm-ink); }
+.adm-proj-card-foot { display: flex; align-items: center; margin-top: 12px; }
+.adm-proj-card-open { margin-left: auto; font-size: 13px; font-weight: 600; color: var(--adm-red-deep); display: flex; align-items: center; gap: 4px; }
+
+/* Two-pane layout: content scope tree (left) + matrix (right), inside a
+   padding-less card so the tree's border-right reaches the card edges. */
+.adm-matrix-card { padding: 0; overflow: hidden; }
+.adm-assign-layout { display: grid; grid-template-columns: 218px 1fr; align-items: stretch; }
+
+/* Content scope tree */
+.adm-content-tree {
+  border-right: 1px solid var(--adm-border); padding: 14px 12px 14px 6px;
+  display: flex; flex-direction: column; gap: 1px;
+}
+.adm-tree-title { font-family: var(--dlw-font-ui); font-size: 10px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--adm-faint); padding: 0 10px 8px; }
+.adm-tree-item {
+  display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
+  border: none; background: none; border-radius: var(--adm-radius-sm);
+  font-family: var(--dlw-font-body); font-size: 13px; font-weight: 500; color: var(--adm-text);
+  padding: 7px 10px; cursor: pointer;
+}
+.adm-tree-item:hover { background: var(--adm-surface); }
+.adm-tree-item.active { background: var(--adm-red-tint); color: var(--adm-red-deep); font-weight: 600; }
+.adm-tree-item.root { margin-bottom: 6px; }
+.adm-tree-item.root svg { color: var(--adm-muted); }
+.adm-tree-item.active.root svg { color: var(--adm-red-deep); }
+.adm-tree-item.sub { padding-left: 30px; font-size: 12.5px; }
+.adm-tree-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+.adm-tree-chev { margin-left: auto; display: flex; color: var(--adm-faint); transition: transform 150ms; }
+.adm-tree-chev.open { transform: rotate(90deg); }
+.adm-tree-foot { font-size: 11px; color: var(--adm-faint); padding: 12px 10px 0; line-height: 1.5; margin-top: auto; }
+
+/* Matrix side (breadcrumb + table + legend) */
+.adm-matrix-side { min-width: 0; padding-left: 4px; }
+.adm-matrix-nav { display: flex; align-items: center; gap: 6px; padding: 12px 14px 10px; flex-wrap: wrap; }
+.adm-crumb {
+  border: none; background: none; font-family: var(--dlw-font-ui); font-size: 13px;
+  font-weight: 500; color: var(--adm-muted); padding: 2px 4px; border-radius: 4px; cursor: pointer;
+}
+.adm-crumb:hover { color: var(--adm-red-deep); background: var(--adm-red-tint); }
+.adm-crumb.here { color: var(--adm-ink); font-weight: 700; cursor: default; }
+.adm-crumb-sep { color: var(--adm-faint); display: flex; }
+.adm-matrix-hint { margin-left: auto; font-size: 12px; color: var(--adm-faint); }
+
+/* Inline mutation-error line + apply-defaults hint. */
+.adm-matrix-msg { padding: 0 14px 8px; }
+.adm-matrix-msg .adm-form-msg { margin-top: 0; }
+.adm-apply-hint {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 8px 14px 10px; font-family: var(--dlw-font-body); font-size: 12.5px; color: var(--adm-muted);
+}
+
+.adm-matrix-wrap { overflow-x: auto; }
+.adm-matrix { border-collapse: collapse; font-family: var(--dlw-font-body); font-size: 13px; min-width: 100%; }
+.adm-matrix th {
+  font-family: var(--dlw-font-ui); font-size: 10.5px; font-weight: 600; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--adm-muted); padding: 8px 10px;
+  border-bottom: 1px solid var(--adm-border); text-align: center; white-space: nowrap;
+}
+.adm-matrix th.adm-matrix-rowhead, .adm-matrix td.adm-matrix-rowhead {
+  text-align: left; position: sticky; left: 0; background: var(--adm-white); z-index: 2;
+  min-width: 200px; box-shadow: inset -1px 0 0 var(--adm-border);
+}
+.adm-matrix-lvl { display: block; font-size: 9.5px; letter-spacing: .08em; color: var(--adm-muted); margin-top: 1px; text-transform: none; }
+.adm-matrix-lvl-dot { display: inline-block; width: 6px; height: 6px; border-radius: 2px; margin-right: 4px; vertical-align: 1px; }
+.adm-matrix td { padding: 6px 10px; border-bottom: 1px solid #EEEEEC; text-align: center; }
+.adm-matrix tbody tr:hover td { background: #FAFAF8; }
+.adm-matrix .adm-defaults-row td { background: #FBFAF8; border-bottom: 1px solid var(--adm-border); }
+.adm-matrix .adm-defaults-row td.adm-matrix-rowhead { font-weight: 700; color: var(--adm-ink); background: #FBFAF8; }
+.adm-defaults-label { font-weight: 400; }
+
+/* Cells — the four assignment states. */
+.adm-cell {
+  width: 26px; height: 26px; border-radius: 7px; border: 1.5px solid var(--adm-border);
+  display: inline-flex; align-items: center; justify-content: center;
+  background: #fff; color: transparent; transition: border-color 120ms, background 120ms;
+  padding: 0; cursor: pointer;
+}
+.adm-cell:hover:not(:disabled) { border-color: var(--adm-faint); }
+.adm-cell:disabled { cursor: default; }
+.adm-cell-yes  { background: var(--adm-red-deep); border-color: var(--adm-red-deep); color: #fff; }
+.adm-cell-def  { background: var(--adm-red-tint); border-color: var(--adm-red-border); color: var(--adm-red-deep); }
+.adm-cell-part { background: var(--adm-warn-bg); border-color: #F3D9A9; color: var(--adm-warn-text); }
+
+.adm-legend { display: flex; gap: 18px; align-items: center; font-size: 12.5px; color: var(--adm-muted); flex-wrap: wrap; padding: 12px 14px 16px; }
+.adm-legend-item { display: inline-flex; align-items: center; gap: 6px; }
+.adm-legend .adm-cell { pointer-events: none; transform: scale(.85); }
+.adm-legend-spacer { margin-left: auto; }
+
+/* ── Feedback queue (Task 18) ─────────────────────────────────────────────
+   Backs frontend/src/pages/admin2/FeedbackPage.tsx. Ported from
+   docs/design-prototypes/admin-redesign/{styles.css,common.js} `.fb-*` /
+   `.loc-chip` / `.filter-row` onto the --adm-* tokens above — the prototype's
+   `.chip` type pill and `.ai-box` are the parked AI-triage preview (spec
+   §3.5: "no type chip and no AI-triage box" at launch) and are deliberately
+   NOT ported. */
+.adm-filter-row { margin-top: -4px; }
+.adm-filter-label {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--dlw-font-ui); font-size: 11px; font-weight: 600; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--adm-muted);
+}
+
+.adm-fb-card { background: var(--adm-white); border: 1px solid var(--adm-border); border-radius: var(--adm-radius); padding: 18px 20px; margin-bottom: 14px; }
+.adm-fb-card-done { opacity: .62; }
+.adm-fb-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+.adm-fb-when { margin-left: auto; font-size: 12px; color: var(--adm-faint); }
+.adm-fb-loc { display: flex; align-items: center; gap: 5px; margin: 0 0 10px; flex-wrap: wrap; }
+.adm-loc-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--dlw-font-ui); font-size: 12px; font-weight: 600; color: var(--adm-text);
+  background: var(--adm-surface); border: 1px solid var(--adm-border); border-radius: 999px;
+  padding: 3px 11px;
+}
+button.adm-loc-chip { cursor: pointer; }
+button.adm-loc-chip:hover { border-color: var(--adm-red-deep); color: var(--adm-red-deep); }
+.adm-loc-dot { display: inline-block; width: 7px; height: 7px; border-radius: 2px; flex-shrink: 0; }
+.adm-loc-label {
+  font-size: 9px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--adm-faint); margin-right: 1px;
+}
+button.adm-loc-chip:hover .adm-loc-label { color: var(--adm-red-deep); }
+.adm-fb-quote { font-size: 14.5px; color: var(--adm-ink); margin: 0 0 12px; padding-left: 12px; border-left: 3px solid var(--adm-warm); }
+.adm-fb-foot { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.adm-fb-actions { margin-left: auto; display: flex; gap: 8px; }
+
+/* ── Projects, Email templates, Setup (Task 19) ───────────────────────────
+   Backs frontend/src/pages/admin2/{ProjectsPage,TemplatesPage,SetupPage}.tsx.
+   Projects/Setup mostly reuse existing kit + prior-task classes verbatim
+   (.adm-card, .adm-btn*, .adm-grid-2, .adm-field*, .adm-form-msg*); the
+   Templates picker reuses .adm-proj-grid/.adm-proj-card (Task 17) as-is.
+   New here: the component-toggle row for Projects (ported from the old
+   panel's comp-row/switch, docs/design-prototypes/admin-redesign
+   styles.css `.comp-row`/`.switch`), the existing-companies row for Setup,
+   and the EmailTemplatesCard outer-chrome neutralization for Templates. */
+
+/* Component-access toggle rows (one per assessment/learning/interview). */
+.adm-comp-list { display: flex; flex-direction: column; }
+.adm-comp-row { display: flex; align-items: center; gap: 14px; padding: 12px 4px; border-bottom: 1px solid #EEEEEC; flex-wrap: wrap; }
+.adm-comp-row:last-child { border-bottom: none; }
+.adm-comp-name { font-family: var(--dlw-font-body); font-weight: 600; color: var(--adm-ink); font-size: 14px; min-width: 140px; }
+.adm-switch-label { display: inline-flex; align-items: center; gap: 8px; font-family: var(--dlw-font-body); font-size: 12.5px; color: var(--adm-muted); }
+.adm-switch {
+  width: 34px; height: 20px; border-radius: 999px; background: var(--adm-faint);
+  position: relative; border: none; padding: 0; cursor: pointer; flex-shrink: 0;
+  transition: background 150ms;
+}
+.adm-switch::after {
+  content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px;
+  border-radius: 50%; background: #fff; transition: left 150ms;
+}
+.adm-switch.on { background: var(--adm-good-text); }
+.adm-switch.on::after { left: 16px; }
+.adm-switch:disabled { opacity: .6; cursor: default; }
+
+/* EmailTemplatesCard (pages/admin/EmailTemplatesCard.tsx) is reused
+   UNCHANGED — it renders its own bordered/padded root div via inline
+   CSSProperties (adminStyles.ts `s.tableCard`). Wrapping it in the kit
+   <Card> would nest two card chromes; inline styles otherwise beat any CSS
+   we write, so !important is the only way to neutralize just the outer
+   shell here — everything inside the component (tabs, textarea, buttons,
+   preview) is untouched. */
+.adm-templates-page .adm-card > div {
+  background: none !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+}
+
+/* Existing-companies list row (New-company form, Setup). */
+.adm-setup-list-row { display: flex; align-items: center; justify-content: space-between; padding: 4px 0; font-family: var(--dlw-font-body); font-size: 13px; color: var(--adm-text); }

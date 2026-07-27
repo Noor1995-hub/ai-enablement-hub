@@ -19,6 +19,7 @@ from src.core.dependencies.database import get_session
 from src.core.dependencies.settings import get_settings
 from src.core.dependencies.storage import get_media_service
 from src.core.security import create_access_token
+from src.db.models import Feedback
 from src.main import app
 from src.repositories.conversation_repository import ConversationRepository
 from src.services.media_service import MediaService
@@ -59,6 +60,7 @@ class Seed:
     user: User
     other: User
     conversation: Conversation
+    feedback: Feedback
 
 
 @pytest_asyncio.fixture
@@ -100,7 +102,11 @@ async def seed(db_session: AsyncSession) -> Seed:
     # ChatService). The seeded conversation below is future-proofing for this
     # fixture only — harmless now, but not actually read by this matrix row.
     conversation = await ConversationRepository(db_session).create(user_id=user.id, kind="chatbot")
-    return Seed(company, project, track, module, lesson, admin, user, other, conversation)
+    feedback = Feedback(user_id=user.id, lesson_id=lesson.id, message="Matrix feedback")
+    db_session.add(feedback)
+    await db_session.commit()
+    await db_session.refresh(feedback)
+    return Seed(company, project, track, module, lesson, admin, user, other, conversation, feedback)
 
 
 # (name, method, path builder, body builder, admin_only)
@@ -213,6 +219,13 @@ _MATRIX: list[tuple[str, str, Any, Any, bool]] = [
         True,
     ),
     (
+        "reminder",
+        "POST",
+        lambda s: f"/api/admin/users/{s.other.id}/reminder",
+        lambda s: None,
+        True,
+    ),
+    (
         "role-patch",
         "PATCH",
         lambda s: f"/api/admin/users/{s.other.id}",
@@ -267,6 +280,13 @@ _MATRIX: list[tuple[str, str, Any, Any, bool]] = [
         "PUT",
         lambda s: f"/api/admin/users/{s.other.id}/lessons",
         lambda s: {"lesson_ids": [str(s.lesson.id)], "assigned": True},
+        True,
+    ),
+    (
+        "assignments-bulk",
+        "POST",
+        lambda s: "/api/admin/assignments/bulk",
+        lambda s: {"user_ids": [str(s.other.id)], "track_ids": [str(s.track.id)], "assigned": True},
         True,
     ),
     ("admin-learning", "GET", lambda s: "/api/admin/learning", lambda s: None, True),
@@ -340,6 +360,36 @@ _MATRIX: list[tuple[str, str, Any, Any, bool]] = [
         lambda s: None,
         False,
     ),
+    (
+        "defaults-get",
+        "GET",
+        lambda s: f"/api/admin/projects/{s.project.id}/defaults",
+        lambda s: None,
+        True,
+    ),
+    (
+        "defaults-put",
+        "PUT",
+        lambda s: f"/api/admin/projects/{s.project.id}/defaults",
+        lambda s: {"track_ids": [str(s.track.id)]},
+        True,
+    ),
+    (
+        "defaults-apply",
+        "POST",
+        lambda s: f"/api/admin/projects/{s.project.id}/defaults/apply",
+        lambda s: None,
+        True,
+    ),
+    ("feedback-admin-list", "GET", lambda s: "/api/admin/feedback", lambda s: None, True),
+    (
+        "feedback-admin-patch",
+        "PATCH",
+        lambda s: f"/api/admin/feedback/{s.feedback.id}",
+        lambda s: {"status": "accepted"},
+        True,
+    ),
+    ("dashboard", "GET", lambda s: "/api/admin/dashboard", lambda s: None, True),
 ]
 
 

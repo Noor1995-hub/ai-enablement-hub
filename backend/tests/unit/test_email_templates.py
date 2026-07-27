@@ -9,6 +9,8 @@ import pytest
 from src.services.email_templates import (
     ALLOWED_TOKENS,
     DEFAULT_TEMPLATES,
+    REMINDER_TEMPLATE,
+    build_reminder_tokens,
     build_tokens,
     render_email,
     validate_template,
@@ -168,3 +170,57 @@ class TestBuildTokens:
         assert tokens["reset_link"] == LINK
         assert "login_url" not in tokens
         assert tokens["ttl_days"] == "1 day"
+
+
+class TestReminderTemplate:
+    """The reminder template is a fixed module constant — never
+    project-customizable, so (unlike invite/reset) it's never run through
+    validate_template/ALLOWED_TOKENS."""
+
+    LOGIN_URL = "http://testserver:5173/login"
+
+    def test_build_reminder_tokens_with_project(self) -> None:
+        tokens = build_reminder_tokens(
+            first_name="Remy",
+            last_name="Learner",
+            project_name="Acme Onboarding",
+            login_url=self.LOGIN_URL,
+        )
+        assert tokens["first_name"] == "Remy"
+        assert tokens["project_suffix"] == " for Acme Onboarding"
+        assert tokens["login_url"] == self.LOGIN_URL
+
+    def test_build_reminder_tokens_without_project(self) -> None:
+        tokens = build_reminder_tokens(
+            first_name="Remy", last_name="Learner", project_name="", login_url=self.LOGIN_URL
+        )
+        assert tokens["project_suffix"] == ""
+
+    def test_renders_first_name_and_a_bare_clickable_login_link(self) -> None:
+        tokens = build_reminder_tokens(
+            first_name="Remy",
+            last_name="Learner",
+            project_name="Acme Onboarding",
+            login_url=self.LOGIN_URL,
+        )
+        content = render_email(
+            REMINDER_TEMPLATE.subject, REMINDER_TEMPLATE.body_markdown, tokens=tokens
+        )
+        assert "Remy" in content.plain_text
+        assert self.LOGIN_URL in content.plain_text
+        assert "for Acme Onboarding" in content.plain_text
+        # Bare token, not Markdown link syntax — same mechanics as
+        # DEFAULT_TEMPLATES' invite/reset links: a clickable autolink, and no
+        # anchor markup leaking into the plain-text alternative.
+        assert f'<a href="{self.LOGIN_URL}">{self.LOGIN_URL}</a>' in content.html
+        assert "<a" not in content.plain_text
+
+    def test_no_project_omits_the_suffix_entirely(self) -> None:
+        tokens = build_reminder_tokens(
+            first_name="Remy", last_name="Learner", project_name="", login_url=self.LOGIN_URL
+        )
+        content = render_email(
+            REMINDER_TEMPLATE.subject, REMINDER_TEMPLATE.body_markdown, tokens=tokens
+        )
+        # No dangling "for <nothing>" — the sentence ends right after "Hub".
+        assert "AI Enablement Hub.\n" in content.plain_text

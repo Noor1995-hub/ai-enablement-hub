@@ -50,6 +50,15 @@ frontend/
         └── lesson/  (LessonView.tsx, LessonEditor.tsx, blocks/*, editors/*)
 ```
 
+> **Superseded (2026-07-27) — admin panel:** the tree above is the original Batch-4 snapshot.
+> The admin panel was rebuilt by the admin-panel-redesign feature into a routed shell under
+> `frontend/src/pages/admin2/` (`AdminShell.tsx` + `kit/` + one `*Page.tsx` per section:
+> Dashboard/People/UserDetail/Assignments/Feedback/Projects/Templates/Setup, TanStack Query).
+> `pages/Admin.tsx` and `pages/admin/{ProjectsView,ProjectDetailView,ParticipantDetail}.tsx` were
+> retired at cutover; `SurveyResults`, `BulkInviteModal`, `EmailTemplatesCard`, `adminHelpers.tsx`
+> are reused by the new shell. See CLAUDE.md's admin-panel-redesign appendix entry for the full
+> story (branch `feature/admin-panel-redesign`; not yet merged/deployed as of this note).
+
 **tsconfig strictness**: `"strict": true`, `noUnusedLocals`, `noUnusedParameters`, `noFallthroughCasesInSwitch`, `verbatimModuleSyntax` (the Vite template defaults). Leave `noUncheckedIndexedAccess` OFF for the initial port — the quiz `options[correct]`, survey step arrays, and graph code index arrays constantly; enabling it during a parity port produces hundreds of non-bug friction points. Revisit after parity is reached.
 
 **Vite dev proxy is load-bearing**: `/api → http://localhost:8000` means the browser only ever sees one origin in dev AND prod, so no CORS configuration is needed on FastAPI for the happy path, and token handling behaves identically in both environments. Old app runs on port 3000, new one on 5173 — side-by-side works out of the box.

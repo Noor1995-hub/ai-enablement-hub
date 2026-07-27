@@ -78,9 +78,11 @@ class AbstractUserRepository(ABC):
 
     @abstractmethod
     async def list_with_org_names(
-        self, project_id: uuid.UUID | None = None
+        self, project_id: uuid.UUID | None = None, q: str | None = None
     ) -> list[tuple[User, str | None, str | None]]:
-        """(user, company_name, project_name) newest-first, optionally by project."""
+        """(user, company_name, project_name) newest-first, optionally by
+        project and/or a case-insensitive substring match over first_name,
+        last_name, email (q)."""
 
     @abstractmethod
     async def list_for_learning(self) -> list[tuple[User, str | None, str | None]]:
@@ -108,6 +110,14 @@ class AbstractUserRepository(ABC):
     @abstractmethod
     async def delete(self, user: User) -> None:
         """Single DELETE; FK cascades wipe tokens/sessions/progress/survey."""
+
+    @abstractmethod
+    async def ids_for_project(self, project_id: uuid.UUID) -> list[uuid.UUID]:
+        """Every user id bound to the project (apply-defaults backfill)."""
+
+    @abstractmethod
+    async def count_by_ids(self, user_ids: list[uuid.UUID]) -> int:
+        """How many of the given user ids exist (bulk-assignment validation)."""
 
 
 class AbstractAuthTokenRepository(ABC):
@@ -161,6 +171,11 @@ class AbstractAuthSessionRepository(ABC):
 
     @abstractmethod
     async def revoke_all_for_user(self, user_id: uuid.UUID) -> None: ...
+
+    @abstractmethod
+    async def last_used_by_user(self, user_ids: list[uuid.UUID]) -> dict[uuid.UUID, datetime]:
+        """user_id -> most recent session last_used_at (admin "last active").
+        An absent key means the user was never active (no session use yet)."""
 
     @abstractmethod
     async def delete_dead(self) -> int:
@@ -218,6 +233,14 @@ class AbstractOrgRepository(ABC):
         self, project_id: uuid.UUID, kind: str, *, enabled: bool
     ) -> None: ...
 
+    @abstractmethod
+    async def default_track_ids(self, project_id: uuid.UUID) -> list[uuid.UUID]:
+        """Track ids every new participant of the project receives at invite time."""
+
+    @abstractmethod
+    async def set_default_tracks(self, project_id: uuid.UUID, track_ids: list[uuid.UUID]) -> None:
+        """Full replace of the project's default tracks."""
+
 
 class AbstractEmailTemplateRepository(ABC):
     """Per-project invite/reset email overrides (project_email_templates)."""
@@ -261,6 +284,11 @@ class AbstractSurveyRepository(ABC):
     @abstractmethod
     async def get_complete_levels(self, user_ids: list[uuid.UUID]) -> dict[uuid.UUID, str]:
         """user_id → score_level for complete surveys among the given users."""
+
+    @abstractmethod
+    async def user_ids_with_survey(self, user_ids: list[uuid.UUID]) -> set[uuid.UUID]:
+        """Which of the given users have any survey row at all (a draft counts
+        as "assessment started", spec §4.4)."""
 
 
 class AbstractContentRepository(ABC):
@@ -372,6 +400,41 @@ class AbstractFeedbackRepository(ABC):
     @abstractmethod
     async def create(self, user_id: uuid.UUID, lesson_id: uuid.UUID, message: str) -> Feedback: ...
 
+    @abstractmethod
+    async def get_by_id(self, feedback_id: uuid.UUID) -> Feedback | None: ...
+
+    @abstractmethod
+    async def set_status(
+        self, feedback: Feedback, status: str, reviewed_by: uuid.UUID | None
+    ) -> None:
+        """Update status + reviewer stamp; reviewed_by=None clears reviewed_at too."""
+
+    @abstractmethod
+    async def list_admin(
+        self,
+        *,
+        status: str | None = None,
+        track_id: uuid.UUID | None = None,
+        project_id: uuid.UUID | None = None,
+        limit: int,
+        offset: int,
+    ) -> list[Any]:
+        """Joined admin queue rows (feedback + reporter/org/lesson/module/track names)."""
+
+    @abstractmethod
+    async def count_admin(
+        self,
+        *,
+        status: str | None = None,
+        track_id: uuid.UUID | None = None,
+        project_id: uuid.UUID | None = None,
+    ) -> int:
+        """Total rows matching the same filters as list_admin (pagination total)."""
+
+    @abstractmethod
+    async def count_new(self, project_id: uuid.UUID | None = None) -> int:
+        """How many feedback rows are still status='new', optionally scoped to a project."""
+
 
 class AbstractAssignmentRepository(ABC):
     """user_tracks / user_modules / user_lessons assignment links."""
@@ -389,13 +452,16 @@ class AbstractAssignmentRepository(ABC):
     async def lesson_ids_for_user(self, user_id: uuid.UUID) -> set[uuid.UUID]: ...
 
     @abstractmethod
-    async def all_user_tracks(self) -> list[UserTrack]: ...
+    async def user_tracks_for_users(self, user_ids: list[uuid.UUID]) -> list[UserTrack]:
+        """Every user_tracks row for the given users (carries assigned_via)."""
 
     @abstractmethod
-    async def all_user_modules(self) -> list[UserModule]: ...
+    async def user_modules_for_users(self, user_ids: list[uuid.UUID]) -> list[UserModule]:
+        """Every user_modules row for the given users (carries assigned_via)."""
 
     @abstractmethod
-    async def all_user_lessons(self) -> list[UserLesson]: ...
+    async def user_lessons_for_users(self, user_ids: list[uuid.UUID]) -> list[UserLesson]:
+        """Every user_lessons row for the given users (carries assigned_via)."""
 
     @abstractmethod
     async def assigned_lesson_counts_by_module(
@@ -411,36 +477,68 @@ class AbstractAssignmentRepository(ABC):
         users in ONE query (avoids the per-user N+1 on the admin directory)."""
 
     @abstractmethod
-    async def set_user_track(self, user_id: uuid.UUID, track_id: uuid.UUID, assigned: bool) -> None:
+    async def set_user_track(
+        self,
+        user_id: uuid.UUID,
+        track_id: uuid.UUID,
+        assigned: bool,
+        *,
+        assigned_via: str = "manual",
+    ) -> None:
         """Idempotent upsert (assigned) or delete (unassigned)."""
 
     @abstractmethod
     async def set_user_module(
-        self, user_id: uuid.UUID, module_id: uuid.UUID, assigned: bool
+        self,
+        user_id: uuid.UUID,
+        module_id: uuid.UUID,
+        assigned: bool,
+        *,
+        assigned_via: str = "manual",
     ) -> None:
         """Idempotent upsert (assigned) or delete (unassigned)."""
 
     @abstractmethod
     async def set_user_lesson(
-        self, user_id: uuid.UUID, lesson_id: uuid.UUID, assigned: bool
+        self,
+        user_id: uuid.UUID,
+        lesson_id: uuid.UUID,
+        assigned: bool,
+        *,
+        assigned_via: str = "manual",
     ) -> None:
         """Idempotent upsert (assigned) or delete (unassigned)."""
 
     @abstractmethod
     async def set_user_tracks(
-        self, user_id: uuid.UUID, track_ids: list[uuid.UUID], assigned: bool
+        self,
+        user_id: uuid.UUID,
+        track_ids: list[uuid.UUID],
+        assigned: bool,
+        *,
+        assigned_via: str = "manual",
     ) -> None:
         """Bulk variant of set_user_track, one statement + commit."""
 
     @abstractmethod
     async def set_user_modules(
-        self, user_id: uuid.UUID, module_ids: list[uuid.UUID], assigned: bool
+        self,
+        user_id: uuid.UUID,
+        module_ids: list[uuid.UUID],
+        assigned: bool,
+        *,
+        assigned_via: str = "manual",
     ) -> None:
         """Bulk variant of set_user_module, one statement + commit."""
 
     @abstractmethod
     async def set_user_lessons(
-        self, user_id: uuid.UUID, lesson_ids: list[uuid.UUID], assigned: bool
+        self,
+        user_id: uuid.UUID,
+        lesson_ids: list[uuid.UUID],
+        assigned: bool,
+        *,
+        assigned_via: str = "manual",
     ) -> None:
         """Bulk variant of set_user_lesson, one statement + commit."""
 
@@ -459,6 +557,13 @@ class AbstractProgressRepository(ABC):
         self, user_id: uuid.UUID, lesson_ids: list[uuid.UUID] | None = None
     ) -> set[uuid.UUID]:
         """The user's completed lesson ids, optionally restricted to a set."""
+
+    @abstractmethod
+    async def latest_completion_by_user(
+        self, user_ids: list[uuid.UUID]
+    ) -> dict[uuid.UUID, datetime]:
+        """user_id -> most recent lesson completion time (stall detection).
+        An absent key means the user has completed nothing."""
 
     @abstractmethod
     async def upsert(

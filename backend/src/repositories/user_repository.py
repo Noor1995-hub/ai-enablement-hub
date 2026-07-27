@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import aliased
 
 from src.db.models import Company, Project, User
@@ -42,7 +42,7 @@ class UserRepository(AbstractUserRepository):
         await self._session.refresh(user)
 
     async def list_with_org_names(
-        self, project_id: uuid.UUID | None = None
+        self, project_id: uuid.UUID | None = None, q: str | None = None
     ) -> list[tuple[User, str | None, str | None]]:
         stmt = (
             select(User, Company.name, Project.name)
@@ -52,6 +52,15 @@ class UserRepository(AbstractUserRepository):
         )
         if project_id is not None:
             stmt = stmt.where(User.project_id == project_id)
+        if q:
+            pattern = f"%{q}%"
+            stmt = stmt.where(
+                or_(
+                    User.first_name.ilike(pattern),
+                    User.last_name.ilike(pattern),
+                    User.email.ilike(pattern),
+                )
+            )
         result = await self._session.execute(stmt)
         return [(user, company, project) for user, company, project in result.all()]
 
@@ -99,3 +108,13 @@ class UserRepository(AbstractUserRepository):
     async def delete(self, user: User) -> None:
         await self._session.delete(user)
         await self._session.commit()
+
+    async def ids_for_project(self, project_id: uuid.UUID) -> list[uuid.UUID]:
+        result = await self._session.execute(select(User.id).where(User.project_id == project_id))
+        return list(result.scalars().all())
+
+    async def count_by_ids(self, user_ids: list[uuid.UUID]) -> int:
+        result = await self._session.execute(
+            select(func.count()).select_from(User).where(User.id.in_(user_ids))
+        )
+        return int(result.scalar_one())
