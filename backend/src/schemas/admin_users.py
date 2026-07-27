@@ -29,6 +29,7 @@ __all__ = [
     "ReminderResponse",
     "RoleUpdateRequest",
     "SurveyLevelsResponse",
+    "TrackLessonProgress",
     "UserSurveyResponse",
 ]
 
@@ -38,6 +39,11 @@ def _require_non_blank(value: str) -> str:
         msg = "must not be blank"
         raise ValueError(msg)
     return value
+
+
+class TrackLessonProgress(BaseModel):
+    assigned: int
+    completed: int
 
 
 class AdminUserOut(BaseModel):
@@ -56,6 +62,10 @@ class AdminUserOut(BaseModel):
     assigned_track_ids: list[uuid.UUID]
     assigned_module_ids: list[uuid.UUID]
     assigned_lesson_ids: list[uuid.UUID]
+    # Per-track (assigned, completed) lesson counts, summed across the track's
+    # modules from the same per-module `counts` the aggregate totals below are
+    # built from — additive; only tracks with >=1 assigned lesson appear here.
+    track_progress: dict[uuid.UUID, TrackLessonProgress]
     # maturity_override = the admin pin (null = from assessment); effective =
     # the resolved level (override or assessment, raised by completion). The
     # admin table shows effective with a pin indicator when overridden.
