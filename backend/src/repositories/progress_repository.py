@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import uuid
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from src.db.models import LessonProgress
 from src.repositories.base import AbstractProgressRepository
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 __all__ = ["ProgressRepository"]
 
@@ -29,6 +32,18 @@ class ProgressRepository(AbstractProgressRepository):
             stmt = stmt.where(LessonProgress.lesson_id.in_(lesson_ids))
         result = await self._session.execute(stmt)
         return set(result.scalars().all())
+
+    async def latest_completion_by_user(
+        self, user_ids: list[uuid.UUID]
+    ) -> dict[uuid.UUID, datetime]:
+        if not user_ids:
+            return {}
+        result = await self._session.execute(
+            select(LessonProgress.user_id, func.max(LessonProgress.completed_at))
+            .where(LessonProgress.user_id.in_(user_ids))
+            .group_by(LessonProgress.user_id)
+        )
+        return {user_id: completed_at for user_id, completed_at in result.all()}
 
     async def upsert(
         self, user_id: uuid.UUID, lesson_id: uuid.UUID, answers: dict[str, Any]

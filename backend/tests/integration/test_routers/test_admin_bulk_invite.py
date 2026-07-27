@@ -20,8 +20,10 @@ from src.core.dependencies.settings import get_settings
 from src.db.models import ProjectTrackDefault, User, UserLesson, UserModule, UserTrack
 from src.main import app
 from src.repositories.assignment_repository import AssignmentRepository
+from src.repositories.auth_session_repository import AuthSessionRepository
 from src.repositories.content_repository import ContentRepository
 from src.repositories.org_repository import OrgRepository
+from src.repositories.progress_repository import ProgressRepository
 from src.repositories.survey_repository import SurveyRepository
 from src.repositories.user_repository import UserRepository
 from src.services.admin_user_service import AdminUserService
@@ -50,6 +52,8 @@ def admin_user_service(db_session: AsyncSession) -> AdminUserService:
         AssignmentRepository(db_session),
         ContentRepository(db_session),
         SurveyRepository(db_session),
+        AuthSessionRepository(db_session),
+        ProgressRepository(db_session),
     )
 
 

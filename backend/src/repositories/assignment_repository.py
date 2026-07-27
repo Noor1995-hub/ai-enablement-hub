@@ -30,16 +30,28 @@ class AssignmentRepository(AbstractAssignmentRepository):
         )
         return set(result.scalars().all())
 
-    async def all_user_tracks(self) -> list[UserTrack]:
-        result = await self._session.execute(select(UserTrack))
+    async def user_tracks_for_users(self, user_ids: list[uuid.UUID]) -> list[UserTrack]:
+        if not user_ids:
+            return []
+        result = await self._session.execute(
+            select(UserTrack).where(UserTrack.user_id.in_(user_ids))
+        )
         return list(result.scalars().all())
 
-    async def all_user_modules(self) -> list[UserModule]:
-        result = await self._session.execute(select(UserModule))
+    async def user_modules_for_users(self, user_ids: list[uuid.UUID]) -> list[UserModule]:
+        if not user_ids:
+            return []
+        result = await self._session.execute(
+            select(UserModule).where(UserModule.user_id.in_(user_ids))
+        )
         return list(result.scalars().all())
 
-    async def all_user_lessons(self) -> list[UserLesson]:
-        result = await self._session.execute(select(UserLesson))
+    async def user_lessons_for_users(self, user_ids: list[uuid.UUID]) -> list[UserLesson]:
+        if not user_ids:
+            return []
+        result = await self._session.execute(
+            select(UserLesson).where(UserLesson.user_id.in_(user_ids))
+        )
         return list(result.scalars().all())
 
     async def assigned_lesson_counts_by_module(

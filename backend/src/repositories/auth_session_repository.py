@@ -4,7 +4,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, cast
 
-from sqlalchemy import delete, or_, select, update
+from sqlalchemy import delete, func, or_, select, update
 
 from src.db.models import AuthSession
 from src.repositories.base import AbstractAuthSessionRepository
@@ -52,6 +52,19 @@ class AuthSessionRepository(AbstractAuthSessionRepository):
             .values(revoked_at=datetime.now(UTC))
         )
         await self._session.commit()
+
+    async def last_used_by_user(self, user_ids: list[uuid.UUID]) -> dict[uuid.UUID, datetime]:
+        if not user_ids:
+            return {}
+        result = await self._session.execute(
+            select(AuthSession.user_id, func.max(AuthSession.last_used_at))
+            .where(AuthSession.user_id.in_(user_ids))
+            .group_by(AuthSession.user_id)
+        )
+        # last_used_at is NULL until a session is first rotated/revoked, and
+        # func.max skips NULLs — a user with only never-used sessions yields a
+        # NULL max, which we drop so the key stays absent (= never active).
+        return {user_id: last_used for user_id, last_used in result.all() if last_used is not None}
 
     async def delete_dead(self) -> int:
         result = await self._session.execute(

@@ -12,9 +12,11 @@ from typing import Annotated
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.core.dependencies.auth import get_auth_session_repository
 from src.core.dependencies.database import get_session
 from src.core.dependencies.user import get_user_repository
 from src.repositories.assignment_repository import AssignmentRepository
+from src.repositories.auth_session_repository import AuthSessionRepository
 from src.repositories.content_repository import ContentRepository
 from src.repositories.email_template_repository import EmailTemplateRepository
 from src.repositories.feedback_repository import FeedbackRepository
@@ -145,5 +147,7 @@ def get_admin_user_service(
     assignments: Annotated[AssignmentRepository, Depends(get_assignment_repository)],
     content: Annotated[ContentRepository, Depends(get_content_repository)],
     surveys: Annotated[SurveyRepository, Depends(get_survey_repository)],
+    sessions: Annotated[AuthSessionRepository, Depends(get_auth_session_repository)],
+    progress: Annotated[ProgressRepository, Depends(get_progress_repository)],
 ) -> AdminUserService:
-    return AdminUserService(users, org, assignments, content, surveys)
+    return AdminUserService(users, org, assignments, content, surveys, sessions, progress)

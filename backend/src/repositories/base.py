@@ -166,6 +166,11 @@ class AbstractAuthSessionRepository(ABC):
     async def revoke_all_for_user(self, user_id: uuid.UUID) -> None: ...
 
     @abstractmethod
+    async def last_used_by_user(self, user_ids: list[uuid.UUID]) -> dict[uuid.UUID, datetime]:
+        """user_id -> most recent session last_used_at (admin "last active").
+        An absent key means the user was never active (no session use yet)."""
+
+    @abstractmethod
     async def delete_dead(self) -> int:
         """Purge expired or revoked sessions (daily cleanup task); returns row count."""
 
@@ -264,6 +269,11 @@ class AbstractSurveyRepository(ABC):
     @abstractmethod
     async def get_complete_levels(self, user_ids: list[uuid.UUID]) -> dict[uuid.UUID, str]:
         """user_id → score_level for complete surveys among the given users."""
+
+    @abstractmethod
+    async def user_ids_with_survey(self, user_ids: list[uuid.UUID]) -> set[uuid.UUID]:
+        """Which of the given users have any survey row at all (a draft counts
+        as "assessment started", spec §4.4)."""
 
 
 class AbstractContentRepository(ABC):
@@ -427,13 +437,16 @@ class AbstractAssignmentRepository(ABC):
     async def lesson_ids_for_user(self, user_id: uuid.UUID) -> set[uuid.UUID]: ...
 
     @abstractmethod
-    async def all_user_tracks(self) -> list[UserTrack]: ...
+    async def user_tracks_for_users(self, user_ids: list[uuid.UUID]) -> list[UserTrack]:
+        """Every user_tracks row for the given users (carries assigned_via)."""
 
     @abstractmethod
-    async def all_user_modules(self) -> list[UserModule]: ...
+    async def user_modules_for_users(self, user_ids: list[uuid.UUID]) -> list[UserModule]:
+        """Every user_modules row for the given users (carries assigned_via)."""
 
     @abstractmethod
-    async def all_user_lessons(self) -> list[UserLesson]: ...
+    async def user_lessons_for_users(self, user_ids: list[uuid.UUID]) -> list[UserLesson]:
+        """Every user_lessons row for the given users (carries assigned_via)."""
 
     @abstractmethod
     async def assigned_lesson_counts_by_module(
@@ -529,6 +542,13 @@ class AbstractProgressRepository(ABC):
         self, user_id: uuid.UUID, lesson_ids: list[uuid.UUID] | None = None
     ) -> set[uuid.UUID]:
         """The user's completed lesson ids, optionally restricted to a set."""
+
+    @abstractmethod
+    async def latest_completion_by_user(
+        self, user_ids: list[uuid.UUID]
+    ) -> dict[uuid.UUID, datetime]:
+        """user_id -> most recent lesson completion time (stall detection).
+        An absent key means the user has completed nothing."""
 
     @abstractmethod
     async def upsert(

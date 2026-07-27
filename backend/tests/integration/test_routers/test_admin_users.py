@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 import pytest_asyncio
@@ -12,6 +13,7 @@ from sqlalchemy import func, select
 
 from tests.fixtures.auth import auth_headers
 from tests.fixtures.factories import (
+    assign_lesson,
     assign_track,
     complete_lesson,
     create_company,
@@ -967,3 +969,73 @@ class TestMultiUserBulk:
         )
         assert resp.status_code == 204
         assert (await db_session.execute(select(UserLesson))).scalars().all() == []
+
+
+class TestAdminUserEnrichment:
+    """Task 8: status/progress/attention/provenance additive fields on the
+    admin user + admin learning payloads."""
+
+    async def test_stalled_learner_is_flagged_with_progress_counts(
+        self, client: AsyncClient, db_session: AsyncSession, org: Org
+    ) -> None:
+        user = await create_user(
+            db_session,
+            email="stalled@example.com",
+            password="stall-pass-1",  # activated (password_set=True)
+            project_id=org.project.id,
+        )
+        track = await create_track(db_session, "Stall Track")
+        module = await create_module(db_session, track, "Stall Module")
+        lesson_done = await create_lesson(db_session, module, "Stall Done", sort_order=0)
+        lesson_todo = await create_lesson(db_session, module, "Stall Todo", sort_order=1)
+        await assign_track(db_session, user, track)
+        await assign_lesson(db_session, user, lesson_done)
+        await assign_lesson(db_session, user, lesson_todo)
+        await create_survey(db_session, user)  # any survey row => assessed
+        progress = await complete_lesson(db_session, user, lesson_done)
+        progress.completed_at = datetime.now(UTC) - timedelta(days=20)
+        await db_session.commit()
+
+        response = await client.get(
+            f"/api/admin/users?project_id={org.project.id}", headers=org.headers
+        )
+        assert response.status_code == 200
+        entry = next(u for u in response.json()["users"] if u["email"] == "stalled@example.com")
+        assert entry["activated"] is True
+        assert entry["assigned_lesson_count"] == 2
+        assert entry["completed_lesson_count"] == 1
+        assert entry["needs_attention"] is True
+        assert "Stalled" in entry["attention_reason"]
+
+    async def test_default_provenance_surfaced_on_user_payload(
+        self, client: AsyncClient, db_session: AsyncSession, org: Org
+    ) -> None:
+        from src.db.models import UserTrack
+
+        user = await create_user(
+            db_session, email="defaulted@example.com", project_id=org.project.id
+        )
+        track = await create_track(db_session, "Default Track")
+        db_session.add(UserTrack(user_id=user.id, track_id=track.id, assigned_via="default"))
+        await db_session.commit()
+
+        response = await client.get(
+            f"/api/admin/users?project_id={org.project.id}", headers=org.headers
+        )
+        entry = next(u for u in response.json()["users"] if u["email"] == "defaulted@example.com")
+        assert entry["assigned_track_ids"] == [str(track.id)]
+        assert entry["default_track_ids"] == [str(track.id)]
+
+    async def test_learning_overview_carries_default_ids(
+        self, client: AsyncClient, db_session: AsyncSession, org: Org
+    ) -> None:
+        from src.db.models import UserTrack
+
+        user = await create_user(db_session, email="ov-default@example.com")
+        track = await create_track(db_session, "Ov Default Track")
+        db_session.add(UserTrack(user_id=user.id, track_id=track.id, assigned_via="default"))
+        await db_session.commit()
+
+        overview = (await client.get("/api/admin/learning", headers=org.headers)).json()
+        entry = next(u for u in overview["users"] if u["id"] == str(user.id))
+        assert entry["default_track_ids"] == [str(track.id)]

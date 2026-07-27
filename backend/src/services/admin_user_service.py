@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
+from src.core.attention import attention_for
 from src.core.constants import advance_level
 from src.services.exceptions import EmailAlreadyRegisteredError, NotFoundError
 
@@ -10,8 +12,10 @@ if TYPE_CHECKING:
     from src.db.models import User
     from src.repositories.base import (
         AbstractAssignmentRepository,
+        AbstractAuthSessionRepository,
         AbstractContentRepository,
         AbstractOrgRepository,
+        AbstractProgressRepository,
         AbstractSurveyRepository,
         AbstractUserRepository,
     )
@@ -34,67 +38,132 @@ class AdminUserService:
         assignments: AbstractAssignmentRepository,
         content: AbstractContentRepository,
         surveys: AbstractSurveyRepository,
+        sessions: AbstractAuthSessionRepository,
+        progress: AbstractProgressRepository,
     ) -> None:
         self._users = users
         self._org = org
         self._assignments = assignments
         self._content = content
         self._surveys = surveys
+        self._sessions = sessions
+        self._progress = progress
 
     async def list_users(self, project_id: uuid.UUID | None = None) -> list[dict[str, Any]]:
         rows = await self._users.list_with_org_names(project_id)
-        track_map, module_map, lesson_map = await self._assignment_maps()
-        effective = await self._effective_maturity_map([user for user, _, _ in rows])
-        return [
-            {
-                "id": user.id,
-                "email": user.email,
-                "first_name": user.first_name,
-                "last_name": user.last_name,
-                "role": user.role,
-                "is_active": user.is_active,
-                "password_set": user.password_set,
-                "created_at": user.created_at,
-                "company_id": user.company_id,
-                "project_id": user.project_id,
-                "company_name": company_name,
-                "project_name": project_name,
-                "assigned_track_ids": track_map.get(user.id, []),
-                "assigned_module_ids": module_map.get(user.id, []),
-                "assigned_lesson_ids": lesson_map.get(user.id, []),
-                "maturity_override": user.maturity_override,
-                "effective_maturity": effective.get(user.id),
-            }
-            for user, company_name, project_name in rows
-        ]
-
-    async def _effective_maturity_map(self, users: list[User]) -> dict[uuid.UUID, str | None]:
-        """user_id → effective maturity, computed live via the shared ladder
-        walk (no MaturityService import — services never call services). Base =
-        override or a complete survey's score_level; None → no maturity."""
-        complete = await self._surveys.get_complete_levels([user.id for user in users])
-        bases = {user.id: user.maturity_override or complete.get(user.id) for user in users}
-        if not any(bases.values()):
-            return dict.fromkeys(bases, None)
-
+        users = [user for user, _, _ in rows]
+        user_ids = [user.id for user in users]
+        (
+            track_map,
+            module_map,
+            lesson_map,
+            default_track_map,
+            default_module_map,
+            default_lesson_map,
+        ) = await self._assignment_maps_for(user_ids)
+        # One batched read each — the N+1 per-user scans are gone.
+        counts = await self._assignments.assigned_lesson_counts_by_module_for_users(user_ids)
+        last_active = await self._sessions.last_used_by_user(user_ids)
+        latest = await self._progress.latest_completion_by_user(user_ids)
+        surveyed = await self._surveys.user_ids_with_survey(user_ids)
         tracks = await self._content.list_tracks()
         modules = await self._content.list_modules()
+        track_name = {track.id: track.name for track in tracks}
         track_level = {track.id: track.required_level for track in tracks}
+        module_track = {module.id: module.track_id for module in modules}
         module_level = {
             module.id: track_level[module.track_id]
             for module in modules
             if module.track_id in track_level
         }
-        scored_ids = [user_id for user_id, base in bases.items() if base is not None]
-        counts_by_user = await self._assignments.assigned_lesson_counts_by_module_for_users(
-            scored_ids
-        )
+        effective = await self._effective_maturity_map(users, counts, module_level)
+
+        now = datetime.now(UTC)
+        result: list[dict[str, Any]] = []
+        for user, company_name, project_name in rows:
+            user_counts = counts.get(user.id, {})
+            assigned_total = sum(assigned for assigned, _ in user_counts.values())
+            completed_total = sum(completed for _, completed in user_counts.values())
+            activated = user.password_set or user.external_id is not None
+            assigned_tracks = track_map.get(user.id, [])
+            in_progress = {
+                module_track[mid]
+                for mid, (assigned, completed) in user_counts.items()
+                if assigned > 0 and completed < assigned and mid in module_track
+            }
+            track_names_in_progress = [
+                track_name[tid]
+                for tid in assigned_tracks
+                if tid in in_progress and tid in track_name
+            ]
+            # No activated_at column exists — approximate the moment we can prove
+            # the account was live as max(created_at, first session's last use).
+            last_active_at = last_active.get(user.id)
+            activated_known_since = max(user.created_at, last_active_at or user.created_at)
+            attention = attention_for(
+                now=now,
+                created_at=user.created_at,
+                activated=activated,
+                activated_known_since=activated_known_since,
+                has_survey=user.id in surveyed,
+                latest_completion=latest.get(user.id),
+                assigned_total=assigned_total,
+                completed_total=completed_total,
+                track_names_in_progress=track_names_in_progress,
+            )
+            result.append(
+                {
+                    "id": user.id,
+                    "email": user.email,
+                    "first_name": user.first_name,
+                    "last_name": user.last_name,
+                    "role": user.role,
+                    "is_active": user.is_active,
+                    "password_set": user.password_set,
+                    "created_at": user.created_at,
+                    "company_id": user.company_id,
+                    "project_id": user.project_id,
+                    "company_name": company_name,
+                    "project_name": project_name,
+                    "assigned_track_ids": assigned_tracks,
+                    "assigned_module_ids": module_map.get(user.id, []),
+                    "assigned_lesson_ids": lesson_map.get(user.id, []),
+                    "maturity_override": user.maturity_override,
+                    "effective_maturity": effective.get(user.id),
+                    "last_active_at": last_active_at,
+                    "activated": activated,
+                    "assigned_lesson_count": assigned_total,
+                    "completed_lesson_count": completed_total,
+                    "needs_attention": attention is not None,
+                    "attention_reason": attention[1] if attention is not None else None,
+                    "default_track_ids": default_track_map.get(user.id, []),
+                    "default_module_ids": default_module_map.get(user.id, []),
+                    "default_lesson_ids": default_lesson_map.get(user.id, []),
+                }
+            )
+        return result
+
+    async def _effective_maturity_map(
+        self,
+        users: list[User],
+        counts: dict[uuid.UUID, dict[uuid.UUID, tuple[int, int]]],
+        module_level: dict[uuid.UUID, str],
+    ) -> dict[uuid.UUID, str | None]:
+        """user_id → effective maturity, computed live via the shared ladder
+        walk (no MaturityService import — services never call services). Base =
+        override or a complete survey's score_level; None → no maturity. The
+        per-user assigned-lesson `counts` and the module→required_level map are
+        passed in (both already fetched once by the caller) so this stays a
+        single query."""
+        complete = await self._surveys.get_complete_levels([user.id for user in users])
         result: dict[uuid.UUID, str | None] = {}
-        for user_id, base in bases.items():
-            if base is None:
-                result[user_id] = None
-                continue
-            result[user_id] = advance_level(base, module_level, counts_by_user.get(user_id, {}))
+        for user in users:
+            base = user.maturity_override or complete.get(user.id)
+            result[user.id] = (
+                advance_level(base, module_level, counts.get(user.id, {}))
+                if base is not None
+                else None
+            )
         return result
 
     async def invite(
@@ -321,7 +390,14 @@ class AdminUserService:
         modules = await self._content.list_modules()
         lessons = await self._content.list_lesson_summaries()
         rows = await self._users.list_for_learning()
-        track_map, module_map, lesson_map = await self._assignment_maps()
+        (
+            track_map,
+            module_map,
+            lesson_map,
+            default_track_map,
+            default_module_map,
+            default_lesson_map,
+        ) = await self._assignment_maps_for([user.id for user, _, _ in rows])
         return {
             "modules": [
                 {
@@ -351,6 +427,9 @@ class AdminUserService:
                     "assigned_track_ids": track_map.get(user.id, []),
                     "assigned_module_ids": module_map.get(user.id, []),
                     "assigned_lesson_ids": lesson_map.get(user.id, []),
+                    "default_track_ids": default_track_map.get(user.id, []),
+                    "default_module_ids": default_module_map.get(user.id, []),
+                    "default_lesson_ids": default_lesson_map.get(user.id, []),
                 }
                 for user, project_name, company_name in rows
             ],
@@ -410,20 +489,43 @@ class AdminUserService:
                 project_name = project.name
         return user, project_name
 
-    async def _assignment_maps(
-        self,
+    async def _assignment_maps_for(
+        self, user_ids: list[uuid.UUID]
     ) -> tuple[
         dict[uuid.UUID, list[uuid.UUID]],
         dict[uuid.UUID, list[uuid.UUID]],
         dict[uuid.UUID, list[uuid.UUID]],
+        dict[uuid.UUID, list[uuid.UUID]],
+        dict[uuid.UUID, list[uuid.UUID]],
+        dict[uuid.UUID, list[uuid.UUID]],
     ]:
+        """Scoped assignment maps for the given users: the three assigned-id
+        maps plus the three "assigned via project default" (provenance) maps,
+        built from the same rows in one pass each. Replaces the old unfiltered
+        full-table reads."""
         track_map: dict[uuid.UUID, list[uuid.UUID]] = {}
-        for link in await self._assignments.all_user_tracks():
-            track_map.setdefault(link.user_id, []).append(link.track_id)
+        default_track_map: dict[uuid.UUID, list[uuid.UUID]] = {}
+        for track_link in await self._assignments.user_tracks_for_users(user_ids):
+            track_map.setdefault(track_link.user_id, []).append(track_link.track_id)
+            if track_link.assigned_via == "default":
+                default_track_map.setdefault(track_link.user_id, []).append(track_link.track_id)
         module_map: dict[uuid.UUID, list[uuid.UUID]] = {}
-        for link in await self._assignments.all_user_modules():
-            module_map.setdefault(link.user_id, []).append(link.module_id)
+        default_module_map: dict[uuid.UUID, list[uuid.UUID]] = {}
+        for module_link in await self._assignments.user_modules_for_users(user_ids):
+            module_map.setdefault(module_link.user_id, []).append(module_link.module_id)
+            if module_link.assigned_via == "default":
+                default_module_map.setdefault(module_link.user_id, []).append(module_link.module_id)
         lesson_map: dict[uuid.UUID, list[uuid.UUID]] = {}
-        for link in await self._assignments.all_user_lessons():
-            lesson_map.setdefault(link.user_id, []).append(link.lesson_id)
-        return track_map, module_map, lesson_map
+        default_lesson_map: dict[uuid.UUID, list[uuid.UUID]] = {}
+        for lesson_link in await self._assignments.user_lessons_for_users(user_ids):
+            lesson_map.setdefault(lesson_link.user_id, []).append(lesson_link.lesson_id)
+            if lesson_link.assigned_via == "default":
+                default_lesson_map.setdefault(lesson_link.user_id, []).append(lesson_link.lesson_id)
+        return (
+            track_map,
+            module_map,
+            lesson_map,
+            default_track_map,
+            default_module_map,
+            default_lesson_map,
+        )

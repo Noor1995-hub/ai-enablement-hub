@@ -61,6 +61,21 @@ class AdminUserOut(BaseModel):
     # admin table shows effective with a pin indicator when overridden.
     maturity_override: str | None
     effective_maturity: str | None
+    # Task 8 status/progress/attention/provenance enrichment (all additive).
+    # last_active_at = latest refresh-session use (null = never active);
+    # activated = password_set OR external_id linked; the two lesson counts are
+    # summed over the user's assigned lessons; needs_attention/attention_reason
+    # come from core.attention.attention_for; the default_* lists carry the
+    # "assigned via project default" provenance (the matrix's "via default" tint).
+    last_active_at: datetime | None
+    activated: bool
+    assigned_lesson_count: int
+    completed_lesson_count: int
+    needs_attention: bool
+    attention_reason: str | None
+    default_track_ids: list[uuid.UUID]
+    default_module_ids: list[uuid.UUID]
+    default_lesson_ids: list[uuid.UUID]
 
 
 class AdminUsersResponse(BaseModel):
@@ -194,6 +209,10 @@ class AdminLearningUserOut(BaseModel):
     assigned_track_ids: list[uuid.UUID]
     assigned_module_ids: list[uuid.UUID]
     assigned_lesson_ids: list[uuid.UUID]
+    # Task 8: the "assigned via project default" provenance for the matrix tint.
+    default_track_ids: list[uuid.UUID]
+    default_module_ids: list[uuid.UUID]
+    default_lesson_ids: list[uuid.UUID]
 
 
 class AdminLearningResponse(BaseModel):
