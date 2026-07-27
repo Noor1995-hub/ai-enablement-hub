@@ -1714,6 +1714,10 @@ export interface components {
             assigned_module_ids: string[];
             /** Assigned Lesson Ids */
             assigned_lesson_ids: string[];
+            /** Track Progress */
+            track_progress: {
+                [key: string]: components["schemas"]["TrackLessonProgress"];
+            };
             /** Maturity Override */
             maturity_override: string | null;
             /** Effective Maturity */
@@ -2997,6 +3001,13 @@ export interface components {
             track_type: "tool" | "general";
             /** Color */
             color?: string | null;
+        };
+        /** TrackLessonProgress */
+        TrackLessonProgress: {
+            /** Assigned */
+            assigned: number;
+            /** Completed */
+            completed: number;
         };
         /** TrackModuleOut */
         TrackModuleOut: {

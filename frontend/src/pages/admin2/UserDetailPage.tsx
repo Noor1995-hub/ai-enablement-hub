@@ -8,7 +8,6 @@ import type { AdminSurvey, AdminUserEnriched } from '../../types/domain'
 import {
   useAdminUsers,
   useDeleteUser,
-  useLearning,
   useResetLink,
   useSendReminder,
   useSetMaturity,
@@ -151,7 +150,7 @@ export default function UserDetailPage() {
 
         <div>
           <AccountCard user={user} survey={surveyQuery.data} onDeleted={handleDeleted} />
-          <LearningProgressCard user={user} projectId={scope.projectId} />
+          <LearningProgressCard user={user} />
         </div>
       </div>
     </div>
@@ -369,58 +368,51 @@ function AccountCard({ user, survey, onDeleted }: AccountCardProps) {
 
 // ── Learning progress card ───────────────────────────────────────────────────
 
-/** No per-track completion data exists yet in the admin enrichment types
- * (Task 8 adds only an aggregate assigned/completed *lesson* count on the
- * user row, not a per-track breakdown) — per the brief, the bar here is
- * built from the track's *module counts* in `useLearning` data: how many of
- * the track's modules are assigned to this user vs. how many the track has
- * in total. */
-function LearningProgressCard({ user, projectId }: { user: AdminUserEnriched; projectId: string | null }) {
+/** Real per-track LESSON completion, from the admin enrichment's
+ * `track_progress` map (`user.track_progress[trackId] = { assigned,
+ * completed }` — lessons assigned to this user in that track vs. how many of
+ * those they've completed). Only tracks with ≥1 assigned lesson get a map
+ * entry; a track can be assigned to the user with zero assigned lessons
+ * (e.g. assigned before any lesson under it was), in which case the entry is
+ * absent and the row falls back to a muted "No lessons assigned" instead of
+ * a misleading 0/0 bar. */
+function LearningProgressCard({ user }: { user: AdminUserEnriched }) {
   const tracksQuery = useTracks()
-  const learningQuery = useLearning(projectId)
 
-  const loading = tracksQuery.isLoading || learningQuery.isLoading
-  // Both queries can fail independently; either one failing means the module
-  // counts below can't be trusted, so surface it rather than silently
-  // rendering the same "No tracks assigned" the mock uses for a genuinely
-  // empty user (same ErrorState-with-retry pattern as the Assessment card).
-  const error = tracksQuery.error ?? learningQuery.error
   const assignedTracks = [...(tracksQuery.data ?? [])]
     .filter(track => user.assigned_track_ids.includes(track.id))
     .sort((a, b) => a.sort_order - b.sort_order)
 
   return (
-    <Card title="Learning progress" actions={<span className="adm-card-hint">assigned tracks</span>}>
-      {loading ? (
+    <Card title="Learning progress" actions={<span className="adm-card-hint">lesson completion</span>}>
+      {tracksQuery.isLoading ? (
         <div className="adm-loading">
           <Spinner />
         </div>
-      ) : error ? (
+      ) : tracksQuery.error ? (
         <ErrorState
-          message={error instanceof Error ? error.message : 'Failed to load learning progress.'}
-          onRetry={() => {
-            void tracksQuery.refetch()
-            void learningQuery.refetch()
-          }}
+          message={tracksQuery.error instanceof Error ? tracksQuery.error.message : 'Failed to load learning progress.'}
+          onRetry={() => void tracksQuery.refetch()}
         />
       ) : assignedTracks.length === 0 ? (
         <EmptyState title="No tracks assigned" />
       ) : (
         assignedTracks.map(track => {
-          const trackModuleIds = (learningQuery.data?.modules ?? [])
-            .filter(module => module.track_id === track.id)
-            .map(module => module.id)
-          const completed = trackModuleIds.filter(id => user.assigned_module_ids.includes(id)).length
+          const progress = user.track_progress[track.id]
           return (
             <div key={track.id} className="adm-track-progress-row">
               <span className="adm-track-progress-name">{track.name}</span>
               <span className="adm-track-progress-meta">
-                <ProgressBar completed={completed} total={trackModuleIds.length} />
-                {/* This is assignment coverage (modules assigned vs. the track's
-                    total), NOT lesson/module completion — no per-track completion
-                    field exists in the admin enrichment types yet. Spelled out so
-                    "3/5" can't be misread as "3 of 5 done". */}
-                <span className="adm-subtext">modules assigned</span>
+                {progress ? (
+                  <>
+                    <ProgressBar completed={progress.completed} total={progress.assigned} />
+                    <span className="adm-subtext">
+                      {progress.completed} of {progress.assigned} lessons completed
+                    </span>
+                  </>
+                ) : (
+                  <span className="adm-subtext">No lessons assigned</span>
+                )}
               </span>
             </div>
           )
