@@ -49,6 +49,7 @@ class DashSeed:
     u3: User  # assessed, 1/2 lessons done 20 days ago -> stalled
     u4: User  # assessed, whole track done yesterday -> completed_track + active
     u5: User  # project B, healthy + active
+    u6: User  # activated, IN-PROGRESS survey -> invited+activated but NOT assessed
 
 
 async def _add_session(db_session: AsyncSession, user: User, last_used_at: datetime) -> None:
@@ -140,11 +141,25 @@ async def _seed(db_session: AsyncSession) -> DashSeed:
     await create_survey(db_session, u5, status="complete", score_level="integrator")
     await _add_session(db_session, u5, now)
 
+    # u6 — project A, activated, with a survey that is only IN-PROGRESS (a draft).
+    # Discriminator for the locked "assessed" = completed-survey rule: u6 has a
+    # survey row (so `user_ids_with_survey` includes it, and attention does NOT
+    # flag not_assessed) but is absent from `get_complete_levels`, so it must be
+    # counted in `invited`/`activated` yet excluded from `assessed` and maturity.
+    u6 = await create_user(
+        db_session,
+        email="dash-u6@example.com",
+        password="hunter2hunter2",
+        company_id=company_a.id,
+        project_id=project_a.id,
+    )
+    await create_survey(db_session, u6, status="in_progress")
+
     # One still-new feedback row in project A.
     db_session.add(Feedback(user_id=u3.id, lesson_id=lesson_a1.id, message="More examples please"))
     await db_session.commit()
 
-    return DashSeed(project_a, project_b, track_a, u1, u2, u3, u4, u5)
+    return DashSeed(project_a, project_b, track_a, u1, u2, u3, u4, u5, u6)
 
 
 class TestAdminDashboard:
@@ -164,8 +179,11 @@ class TestAdminDashboard:
         assert resp.status_code == 200
         body = resp.json()
 
+        # u6 is a learner (invited + activated) but its survey is only in-progress,
+        # so it must NOT count toward `assessed` (locked spec §4.4) or maturity, and
+        # (activated + has a survey row) must NOT appear in attention.
         assert body["tiles"] == {
-            "learners": 5,
+            "learners": 6,
             "active_week": 2,
             "attention": 3,
             "new_feedback": 1,
@@ -177,15 +195,17 @@ class TestAdminDashboard:
             "project_id": str(s.project_a.id),
             "project_name": "Alpha Project",
             "company_name": "Alpha Co",
-            "invited": 4,
-            "activated": 3,
-            "assessed": 2,
-            "started": 2,
-            "completed_track": 1,
+            "invited": 5,  # u1..u4 + u6
+            "activated": 4,  # u2, u3, u4, u6 (u1 never activated)
+            "assessed": 2,  # u3, u4 only — u6's in-progress survey excluded
+            "started": 2,  # u3, u4 (>= 1 lesson completed)
+            "completed_track": 1,  # u4
         }
 
         by_user = {item["user_id"]: item for item in body["attention"]}
+        # u6 (activated, has a draft survey row) is not not_assessed -> stays out.
         assert set(by_user) == {str(s.u1.id), str(s.u2.id), str(s.u3.id)}
+        assert str(s.u6.id) not in by_user
         assert by_user[str(s.u1.id)]["kind"] == "never_activated"
         assert by_user[str(s.u2.id)]["kind"] == "not_assessed"
         u3_item = by_user[str(s.u3.id)]

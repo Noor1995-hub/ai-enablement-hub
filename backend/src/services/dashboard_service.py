@@ -167,7 +167,11 @@ class DashboardService:
                 funnel["invited"] += 1
                 if activated:
                     funnel["activated"] += 1
-                if has_survey:
+                # Locked spec §4.4: "assessed" is a COMPLETED survey
+                # (status='complete'), i.e. the `complete` map. This is
+                # deliberately stricter than the attention module's `has_survey`
+                # (any row, incl. drafts) — that stays the not_assessed contract.
+                if user.id in complete:
                     funnel["assessed"] += 1
                 if latest_completion is not None:
                     funnel["started"] += 1
