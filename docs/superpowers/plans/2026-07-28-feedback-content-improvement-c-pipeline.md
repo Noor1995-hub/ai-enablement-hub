@@ -723,7 +723,7 @@ Expected: FAIL — `ModuleNotFoundError: No module named 'src.repositories.propo
 
 In `backend/src/repositories/base.py`:
 
-(a) add `LessonContentProposal` to the `if TYPE_CHECKING:` model import list (alphabetical — it sorts between `LessonProgress` and `Message`), and add `"AbstractProposalRepository"` to `__all__` (alphabetical — between `AbstractProgressRepository` and `AbstractSurveyRepository`).
+(a) add `LessonContentProposal` to the `if TYPE_CHECKING:` model import list (alphabetical — `LessonContentProposal` sorts BEFORE `LessonProgress`), and add `"AbstractProposalRepository"` to `__all__` (alphabetical — between `AbstractProgressRepository` and `AbstractSurveyRepository`).
 
 (b) add these two abstract methods to `AbstractFeedbackRepository`, after `mark_suggestion_attempted`:
 
