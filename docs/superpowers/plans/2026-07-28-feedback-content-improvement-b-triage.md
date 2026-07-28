@@ -634,7 +634,7 @@ from __future__ import annotations
 
 import json
 import logging
-import uuid  # noqa: TC003  (runtime import kept for symmetry with the service layer)
+import uuid
 from typing import TYPE_CHECKING, Any
 
 from src.services.llm_service import LlmError, StructuredSchema
@@ -751,8 +751,6 @@ def _build_prompt(feedback: Feedback, lesson: Lesson) -> str:
         f"{feedback.message}"
     )
 ```
-
-If ruff flags the `uuid` import comment above (rule `TC003` is not in this repo's `select` list of `E,F,I,UP,B,SIM`), drop the `# noqa` and keep the plain `import uuid` — it is used in the `suggest` signature, which FastAPI never inspects here, but a runtime import is harmless and matches the other services.
 
 - [ ] **Step 5: Run the tests**
 
