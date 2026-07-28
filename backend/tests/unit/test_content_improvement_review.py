@@ -320,6 +320,60 @@ async def test_admin_edits_are_NOT_house_style_checked() -> None:
     content.update_lesson.assert_awaited_once()
 
 
+async def test_an_unchanged_agent_draft_is_still_house_style_checked() -> None:
+    # Mirror of test_admin_edits_are_NOT_house_style_checked: the same rule
+    # that exempts an admin's own prose must still gate the agent's, when the
+    # admin approves the draft with no edits at all.
+    proposal = _proposal(
+        proposed_blocks=[{"id": "b1", "type": "paragraph", "text": "Look at this — closely."}]
+    )
+    service, proposals, content = _service(proposal, _lesson(list(_BASE)))
+
+    with pytest.raises(ConflictError):
+        await service.review(proposal_id=proposal.id, decision="approve", reviewer_id=uuid.uuid4())
+
+    content.update_lesson.assert_not_awaited()
+    proposals.set_approved.assert_not_awaited()
+
+
+async def test_edits_missing_only_nested_ids_normalise_to_the_same_draft() -> None:
+    # The MDX editor round-trip can drop a nested id (this module's own
+    # docstring calls that out). If normalising the admin's submission
+    # reconstructs exactly the agent's array, that is still "unchanged": no
+    # delta should be stored and no learn card produced for nothing.
+    proposed = [
+        {
+            "id": "b1",
+            "type": "card_group",
+            "cards": [{"id": "b1-cards0", "title": "A card", "body": "Some body text."}],
+        }
+    ]
+    proposal = _proposal(proposed_blocks=proposed)
+    lesson = _lesson(list(_BASE))
+    service, proposals, content = _service(proposal, lesson)
+    reviewer_id = uuid.uuid4()
+    edited_blocks = [
+        {
+            "id": "b1",
+            "type": "card_group",
+            # Same card, minus its nested id.
+            "cards": [{"title": "A card", "body": "Some body text."}],
+        }
+    ]
+
+    await service.review(
+        proposal_id=proposal.id,
+        decision="approve",
+        reviewer_id=reviewer_id,
+        edited_blocks=edited_blocks,
+    )
+
+    content.update_lesson.assert_awaited_once_with(lesson, {"content_blocks": proposed})
+    proposals.set_approved.assert_awaited_once_with(
+        proposal, edited_blocks=None, reviewed_by=reviewer_id
+    )
+
+
 async def test_a_stale_base_still_supersedes_even_with_edits() -> None:
     proposal = _proposal()
     moved = _lesson([{"id": "b1", "type": "paragraph", "text": "Someone else edited this."}])

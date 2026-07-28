@@ -294,7 +294,13 @@ class ContentImprovementService:
         # the admin did not actually change.
         admin_edits: list[Any] | None = None
         if edited_blocks is not None and list(edited_blocks) != proposed:
-            admin_edits = normalise_nested_ids(edited_blocks)
+            normalised = normalise_nested_ids(edited_blocks)
+            # Re-checked AFTER normalising: a submission that differed only by
+            # missing nested ids reconstructs to the agent's exact draft, and
+            # storing a delta for that would trigger a learn card with nothing
+            # in it to learn from.
+            if normalised != proposed:
+                admin_edits = normalised
         blocks = admin_edits if admin_edits is not None else proposed
 
         # Re-validated at apply time, not just at draft time: the row could
