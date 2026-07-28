@@ -1,24 +1,29 @@
 from __future__ import annotations
 
+import uuid
 from typing import Literal
 
 from pydantic import BaseModel
 
 __all__ = [
+    "AdminInterviewResponse",
     "Blockers",
     "DiagnosedBlocker",
     "DoThisToday",
     "EngagementNotes",
     "InputQuality",
+    "InterviewStateResponse",
     "Maturity",
     "NextMove",
     "Pain",
     "Person",
     "PlaybookExtraction",
     "PlaybookInternal",
+    "PlaybookResponse",
     "PlaybookShared",
     "Reframe",
     "SystemEntry",
+    "TranscriptMessage",
     "UseCase",
 ]
 
@@ -142,3 +147,29 @@ class PlaybookInternal(BaseModel):
 class PlaybookExtraction(BaseModel):
     internal: PlaybookInternal
     shared: PlaybookShared
+
+
+# --- API response shapes -----------------------------------------------------
+
+
+class TranscriptMessage(BaseModel):
+    role: str
+    content: str
+
+
+class InterviewStateResponse(BaseModel):
+    status: Literal["not_started", "in_progress", "complete"]
+    conversation_id: uuid.UUID | None = None
+    playbook: PlaybookShared | None = None
+
+
+class PlaybookResponse(BaseModel):
+    playbook: PlaybookShared
+
+
+class AdminInterviewResponse(BaseModel):
+    status: Literal["not_started", "in_progress", "complete"]
+    tier: str | None = None
+    internal: PlaybookInternal | None = None
+    shared: PlaybookShared | None = None
+    transcript: list[TranscriptMessage]

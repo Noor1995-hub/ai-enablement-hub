@@ -598,6 +598,10 @@ class AbstractConversationRepository(ABC):
     async def update_summary(self, conversation_id: uuid.UUID, summary: dict[str, Any]) -> None:
         """Persist the interviewer's structured extraction into conversations.summary."""
 
+    @abstractmethod
+    async def delete(self, conversation_id: uuid.UUID) -> None:
+        """Remove the conversation (and its messages, via FK cascade)."""
+
 
 class AbstractMessageRepository(ABC):
     """messages — every chat turn, both sides (the 'save all dialogue' table)."""

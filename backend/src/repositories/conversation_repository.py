@@ -5,7 +5,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 
 from src.db.models import Conversation
 from src.repositories.base import AbstractConversationRepository
@@ -62,4 +62,8 @@ class ConversationRepository(AbstractConversationRepository):
         await self._session.execute(
             update(Conversation).where(Conversation.id == conversation_id).values(summary=summary)
         )
+        await self._session.commit()
+
+    async def delete(self, conversation_id: uuid.UUID) -> None:
+        await self._session.execute(delete(Conversation).where(Conversation.id == conversation_id))
         await self._session.commit()
