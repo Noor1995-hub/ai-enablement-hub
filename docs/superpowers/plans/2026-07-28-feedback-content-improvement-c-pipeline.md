@@ -3691,3 +3691,66 @@ git commit -m "feat(admin): block-by-block proposal diff + approve/reject gate"
 - *Bounded* — `max_lessons`, per-lesson timeout, run budget, rate limit, and an oversized-lesson guard that never truncates a lesson mid-array.
 
 **Deploy note for the merge conversation:** this branch carries two migrations (`d7e8f9a0b1c2` from Plan B, `e8f9a0b1c2d3` here), both additive, applied to no database yet; `startup.py` runs `alembic upgrade` on container start. And, as flagged for Plan B: shipping this makes admin-triggered spend on the live (uncapped) Anthropic key reachable — a content run is a much larger call than a triage one, so the §8b spend cap matters more here.
+
+---
+
+## Execution amendments
+
+Four defects in this plan's own code were caught by the per-task reviews and
+fixed during execution. **The shipped code is authoritative** — if you are
+re-deriving any of this, read the files, not the task text above.
+
+1. **Task 2 — the media check (commit `5d78f89`).** The `Counter` multiset
+   design above cannot see a locator *move*: base `b1→a.png`, `b2→b.png`
+   swapped to `b1→b.png`, `b2→a.png` leaves the bag identical, and an
+   `{source:"embed",url:X}` → `{source:"blob",blob_path:X}` flip keys to the
+   same `("video", X)`. As shipped, media is matched **per block id** and the
+   key carries the kind (`image` / `video:embed` / `video:blob` /
+   `video:invalid`). A media block in the proposal with no `id` is rejected,
+   and a non-list `proposed` returns an error rather than a clean pass.
+
+2. **Task 4 — the nested-id rule was unenforced (commit `8edefc1`).** Plan A's
+   final review carried forward that the content agent must emit nested block
+   ids; this plan put that rule only in the system prompt, which is guidance,
+   not a gate. `validate_content_blocks` now requires a non-empty string `id`
+   on every `card_group.cards[]`, `quiz.questions[]`, `try_it_yourself.steps[]`,
+   sort bucket and item, predict option and spot-the-flaw candidate, and
+   additionally cross-checks that every sort item's `bucketId` names a real
+   bucket and that `correctOptionId` names a real option. Same commit
+   rebalanced `_MAX_TOKENS` 8000 → 16_000 against `_MAX_LESSON_CHARS` 40_000 →
+   24_000 (the old pair let in more lesson than the model was allowed to write
+   back, risking a truncated `tool_use` that surfaced as the misleading "the
+   agent returned no blocks"), and added `image`/`video` to the prompt's block
+   list as copy-only — their absence contradicted Hard Rule 2 and read as an
+   instruction to delete every media block.
+
+3. **Task 5 — `decision` fell through to approve (commit `d6b57ea`).** Only
+   `"reject"` was matched, so any other string reached the apply path and
+   published model output. `review` now dispatches on explicit `"approve"` /
+   `"reject"` and raises `InvalidRequestError` (→ 400) otherwise. The
+   reviewable-status check still runs first, so an already-decided proposal
+   keeps returning 409.
+
+4. **Task 8 — the diff could hide a real change (commit `2a3a7fb`).**
+   `blockText` read only string fields while `diffBlocks` decides "changed"
+   from a whole-block `JSON.stringify`, so a block differing only in a
+   non-string correctness field rendered a "changed" badge over byte-identical
+   text. An admin could have approved a revision that flipped which quiz option
+   is graded correct. `blockText` now surfaces `heading.level`, `image.width`,
+   `predict.correctOptionId`, `quiz.questions[].correct` (resolved to the
+   option's text), sort `items[].bucketId` and `candidates[].isFlaw` as
+   labelled tokens. The same commit added an optional `tone` to
+   `kit/ConfirmButton` (default `danger`, unchanged for its existing caller) so
+   the reversible "Draft proposals" confirm no longer wears the same red as the
+   publishing "Apply to the lesson" one.
+
+Two smaller execution notes:
+
+- **Task 6** — the brief's own integration-test code used
+  `db_session.expire_all()` followed by a fresh `select()`, which raises
+  `MissingGreenlet` on this repo's `expire_on_commit=False` `AsyncSession`.
+  Shipped as `await db_session.refresh(lesson)`, which still issues a real
+  SELECT and so still proves durable DB state.
+- **Task 7** — the "Draft proposals" button gained a two-step confirm (see
+  amendment 4); the plan's version fired a metered fan-out of model calls on a
+  single click.
