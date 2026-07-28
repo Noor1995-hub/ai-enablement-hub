@@ -376,6 +376,26 @@ async def test_edits_missing_only_nested_ids_normalise_to_the_same_draft() -> No
     )
 
 
+async def test_deleting_every_block_is_refused_rather_than_blanking_the_lesson() -> None:
+    # `edited_blocks=[]` is not None and differs from any non-empty draft, so it
+    # arrives as an ordinary edit and passes validate_content_blocks (an empty
+    # list is structurally valid). Without the guard it would publish and wipe
+    # the lesson — the same case `_draft` refuses for the agent.
+    proposal = _proposal()
+    service, proposals, content = _service(proposal, _lesson(list(_BASE)))
+
+    with pytest.raises(ConflictError):
+        await service.review(
+            proposal_id=proposal.id,
+            decision="approve",
+            reviewer_id=uuid.uuid4(),
+            edited_blocks=[],
+        )
+
+    content.update_lesson.assert_not_awaited()
+    proposals.set_approved.assert_not_awaited()
+
+
 async def test_a_stale_base_still_supersedes_even_with_edits() -> None:
     proposal = _proposal()
     moved = _lesson([{"id": "b1", "type": "paragraph", "text": "Someone else edited this."}])

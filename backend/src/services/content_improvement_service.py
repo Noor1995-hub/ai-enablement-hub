@@ -456,6 +456,16 @@ class ContentImprovementService:
             if normalised != proposed:
                 admin_edits = normalised
         blocks = admin_edits if admin_edits is not None else proposed
+        # `_draft` refuses an empty array from the agent for exactly this reason
+        # ("the agent returned no blocks"); the admin path needs the same guard,
+        # because validate_content_blocks([]) returns no errors and an approve
+        # would blank the lesson. It sits HERE, after the delta is resolved,
+        # because an admin who deletes every block submits `edited_blocks=[]` —
+        # not None, and != any non-empty draft — so it reaches this point as a
+        # perfectly ordinary edit.
+        if not blocks:
+            msg = "a lesson cannot be left with no content"
+            raise ConflictError(msg)
 
         # Re-validated at apply time, not just at draft time: the row could
         # predate a validator change or have been written by an older build.
