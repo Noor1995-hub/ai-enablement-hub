@@ -727,6 +727,10 @@ button.adm-loc-chip:hover .adm-loc-label { color: var(--adm-red-deep); }
 
 /* Content AI — the AI lesson-revision review queue (feedback-driven content
    improvement). Same card family as the feedback queue. */
+/* Sub-view switch between the proposals queue and the calibration-notes queue.
+   Reuses .adm-pill for the buttons themselves — this only spaces them, one row
+   above the page body (a page-level strip, not a filter row). */
+.adm-tabs { display: flex; gap: 6px; margin: 0 0 14px; }
 .adm-ci-card { background: var(--adm-white); border: 1px solid var(--adm-border); border-radius: var(--adm-radius); padding: 18px 20px; margin-bottom: 14px; }
 .adm-ci-card-done { opacity: .62; }
 .adm-ci-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }

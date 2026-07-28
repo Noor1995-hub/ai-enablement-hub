@@ -3,12 +3,25 @@ import { formatDate } from '../admin/adminHelpers'
 import { resolveTrackColor } from '../../lib/trackColors'
 import type { CalibrationNoteBrief, ProposalStatus, ProposalSummaryOut } from '../../types/domain'
 import LessonEditor from '../../components/lesson/LessonEditor'
+import CalibrationNotesQueue from './CalibrationNotesQueue'
 import ProposalDiff from './ProposalDiff'
-import { PROPOSAL_PAGE_SIZE, useGenerateLearnCard, useProposal, useProposals, useReviewProposal, useRunImprovement } from './api'
+import {
+  PROPOSAL_PAGE_SIZE,
+  useCalibrationNotes,
+  useGenerateLearnCard,
+  useProposal,
+  useProposals,
+  useReviewProposal,
+  useRunImprovement,
+} from './api'
 import { Chip, ConfirmButton, EmptyState, ErrorState, Spinner } from './kit'
 import type { ChipTone } from './kit'
 
 type StatusFilter = ProposalStatus | undefined
+
+/** Two sub-views of one screen, held in local state: no route and no nav entry,
+ * because "learn cards" is a lens on the same agent, not a separate section. */
+type Tab = 'proposals' | 'notes'
 
 const STATUS_PILLS: { value: StatusFilter; label: string }[] = [
   { value: 'pending', label: 'Pending' },
@@ -23,6 +36,7 @@ const STATUS_PILLS: { value: StatusFilter; label: string }[] = [
  * `pending` and only reaches a learner when an admin approves it. Not
  * project-scoped: lessons are shared catalogue content. */
 export default function ContentImprovementPage() {
+  const [tab, setTab] = useState<Tab>('proposals')
   const [status, setStatus] = useState<StatusFilter>('pending')
   const [page, setPage] = useState(1)
   const run = useRunImprovement()
@@ -37,6 +51,9 @@ export default function ContentImprovementPage() {
 
   const { data, isLoading, error, refetch } = useProposals({ status, page })
   const pendingCountQuery = useProposals({ status: 'pending', limit: 1 })
+  // Drives the tab badge. `limit: 1` is carried in the query key, so this never
+  // collides with the notes tab's own paginated list entry.
+  const suggestedNotes = useCalibrationNotes({ status: 'suggested', limit: 1 })
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / PROPOSAL_PAGE_SIZE)) : 1
 
@@ -46,107 +63,131 @@ export default function ContentImprovementPage() {
     if (page > totalPages) setPage(totalPages)
   }, [page, totalPages])
 
-  if (isLoading) {
-    return (
+  // The proposals query's loading and error states are branches of the BODY, not
+  // early returns from the page: an early return would take the tab strip with
+  // it, stranding the admin on a broken Proposals tab with no way to reach the
+  // notes queue (which does not depend on that query at all).
+  const body =
+    tab === 'notes' ? (
+      <CalibrationNotesQueue />
+    ) : isLoading ? (
       <div className="adm-loading">
         <Spinner />
       </div>
-    )
-  }
+    ) : error || !data ? (
+      <ErrorState message={error?.message ?? 'Failed to load content proposals.'} onRetry={() => void refetch()} />
+    ) : (
+      <>
+        <p className="adm-page-sub">
+          AI-drafted lesson revisions built from accepted feedback. Nothing here reaches a learner until you approve it.
+        </p>
 
-  if (error || !data) {
-    return <ErrorState message={error?.message ?? 'Failed to load content proposals.'} onRetry={() => void refetch()} />
-  }
+        <div className="adm-toolbar">
+          <div className="adm-pills">
+            {STATUS_PILLS.map(pill => (
+              <button
+                key={pill.label}
+                type="button"
+                className={status === pill.value ? 'adm-pill active' : 'adm-pill'}
+                onClick={() => setStatus(pill.value)}
+              >
+                {pill.label}
+                {pill.value === 'pending' && <span className="adm-pill-n">{pendingCountQuery.data?.total ?? 0}</span>}
+              </button>
+            ))}
+          </div>
+          <div className="adm-push-right">
+            <ConfirmButton
+              label="Draft proposals"
+              confirmLabel="Yes, draft"
+              busy={run.isPending}
+              onConfirm={() => run.mutate(3)}
+              tone="neutral"
+            />
+          </div>
+        </div>
+
+        {run.isSuccess && (
+          <p className="adm-subtext">
+            Drafted {run.data.proposed} proposal{run.data.proposed === 1 ? '' : 's'}
+            {run.data.skipped > 0 && ` · ${run.data.skipped} lesson${run.data.skipped === 1 ? '' : 's'} could not be drafted (see the Failed tab)`}
+            {run.data.remaining > 0 && ` · ${run.data.remaining} lesson${run.data.remaining === 1 ? '' : 's'} still waiting — run again`}
+            {run.data.proposed === 0 && run.data.skipped === 0 && run.data.remaining === 0 && ' — nothing was waiting'}
+          </p>
+        )}
+        {run.isError && (
+          <p className="adm-form-msg adm-form-msg-err">
+            {run.error instanceof Error ? run.error.message : 'Failed to run the improvement pass.'}
+          </p>
+        )}
+
+        {/* Learn-card state lives here rather than in the row, which is usually
+            gone by the time any of this resolves (see useGenerateLearnCard above). */}
+        {learnCard.isPending && (
+          <p className="adm-subtext">Asking the agent what it can learn from your edits…</p>
+        )}
+        {learnCard.isSuccess && (
+          <p className="adm-subtext">
+            The agent wrote a learn card from your edits — open that proposal on the Approved tab to read it.
+          </p>
+        )}
+        {learnCard.isError && (
+          <p className="adm-form-msg adm-form-msg-err">
+            {learnCard.error instanceof Error ? learnCard.error.message : 'Failed to generate the learn card.'}
+          </p>
+        )}
+
+        {data.items.length === 0 ? (
+          <EmptyState
+            title="No proposals here."
+            hint="Accept some lesson feedback, then use “Draft proposals”."
+          />
+        ) : (
+          data.items.map(item => <ProposalRow key={item.id} item={item} learnCard={learnCard} />)
+        )}
+
+        <div className="adm-pager">
+          <span className="adm-pager-info">
+            Page {page} of {totalPages} · {data.total} total
+          </span>
+          <div className="adm-pager-actions">
+            <button type="button" className="adm-btn adm-btn-ghost adm-btn-sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>
+              Previous
+            </button>
+            <button
+              type="button"
+              className="adm-btn adm-btn-ghost adm-btn-sm"
+              disabled={page >= totalPages}
+              onClick={() => setPage(p => p + 1)}
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      </>
+    )
 
   return (
     <div>
       <h1 className="adm-page-title">Content AI</h1>
-      <p className="adm-page-sub">
-        AI-drafted lesson revisions built from accepted feedback. Nothing here reaches a learner until you approve it.
-      </p>
-
-      <div className="adm-toolbar">
-        <div className="adm-pills">
-          {STATUS_PILLS.map(pill => (
-            <button
-              key={pill.label}
-              type="button"
-              className={status === pill.value ? 'adm-pill active' : 'adm-pill'}
-              onClick={() => setStatus(pill.value)}
-            >
-              {pill.label}
-              {pill.value === 'pending' && <span className="adm-pill-n">{pendingCountQuery.data?.total ?? 0}</span>}
-            </button>
-          ))}
-        </div>
-        <div className="adm-push-right">
-          <ConfirmButton
-            label="Draft proposals"
-            confirmLabel="Yes, draft"
-            busy={run.isPending}
-            onConfirm={() => run.mutate(3)}
-            tone="neutral"
-          />
-        </div>
+      <div className="adm-tabs">
+        <button
+          type="button"
+          className={tab === 'proposals' ? 'adm-pill active' : 'adm-pill'}
+          onClick={() => setTab('proposals')}
+        >
+          Proposals
+        </button>
+        <button
+          type="button"
+          className={tab === 'notes' ? 'adm-pill active' : 'adm-pill'}
+          onClick={() => setTab('notes')}
+        >
+          Learn cards
+          {(suggestedNotes.data?.total ?? 0) > 0 && <span className="adm-pill-n">{suggestedNotes.data?.total}</span>}
+        </button>
       </div>
-
-      {run.isSuccess && (
-        <p className="adm-subtext">
-          Drafted {run.data.proposed} proposal{run.data.proposed === 1 ? '' : 's'}
-          {run.data.skipped > 0 && ` · ${run.data.skipped} lesson${run.data.skipped === 1 ? '' : 's'} could not be drafted (see the Failed tab)`}
-          {run.data.remaining > 0 && ` · ${run.data.remaining} lesson${run.data.remaining === 1 ? '' : 's'} still waiting — run again`}
-          {run.data.proposed === 0 && run.data.skipped === 0 && run.data.remaining === 0 && ' — nothing was waiting'}
-        </p>
-      )}
-      {run.isError && (
-        <p className="adm-form-msg adm-form-msg-err">
-          {run.error instanceof Error ? run.error.message : 'Failed to run the improvement pass.'}
-        </p>
-      )}
-
-      {/* Learn-card state lives here rather than in the row, which is usually
-          gone by the time any of this resolves (see useGenerateLearnCard above). */}
-      {learnCard.isPending && (
-        <p className="adm-subtext">Asking the agent what it can learn from your edits…</p>
-      )}
-      {learnCard.isSuccess && (
-        <p className="adm-subtext">
-          The agent wrote a learn card from your edits — open that proposal on the Approved tab to read it.
-        </p>
-      )}
-      {learnCard.isError && (
-        <p className="adm-form-msg adm-form-msg-err">
-          {learnCard.error instanceof Error ? learnCard.error.message : 'Failed to generate the learn card.'}
-        </p>
-      )}
-
-      {data.items.length === 0 ? (
-        <EmptyState
-          title="No proposals here."
-          hint="Accept some lesson feedback, then use “Draft proposals”."
-        />
-      ) : (
-        data.items.map(item => <ProposalRow key={item.id} item={item} learnCard={learnCard} />)
-      )}
-
-      <div className="adm-pager">
-        <span className="adm-pager-info">
-          Page {page} of {totalPages} · {data.total} total
-        </span>
-        <div className="adm-pager-actions">
-          <button type="button" className="adm-btn adm-btn-ghost adm-btn-sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>
-            Previous
-          </button>
-          <button
-            type="button"
-            className="adm-btn adm-btn-ghost adm-btn-sm"
-            disabled={page >= totalPages}
-            onClick={() => setPage(p => p + 1)}
-          >
-            Next
-          </button>
-        </div>
-      </div>
+      {body}
     </div>
   )
 }

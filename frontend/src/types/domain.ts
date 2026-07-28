@@ -97,3 +97,10 @@ export type ProposalReviewResponse = components['schemas']['ProposalReviewRespon
 export type ImprovementRunResponse = components['schemas']['ImprovementRunResponse']
 export type LearnCardOut = components['schemas']['LearnCardOut']
 export type CalibrationNoteBrief = components['schemas']['CalibrationNoteBrief']
+
+// Calibration notes (Plan E) — the curation queue for the guidance the agent suggests about
+// its own drafting. A note influences nothing until an admin approves it.
+export type CalibrationNoteOut = components['schemas']['CalibrationNoteOut']
+export type CalibrationNoteListResponse = components['schemas']['CalibrationNoteListResponse']
+export type CalibrationNoteStatus = CalibrationNoteOut['status']
+export type CalibrationNoteGraduateResponse = components['schemas']['CalibrationNoteGraduateResponse']

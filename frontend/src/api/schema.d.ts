@@ -1340,6 +1340,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/calibration-notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Calibration Notes */
+        get: operations["list_calibration_notes_api_admin_calibration_notes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/calibration-notes/{note_id}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Review Calibration Note
+         * @description The human gate. Approving is what lets a note start influencing future
+         *     drafts; rejecting takes it out of consideration for good.
+         */
+        post: operations["review_calibration_note_api_admin_calibration_notes__note_id__review_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/calibration-notes/{note_id}/graduate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Graduate Calibration Note
+         * @description Retire an approved note and hand back the line to paste into
+         *     house_style.md. Retiring frees one of the capped runtime slots and stops the
+         *     note being injected twice once it is in the file.
+         */
+        post: operations["graduate_calibration_note_api_admin_calibration_notes__note_id__graduate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/dashboard": {
         parameters: {
             query?: never;
@@ -1858,6 +1918,81 @@ export interface components {
             note: string;
             /** Status */
             status: string;
+        };
+        /**
+         * CalibrationNoteGraduateResponse
+         * @description `paste_ready` is the line to paste into house_style.md's calibration
+         *     section. Graduating does not write that file — see the service docstring.
+         */
+        CalibrationNoteGraduateResponse: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "suggested" | "approved" | "rejected" | "retired";
+            /** Paste Ready */
+            paste_ready: string;
+        };
+        /** CalibrationNoteListResponse */
+        CalibrationNoteListResponse: {
+            /** Items */
+            items: components["schemas"]["CalibrationNoteOut"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /**
+         * CalibrationNoteOut
+         * @description One note the agent suggested about its own drafting.
+         *
+         *     `source_lesson_*` are null when the lesson it came from has since been
+         *     deleted — the note outlives it on purpose.
+         */
+        CalibrationNoteOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Note */
+            note: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "suggested" | "approved" | "rejected" | "retired";
+            /** Source Proposal Id */
+            source_proposal_id: string | null;
+            /** Source Lesson Id */
+            source_lesson_id: string | null;
+            /** Source Lesson Title */
+            source_lesson_title: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Reviewed At */
+            reviewed_at: string | null;
+        };
+        /** CalibrationNoteReviewRequest */
+        CalibrationNoteReviewRequest: {
+            /**
+             * Decision
+             * @enum {string}
+             */
+            decision: "approve" | "reject";
+        };
+        /** CalibrationNoteReviewResponse */
+        CalibrationNoteReviewResponse: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "suggested" | "approved" | "rejected" | "retired";
         };
         /** ChatMessageCreate */
         ChatMessageCreate: {
@@ -5127,6 +5262,105 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LearnCardOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_calibration_notes_api_admin_calibration_notes_get: {
+        parameters: {
+            query?: {
+                status?: ("suggested" | "approved" | "rejected" | "retired") | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalibrationNoteListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    review_calibration_note_api_admin_calibration_notes__note_id__review_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                note_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CalibrationNoteReviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalibrationNoteReviewResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    graduate_calibration_note_api_admin_calibration_notes__note_id__graduate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                note_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalibrationNoteGraduateResponse"];
                 };
             };
             /** @description Validation Error */

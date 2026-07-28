@@ -13,6 +13,9 @@ import type {
   AiSurfaceState,
   ApplyDefaultsResponse,
   BulkAssignmentRequest,
+  CalibrationNoteGraduateResponse,
+  CalibrationNoteListResponse,
+  CalibrationNoteStatus,
   CompanyOut,
   CompanyWithProjects,
   ComponentState,
@@ -925,6 +928,83 @@ export function useGenerateLearnCard() {
     onSettled: (_data, _error, proposalId) => {
       void queryClient.invalidateQueries({ queryKey: ['admin', 'proposals'] })
       void queryClient.invalidateQueries({ queryKey: ['admin', 'proposal', proposalId] })
+    },
+  })
+}
+
+// ── Calibration notes (the agent's suggested guidance, pending an admin) ────────────────────
+// Not project-scoped, for the same reason proposals are not: the guidance is about how the
+// agent writes, not about any one project's content.
+
+export const CALIBRATION_NOTE_PAGE_SIZE = 25
+
+export interface CalibrationNotesParams {
+  status?: CalibrationNoteStatus
+  page?: number
+  /** Defaults to CALIBRATION_NOTE_PAGE_SIZE. The tab badge overrides this to 1 — carried in
+   * the query key below so that call never collides with a paginated list entry. */
+  limit?: number
+}
+
+async function fetchCalibrationNotes(params: CalibrationNotesParams): Promise<CalibrationNoteListResponse> {
+  const limit = params.limit ?? CALIBRATION_NOTE_PAGE_SIZE
+  const offset = ((params.page ?? 1) - 1) * limit
+  const { data, error } = await rawRequest<CalibrationNoteListResponse>('GET', '/api/admin/calibration-notes', {
+    params: { query: { status: params.status, limit, offset } },
+  })
+  if (!data) throw new Error(errorMessage(error, 'Failed to load calibration notes.'))
+  return data
+}
+
+export function useCalibrationNotes(params: CalibrationNotesParams) {
+  return useQuery({
+    queryKey: ['admin', 'calibration-notes', { status: params.status, page: params.page, limit: params.limit }] as const,
+    queryFn: () => fetchCalibrationNotes(params),
+  })
+}
+
+export interface ReviewCalibrationNoteInput {
+  noteId: string
+  decision: 'approve' | 'reject'
+}
+
+async function reviewCalibrationNote({ noteId, decision }: ReviewCalibrationNoteInput): Promise<void> {
+  const { error } = await rawRequest<unknown>('POST', `/api/admin/calibration-notes/${noteId}/review`, {
+    body: { decision },
+  })
+  if (error) throw new Error(errorMessage(error, 'Failed to review the note.'))
+}
+
+/** Approving is what lets a note start influencing future drafts, so this invalidates the
+ * whole `['admin','calibration-notes']` prefix — the list, and the tab badge that shares it. */
+export function useReviewCalibrationNote() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: reviewCalibrationNote,
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'calibration-notes'] })
+    },
+  })
+}
+
+async function graduateCalibrationNote(noteId: string): Promise<CalibrationNoteGraduateResponse> {
+  const { data, error } = await rawRequest<CalibrationNoteGraduateResponse>(
+    'POST',
+    `/api/admin/calibration-notes/${noteId}/graduate`,
+  )
+  if (!data) throw new Error(errorMessage(error, 'Failed to graduate the note.'))
+  return data
+}
+
+/** Retires an approved note and returns the line to paste into house_style.md. The server
+ * deliberately does not write that file — it is baked into the container image, so a runtime
+ * write would vanish on the next revision. */
+export function useGraduateCalibrationNote() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: graduateCalibrationNote,
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'calibration-notes'] })
     },
   })
 }
