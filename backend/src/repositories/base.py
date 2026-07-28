@@ -748,3 +748,33 @@ class AbstractCalibrationNoteRepository(ABC):
     async def list_for_proposal(self, proposal_id: uuid.UUID) -> list[CalibrationNote]:
         """Every note distilled from this proposal, oldest first (the order the
         agent produced them in)."""
+
+    @abstractmethod
+    async def get_by_id(self, note_id: uuid.UUID) -> CalibrationNote | None: ...
+
+    @abstractmethod
+    async def list_admin(self, *, status: str | None = None, limit: int, offset: int) -> list[Any]:
+        """Newest-first review rows: (note, source_lesson_id, source_lesson_title).
+        BOTH joins are outer — `source_proposal_id` is ON DELETE SET NULL, so an
+        approved note outlives the lesson it came from and must not disappear
+        from the queue when that lesson is deleted."""
+
+    @abstractmethod
+    async def count_admin(self, *, status: str | None = None) -> int:
+        """Total rows matching the same filter as list_admin (pagination total)."""
+
+    @abstractmethod
+    async def set_status(
+        self, note: CalibrationNote, status: str, reviewed_by: uuid.UUID | None
+    ) -> None:
+        """Update status + reviewer stamp; reviewed_by=None clears reviewed_at too
+        (same contract as the sibling repositories)."""
+
+    @abstractmethod
+    async def list_for_injection(self, *, limit: int) -> list[str]:
+        """Approved note TEXT ONLY, most-recently-approved first, capped at
+        `limit`. Only `approved` — a `suggested` note has not been through the
+        human gate, and `rejected`/`retired` are deliberately out (retired means
+        it was hand-copied into house_style.md and injecting it too would
+        duplicate it). The caller applies the character budget on top, via
+        services/calibration_prompt.py::render_calibration_block."""
