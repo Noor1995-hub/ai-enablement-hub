@@ -724,3 +724,14 @@ button.adm-loc-chip:hover .adm-loc-label { color: var(--adm-red-deep); }
 
 /* Existing-companies list row (New-company form, Setup). */
 .adm-setup-list-row { display: flex; align-items: center; justify-content: space-between; padding: 4px 0; font-family: var(--dlw-font-body); font-size: 13px; color: var(--adm-text); }
+
+/* Content AI — the AI lesson-revision review queue (feedback-driven content
+   improvement). Same card family as the feedback queue. */
+.adm-ci-card { background: var(--adm-white); border: 1px solid var(--adm-border); border-radius: var(--adm-radius); padding: 18px 20px; margin-bottom: 14px; }
+.adm-ci-card-done { opacity: .62; }
+.adm-ci-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+.adm-ci-when { margin-left: auto; font-size: 12px; color: var(--adm-faint); }
+.adm-ci-loc { display: flex; align-items: center; gap: 5px; margin: 0 0 10px; flex-wrap: wrap; }
+.adm-ci-summary { font-size: 14.5px; color: var(--adm-ink); margin: 0 0 12px; padding-left: 12px; border-left: 3px solid var(--adm-info-border); }
+.adm-ci-foot { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.adm-ci-actions { margin-left: auto; display: flex; gap: 8px; }

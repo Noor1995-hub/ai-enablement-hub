@@ -1232,6 +1232,91 @@ export interface paths {
         patch: operations["set_feedback_status_api_admin_feedback__feedback_id__patch"];
         trace?: never;
     };
+    "/api/admin/content-improvement/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run Improvement Pass
+         * @description Draft revisions for lessons with accepted, not-yet-incorporated feedback.
+         *
+         *     Admin-triggered, bounded and synchronous: `max_lessons` caps the fan-out and
+         *     the service carries a per-lesson timeout plus an overall budget, so one
+         *     click can never hold the request past the ingress timeout. Nothing here
+         *     touches a live lesson — every draft lands as a `pending` proposal.
+         *
+         *     Not project-scoped on purpose: lessons are shared catalogue content, not
+         *     per-project, so a "run for project X" would be a category error.
+         */
+        post: operations["run_improvement_pass_api_admin_content_improvement_run_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/content-improvement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Proposals */
+        get: operations["list_proposals_api_admin_content_improvement_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/content-improvement/{proposal_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Proposal */
+        get: operations["get_proposal_api_admin_content_improvement__proposal_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/content-improvement/{proposal_id}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Review Proposal
+         * @description The human gate. `approve` writes the revision to the live lesson;
+         *     `reject` discards it and frees its feedback for a future run. A 409 means
+         *     the lesson moved under the proposal (now `superseded`) or the draft was
+         *     already decided.
+         */
+        post: operations["review_proposal_api_admin_content_improvement__proposal_id__review_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/dashboard": {
         parameters: {
             query?: never;
@@ -1970,6 +2055,20 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /**
+         * ImprovementRunResponse
+         * @description `proposed` = drafts created; `skipped` = lessons the agent could not
+         *     draft (each recorded as a `failed` proposal carrying the reason);
+         *     `remaining` = lessons the bounded run did not reach.
+         */
+        ImprovementRunResponse: {
+            /** Proposed */
+            proposed: number;
+            /** Skipped */
+            skipped: number;
+            /** Remaining */
+            remaining: number;
+        };
         /** InviteInfoResponse */
         InviteInfoResponse: {
             /**
@@ -2335,6 +2434,133 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /**
+         * ProposalDetailOut
+         * @description Everything the diff view needs. `base_blocks`/`proposed_blocks` are the
+         *     opaque content_blocks arrays; the frontend renders them as PLAIN TEXT —
+         *     they are model output.
+         */
+        ProposalDetailOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Lesson Id
+             * Format: uuid
+             */
+            lesson_id: string;
+            /** Lesson Title */
+            lesson_title: string;
+            /** Summary */
+            summary: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "approved" | "rejected" | "superseded" | "failed";
+            /** Base Blocks */
+            base_blocks: unknown[];
+            /** Proposed Blocks */
+            proposed_blocks: unknown[];
+            /** Source Feedback */
+            source_feedback: components["schemas"]["ProposalFeedbackOut"][];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Reviewed At */
+            reviewed_at: string | null;
+        };
+        /** ProposalFeedbackOut */
+        ProposalFeedbackOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Message */
+            message: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** ProposalListResponse */
+        ProposalListResponse: {
+            /** Items */
+            items: components["schemas"]["ProposalSummaryOut"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /** ProposalReviewRequest */
+        ProposalReviewRequest: {
+            /**
+             * Decision
+             * @enum {string}
+             */
+            decision: "approve" | "reject";
+        };
+        /** ProposalReviewResponse */
+        ProposalReviewResponse: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "approved" | "rejected" | "superseded" | "failed";
+        };
+        /**
+         * ProposalSummaryOut
+         * @description One row of the review queue — no block arrays (see ProposalDetailOut).
+         */
+        ProposalSummaryOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Lesson Id
+             * Format: uuid
+             */
+            lesson_id: string;
+            /** Lesson Title */
+            lesson_title: string;
+            /** Module Title */
+            module_title: string;
+            /**
+             * Track Id
+             * Format: uuid
+             */
+            track_id: string;
+            /** Track Name */
+            track_name: string;
+            /** Track Level */
+            track_level: string;
+            /** Summary */
+            summary: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "approved" | "rejected" | "superseded" | "failed";
+            /** Source Feedback Count */
+            source_feedback_count: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Reviewed At */
+            reviewed_at: string | null;
         };
         /** RefreshRequest */
         RefreshRequest: {
@@ -4673,6 +4899,136 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_improvement_pass_api_admin_content_improvement_run_post: {
+        parameters: {
+            query?: {
+                max_lessons?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImprovementRunResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_proposals_api_admin_content_improvement_get: {
+        parameters: {
+            query?: {
+                status?: ("pending" | "approved" | "rejected" | "superseded" | "failed") | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_proposal_api_admin_content_improvement__proposal_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proposal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalDetailOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    review_proposal_api_admin_content_improvement__proposal_id__review_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proposal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProposalReviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalReviewResponse"];
+                };
             };
             /** @description Validation Error */
             422: {

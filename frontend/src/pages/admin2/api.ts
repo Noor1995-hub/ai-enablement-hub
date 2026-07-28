@@ -21,8 +21,13 @@ import type {
   DefaultsUpdateRequest,
   FeedbackStatus,
   FeedbackStatusUpdateRequest,
+  ImprovementRunResponse,
   LinkResponse,
   ProjectOut,
+  ProposalDetailOut,
+  ProposalListResponse,
+  ProposalReviewResponse,
+  ProposalStatus,
   ReminderResponse,
   SuggestTriageResponse,
   Track,
@@ -795,6 +800,103 @@ export function useCreateProject() {
     mutationFn: createProject,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['admin', 'companies'] })
+    },
+  })
+}
+
+// ── Content improvement (AI lesson-revision proposals) ──────────────────────────────────────
+// Not project-scoped: lessons are shared catalogue content, so a proposal has no project — the
+// `?project=` shell scope deliberately does not reach these queries.
+
+export const PROPOSAL_PAGE_SIZE = 25
+
+export interface ProposalsParams {
+  status?: ProposalStatus
+  page?: number
+  /** Defaults to PROPOSAL_PAGE_SIZE. The sidebar badge overrides this to 1 — carried in the
+   * query key below so that call never collides with a paginated list's cache entry. */
+  limit?: number
+}
+
+async function fetchProposals(params: ProposalsParams): Promise<ProposalListResponse> {
+  const limit = params.limit ?? PROPOSAL_PAGE_SIZE
+  const offset = ((params.page ?? 1) - 1) * limit
+  const { data, error } = await rawRequest<ProposalListResponse>('GET', '/api/admin/content-improvement', {
+    params: { query: { status: params.status, limit, offset } },
+  })
+  if (!data) throw new Error(errorMessage(error, 'Failed to load content proposals.'))
+  return data
+}
+
+export function useProposals(params: ProposalsParams) {
+  return useQuery({
+    queryKey: ['admin', 'proposals', { status: params.status, page: params.page, limit: params.limit }] as const,
+    queryFn: () => fetchProposals(params),
+  })
+}
+
+async function fetchProposal(proposalId: string): Promise<ProposalDetailOut> {
+  const { data, error } = await rawRequest<ProposalDetailOut>('GET', `/api/admin/content-improvement/${proposalId}`)
+  if (!data) throw new Error(errorMessage(error, 'Failed to load the proposal.'))
+  return data
+}
+
+/** The diff payload for ONE proposal — fetched only when the admin expands a row, since it
+ * carries two full content_blocks arrays. `enabled` keeps it off until then. */
+export function useProposal(proposalId: string | null) {
+  return useQuery({
+    queryKey: ['admin', 'proposal', proposalId] as const,
+    queryFn: () => fetchProposal(proposalId as string),
+    enabled: proposalId !== null,
+  })
+}
+
+async function runImprovement(maxLessons: number): Promise<ImprovementRunResponse> {
+  const { data, error } = await rawRequest<ImprovementRunResponse>('POST', '/api/admin/content-improvement/run', {
+    params: { query: { max_lessons: maxLessons } },
+  })
+  if (!data) throw new Error(errorMessage(error, 'Failed to run the improvement pass.'))
+  return data
+}
+
+/** Drafts proposals for lessons with accepted feedback. Deliberately a button, never fired on
+ * mount: each lesson costs a large model call, and the backend bounds the fan-out per request. */
+export function useRunImprovement() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: runImprovement,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'proposals'] })
+    },
+  })
+}
+
+export interface ReviewProposalInput {
+  proposalId: string
+  decision: 'approve' | 'reject'
+}
+
+async function reviewProposal({ proposalId, decision }: ReviewProposalInput): Promise<ProposalReviewResponse> {
+  const { data, error } = await rawRequest<ProposalReviewResponse>(
+    'POST',
+    `/api/admin/content-improvement/${proposalId}/review`,
+    { body: { decision } },
+  )
+  if (!data) throw new Error(errorMessage(error, 'Failed to review the proposal.'))
+  return data
+}
+
+/** Approve (apply to the live lesson) or reject (discard). Invalidates the queue AND the single
+ * proposal — an approve rewrites the lesson, and a stale base makes the server flip the row to
+ * `superseded`, so the cached detail is wrong either way. No optimistic patch: the resulting
+ * status is the server's call (approved / rejected / superseded), not something we can predict. */
+export function useReviewProposal() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: reviewProposal,
+    onSettled: (_data, _error, variables) => {
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'proposals'] })
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'proposal', variables.proposalId] })
     },
   })
 }

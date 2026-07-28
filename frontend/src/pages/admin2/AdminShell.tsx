@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, NavLink, Outlet, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import '../../styles/admin.css'
-import { useFeedback } from './api'
+import { useFeedback, useProposals } from './api'
 import { NAV_ITEMS, type NavIconKey } from './nav'
 import ScopeSwitcher from './ScopeSwitcher'
 import { useScope } from './useScope'
@@ -53,7 +53,11 @@ export default function AdminShell() {
               icon={item.icon}
               path={item.path}
               search={search}
-              badge={item.key === 'feedback' ? <FeedbackNavBadge /> : undefined}
+              badge={
+                item.key === 'feedback' ? <FeedbackNavBadge />
+                : item.key === 'content-ai' ? <ProposalNavBadge />
+                : undefined
+              }
             />
           ))}
         </nav>
@@ -103,6 +107,18 @@ function SidebarLink({ label, icon, path, search, badge }: SidebarLinkProps) {
 function FeedbackNavBadge() {
   const scope = useScope()
   const { data } = useFeedback({ status: 'new', project: scope.projectId, limit: 1 })
+  const count = data?.total
+  if (!count) return null
+  return <span className="adm-nav-count">{count}</span>
+}
+
+/** Pending-proposal count for the "Content AI" nav item — same shape and same
+ * shared-cache trick as FeedbackNavBadge: it fires the exact query key the
+ * page's own "Pending" pill uses, so reviewing a proposal there invalidates
+ * `['admin','proposals']` and refreshes this badge for free. Not project-
+ * scoped: lessons are shared catalogue content, so proposals have no project. */
+function ProposalNavBadge() {
+  const { data } = useProposals({ status: 'pending', limit: 1 })
   const count = data?.total
   if (!count) return null
   return <span className="adm-nav-count">{count}</span>
@@ -167,6 +183,11 @@ const NAV_ICON_ELEMENTS: Record<NavIconKey, ReactNode> = {
   inbox: <>
     <path d="M22 12h-6l-2 3h-4l-2-3H2" />
     <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+  </>,
+  edit: <>
+    <path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h6" />
+    <path d="M14 3v5h5" />
+    <path d="m18.5 12.5 3 3L17 20H14v-3z" />
   </>,
   folder: <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />,
   mail: <>

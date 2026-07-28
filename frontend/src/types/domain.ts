@@ -87,3 +87,11 @@ export type AdminLearningUserEnriched = AdminLearningUser
 export type AdminUsersResponseEnriched = components['schemas']['AdminUsersResponse']
 export type AdminLearningResponseEnriched = components['schemas']['AdminLearningResponse']
 // --- end admin-redesign types ---
+
+// Feedback-driven content improvement (Plan C) — the AI proposal review queue.
+export type ProposalSummaryOut = components['schemas']['ProposalSummaryOut']
+export type ProposalListResponse = components['schemas']['ProposalListResponse']
+export type ProposalDetailOut = components['schemas']['ProposalDetailOut']
+export type ProposalStatus = ProposalSummaryOut['status']
+export type ProposalReviewResponse = components['schemas']['ProposalReviewResponse']
+export type ImprovementRunResponse = components['schemas']['ImprovementRunResponse']

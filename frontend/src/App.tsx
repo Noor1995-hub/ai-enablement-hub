@@ -4,6 +4,7 @@ import Spinner from './components/Spinner'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import AdminShell from './pages/admin2/AdminShell'
 import AssignmentsPage from './pages/admin2/AssignmentsPage'
+import ContentImprovementPage from './pages/admin2/ContentImprovementPage'
 import DashboardPage from './pages/admin2/DashboardPage'
 import FeedbackPage from './pages/admin2/FeedbackPage'
 import PeoplePage from './pages/admin2/PeoplePage'
@@ -77,6 +78,7 @@ function AppRoutes() {
         <Route path="people/:userId" element={<UserDetailPage />} />
         <Route path="assignments" element={<AssignmentsPage />} />
         <Route path="feedback" element={<FeedbackPage />} />
+        <Route path="content-improvement" element={<ContentImprovementPage />} />
         <Route path="projects" element={<ProjectsPage />} />
         <Route path="templates" element={<TemplatesPage />} />
         <Route path="setup" element={<SetupPage />} />
