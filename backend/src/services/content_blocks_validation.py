@@ -600,13 +600,18 @@ def check_house_style(base: object, proposed: object) -> list[str]:
 
     Rule 6 (a quiz needs a "Check your understanding" heading immediately
     before it) is the one exception to "only the quiz's own dict matters":
-    that invariant belongs to the (heading, quiz) PAIR. It is evaluated
-    whenever the quiz itself changed, OR its immediate predecessor in
-    `proposed` changed, OR the block that used to precede it in `base` has
-    been deleted outright — so editing or removing the heading in front of an
-    otherwise-untouched quiz cannot silently break the pairing. A quiz that
-    never had that heading, left alone along with its neighbour, stays
-    exempt, same as every other rule here.
+    that invariant belongs to the (heading, quiz) PAIR, i.e. to the quiz's
+    ADJACENCY, not to its own content. It is evaluated whenever the quiz
+    itself changed, OR its immediate-predecessor identity differs between
+    `base` and `proposed` (a different block now sits there, including "no
+    block at all" when the quiz has been moved to the very front), OR that
+    predecessor is the same block in both but its own content changed (e.g.
+    the heading text was edited in place). A quiz whose predecessor is the
+    same block, unchanged, in both arrays is exempt regardless of what that
+    predecessor is — that is what keeps a legacy quiz that never had the
+    heading, and never gets touched, out of the gate. An index shift caused
+    by something inserted earlier in the array is NOT an adjacency change and
+    does not trip this on its own.
 
     Callers are expected to also run `validate_content_blocks` and
     `check_media_immutable` — this function only carries the house-style
@@ -617,7 +622,6 @@ def check_house_style(base: object, proposed: object) -> list[str]:
     base_by_id = _blocks_by_id(base)
     base_list = base if isinstance(base, list) else []
     base_index_by_id = _index_by_id(base_list)
-    proposed_ids = set(_blocks_by_id(proposed))
     errors: list[str] = []
     for i, block in enumerate(proposed):
         if not isinstance(block, dict):
@@ -631,7 +635,7 @@ def check_house_style(base: object, proposed: object) -> list[str]:
             if block.get("type") == "quiz":
                 errors.extend(_check_quiz_correctness(where, block))
         if block.get("type") == "quiz" and _quiz_heading_rule_applies(
-            i, block, changed, proposed, base_list, base_by_id, base_index_by_id, proposed_ids
+            i, block, changed, proposed, base_list, base_by_id, base_index_by_id
         ):
             errors.extend(_check_quiz_heading(where, proposed, i))
     return errors
@@ -639,7 +643,7 @@ def check_house_style(base: object, proposed: object) -> list[str]:
 
 def _index_by_id(blocks: list[Any]) -> dict[str, int]:
     """Every block's position within `blocks`, keyed by id — used to find what
-    preceded a given (now possibly moved-or-deleted) block in the BASE array."""
+    preceded a given (now possibly moved) block in the BASE array."""
     index_by_id: dict[str, int] = {}
     for idx, block in enumerate(blocks):
         if not isinstance(block, dict):
@@ -650,6 +654,28 @@ def _index_by_id(blocks: list[Any]) -> dict[str, int]:
     return index_by_id
 
 
+# A sentinel distinct from every possible string id, representing "this block
+# has no predecessor" (it is at index 0). Needed so a quiz moved to the very
+# front of the array is recognised as an adjacency change rather than quietly
+# treated as "no predecessor either way, so nothing changed" — the exact gap
+# a pure `base = [heading, quiz]` / `proposed = [quiz, heading]` reorder
+# exposed.
+_NO_PREDECESSOR = object()
+
+
+def _predecessor_id(blocks: list[Any], index: int) -> object:
+    """The id of `blocks[index - 1]`, or `_NO_PREDECESSOR` when there is no
+    such block (index is 0), it isn't a dict, or it has no usable string id."""
+    if index <= 0:
+        return _NO_PREDECESSOR
+    prev = blocks[index - 1]
+    if isinstance(prev, dict):
+        prev_id = prev.get("id")
+        if isinstance(prev_id, str) and prev_id:
+            return prev_id
+    return _NO_PREDECESSOR
+
+
 def _quiz_heading_rule_applies(
     index: int,
     quiz: Mapping[str, object],
@@ -658,32 +684,25 @@ def _quiz_heading_rule_applies(
     base_list: list[Any],
     base_by_id: dict[str, dict[str, Any]],
     base_index_by_id: dict[str, int],
-    proposed_ids: set[str],
 ) -> bool:
-    """True when the (heading, quiz) pairing is something this proposal could
-    have broken: the quiz itself changed, its new immediate predecessor
-    changed (an edit — same id, different content — or a brand new block in
-    that slot), or its old immediate predecessor in `base` is gone from the
-    proposal entirely (a deletion). A quiz that had no predecessor in `base`
-    and still has none in `proposed` triggers none of these — genuinely
-    untouched legacy content stays exempt."""
+    """True when this proposal could have broken the quiz's adjacency to its
+    required heading: the quiz itself changed, its predecessor identity
+    differs between `base` and `proposed`, or its predecessor is the same
+    block in both but was itself edited."""
     if quiz_changed:
         return True
-    proposed_prev = proposed[index - 1] if index > 0 else None
-    if isinstance(proposed_prev, dict) and _is_changed(
-        cast(dict[str, Any], proposed_prev), base_by_id
-    ):
-        return True
     quiz_id = quiz.get("id")
-    if isinstance(quiz_id, str):
-        base_index = base_index_by_id.get(quiz_id)
-        if base_index is not None and base_index > 0:
-            base_prev = base_list[base_index - 1]
-            if isinstance(base_prev, dict):
-                base_prev_id = base_prev.get("id")
-                if isinstance(base_prev_id, str) and base_prev_id not in proposed_ids:
-                    return True
-    return False
+    base_index = base_index_by_id.get(quiz_id) if isinstance(quiz_id, str) else None
+    base_pred_id = (
+        _predecessor_id(base_list, base_index) if base_index is not None else _NO_PREDECESSOR
+    )
+    proposed_pred_id = _predecessor_id(proposed, index)
+    if base_pred_id != proposed_pred_id:
+        return True
+    proposed_prev = proposed[index - 1] if index > 0 else None
+    return isinstance(proposed_prev, dict) and _is_changed(
+        cast(dict[str, Any], proposed_prev), base_by_id
+    )
 
 
 def _check_quiz_heading(where: str, proposed: list[Any], index: int) -> list[str]:

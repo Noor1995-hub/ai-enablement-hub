@@ -696,13 +696,51 @@ def test_house_style_editing_the_heading_before_an_unchanged_quiz_is_caught() ->
 
 def test_house_style_deleting_the_heading_before_an_unchanged_quiz_is_caught() -> None:
     # The quiz's own dict never changes and it has no immediate predecessor
-    # left at all in `proposed` -- caught via "its old base predecessor is
-    # gone", not via "its new predecessor changed".
+    # left at all in `proposed` -- its predecessor identity goes from "h1" in
+    # base to "no predecessor" in proposed, which counts as an adjacency
+    # change even though "h1" was never re-inserted anywhere else either.
     heading = {"id": "h1", "type": "heading", "level": 2, "text": _CHECK_UNDERSTANDING_TEXT}
     quiz = _quiz_two_questions((0, 1))
     base = [heading, quiz]
     errors = check_house_style(base, [quiz])
     assert any("must be immediately preceded" in e for e in errors)
+
+
+def test_house_style_reordering_an_unchanged_quiz_away_from_its_heading_is_caught() -> None:
+    # Fix round 2: a pure reorder, zero content edits on either block. Neither
+    # the quiz's own dict nor the heading's own dict changed, and "h1" still
+    # exists SOMEWHERE in proposed -- but it is no longer adjacent to the
+    # quiz, which is exactly what adjacency (not mere existence) must catch.
+    heading = {"id": "h1", "type": "heading", "level": 2, "text": _CHECK_UNDERSTANDING_TEXT}
+    quiz = _quiz_two_questions((0, 1))
+    base = [heading, quiz]
+    errors = check_house_style(base, [quiz, heading])
+    assert any("must be immediately preceded" in e for e in errors)
+
+
+def test_house_style_moving_an_unchanged_quiz_to_the_front_is_caught() -> None:
+    # The quiz moves to index 0 (no predecessor at all) while its original
+    # heading is left later in the array, unchanged and still present -- a
+    # "no predecessor" identity is distinct from any real predecessor id, so
+    # this is caught rather than treated as vacuously unchanged.
+    heading = {"id": "h1", "type": "heading", "level": 2, "text": _CHECK_UNDERSTANDING_TEXT}
+    quiz = _quiz_two_questions((0, 1))
+    trailer = {"id": "t1", "type": "paragraph", "text": "Some other text."}
+    base = [heading, quiz, trailer]
+    errors = check_house_style(base, [quiz, heading, trailer])
+    assert any("must be immediately preceded" in e for e in errors)
+
+
+def test_house_style_an_index_shift_with_the_same_unchanged_predecessor_is_not_caught() -> None:
+    # A block inserted EARLIER in the array shifts the quiz's own index, but
+    # its immediate predecessor is still the same unchanged heading right
+    # before it -- an index shift is not an adjacency change, and this must
+    # NOT be flagged.
+    heading = {"id": "h1", "type": "heading", "level": 2, "text": _CHECK_UNDERSTANDING_TEXT}
+    quiz = _quiz_two_questions((0, 1))
+    base = [heading, quiz]
+    new_intro = {"id": "i1", "type": "paragraph", "text": "A new introduction."}
+    assert check_house_style(base, [new_intro, heading, quiz]) == []
 
 
 # positive tests: fully house-style-compliant changed content passes clean
