@@ -11,6 +11,7 @@ from src.db.models.conversation import Conversation, Message
 from src.db.models.defaults import ProjectTrackDefault
 from src.db.models.feedback import Feedback
 from src.db.models.learning import Curriculum, Lesson, Module, ModulePrerequisite, Track
+from src.db.models.proposal import LessonContentProposal
 from src.db.models.survey import SurveyResponse
 from src.db.models.user import User
 
@@ -22,6 +23,7 @@ __all__ = [
     "Curriculum",
     "Feedback",
     "Lesson",
+    "LessonContentProposal",
     "LessonProgress",
     "Message",
     "Module",
