@@ -151,3 +151,69 @@ async def test_list_admin_joins_context_and_filters_by_status(db_session: AsyncS
     assert await repo.count_admin(status="pending") == 1
     assert await repo.count_admin(status="approved") == 0
     assert await repo.count_admin(status=None) == 1
+
+
+async def test_set_approved_without_edits_leaves_edited_blocks_null(
+    db_session: AsyncSession,
+) -> None:
+    user, _track, _module, lesson = await _seed(db_session, "approve-plain")
+    repo = ProposalRepository(db_session)
+    created = await repo.create(
+        lesson_id=lesson.id,
+        proposed_blocks=[{"id": "b1", "type": "paragraph", "text": "Agent."}],
+        base_blocks=lesson.content_blocks,
+        source_feedback_ids=[],
+        summary="s",
+    )
+
+    await repo.set_approved(created, edited_blocks=None, reviewed_by=user.id)
+    await db_session.refresh(created)
+
+    assert created.status == "approved"
+    assert created.edited_blocks is None
+    assert created.reviewed_by == user.id
+    assert created.reviewed_at is not None
+
+
+async def test_set_approved_with_edits_stores_the_admin_array(
+    db_session: AsyncSession,
+) -> None:
+    user, _track, _module, lesson = await _seed(db_session, "approve-edited")
+    repo = ProposalRepository(db_session)
+    created = await repo.create(
+        lesson_id=lesson.id,
+        proposed_blocks=[{"id": "b1", "type": "paragraph", "text": "Agent."}],
+        base_blocks=lesson.content_blocks,
+        source_feedback_ids=[],
+        summary="s",
+    )
+    admin_blocks = [{"id": "b1", "type": "paragraph", "text": "Admin."}]
+
+    await repo.set_approved(created, edited_blocks=admin_blocks, reviewed_by=user.id)
+    await db_session.refresh(created)
+
+    assert created.status == "approved"
+    assert created.edited_blocks == admin_blocks
+    # The agent's own draft is never overwritten by the admin's version.
+    assert created.proposed_blocks == [{"id": "b1", "type": "paragraph", "text": "Agent."}]
+
+
+async def test_set_critique_stamps_the_columns(db_session: AsyncSession) -> None:
+    _user, _track, _module, lesson = await _seed(db_session, "critique-store")
+    repo = ProposalRepository(db_session)
+    created = await repo.create(
+        lesson_id=lesson.id,
+        proposed_blocks=[],
+        base_blocks=[],
+        source_feedback_ids=[],
+        summary="s",
+    )
+
+    await repo.set_critique(
+        created, agent_wrong="I used a card group.", admin_preferred="Inline bullets."
+    )
+    await db_session.refresh(created)
+
+    assert created.critique_agent_wrong == "I used a card group."
+    assert created.critique_admin_preferred == "Inline bullets."
+    assert created.critiqued_at is not None

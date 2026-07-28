@@ -102,3 +102,24 @@ class ProposalRepository(AbstractProposalRepository):
         proposal.reviewed_by = reviewed_by
         proposal.reviewed_at = None if reviewed_by is None else datetime.now(UTC)
         await self._session.commit()
+
+    async def set_approved(
+        self,
+        proposal: LessonContentProposal,
+        *,
+        edited_blocks: list[Any] | None,
+        reviewed_by: uuid.UUID,
+    ) -> None:
+        proposal.status = "approved"
+        proposal.edited_blocks = edited_blocks
+        proposal.reviewed_by = reviewed_by
+        proposal.reviewed_at = datetime.now(UTC)
+        await self._session.commit()
+
+    async def set_critique(
+        self, proposal: LessonContentProposal, *, agent_wrong: str, admin_preferred: str
+    ) -> None:
+        proposal.critique_agent_wrong = agent_wrong
+        proposal.critique_admin_preferred = admin_preferred
+        proposal.critiqued_at = datetime.now(UTC)
+        await self._session.commit()

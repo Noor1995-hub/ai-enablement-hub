@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from src.db.models import (
         AuthSession,
         AuthToken,
+        CalibrationNote,
         Company,
         Conversation,
         Feedback,
@@ -38,6 +39,7 @@ __all__ = [
     "AbstractAssignmentRepository",
     "AbstractAuthSessionRepository",
     "AbstractAuthTokenRepository",
+    "AbstractCalibrationNoteRepository",
     "AbstractContentRepository",
     "AbstractConversationRepository",
     "AbstractEmailTemplateRepository",
@@ -705,3 +707,39 @@ class AbstractProposalRepository(ABC):
         self, proposal: LessonContentProposal, status: str, reviewed_by: uuid.UUID | None
     ) -> None:
         """Update status + reviewer stamp; reviewed_by=None clears reviewed_at too."""
+
+    @abstractmethod
+    async def set_approved(
+        self,
+        proposal: LessonContentProposal,
+        *,
+        edited_blocks: list[Any] | None,
+        reviewed_by: uuid.UUID,
+    ) -> None:
+        """Mark approved and stamp the reviewer. `edited_blocks` is the array
+        the admin actually submitted, and is stored ONLY when it differed from
+        `proposed_blocks` — passing None keeps the column NULL, which is the
+        signal that the draft was accepted exactly as written and there is
+        nothing to learn from it. `proposed_blocks` is never overwritten."""
+
+    @abstractmethod
+    async def set_critique(
+        self, proposal: LessonContentProposal, *, agent_wrong: str, admin_preferred: str
+    ) -> None:
+        """Store the agent's self-assessment of the difference between its
+        draft and the admin's version, and stamp `critiqued_at`."""
+
+
+class AbstractCalibrationNoteRepository(ABC):
+    """calibration_notes — guidance the agent suggested about its own drafting,
+    pending an admin's approval before it can influence anything."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    @abstractmethod
+    async def create_many(
+        self, *, source_proposal_id: uuid.UUID, notes: list[str]
+    ) -> list[CalibrationNote]:
+        """One `suggested` row per note string, in the order given. An empty
+        `notes` list inserts nothing and issues no statement."""
