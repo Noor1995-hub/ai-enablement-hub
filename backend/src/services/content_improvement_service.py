@@ -25,7 +25,7 @@ from src.services.content_blocks_validation import (
     check_media_immutable,
     validate_content_blocks,
 )
-from src.services.exceptions import ConflictError, NotFoundError
+from src.services.exceptions import ConflictError, InvalidRequestError, NotFoundError
 from src.services.llm_service import LlmError, StructuredSchema
 from src.services.media_blocks import strip_ephemeral
 from src.services.prompts import load_prompt
@@ -183,8 +183,11 @@ class ContentImprovementService:
         if decision == "reject":
             await self._proposals.set_status(proposal, "rejected", reviewer_id)
             return "rejected"
-        await self._apply(proposal, reviewer_id)
-        return "approved"
+        if decision == "approve":
+            await self._apply(proposal, reviewer_id)
+            return "approved"
+        msg = f"unknown review decision {decision!r}"
+        raise InvalidRequestError(msg)
 
     async def _apply(self, proposal: LessonContentProposal, reviewer_id: uuid.UUID) -> None:
         if proposal.status == "failed":

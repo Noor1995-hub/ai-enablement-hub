@@ -13,7 +13,7 @@ from src.repositories.base import (
     AbstractProposalRepository,
 )
 from src.services.content_improvement_service import ContentImprovementService
-from src.services.exceptions import ConflictError, NotFoundError
+from src.services.exceptions import ConflictError, InvalidRequestError, NotFoundError
 
 _BASE = [{"id": "b1", "type": "paragraph", "text": "Old text."}]
 _PROPOSED = [
@@ -153,6 +153,19 @@ async def test_an_already_reviewed_proposal_is_refused() -> None:
     content.update_lesson.assert_not_awaited()
 
 
+@pytest.mark.parametrize("status", ["rejected", "superseded"])
+async def test_a_decided_proposal_is_refused_regardless_of_which_decision(status: str) -> None:
+    proposal = _proposal(status=status)
+    service, _proposals, content = _service(proposal, _lesson(list(_BASE)))
+
+    with pytest.raises(ConflictError):
+        await service.review(proposal_id=proposal.id, decision="approve", reviewer_id=uuid.uuid4())
+    with pytest.raises(ConflictError):
+        await service.review(proposal_id=proposal.id, decision="reject", reviewer_id=uuid.uuid4())
+
+    content.update_lesson.assert_not_awaited()
+
+
 async def test_a_failed_proposal_can_be_rejected_but_not_approved() -> None:
     proposal = _proposal(status="failed", proposed_blocks=[])
     service, proposals, content = _service(proposal, _lesson(list(_BASE)))
@@ -178,3 +191,17 @@ async def test_unknown_proposal_and_deleted_lesson_raise_not_found() -> None:
     service, _proposals, _content = _service(proposal, None)
     with pytest.raises(NotFoundError):
         await service.review(proposal_id=proposal.id, decision="approve", reviewer_id=uuid.uuid4())
+
+
+async def test_an_unknown_decision_never_applies_anything() -> None:
+    proposal = _proposal()
+    service, proposals, content = _service(proposal, _lesson(list(_BASE)))
+
+    for decision in ("", "APPROVE", "publish"):
+        with pytest.raises(InvalidRequestError):
+            await service.review(
+                proposal_id=proposal.id, decision=decision, reviewer_id=uuid.uuid4()
+            )
+
+    content.update_lesson.assert_not_awaited()
+    proposals.set_status.assert_not_awaited()
