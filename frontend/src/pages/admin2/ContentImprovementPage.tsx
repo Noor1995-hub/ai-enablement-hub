@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react'
 import { formatDate } from '../admin/adminHelpers'
 import { resolveTrackColor } from '../../lib/trackColors'
 import type { ProposalStatus, ProposalSummaryOut } from '../../types/domain'
-import { PROPOSAL_PAGE_SIZE, useProposals, useRunImprovement } from './api'
-import { Chip, EmptyState, ErrorState, Spinner } from './kit'
+import ProposalDiff from './ProposalDiff'
+import { PROPOSAL_PAGE_SIZE, useProposal, useProposals, useReviewProposal, useRunImprovement } from './api'
+import { Chip, ConfirmButton, EmptyState, ErrorState, Spinner } from './kit'
 import type { ChipTone } from './kit'
 
 type StatusFilter = ProposalStatus | undefined
@@ -72,14 +73,12 @@ export default function ContentImprovementPage() {
           ))}
         </div>
         <div className="adm-push-right">
-          <button
-            type="button"
-            className="adm-btn adm-btn-ghost adm-btn-sm"
-            disabled={run.isPending}
-            onClick={() => run.mutate(3)}
-          >
-            {run.isPending ? 'Drafting…' : 'Draft proposals'}
-          </button>
+          <ConfirmButton
+            label="Draft proposals"
+            confirmLabel="Yes, draft"
+            busy={run.isPending}
+            onConfirm={() => run.mutate(3)}
+          />
         </div>
       </div>
 
@@ -132,9 +131,14 @@ interface ProposalRowProps {
   item: ProposalSummaryOut
 }
 
-/** One proposal in the queue. Task 8 adds the expandable diff and the
- * approve/reject actions to this component. */
+/** One proposal in the queue. The diff payload carries two whole
+ * content_blocks arrays, so it is fetched only once the admin expands the row
+ * (`useProposal(null)` is disabled). Approve is a two-step ConfirmButton
+ * because it overwrites live lesson content — never a native window.confirm. */
 function ProposalRow({ item }: ProposalRowProps) {
+  const [expanded, setExpanded] = useState(false)
+  const detail = useProposal(expanded ? item.id : null)
+  const review = useReviewProposal()
   const done = item.status !== 'pending'
   const dotColor = resolveTrackColor({ required_level: item.track_level, is_introduction: false })
 
@@ -166,12 +170,83 @@ function ProposalRow({ item }: ProposalRowProps) {
           target="_blank"
           rel="noopener noreferrer"
         >
-          open lesson
+          <ExternalIcon /> open lesson
         </a>
       </div>
 
       {/* Agent output — rendered as plain text, never as HTML or markdown. */}
       <p className="adm-ci-summary">{item.summary}</p>
+
+      {expanded && (
+        <>
+          {detail.isLoading && (
+            <div className="adm-loading">
+              <Spinner />
+            </div>
+          )}
+          {detail.error && (
+            <ErrorState
+              message={detail.error.message}
+              onRetry={() => void detail.refetch()}
+            />
+          )}
+          {detail.data && (
+            <>
+              <ul className="adm-ci-feedback">
+                {detail.data.source_feedback.map(feedback => (
+                  <li key={feedback.id}>“{feedback.message}”</li>
+                ))}
+              </ul>
+              <ProposalDiff base={detail.data.base_blocks} proposed={detail.data.proposed_blocks} />
+            </>
+          )}
+        </>
+      )}
+
+      <div className="adm-ci-foot">
+        <button
+          type="button"
+          className="adm-btn adm-btn-subtle adm-btn-sm"
+          onClick={() => setExpanded(open => !open)}
+        >
+          {expanded ? 'Hide changes' : 'Review changes'}
+        </button>
+        {item.status === 'pending' && (
+          <div className="adm-ci-actions">
+            <button
+              type="button"
+              className="adm-btn adm-btn-ghost adm-btn-sm"
+              disabled={review.isPending}
+              onClick={() => review.mutate({ proposalId: item.id, decision: 'reject' })}
+            >
+              Discard
+            </button>
+            <ConfirmButton
+              label="Apply to the lesson"
+              confirmLabel="Yes, apply"
+              busy={review.isPending}
+              onConfirm={() => review.mutate({ proposalId: item.id, decision: 'approve' })}
+            />
+          </div>
+        )}
+        {item.status === 'failed' && (
+          <div className="adm-ci-actions">
+            <button
+              type="button"
+              className="adm-btn adm-btn-ghost adm-btn-sm"
+              disabled={review.isPending}
+              onClick={() => review.mutate({ proposalId: item.id, decision: 'reject' })}
+            >
+              Dismiss and retry later
+            </button>
+          </div>
+        )}
+      </div>
+      {review.isError && (
+        <p className="adm-form-msg adm-form-msg-err">
+          {review.error instanceof Error ? review.error.message : 'Failed to review this proposal.'}
+        </p>
+      )}
     </div>
   )
 }
@@ -191,4 +266,14 @@ function statusLabel(status: ProposalStatus): string {
     failed: 'Could not draft',
   }
   return labels[status]
+}
+
+function ExternalIcon() {
+  return (
+    <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+      <path d="M15 3h6v6" />
+      <path d="M10 14 21 3" />
+    </svg>
+  )
 }
