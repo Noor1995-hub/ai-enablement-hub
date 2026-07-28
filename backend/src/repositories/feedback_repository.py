@@ -98,3 +98,38 @@ class FeedbackRepository(AbstractFeedbackRepository):
         feedback.reviewed_by = reviewed_by
         feedback.reviewed_at = None if reviewed_by is None else datetime.now(UTC)
         await self._session.commit()
+
+    def _awaiting_suggestion_query(self, project_id: uuid.UUID | None) -> Select[Any]:
+        query = (
+            select(Feedback, Lesson)
+            .join(Lesson, Lesson.id == Feedback.lesson_id)
+            .where(Feedback.status == "new", Feedback.ai_suggested_at.is_(None))
+        )
+        if project_id is not None:
+            query = query.join(User, User.id == Feedback.user_id).where(
+                User.project_id == project_id
+            )
+        return query
+
+    async def list_awaiting_suggestion(
+        self, *, project_id: uuid.UUID | None = None, limit: int
+    ) -> list[tuple[Feedback, Lesson]]:
+        query = (
+            self._awaiting_suggestion_query(project_id).order_by(Feedback.created_at).limit(limit)
+        )
+        rows = (await self._session.execute(query)).all()
+        return [(row[0], row[1]) for row in rows]
+
+    async def count_awaiting_suggestion(self, *, project_id: uuid.UUID | None = None) -> int:
+        query = select(func.count()).select_from(
+            self._awaiting_suggestion_query(project_id).subquery()
+        )
+        return int((await self._session.execute(query)).scalar_one())
+
+    async def set_ai_suggestion(
+        self, feedback: Feedback, *, suggested_status: str, rationale: str
+    ) -> None:
+        feedback.ai_suggested_status = suggested_status
+        feedback.ai_rationale = rationale
+        feedback.ai_suggested_at = datetime.now(UTC)
+        await self._session.commit()

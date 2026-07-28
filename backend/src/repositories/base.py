@@ -435,6 +435,26 @@ class AbstractFeedbackRepository(ABC):
     async def count_new(self, project_id: uuid.UUID | None = None) -> int:
         """How many feedback rows are still status='new', optionally scoped to a project."""
 
+    @abstractmethod
+    async def list_awaiting_suggestion(
+        self, *, project_id: uuid.UUID | None = None, limit: int
+    ) -> list[tuple[Feedback, Lesson]]:
+        """`new` feedback that has no AI triage suggestion yet
+        (`ai_suggested_at IS NULL`), oldest first, joined to its lesson (the
+        triage agent's context). Bounded by `limit` — a run is never unbounded."""
+
+    @abstractmethod
+    async def count_awaiting_suggestion(self, *, project_id: uuid.UUID | None = None) -> int:
+        """How many `new` rows still lack a suggestion (the "remaining" figure
+        an admin sees after a bounded run)."""
+
+    @abstractmethod
+    async def set_ai_suggestion(
+        self, feedback: Feedback, *, suggested_status: str, rationale: str
+    ) -> None:
+        """Write the three ai_* columns and stamp ai_suggested_at. NEVER touches
+        `status`/`reviewed_by` — an AI suggestion is advice, the admin decides."""
+
 
 class AbstractAssignmentRepository(ABC):
     """user_tracks / user_modules / user_lessons assignment links."""
