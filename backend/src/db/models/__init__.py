@@ -1,5 +1,6 @@
 from src.db.models.assignment import LessonProgress, UserLesson, UserModule, UserTrack
 from src.db.models.auth import AuthSession, AuthToken
+from src.db.models.calibration_note import CalibrationNote
 from src.db.models.company import (
     Company,
     Project,
@@ -18,6 +19,7 @@ from src.db.models.user import User
 __all__ = [
     "AuthSession",
     "AuthToken",
+    "CalibrationNote",
     "Company",
     "Conversation",
     "Curriculum",

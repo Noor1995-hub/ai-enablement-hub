@@ -63,3 +63,13 @@ class LessonContentProposal(Base):
     reviewed_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
+    # Inline-edit + learn-card columns (Plan D). `edited_blocks` is what the
+    # admin actually submitted at accept time, stored ONLY when it differed
+    # from `proposed_blocks` — NULL therefore means "accepted exactly as
+    # drafted", which is also the signal that there is nothing to learn.
+    # Both arrays are frozen once accepted, so the critique below is stable
+    # and re-runnable and never needs to re-read the live lesson.
+    edited_blocks: Mapped[list[Any] | None] = mapped_column(JSONB, nullable=True)
+    critique_agent_wrong: Mapped[str | None] = mapped_column(Text, nullable=True)
+    critique_admin_preferred: Mapped[str | None] = mapped_column(Text, nullable=True)
+    critiqued_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
