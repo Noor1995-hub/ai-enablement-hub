@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from collections import Counter
 from collections.abc import Mapping
-from typing import cast
+from typing import Any, cast
 
 __all__ = [
     "KNOWN_BLOCK_TYPES",
@@ -174,13 +173,71 @@ def _validate_interactive(where: str, block: Mapping[str, object]) -> list[str]:
     return errs
 
 
-def media_locators(blocks: object) -> list[tuple[str, str]]:
-    """Every (block type, PERSISTED media locator) pair, in document order.
+def _media_entry(block: dict[str, Any]) -> tuple[str, str] | None:
+    """Classify one block's persisted media locator as a (kind, locator) pair,
+    or None if the block carries no media at all.
 
-    The persisted locator is `blob_path` for an image or an uploaded video and
+    The kind is `"image"`, `"video:embed"`, or `"video:blob"` — never a bare
+    `"video"` — so that a block whose `source` flips between embed and blob
+    while keeping the same locator string is never mistaken for an unchanged
+    block. A `video` with any other/missing `source` is `"video:invalid"` with
+    an empty locator: it has no verifiable locator, so it must never silently
+    compare equal to a real one. Likewise, if the locator field itself is
+    missing or not a non-empty string, the entry is still returned with an
+    empty locator rather than None, for the same reason.
+    """
+    btype = block.get("type")
+    if btype == "image":
+        locator = block.get("blob_path")
+        return ("image", locator if isinstance(locator, str) and locator else "")
+    if btype == "video":
+        source = block.get("source")
+        if source == "embed":
+            locator = block.get("url")
+            return ("video:embed", locator if isinstance(locator, str) and locator else "")
+        if source == "blob":
+            locator = block.get("blob_path")
+            return ("video:blob", locator if isinstance(locator, str) and locator else "")
+        return ("video:invalid", "")
+    return None
+
+
+def _media_by_id(blocks: object) -> dict[str, tuple[str, str]]:
+    """The base's media (kind, locator) entries keyed by block id, so a
+    proposal's media can be matched per block rather than as a bag of
+    locators. Skips non-list input, non-dict entries, and blocks with no
+    non-empty string `id` (their media cannot be matched by id at all)."""
+    by_id: dict[str, tuple[str, str]] = {}
+    if not isinstance(blocks, list):
+        return by_id
+    for block in blocks:
+        if not isinstance(block, dict):
+            continue
+        block_id = block.get("id")
+        if not isinstance(block_id, str) or not block_id:
+            continue
+        entry = _media_entry(cast(dict[str, Any], block))
+        if entry is not None:
+            by_id[block_id] = entry
+    return by_id
+
+
+def media_locators(blocks: object) -> list[tuple[str, str]]:
+    """Every (media kind, PERSISTED locator) pair, in document order.
+
+    The kind is `"image"`, `"video:embed"`, or `"video:blob"` — collapsing
+    embed and blob videos into a bare `"video"` would let a proposal flip one
+    into the other while keeping the same locator string unnoticed, which is
+    exactly the kind of change `check_media_immutable` exists to catch. The
+    persisted locator is `blob_path` for an image or an uploaded video and
     `url` for an embed video. An image/blob-video `url` is an ephemeral SAS
     stamped at read time (see services/media_blocks.py) and is deliberately
     ignored here — comparing it would flag every proposal.
+
+    This is pure extraction; it validates nothing. Pair it with
+    `check_media_immutable` for the immutability guarantee and with
+    `validate_content_blocks` for structural validation — neither of those
+    checks is a substitute for the other.
     """
     found: list[tuple[str, str]] = []
     if not isinstance(blocks, list):
@@ -188,31 +245,54 @@ def media_locators(blocks: object) -> list[tuple[str, str]]:
     for block in blocks:
         if not isinstance(block, dict):
             continue
-        btype = block.get("type")
-        locator: object = None
-        if btype == "image":
-            locator = block.get("blob_path")
-        elif btype == "video":
-            locator = block.get("url") if block.get("source") == "embed" else block.get("blob_path")
-        if isinstance(btype, str) and isinstance(locator, str) and locator:
-            found.append((btype, locator))
+        entry = _media_entry(cast(dict[str, Any], block))
+        if entry is not None and entry[1]:
+            found.append(entry)
     return found
 
 
 def check_media_immutable(base: object, proposed: object) -> list[str]:
-    """Reject a proposal that ADDS a media block or ALTERS an existing one's
-    locator. Returns human-readable error strings; empty means it is safe.
+    """Reject a proposal that adds an unverifiable media block or alters an
+    existing one's kind/locator. Matches media PER BLOCK ID, not as a bag of
+    locators. Returns human-readable error strings; empty means it is safe.
+
+    A bag/multiset comparison cannot see a locator MOVE: swapping the
+    `blob_path`s of two image blocks leaves the multiset of locators
+    unchanged, yet every learner would now see the wrong image under each
+    caption. It also cannot see an embed video reinterpreted as a blob video
+    (or vice versa) pointing at the same string — the renderer would then
+    resolve a URL as a storage path or vice versa. Matching by block id
+    catches both.
 
     Dropping a media block is allowed — the agent may restructure a lesson and
     leave one out, and the admin sees that in the approval diff. Inventing a
     `blob_path` is not: it would point the learner renderer at a blob that does
     not exist, and the model has no way to know a real one.
+
+    This is a media-only check. Callers are expected to also run
+    `validate_content_blocks` — it catches every other structural problem
+    (missing fields, unknown block types, and so on) that this function does
+    not.
     """
-    base_counts = Counter(media_locators(base))
+    if not isinstance(proposed, list):
+        return ["proposed content_blocks must be a list"]
+    base_by_id = _media_by_id(base)
     errors: list[str] = []
-    for (btype, locator), count in Counter(media_locators(proposed)).items():
-        if count > base_counts[(btype, locator)]:
+    for block in proposed:
+        if not isinstance(block, dict):
+            continue
+        entry = _media_entry(cast(dict[str, Any], block))
+        if entry is None:
+            continue
+        block_id = block.get("id")
+        if not isinstance(block_id, str) or not block_id:
             errors.append(
-                f"proposal adds or alters a {btype} locator not present in the lesson: {locator!r}"
+                f"proposal has a {entry[0]} block with no id; its media cannot be verified"
+            )
+            continue
+        if base_by_id.get(block_id) != entry:
+            errors.append(
+                f"proposal adds or alters a {entry[0]} locator not present in "
+                f"the lesson: {entry[1]!r} (block id {block_id!r})"
             )
     return errors

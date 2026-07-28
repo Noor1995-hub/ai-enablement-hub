@@ -89,8 +89,8 @@ _TEXT = {"id": "t1", "type": "paragraph", "text": "Hello."}
 def test_media_locators_extracts_every_persisted_locator() -> None:
     assert media_locators([_TEXT, _IMAGE, _EMBED, _BLOB_VIDEO]) == [
         ("image", "images/a.png"),
-        ("video", "https://x.test/v"),
-        ("video", "videos/b.mp4"),
+        ("video:embed", "https://x.test/v"),
+        ("video:blob", "videos/b.mp4"),
     ]
 
 
@@ -129,3 +129,32 @@ def test_duplicating_an_existing_image_is_rejected() -> None:
 def test_changing_alt_text_is_allowed() -> None:
     # Only the locator is immutable — captions/alt text are editable content.
     assert check_media_immutable([_IMAGE], [{**_IMAGE, "alt": "a clearer caption"}]) == []
+
+
+def test_swapping_two_image_locators_is_rejected() -> None:
+    # A bag/Counter comparison sees the same two paths present either way and
+    # would miss this; matching by block id catches the swap.
+    img_a = {"id": "m1", "type": "image", "blob_path": "images/a.png", "alt": "a"}
+    img_b = {"id": "m2", "type": "image", "blob_path": "images/b.png", "alt": "b"}
+    swapped_a = {**img_a, "blob_path": "images/b.png"}
+    swapped_b = {**img_b, "blob_path": "images/a.png"}
+    errors = check_media_immutable([img_a, img_b], [swapped_a, swapped_b])
+    assert any("images/a.png" in e or "images/b.png" in e for e in errors)
+
+
+def test_flipping_embed_to_blob_on_the_same_id_is_rejected() -> None:
+    # Same locator string, but the renderer would now treat it as a storage
+    # path instead of an embed URL -- the kind must be part of the identity.
+    flipped = {"id": "m2", "type": "video", "source": "blob", "blob_path": "https://x.test/v"}
+    errors = check_media_immutable([_EMBED], [flipped])
+    assert any("https://x.test/v" in e for e in errors)
+
+
+def test_media_block_with_no_id_is_rejected() -> None:
+    no_id = {"type": "image", "blob_path": "images/a.png", "alt": "a chart"}
+    errors = check_media_immutable([], [no_id])
+    assert any("no id" in e for e in errors)
+
+
+def test_proposed_not_a_list_is_rejected() -> None:
+    assert check_media_immutable([], "not a list") != []
