@@ -14,7 +14,13 @@ __all__ = ["Feedback"]
 
 class Feedback(Base):
     __tablename__ = "feedback"
-    __table_args__ = (CheckConstraint("status IN ('new','accepted','dismissed')", name="status"),)
+    __table_args__ = (
+        CheckConstraint("status IN ('new','accepted','dismissed')", name="status"),
+        CheckConstraint(
+            "ai_suggested_status IS NULL OR ai_suggested_status IN ('accepted','dismissed')",
+            name="ai_suggested_status",
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
@@ -37,3 +43,10 @@ class Feedback(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+    # AI-assisted triage (feedback-driven content improvement, Plan B). These
+    # are a SUGGESTION only: nothing here ever writes `status` — the admin
+    # still clicks Accept/Dismiss. `ai_suggested_at IS NULL` means "not yet
+    # suggested" and is what drives lazy, bounded generation.
+    ai_suggested_status: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ai_rationale: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ai_suggested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
