@@ -10,6 +10,7 @@ import pytest
 from src.repositories.base import AbstractConversationRepository, AbstractMessageRepository
 from src.services.chat_service import ChatService, DoneEvent, TokenEvent
 from src.services.exceptions import NotFoundError
+from src.services.prompts import load_prompt
 from tests.fixtures.llm import FakeLlmClient
 
 
@@ -98,6 +99,43 @@ async def test_send_message_persists_partial_on_disconnect() -> None:
     # interrupted (chunks.append happens before the yield, so only "Hel" made it in;
     # "lo!" was never appended because the for-loop never resumed after the close).
     assert assistant_call.kwargs["content"] == "Hel"
+
+
+async def test_send_message_without_system_suffix_is_unchanged() -> None:
+    llm = FakeLlmClient(chunks=["Hi"])
+    service, _, _ = _service(llm)
+    conversation = SimpleNamespace(id=uuid.uuid4(), user_id=uuid.uuid4(), kind="chatbot")
+
+    events = [
+        e
+        async for e in service.send_message(
+            conversation=conversation,  # ty: ignore[invalid-argument-type]
+            content="hi",
+        )
+    ]
+
+    assert [type(e).__name__ for e in events] == ["TokenEvent", "DoneEvent"]
+    assert llm.calls[0]["system"] == load_prompt("chatbot")
+
+
+async def test_send_message_appends_system_suffix() -> None:
+    llm = FakeLlmClient(chunks=["Hi"])
+    service, _, _ = _service(llm)
+    conversation = SimpleNamespace(id=uuid.uuid4(), user_id=uuid.uuid4(), kind="chatbot")
+
+    events = [
+        e
+        async for e in service.send_message(
+            conversation=conversation,  # ty: ignore[invalid-argument-type]
+            content="hi",
+            system_suffix="BRIEFING-XYZ",
+        )
+    ]
+
+    assert [type(e).__name__ for e in events] == ["TokenEvent", "DoneEvent"]
+    system = llm.calls[0]["system"]
+    assert system.endswith("BRIEFING-XYZ")  # ty: ignore[unresolved-attribute]
+    assert system.startswith(load_prompt("chatbot"))  # ty: ignore[unresolved-attribute]
 
 
 async def test_send_message_persists_partial_on_cancellation() -> None:
