@@ -198,7 +198,18 @@ function ProposalRow({ item }: ProposalRowProps) {
                   <li key={feedback.id}>“{feedback.message}”</li>
                 ))}
               </ul>
-              <ProposalDiff base={detail.data.base_blocks} proposed={detail.data.proposed_blocks} />
+              {/* A `failed` proposal stores no blocks at all, so diffing it
+                  against the lesson would list every existing block as
+                  `removed` and read as "the agent proposes to wipe this
+                  lesson" — when it actually means nothing was drafted. The
+                  summary above already carries the reason. */}
+              {detail.data.status === 'failed' || detail.data.proposed_blocks.length === 0 ? (
+                <p className="adm-subtext">
+                  No revision was drafted for this lesson, so there is nothing to compare.
+                </p>
+              ) : (
+                <ProposalDiff base={detail.data.base_blocks} proposed={detail.data.proposed_blocks} />
+              )}
             </>
           )}
         </>

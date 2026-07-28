@@ -142,7 +142,7 @@ export default function ProposalDiff({ base, proposed }: ProposalDiffProps) {
         <div key={entry.key} className={`adm-ci-block adm-ci-block-${entry.kind}`}>
           <div className="adm-ci-block-head">
             <span className="adm-ci-block-kind">{KIND_LABEL[entry.kind]}</span>
-            <span className="adm-ci-block-type">{blockType(entry.after ?? entry.before ?? {})}</span>
+            <span className="adm-ci-block-type">{typeLabel(entry)}</span>
           </div>
           {entry.kind === 'changed' ? (
             <>
@@ -156,6 +156,20 @@ export default function ProposalDiff({ base, proposed }: ProposalDiffProps) {
       ))}
     </div>
   )
+}
+
+/** The type shown on a diff row's header. A RETYPE — `paragraph` → `callout`
+ * with the same text — changes how the block renders for the learner but
+ * leaves the two text lines identical, so showing only the new type makes it
+ * indistinguishable from the accepted key-reorder false positive. Show both
+ * sides when a `changed` entry's types differ. */
+function typeLabel(entry: DiffEntry): string {
+  const before = entry.before ? blockType(entry.before) : null
+  const after = entry.after ? blockType(entry.after) : null
+  if (entry.kind === 'changed' && before && after && before !== after) {
+    return `${before} → ${after}`
+  }
+  return after ?? before ?? 'unknown'
 }
 
 function readable(block: Block | null): string {
