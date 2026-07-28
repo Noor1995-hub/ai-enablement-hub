@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import uuid
 
+from sqlalchemy import select
+
 from src.db.models import CalibrationNote
 from src.repositories.base import AbstractCalibrationNoteRepository
 
@@ -20,3 +22,11 @@ class CalibrationNoteRepository(AbstractCalibrationNoteRepository):
         for row in rows:
             await self._session.refresh(row)
         return rows
+
+    async def list_for_proposal(self, proposal_id: uuid.UUID) -> list[CalibrationNote]:
+        query = (
+            select(CalibrationNote)
+            .where(CalibrationNote.source_proposal_id == proposal_id)
+            .order_by(CalibrationNote.created_at)
+        )
+        return list((await self._session.execute(query)).scalars().all())

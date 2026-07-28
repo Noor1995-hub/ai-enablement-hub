@@ -11,7 +11,9 @@ from src.core.dependencies.ratelimit import get_rate_limiter
 from src.core.ratelimit import RateLimiter
 from src.db.models import User
 from src.schemas.admin_proposals import (
+    CalibrationNoteBrief,
     ImprovementRunResponse,
+    LearnCardOut,
     ProposalDetailOut,
     ProposalListResponse,
     ProposalReviewRequest,
@@ -115,3 +117,33 @@ async def review_proposal(
         edited_blocks=body.edited_blocks,
     )
     return ProposalReviewResponse(status=new_status)  # ty: ignore[invalid-argument-type]
+
+
+@router.post("/{proposal_id}/critique", response_model=LearnCardOut)
+async def generate_learn_card(
+    proposal_id: uuid.UUID,
+    service: ImprovementServiceDep,
+    admin: Annotated[User, Depends(require_admin)],
+    limiter: RateLimiterDep,
+) -> LearnCardOut:
+    """Ask the agent what it can learn from the difference between its draft and
+    the version the admin accepted. Only meaningful once a draft was accepted
+    WITH edits; 409 otherwise, and 409 again if a learn card already exists so a
+    retry can never duplicate the suggested notes."""
+    if service is None:
+        raise _NOT_CONFIGURED
+    if limiter.is_limited(f"learn-card:{admin.id}", max_calls=20, window_seconds=600):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many learn cards — try again shortly",
+            headers={"Retry-After": "60"},
+        )
+    proposal, notes = await service.critique(proposal_id=proposal_id)
+    return LearnCardOut(
+        critique_agent_wrong=proposal.critique_agent_wrong,
+        critique_admin_preferred=proposal.critique_admin_preferred,
+        critiqued_at=proposal.critiqued_at,
+        calibration_notes=[
+            CalibrationNoteBrief(id=n.id, note=n.note, status=n.status) for n in notes
+        ],
+    )

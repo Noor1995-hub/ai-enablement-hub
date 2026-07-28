@@ -39,6 +39,7 @@ from src.routers import (
     survey,
 )
 from src.services.exceptions import (
+    AiGenerationError,
     ComponentLockedError,
     ConflictError,
     DomainError,
@@ -205,6 +206,7 @@ _ERROR_CODES = {
     415: "unsupported_media_type",
     422: "validation_error",
     429: "rate_limited",
+    502: "bad_gateway",
 }
 
 
@@ -246,6 +248,11 @@ async def component_locked_handler(request: Request, exc: ComponentLockedError) 
 @app.exception_handler(DomainError)
 async def domain_error_handler(request: Request, exc: DomainError) -> JSONResponse:
     return _error_response(400, exc.message)
+
+
+@app.exception_handler(AiGenerationError)
+async def ai_generation_error_handler(request: Request, exc: AiGenerationError) -> JSONResponse:
+    return _error_response(502, exc.message)
 
 
 @app.exception_handler(ScoringError)

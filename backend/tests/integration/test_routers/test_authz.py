@@ -434,6 +434,13 @@ _MATRIX: list[tuple[str, str, Any, Any, bool]] = [
         lambda s: {"decision": "reject"},
         True,
     ),
+    (
+        "content-improvement-critique",
+        "POST",
+        lambda s: f"/api/admin/content-improvement/{uuid.uuid4()}/critique",
+        lambda s: None,
+        True,
+    ),
     ("dashboard", "GET", lambda s: "/api/admin/dashboard", lambda s: None, True),
 ]
 

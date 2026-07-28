@@ -20,8 +20,9 @@ from sqlalchemy import select
 from src.core.dependencies.content_ai import get_content_improvement_service
 from src.core.dependencies.database import get_session
 from src.core.dependencies.settings import get_settings
-from src.db.models import Feedback, Lesson, LessonContentProposal
+from src.db.models import CalibrationNote, Feedback, Lesson, LessonContentProposal
 from src.main import app
+from src.repositories.calibration_note_repository import CalibrationNoteRepository
 from src.repositories.content_repository import ContentRepository
 from src.repositories.feedback_repository import FeedbackRepository
 from src.repositories.proposal_repository import ProposalRepository
@@ -52,16 +53,34 @@ _GOOD_RESULT = {
     ],
     "summary": "Reworded the opening and added the example the learner asked for.",
 }
+_CRITIQUE_RESULT = {
+    "what_agent_got_wrong": "I added a second paragraph where one would have covered it.",
+    "what_admin_preferred": "A single tightened paragraph.",
+    "calibration_notes": ["Prefer one tightened paragraph over splitting a short point in two."],
+}
 
 
 class FakeImprovementLlm:
-    def __init__(self, result: dict[str, Any]) -> None:
+    """`result` scripts the drafting call; `critique_result`, when given, scripts
+    the learn-card call. The two are told apart by the schema's tool name
+    (`propose_lesson_revision` vs `critique_own_draft`), so one fake serves both
+    endpoints instead of needing a second class."""
+
+    def __init__(
+        self, result: dict[str, Any], critique_result: dict[str, Any] | None = None
+    ) -> None:
         self.result = result
+        self.critique_result = critique_result
         self.calls = 0
+        self.critique_calls = 0
 
     async def complete_structured(
-        self, *, system: str, prompt: str, schema: object, max_tokens: int
+        self, *, system: str, prompt: str, schema: Any, max_tokens: int
     ) -> tuple[dict[str, Any], LlmUsage]:
+        if getattr(schema, "name", None) == "critique_own_draft":
+            assert self.critique_result is not None, "critique called without a scripted result"
+            self.critique_calls += 1
+            return dict(self.critique_result), LlmUsage(input_tokens=500, output_tokens=200)
         self.calls += 1
         return dict(self.result), LlmUsage(input_tokens=800, output_tokens=400)
 
@@ -81,6 +100,7 @@ async def improvement_client(
             FeedbackRepository(db_session),
             ContentRepository(db_session),
             fake_llm,  # ty: ignore[invalid-argument-type]
+            CalibrationNoteRepository(db_session),
         )
         app.dependency_overrides[get_session] = _override_session
         app.dependency_overrides[get_settings] = lambda: test_settings
@@ -541,3 +561,136 @@ class TestBadModelOutputNeverPublishes:
         assert "made-up.png" in row.summary
         await db_session.refresh(lesson)
         assert lesson.content_blocks == _BASE_BLOCKS
+
+
+class TestLearnCard:
+    async def _accept_with_edits(
+        self,
+        client: AsyncClient,
+        headers: dict[str, str],
+        edited_blocks: list[dict[str, Any]],
+    ) -> str:
+        await client.post("/api/admin/content-improvement/run", headers=headers)
+        body = (await client.get("/api/admin/content-improvement", headers=headers)).json()
+        proposal_id = body["items"][0]["id"]
+        await client.post(
+            f"/api/admin/content-improvement/{proposal_id}/review",
+            json={"decision": "approve", "edited_blocks": edited_blocks},
+            headers=headers,
+        )
+        return proposal_id
+
+    async def _accept_untouched(self, client: AsyncClient, headers: dict[str, str]) -> str:
+        await client.post("/api/admin/content-improvement/run", headers=headers)
+        body = (await client.get("/api/admin/content-improvement", headers=headers)).json()
+        proposal_id = body["items"][0]["id"]
+        await client.post(
+            f"/api/admin/content-improvement/{proposal_id}/review",
+            json={"decision": "approve"},
+            headers=headers,
+        )
+        return proposal_id
+
+    async def test_a_learn_card_is_generated_and_persisted(
+        self,
+        improvement_client: Callable[[FakeImprovementLlm], AsyncClient],
+        db_session: AsyncSession,
+        test_settings: Settings,
+    ) -> None:
+        admin, _lesson, _feedback = await _seed(db_session, "ci-learn")
+        client = improvement_client(FakeImprovementLlm(_GOOD_RESULT, _CRITIQUE_RESULT))
+        headers = auth_headers(admin, test_settings)
+        admin_blocks = [{"id": "b1", "type": "paragraph", "text": "My own wording."}]
+        proposal_id = await self._accept_with_edits(client, headers, admin_blocks)
+
+        resp = await client.post(
+            f"/api/admin/content-improvement/{proposal_id}/critique", headers=headers
+        )
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["critique_agent_wrong"] == _CRITIQUE_RESULT["what_agent_got_wrong"]
+        assert body["critique_admin_preferred"] == _CRITIQUE_RESULT["what_admin_preferred"]
+        assert [n["note"] for n in body["calibration_notes"]] == _CRITIQUE_RESULT[
+            "calibration_notes"
+        ]
+        assert all(n["status"] == "suggested" for n in body["calibration_notes"])
+
+        row = (await db_session.execute(select(LessonContentProposal))).scalars().one()
+        assert row.critique_agent_wrong == _CRITIQUE_RESULT["what_agent_got_wrong"]
+        assert row.critique_admin_preferred == _CRITIQUE_RESULT["what_admin_preferred"]
+        assert row.critiqued_at is not None
+        # The notes are queryable as `suggested` rows tied back to this proposal.
+        notes = (await db_session.execute(select(CalibrationNote))).scalars().all()
+        assert len(notes) == 1
+        assert notes[0].status == "suggested"
+        assert notes[0].source_proposal_id == uuid.UUID(proposal_id)
+        assert notes[0].note == _CRITIQUE_RESULT["calibration_notes"][0]
+
+    async def test_accepted_untouched_has_nothing_to_critique(
+        self,
+        improvement_client: Callable[[FakeImprovementLlm], AsyncClient],
+        db_session: AsyncSession,
+        test_settings: Settings,
+    ) -> None:
+        admin, _lesson, _feedback = await _seed(db_session, "ci-learn-untouched")
+        client = improvement_client(FakeImprovementLlm(_GOOD_RESULT, _CRITIQUE_RESULT))
+        headers = auth_headers(admin, test_settings)
+        proposal_id = await self._accept_untouched(client, headers)
+
+        resp = await client.post(
+            f"/api/admin/content-improvement/{proposal_id}/critique", headers=headers
+        )
+
+        assert resp.status_code == 409
+        notes = (await db_session.execute(select(CalibrationNote))).scalars().all()
+        assert notes == []
+
+    async def test_a_second_critique_is_409_and_does_not_duplicate_notes(
+        self,
+        improvement_client: Callable[[FakeImprovementLlm], AsyncClient],
+        db_session: AsyncSession,
+        test_settings: Settings,
+    ) -> None:
+        admin, _lesson, _feedback = await _seed(db_session, "ci-learn-twice")
+        client = improvement_client(FakeImprovementLlm(_GOOD_RESULT, _CRITIQUE_RESULT))
+        headers = auth_headers(admin, test_settings)
+        admin_blocks = [{"id": "b1", "type": "paragraph", "text": "My own wording."}]
+        proposal_id = await self._accept_with_edits(client, headers, admin_blocks)
+
+        first = await client.post(
+            f"/api/admin/content-improvement/{proposal_id}/critique", headers=headers
+        )
+        second = await client.post(
+            f"/api/admin/content-improvement/{proposal_id}/critique", headers=headers
+        )
+
+        assert first.status_code == 200
+        assert second.status_code == 409
+        notes = (await db_session.execute(select(CalibrationNote))).scalars().all()
+        assert len(notes) == 1
+
+    async def test_the_learn_card_appears_on_a_later_get(
+        self,
+        improvement_client: Callable[[FakeImprovementLlm], AsyncClient],
+        db_session: AsyncSession,
+        test_settings: Settings,
+    ) -> None:
+        admin, _lesson, _feedback = await _seed(db_session, "ci-learn-get")
+        client = improvement_client(FakeImprovementLlm(_GOOD_RESULT, _CRITIQUE_RESULT))
+        headers = auth_headers(admin, test_settings)
+        admin_blocks = [{"id": "b1", "type": "paragraph", "text": "My own wording."}]
+        proposal_id = await self._accept_with_edits(client, headers, admin_blocks)
+        await client.post(f"/api/admin/content-improvement/{proposal_id}/critique", headers=headers)
+
+        detail = (
+            await client.get(f"/api/admin/content-improvement/{proposal_id}", headers=headers)
+        ).json()
+
+        assert detail["edited_blocks"] == admin_blocks
+        assert detail["critique_agent_wrong"] == _CRITIQUE_RESULT["what_agent_got_wrong"]
+        assert detail["critique_admin_preferred"] == _CRITIQUE_RESULT["what_admin_preferred"]
+        assert detail["critiqued_at"] is not None
+        assert [n["note"] for n in detail["calibration_notes"]] == _CRITIQUE_RESULT[
+            "calibration_notes"
+        ]

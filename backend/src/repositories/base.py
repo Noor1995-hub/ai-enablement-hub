@@ -743,3 +743,8 @@ class AbstractCalibrationNoteRepository(ABC):
     ) -> list[CalibrationNote]:
         """One `suggested` row per note string, in the order given. An empty
         `notes` list inserts nothing and issues no statement."""
+
+    @abstractmethod
+    async def list_for_proposal(self, proposal_id: uuid.UUID) -> list[CalibrationNote]:
+        """Every note distilled from this proposal, oldest first (the order the
+        agent produced them in)."""

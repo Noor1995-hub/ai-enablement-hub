@@ -8,6 +8,7 @@ from unittest import mock
 from unittest.mock import AsyncMock
 
 from src.repositories.base import (
+    AbstractCalibrationNoteRepository,
     AbstractContentRepository,
     AbstractFeedbackRepository,
     AbstractProposalRepository,
@@ -70,6 +71,7 @@ def _service(
         feedback,
         content,
         llm or _ScriptedLlm([]),  # ty: ignore[invalid-argument-type]
+        AsyncMock(spec=AbstractCalibrationNoteRepository),
     )
     return service, proposals, content
 
@@ -327,6 +329,7 @@ async def test_a_hanging_call_times_out_and_counts_as_skipped() -> None:
         feedback,
         AsyncMock(spec=AbstractContentRepository),
         _HangingLlm(),  # ty: ignore[invalid-argument-type]
+        AsyncMock(spec=AbstractCalibrationNoteRepository),
     )
 
     with mock.patch.object(content_improvement_service, "_PER_LESSON_TIMEOUT_SECONDS", 0.01):

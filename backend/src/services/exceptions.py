@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 __all__ = [
+    "AiGenerationError",
     "AuthError",
     "ComponentLockedError",
     "ConflictError",
@@ -137,3 +138,12 @@ class PayloadTooLargeError(DomainError):
 
     def __init__(self, max_bytes: int) -> None:
         super().__init__(f"File exceeds the maximum allowed size of {max_bytes} bytes")
+
+
+class AiGenerationError(DomainError):
+    """An on-demand model call produced nothing usable. Mapped to 502.
+
+    Distinct from the drafting path, which absorbs a failure per lesson into a
+    `failed` proposal row: an ad-hoc admin request has no queue to protect, so
+    the failure has to reach the caller.
+    """

@@ -4,10 +4,12 @@ import uuid
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 __all__ = [
+    "CalibrationNoteBrief",
     "ImprovementRunResponse",
+    "LearnCardOut",
     "ProposalDetailOut",
     "ProposalFeedbackOut",
     "ProposalListResponse",
@@ -52,6 +54,23 @@ class ProposalFeedbackOut(BaseModel):
     created_at: datetime
 
 
+class CalibrationNoteBrief(BaseModel):
+    id: uuid.UUID
+    note: str
+    status: str
+
+
+class LearnCardOut(BaseModel):
+    """What the agent concluded from comparing its draft to the accepted version.
+    `calibration_notes` are SUGGESTIONS — they influence nothing until an admin
+    approves them."""
+
+    critique_agent_wrong: str
+    critique_admin_preferred: str
+    critiqued_at: datetime
+    calibration_notes: list[CalibrationNoteBrief]
+
+
 class ProposalDetailOut(BaseModel):
     """Everything the diff view needs. `base_blocks`/`proposed_blocks` are the
     opaque content_blocks arrays; the frontend renders them as PLAIN TEXT —
@@ -67,6 +86,11 @@ class ProposalDetailOut(BaseModel):
     source_feedback: list[ProposalFeedbackOut]
     created_at: datetime
     reviewed_at: datetime | None
+    edited_blocks: list[Any] | None = None
+    critique_agent_wrong: str | None = None
+    critique_admin_preferred: str | None = None
+    critiqued_at: datetime | None = None
+    calibration_notes: list[CalibrationNoteBrief] = Field(default_factory=list)
 
 
 class ProposalReviewRequest(BaseModel):

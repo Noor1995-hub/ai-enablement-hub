@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from src.repositories.base import (
+    AbstractCalibrationNoteRepository,
     AbstractContentRepository,
     AbstractFeedbackRepository,
     AbstractProposalRepository,
@@ -51,6 +52,7 @@ def _service(
         AsyncMock(spec=AbstractFeedbackRepository),
         content,
         AsyncMock(),
+        AsyncMock(spec=AbstractCalibrationNoteRepository),
     )
     return service, proposals, content
 
