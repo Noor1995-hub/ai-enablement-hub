@@ -86,3 +86,58 @@ export type AdminLearningUserEnriched = AdminLearningUser
 export type AdminUsersResponseEnriched = components['schemas']['AdminUsersResponse']
 export type AdminLearningResponseEnriched = components['schemas']['AdminLearningResponse']
 // --- end admin-redesign types ---
+
+// ── INTERIM interview types — swap to components['schemas'][...] aliases after `npm run gen:api`
+//    (the backend endpoints aren't in schema.d.ts yet). Mirrors backend/src/schemas/interview.py.
+export type Difficulty = 'Quick Win' | 'Worth a Session' | 'Bigger Build'
+export interface UseCase {
+  rank: number
+  start_here: boolean
+  name: string
+  pain_it_kills: string
+  in_practice: string
+  before: string
+  after: string
+  impact: string
+  difficulty: Difficulty
+  systems_involved: string[]
+  assumption_to_check: string | null
+  cross_functional: boolean
+}
+export interface NextMove {
+  order: number
+  move: string
+  why_now: string
+  linked_use_case: number
+}
+export interface Reframe {
+  their_hesitation: string
+  the_concern: string
+  reframe: string
+  first_proof: string
+}
+export interface DoThisToday {
+  action: string
+  time_required: string
+  why_this_one: string
+}
+export interface PlaybookShared {
+  where_you_are_today: string
+  use_cases: UseCase[]
+  next_moves: NextMove[]
+  reframes: Reframe[]
+  do_this_today: DoThisToday
+}
+export interface InterviewState {
+  status: 'not_started' | 'in_progress' | 'complete'
+  conversation_id?: string | null
+  playbook?: PlaybookShared | null
+}
+export interface AdminInterview {
+  status: 'not_started' | 'in_progress' | 'complete'
+  tier?: string | null
+  internal?: unknown
+  shared?: PlaybookShared | null
+  transcript: { role: string; content: string }[]
+}
+// --- end INTERIM interview types ---
