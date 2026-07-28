@@ -41,16 +41,21 @@ __all__ = ["IMPROVEMENT_SCHEMA", "ContentImprovementService"]
 
 logger = logging.getLogger(__name__)
 
-_MAX_TOKENS = 8000
+# _MAX_LESSON_CHARS exists so a full revision of the largest lesson this
+# service will accept -- every kept block echoed back plus whatever the agent
+# adds -- comfortably fits inside _MAX_TOKENS's output budget. Lessons past
+# the char ceiling are recorded as failed rather than truncated: sending half
+# a lesson would make the agent delete the other half. Change the two
+# constants together; raising one without the other reopens the gap where a
+# large lesson risks a truncated tool_use response.
+_MAX_TOKENS = 16_000
+_MAX_LESSON_CHARS = 24_000
 # A whole-lesson rewrite is a slow call, and one click can fan out to several.
 # Worst case for a run is _RUN_BUDGET + one _PER_LESSON timeout (the budget is
 # checked BEFORE a lesson, which may then take its full timeout) = 180s, which
 # stays under the container ingress timeout.
 _PER_LESSON_TIMEOUT_SECONDS = 90.0
 _RUN_BUDGET_SECONDS = 90.0
-# Lessons past this size are recorded as failed rather than truncated: sending
-# half a lesson would make the agent delete the other half.
-_MAX_LESSON_CHARS = 40_000
 _MAX_SUMMARY_CHARS = 600
 
 IMPROVEMENT_SCHEMA = StructuredSchema(
@@ -115,7 +120,7 @@ class ContentImprovementService:
     ) -> None:
         self._proposals = proposals
         self._feedback = feedback
-        self._content = content
+        self._content = content  # unused until the apply path lands (Task 5)
         self._llm = llm
 
     async def run(self, *, max_lessons: int) -> tuple[int, int, int]:

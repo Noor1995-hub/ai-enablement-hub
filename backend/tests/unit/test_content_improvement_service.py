@@ -151,6 +151,31 @@ async def test_invalid_blocks_are_never_stored_as_a_pending_proposal() -> None:
     assert "banner" in proposals.create.await_args.kwargs["summary"]
 
 
+async def test_a_card_missing_a_nested_id_is_rejected() -> None:
+    lesson = _lesson()
+    llm = _ScriptedLlm(
+        [
+            {
+                "proposed_blocks": [
+                    {
+                        "id": "b1",
+                        "type": "card_group",
+                        "cards": [{"title": "No id here", "body": "x"}],
+                    }
+                ],
+                "summary": "s",
+            }
+        ]
+    )
+    service, proposals, content = _service([(_feedback("a"), lesson)], llm=llm)
+
+    proposed, skipped, _remaining = await service.run(max_lessons=3)
+
+    assert (proposed, skipped) == (0, 1)
+    content.update_lesson.assert_not_awaited()
+    assert proposals.create.await_args.kwargs["status"] == "failed"
+
+
 async def test_a_new_media_locator_is_rejected() -> None:
     lesson = _lesson(blocks=[{"id": "b1", "type": "paragraph", "text": "Old text."}])
     invented = [

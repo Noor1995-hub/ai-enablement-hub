@@ -90,8 +90,7 @@ def _validate_fields(where: str, btype: str, block: Mapping[str, object]) -> lis
     elif btype == "try_it_yourself":
         for field in ("task", "material", "whatToNotice"):
             errs += _require_str(where, block, field)
-        if not isinstance(block.get("steps"), list):
-            errs.append(f"{where}.steps must be a list")
+        errs += _validate_steps(where, block)
     elif btype == "image":
         errs += _require_str(where, block, "blob_path")
         errs += _require_str(where, block, "alt")
@@ -117,6 +116,7 @@ def _validate_card_group(where: str, block: Mapping[str, object]) -> list[str]:
             errs.append(f"{cwhere} must be an object")
             continue
         card_fields = cast(Mapping[str, object], card)
+        errs += _require_str(cwhere, card_fields, "id")
         errs += _require_str(cwhere, card_fields, "title")
         errs += _require_str(cwhere, card_fields, "body")
     return errs
@@ -133,6 +133,7 @@ def _validate_quiz(where: str, block: Mapping[str, object]) -> list[str]:
             errs.append(f"{qwhere} must be an object")
             continue
         question_fields = cast(Mapping[str, object], question)
+        errs += _require_str(qwhere, question_fields, "id")
         errs += _require_str(qwhere, question_fields, "q")
         errs += _require_str(qwhere, question_fields, "explanation")
         options = question.get("options")
@@ -153,23 +154,123 @@ def _validate_quiz(where: str, block: Mapping[str, object]) -> list[str]:
     return errs
 
 
+def _validate_steps(where: str, block: Mapping[str, object]) -> list[str]:
+    steps = block.get("steps")
+    if not isinstance(steps, list):
+        return [f"{where}.steps must be a list"]
+    errs: list[str] = []
+    for j, step in enumerate(steps):
+        swhere = f"{where}.steps[{j}]"
+        if not isinstance(step, dict):
+            errs.append(f"{swhere} must be an object")
+            continue
+        step_fields = cast(Mapping[str, object], step)
+        errs += _require_str(swhere, step_fields, "id")
+        errs += _require_str(swhere, step_fields, "label")
+        errs += _require_str(swhere, step_fields, "text")
+    return errs
+
+
 def _validate_interactive(where: str, block: Mapping[str, object]) -> list[str]:
     mode = block.get("mode")
     if mode not in _INTERACTIVE_MODES:
         return [f"{where}.mode must be one of sort|predict|spot_the_flaw"]
     errs = _require_str(where, block, "prompt")
     if mode == "sort":
-        for field in ("buckets", "items"):
-            if not isinstance(block.get(field), list):
-                errs.append(f"{where}.{field} must be a list")
+        errs += _validate_sort(where, block)
     elif mode == "predict":
-        if not isinstance(block.get("options"), list):
-            errs.append(f"{where}.options must be a list")
-        errs += _require_str(where, block, "correctOptionId")
+        errs += _validate_predict(where, block)
     elif mode == "spot_the_flaw":
-        errs += _require_str(where, block, "example")
-        if not isinstance(block.get("candidates"), list):
-            errs.append(f"{where}.candidates must be a list")
+        errs += _validate_spot_the_flaw(where, block)
+    return errs
+
+
+def _validate_sort(where: str, block: Mapping[str, object]) -> list[str]:
+    errs: list[str] = []
+    buckets = block.get("buckets")
+    bucket_ids: set[str] = set()
+    if not isinstance(buckets, list):
+        errs.append(f"{where}.buckets must be a list")
+    else:
+        for j, bucket in enumerate(buckets):
+            bwhere = f"{where}.buckets[{j}]"
+            if not isinstance(bucket, dict):
+                errs.append(f"{bwhere} must be an object")
+                continue
+            bucket_fields = cast(Mapping[str, object], bucket)
+            errs += _require_str(bwhere, bucket_fields, "id")
+            errs += _require_str(bwhere, bucket_fields, "label")
+            bucket_id = bucket.get("id")
+            if isinstance(bucket_id, str) and bucket_id:
+                bucket_ids.add(bucket_id)
+    items = block.get("items")
+    if not isinstance(items, list):
+        errs.append(f"{where}.items must be a list")
+    else:
+        for j, item in enumerate(items):
+            iwhere = f"{where}.items[{j}]"
+            if not isinstance(item, dict):
+                errs.append(f"{iwhere} must be an object")
+                continue
+            item_fields = cast(Mapping[str, object], item)
+            errs += _require_str(iwhere, item_fields, "id")
+            errs += _require_str(iwhere, item_fields, "text")
+            errs += _require_str(iwhere, item_fields, "reason")
+            bucket_id = item.get("bucketId")
+            if not isinstance(bucket_id, str) or not bucket_id:
+                errs.append(f"{iwhere}.bucketId must be a non-empty string")
+            elif bucket_id not in bucket_ids:
+                errs.append(f"{iwhere}.bucketId {bucket_id!r} does not match any bucket id")
+    return errs
+
+
+def _validate_predict(where: str, block: Mapping[str, object]) -> list[str]:
+    errs: list[str] = []
+    options = block.get("options")
+    option_ids: set[str] = set()
+    if not isinstance(options, list):
+        errs.append(f"{where}.options must be a list")
+    else:
+        for j, option in enumerate(options):
+            owhere = f"{where}.options[{j}]"
+            if not isinstance(option, dict):
+                errs.append(f"{owhere} must be an object")
+                continue
+            option_fields = cast(Mapping[str, object], option)
+            errs += _require_str(owhere, option_fields, "id")
+            errs += _require_str(owhere, option_fields, "label")
+            errs += _require_str(owhere, option_fields, "reason")
+            option_id = option.get("id")
+            if isinstance(option_id, str) and option_id:
+                option_ids.add(option_id)
+    errs += _require_str(where, block, "correctOptionId")
+    correct_option_id = block.get("correctOptionId")
+    if (
+        isinstance(correct_option_id, str)
+        and correct_option_id
+        and correct_option_id not in option_ids
+    ):
+        errs.append(f"{where}.correctOptionId {correct_option_id!r} does not match any option id")
+    return errs
+
+
+def _validate_spot_the_flaw(where: str, block: Mapping[str, object]) -> list[str]:
+    errs = _require_str(where, block, "example")
+    candidates = block.get("candidates")
+    if not isinstance(candidates, list):
+        errs.append(f"{where}.candidates must be a list")
+        return errs
+    for j, candidate in enumerate(candidates):
+        cwhere = f"{where}.candidates[{j}]"
+        if not isinstance(candidate, dict):
+            errs.append(f"{cwhere} must be an object")
+            continue
+        candidate_fields = cast(Mapping[str, object], candidate)
+        errs += _require_str(cwhere, candidate_fields, "id")
+        errs += _require_str(cwhere, candidate_fields, "text")
+        errs += _require_str(cwhere, candidate_fields, "reason")
+        if not isinstance(candidate.get("isFlaw"), bool):
+            errs.append(f"{cwhere}.isFlaw must be a bool")
     return errs
 
 

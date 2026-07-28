@@ -80,6 +80,146 @@ def test_interactive_bad_mode_is_rejected() -> None:
     assert any("mode" in e for e in errors)
 
 
+def test_card_with_no_id_is_rejected() -> None:
+    errors = validate_content_blocks(
+        [
+            {
+                "id": "b1",
+                "type": "card_group",
+                "cards": [{"title": "T", "body": "B"}],
+            }
+        ]
+    )
+    assert any("cards[0]" in e and "id" in e for e in errors)
+
+
+def test_quiz_question_with_no_id_is_rejected() -> None:
+    errors = validate_content_blocks(
+        [
+            {
+                "id": "b1",
+                "type": "quiz",
+                "questions": [
+                    {
+                        "q": "Q?",
+                        "options": ["a", "b"],
+                        "correct": 0,
+                        "explanation": "e",
+                    }
+                ],
+            }
+        ]
+    )
+    assert any("questions[0]" in e and "id" in e for e in errors)
+
+
+def test_try_it_yourself_step_with_no_id_is_rejected() -> None:
+    errors = validate_content_blocks(
+        [
+            {
+                "id": "b1",
+                "type": "try_it_yourself",
+                "task": "Do it",
+                "material": "Your AI tool",
+                "whatToNotice": "n",
+                "steps": [{"label": "Step 1", "text": "Do the thing."}],
+            }
+        ]
+    )
+    assert any("steps[0]" in e and "id" in e for e in errors)
+
+
+def test_sort_item_with_dangling_bucket_id_is_rejected() -> None:
+    errors = validate_content_blocks(
+        [
+            {
+                "id": "b1",
+                "type": "interactive",
+                "mode": "sort",
+                "prompt": "p",
+                "buckets": [{"id": "bucket1", "label": "Good"}],
+                "items": [{"id": "i1", "text": "x", "bucketId": "no-such-bucket", "reason": "r"}],
+            }
+        ]
+    )
+    assert any("bucketId" in e for e in errors)
+
+
+def test_predict_correct_option_id_not_in_options_is_rejected() -> None:
+    errors = validate_content_blocks(
+        [
+            {
+                "id": "b1",
+                "type": "interactive",
+                "mode": "predict",
+                "prompt": "p",
+                "options": [{"id": "o1", "label": "A", "reason": "r"}],
+                "correctOptionId": "not-an-option",
+            }
+        ]
+    )
+    assert any("correctOptionId" in e for e in errors)
+
+
+def test_fully_populated_nested_blocks_pass() -> None:
+    blocks = [
+        {
+            "id": "b1",
+            "type": "card_group",
+            "cards": [{"id": "c1", "title": "T", "body": "B"}],
+        },
+        {
+            "id": "b2",
+            "type": "quiz",
+            "questions": [
+                {
+                    "id": "q1",
+                    "q": "Q?",
+                    "options": ["a", "b"],
+                    "correct": 1,
+                    "explanation": "e",
+                }
+            ],
+        },
+        {
+            "id": "b3",
+            "type": "try_it_yourself",
+            "task": "Do it",
+            "material": "Your AI tool",
+            "whatToNotice": "n",
+            "steps": [{"id": "s1", "label": "Step 1", "text": "Do the thing."}],
+        },
+        {
+            "id": "b4",
+            "type": "interactive",
+            "mode": "sort",
+            "prompt": "p",
+            "buckets": [{"id": "bucket1", "label": "Good"}],
+            "items": [{"id": "i1", "text": "x", "bucketId": "bucket1", "reason": "r"}],
+        },
+        {
+            "id": "b5",
+            "type": "interactive",
+            "mode": "predict",
+            "prompt": "p",
+            "options": [{"id": "o1", "label": "A", "reason": "r"}],
+            "correctOptionId": "o1",
+        },
+        {
+            "id": "b6",
+            "type": "interactive",
+            "mode": "spot_the_flaw",
+            "prompt": "p",
+            "example": "e",
+            "candidates": [
+                {"id": "f1", "text": "x", "isFlaw": True, "reason": "r"},
+                {"id": "f2", "text": "y", "isFlaw": False, "reason": "r"},
+            ],
+        },
+    ]
+    assert validate_content_blocks(blocks) == []
+
+
 _IMAGE = {"id": "m1", "type": "image", "blob_path": "images/a.png", "alt": "a chart"}
 _EMBED = {"id": "m2", "type": "video", "source": "embed", "url": "https://x.test/v"}
 _BLOB_VIDEO = {"id": "m3", "type": "video", "source": "blob", "blob_path": "videos/b.mp4"}

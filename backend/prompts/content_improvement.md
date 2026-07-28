@@ -51,6 +51,11 @@ diff shows an edit rather than a delete plus an add. Invent a new short id
   `{id, label, reason}`, `correctOptionId` (must match one option's id)
 - `interactive` with `mode: "spot_the_flaw"` — `prompt`, `example`,
   `candidates`: list of `{id, text, isFlaw, reason}`
+- `image` — `blob_path`, `alt`, optional `caption`. NEVER author one of these
+  and never change `blob_path`; copy an existing image block through unchanged
+  or leave it out.
+- `video` — `source` ("embed" with a `url`, or "blob" with a `blob_path`),
+  optional `caption`. Same rule: copy through unchanged or leave it out.
 
 **Every nested item needs its own `id` too** — each card, each quiz question,
 each step, bucket, sort item, predict option and flaw candidate. A missing
