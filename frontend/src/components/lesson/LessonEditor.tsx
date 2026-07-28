@@ -52,10 +52,24 @@ const TYPE_ORDER: ContentBlock['type'][] = [
   BLOCK_TYPES.VIDEO,
 ]
 
+// Media cannot be ADDED from an embedded instance. The content-review pane's
+// accept path runs `check_media_immutable`, which refuses any media locator
+// that is not already in the lesson — so adding an Image/Video block there
+// uploads a real blob and then makes Accept fail every time. Offering the
+// action at all is the defect; the backend rule is deliberate (the review pane
+// revises wording and structure, media is managed in the lesson editor).
+// This only removes the ADD affordance: existing media blocks in a draft stay
+// fully visible, editable and deletable, since copying one through unchanged
+// or dropping it are both allowed by that same check.
+const EMBEDDED_TYPE_ORDER: ContentBlock['type'][] = TYPE_ORDER.filter(
+  type => type !== BLOCK_TYPES.IMAGE && type !== BLOCK_TYPES.VIDEO,
+)
+
 // Compact block-type chooser. Renders in-place wherever a block can be
 // inserted (the between-block plus buttons, and the bottom "+ Add block").
 // A tight two-column grid keeps it small instead of the old tall list.
-function BlockPicker({ onPick, onCancel }: {
+function BlockPicker({ types, onPick, onCancel }: {
+  types: ContentBlock['type'][]
   onPick: (type: ContentBlock['type']) => void
   onCancel: () => void
 }) {
@@ -65,7 +79,7 @@ function BlockPicker({ onPick, onCancel }: {
       boxShadow: '0 4px 16px rgba(0,0,0,0.10)', padding: 6, margin: '4px 0',
       display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 4,
     }}>
-      {TYPE_ORDER.map(type => (
+      {types.map(type => (
         <button key={type} type="button" onClick={() => onPick(type)} style={{
           textAlign: 'left', padding: '6px 9px', borderRadius: 6,
           background: '#FAFAFA', border: '1px solid #F0EFED',
@@ -90,15 +104,16 @@ function BlockPicker({ onPick, onCancel }: {
 // The thin insertion slot that lives in the gap between two blocks (and above
 // the first one). Shows a small, subtle + that lights up on hover; clicking it
 // opens the compact picker in place.
-function InsertZone({ open, onOpen, onPick, onCancel }: {
+function InsertZone({ open, types, onOpen, onPick, onCancel }: {
   open: boolean
+  types: ContentBlock['type'][]
   onOpen: () => void
   onPick: (type: ContentBlock['type']) => void
   onCancel: () => void
 }) {
   const [hovered, setHovered] = useState(false)
 
-  if (open) return <BlockPicker onPick={onPick} onCancel={onCancel} />
+  if (open) return <BlockPicker types={types} onPick={onPick} onCancel={onCancel} />
 
   return (
     <div
@@ -169,6 +184,8 @@ export default function LessonEditor({ lesson, onSave, onLiveChange, embedded = 
   // null = closed. blocks.length = the bottom "+ Add block" (append).
   const [addAt, setAddAt]     = useState<number | null>(null)
   const mounted = useRef(false)
+  // Which block types the picker offers — see EMBEDDED_TYPE_ORDER above.
+  const pickerTypes = embedded ? EMBEDDED_TYPE_ORDER : TYPE_ORDER
 
   useEffect(() => {
     if (!mounted.current) { mounted.current = true; return }
@@ -313,6 +330,7 @@ export default function LessonEditor({ lesson, onSave, onLiveChange, embedded = 
               <Fragment key={block.id}>
               <InsertZone
                 open={addAt === i}
+                types={pickerTypes}
                 onOpen={() => setAddAt(i)}
                 onPick={type => addBlock(type, i)}
                 onCancel={() => setAddAt(null)}
@@ -356,6 +374,7 @@ export default function LessonEditor({ lesson, onSave, onLiveChange, embedded = 
         <div style={{ marginTop: 12 }}>
           {addAt === blocks.length ? (
             <BlockPicker
+              types={pickerTypes}
               onPick={type => addBlock(type, blocks.length)}
               onCancel={() => setAddAt(null)}
             />

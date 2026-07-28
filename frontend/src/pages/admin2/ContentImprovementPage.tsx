@@ -26,6 +26,12 @@ export default function ContentImprovementPage() {
   const [status, setStatus] = useState<StatusFilter>('pending')
   const [page, setPage] = useState(1)
   const run = useRunImprovement()
+  // Owned by the PAGE, not by the row that triggers it. Accepting a proposal
+  // flips it to `approved`, which drops it from the default `pending` filter as
+  // soon as the invalidated list refetches — the row unmounts, taking any
+  // row-local mutation state with it. Held here, the "generating…" line and a
+  // failure (a 502 from /critique) outlive the row that started them.
+  const learnCard = useGenerateLearnCard()
 
   useEffect(() => setPage(1), [status])
 
@@ -98,13 +104,29 @@ export default function ContentImprovementPage() {
         </p>
       )}
 
+      {/* Learn-card state lives here rather than in the row, which is usually
+          gone by the time any of this resolves (see useGenerateLearnCard above). */}
+      {learnCard.isPending && (
+        <p className="adm-subtext">Asking the agent what it can learn from your edits…</p>
+      )}
+      {learnCard.isSuccess && (
+        <p className="adm-subtext">
+          The agent wrote a learn card from your edits — open that proposal on the Approved tab to read it.
+        </p>
+      )}
+      {learnCard.isError && (
+        <p className="adm-form-msg adm-form-msg-err">
+          {learnCard.error instanceof Error ? learnCard.error.message : 'Failed to generate the learn card.'}
+        </p>
+      )}
+
       {data.items.length === 0 ? (
         <EmptyState
           title="No proposals here."
           hint="Accept some lesson feedback, then use “Draft proposals”."
         />
       ) : (
-        data.items.map(item => <ProposalRow key={item.id} item={item} />)
+        data.items.map(item => <ProposalRow key={item.id} item={item} learnCard={learnCard} />)
       )}
 
       <div className="adm-pager">
@@ -131,6 +153,9 @@ export default function ContentImprovementPage() {
 
 interface ProposalRowProps {
   item: ProposalSummaryOut
+  /** The page's single learn-card mutation, shared by every row: a row cannot
+   * own this one, because accepting is exactly what unmounts it. */
+  learnCard: ReturnType<typeof useGenerateLearnCard>
 }
 
 /** One proposal in the queue. The diff payload carries two whole
@@ -144,7 +169,7 @@ interface ProposalRowProps {
  * blending them. `workingBlocks` is the single source of truth for what
  * Accept submits — seeded from the fetched draft, and updated live by the
  * editor while in edit mode. */
-function ProposalRow({ item }: ProposalRowProps) {
+function ProposalRow({ item, learnCard }: ProposalRowProps) {
   const [expanded, setExpanded] = useState(false)
   const [editing, setEditing] = useState(false)
   // The working copy of the draft. null until the detail loads; thereafter it
@@ -152,7 +177,11 @@ function ProposalRow({ item }: ProposalRowProps) {
   const [workingBlocks, setWorkingBlocks] = useState<unknown[] | null>(null)
   const detail = useProposal(expanded ? item.id : null)
   const review = useReviewProposal()
-  const learnCard = useGenerateLearnCard()
+  // The learn-card mutation is shared across rows, so "Generating…" belongs to
+  // whichever row actually asked for it (`variables` is the proposal id); any
+  // in-flight call disables the button everywhere, since a second one would
+  // overwrite the first's state.
+  const cardPending = learnCard.isPending && learnCard.variables === item.id
   const done = item.status !== 'pending'
   const dotColor = resolveTrackColor({ required_level: item.track_level, is_introduction: false })
 
@@ -240,6 +269,9 @@ function ProposalRow({ item }: ProposalRowProps) {
                   <p className="adm-subtext">
                     Editing the draft. Accept applies what is here, and the agent gets a learn card
                     from whatever you changed.
+                  </p>
+                  <p className="adm-subtext">
+                    Images and videos cannot be added here — media is managed in the lesson editor.
                   </p>
                   <LessonEditor
                     embedded
@@ -338,16 +370,14 @@ function ProposalRow({ item }: ProposalRowProps) {
               disabled={learnCard.isPending}
               onClick={() => learnCard.mutate(item.id)}
             >
-              {learnCard.isPending ? 'Generating…' : 'Generate learn card'}
+              {cardPending ? 'Generating…' : 'Generate learn card'}
             </button>
           </div>
         )}
       </div>
-      {learnCard.isError && (
-        <p className="adm-form-msg adm-form-msg-err">
-          {learnCard.error instanceof Error ? learnCard.error.message : 'Failed to generate the learn card.'}
-        </p>
-      )}
+      {/* A learn-card failure is reported by the PAGE, not here — this row is
+          usually already unmounted by then. `review` stays row-local: a failed
+          review leaves the proposal `pending`, so the row is still on screen. */}
       {review.isError && (
         <p className="adm-form-msg adm-form-msg-err">
           {review.error instanceof Error ? review.error.message : 'Failed to review this proposal.'}
