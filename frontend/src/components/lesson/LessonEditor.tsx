@@ -279,20 +279,26 @@ export default function LessonEditor({ lesson, onSave, onLiveChange, embedded = 
       {/* Scrollable content */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
 
-        {/* Lesson title */}
-        <div style={{ marginBottom: 24 }}>
-          <label style={headerStyle}>Lesson title</label>
-          <input
-            value={title}
-            onChange={e => { setTitle(e.target.value); setDirty(true) }}
-            style={{
-              width: '100%', padding: '9px 12px',
-              border: '1px solid #E2E2E2', borderRadius: 8,
-              fontFamily: 'var(--dlw-font-body)', fontWeight: 600, fontSize: 16,
-              color: '#101820', outline: 'none', boxSizing: 'border-box',
-            }}
-          />
-        </div>
+        {/* Lesson title — embedded instances don't carry it: onLiveChange's
+            consumer (the review pane) only reads content_blocks, and the
+            accept path never writes a title, so an edit here would be
+            silently discarded. The title has its own editing path in the
+            full (non-embedded) editor, where it belongs. */}
+        {!embedded && (
+          <div style={{ marginBottom: 24 }}>
+            <label style={headerStyle}>Lesson title</label>
+            <input
+              value={title}
+              onChange={e => { setTitle(e.target.value); setDirty(true) }}
+              style={{
+                width: '100%', padding: '9px 12px',
+                border: '1px solid #E2E2E2', borderRadius: 8,
+                fontFamily: 'var(--dlw-font-body)', fontWeight: 600, fontSize: 16,
+                color: '#101820', outline: 'none', boxSizing: 'border-box',
+              }}
+            />
+          </div>
+        )}
 
         {/* Blocks — an insertion slot sits above each block (the first one is
             the "plus at the top"); the bottom "+ Add block" handles append. */}
