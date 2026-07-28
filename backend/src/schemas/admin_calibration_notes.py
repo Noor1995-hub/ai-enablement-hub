@@ -23,10 +23,17 @@ class CalibrationNoteOut(BaseModel):
 
     `source_lesson_*` are null when the lesson it came from has since been
     deleted — the note outlives it on purpose.
+
+    `paste_ready` is REQUIRED on every row whatever the status: it is derived
+    from `note`, which is NOT NULL, and making it conditional on the status
+    would put a second copy of the state machine in the schema layer. It is the
+    line to paste into house_style.md, offered before graduating rather than
+    only as part of that one-way transition.
     """
 
     id: uuid.UUID
     note: str
+    paste_ready: str
     status: CalibrationNoteStatus
     source_proposal_id: uuid.UUID | None
     source_lesson_id: uuid.UUID | None

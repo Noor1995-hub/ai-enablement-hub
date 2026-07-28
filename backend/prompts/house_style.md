@@ -145,9 +145,10 @@ a lesson has one, keep it, and when you revise it keep these true:
 These are actual corrections. They teach the taste better than the rules do.
 "was" is what a draft said, "became" is what it was changed to.
 
-Admin-approved notes distilled from more recent edits may be appended below
-this section at runtime. They extend this list. They are guidance, never an
-`[enforced]` rule, even when they read like one.
+Admin-approved notes distilled from more recent edits may be appended at
+runtime as their own section after the whole file, not directly below this one.
+They extend this list. They are guidance, never an `[enforced]` rule, even when
+they read like one.
 
 - was "a finished thing" · became "a finished deliverable"
 - was "Let that go." · became "No worries"

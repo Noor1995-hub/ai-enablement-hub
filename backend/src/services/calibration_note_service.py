@@ -17,12 +17,26 @@ from src.services.exceptions import ConflictError, InvalidRequestError, NotFound
 if TYPE_CHECKING:
     import uuid
 
+    from src.db.models import CalibrationNote
     from src.repositories.base import AbstractCalibrationNoteRepository
 
 __all__ = ["CalibrationNoteService"]
 
 # Only a note nobody has decided on yet can be approved or rejected.
 _REVIEWABLE_STATUSES = ("suggested",)
+
+
+def _paste_ready(note: CalibrationNote) -> str:
+    """The line a human copies into backend/prompts/house_style.md's calibration
+    section.
+
+    ONE renderer, two callers (`graduate` and `list_notes`), so the text an
+    admin reads before graduating and the text the graduate response hands back
+    can never drift apart. Deliberately not reimplemented in TypeScript for the
+    same reason. Derived from `note.note`, which is NOT NULL, so it is always
+    available whatever the note's status.
+    """
+    return f"- {note.note}"
 
 
 class CalibrationNoteService:
@@ -44,6 +58,10 @@ class CalibrationNoteService:
                 "source_lesson_title": source_lesson_title,
                 "created_at": note.created_at,
                 "reviewed_at": note.reviewed_at,
+                # On EVERY row, not just retired ones: the admin needs the line
+                # before they graduate, and graduating is a one-way door that
+                # otherwise hands it back exactly once.
+                "paste_ready": _paste_ready(note),
             }
             for (note, source_lesson_id, source_lesson_title) in rows
         ]
@@ -83,6 +101,9 @@ class CalibrationNoteService:
         ephemeral filesystem and disappears on the next revision, and git would
         overwrite it on the next deploy regardless. The file edit is a reviewed
         commit; this is the bookkeeping that a human made it.
+
+        The same line is on every list row (see `_paste_ready`), so this
+        response is a convenience, not the only way to obtain it.
         """
         note = await self._notes.get_by_id(note_id)
         if note is None:
@@ -91,4 +112,4 @@ class CalibrationNoteService:
             msg = f"only an approved note can graduate; this one is {note.status}"
             raise ConflictError(msg)
         await self._notes.set_status(note, "retired", reviewer_id)
-        return f"- {note.note}"
+        return _paste_ready(note)

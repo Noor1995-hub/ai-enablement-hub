@@ -112,6 +112,35 @@ async def test_list_admin_filters_by_status_and_joins_the_source_lesson(
     assert [r[0].note for r in approved] == ["first"]
 
 
+async def test_paging_a_tied_batch_returns_every_row_exactly_once(
+    db_session: AsyncSession,
+) -> None:
+    """The reason list_admin orders by `created_at DESC, id DESC`.
+
+    One `create_many` writes a whole critique's notes in a single transaction
+    and `created_at`'s server default is `now()` (transaction_timestamp), so the
+    batch shares ONE timestamp. Ordered by that alone the within-tie order is
+    arbitrary per statement, and a tied batch straddling a page boundary can
+    hand a row back twice or never. A `suggested` note that lands on neither
+    page is never seen and never decided on.
+    """
+    proposal = await _proposal(db_session, "Paging")
+    repo = CalibrationNoteRepository(db_session)
+    created = await repo.create_many(
+        source_proposal_id=proposal.id, notes=[f"note {i}" for i in range(5)]
+    )
+    assert len({row.created_at for row in created}) == 1, "the tie this tiebreaker exists for"
+
+    seen: list[uuid.UUID] = []
+    for offset in (0, 2, 4):
+        page = await repo.list_admin(limit=2, offset=offset)
+        seen.extend(row[0].id for row in page)
+
+    assert len(seen) == 5, "a page-length-only assertion would not catch this"
+    assert len(set(seen)) == 5, "no row came back on two pages"
+    assert set(seen) == {row.id for row in created}, "no row fell between the pages"
+
+
 async def test_list_admin_survives_a_deleted_source(db_session: AsyncSession) -> None:
     # source_proposal_id is ON DELETE SET NULL, so an approved note outlives its
     # lesson. The outer joins must not hide it.
@@ -148,6 +177,30 @@ async def test_list_for_injection_returns_approved_text_newest_first(
     assert "never approved" not in notes
     assert notes == ["newer", "older"]
     assert await repo.list_for_injection(limit=1) == ["newer"]
+
+
+async def test_an_unstamped_approval_never_displaces_the_newest_guidance(
+    db_session: AsyncSession,
+) -> None:
+    """`reviewed_at DESC` must be NULLS LAST.
+
+    `set_status(note, status, None)` is an implemented, tested contract with no
+    guard against `status="approved"`, and Postgres `DESC` defaults to NULLS
+    FIRST. No app path calls it that way today, but if one ever did, that note
+    would sort to the HEAD of the injection list and push the newest real
+    guidance out of the capped slice.
+    """
+    proposal = await _proposal(db_session, "NullStamp")
+    reviewer = await create_user(db_session, email="cal-null@x.test", role="admin")
+    repo = CalibrationNoteRepository(db_session)
+    created = await repo.create_many(
+        source_proposal_id=proposal.id, notes=["real guidance", "unstamped"]
+    )
+    await repo.set_status(created[0], "approved", reviewer.id)
+    await repo.set_status(created[1], "approved", None)
+
+    assert await repo.list_for_injection(limit=10) == ["real guidance", "unstamped"]
+    assert await repo.list_for_injection(limit=1) == ["real guidance"]
 
 
 async def test_only_approved_notes_are_injected(db_session: AsyncSession) -> None:

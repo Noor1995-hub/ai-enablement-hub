@@ -56,5 +56,17 @@ def render_calibration_block(
 
 
 def _render(notes: list[str]) -> str:
-    lines = "\n".join(f"{index}. {note}" for index, note in enumerate(notes, start=1))
+    """One numbered line per note, each collapsed onto a single line.
+
+    `" ".join(note.split())` is the whole defence: a note is stored as
+    `strip()[:300]` with no newline collapsing, so an embedded newline would
+    otherwise break out of its numbered item and could emit a `---` or a `##`
+    at the start of a line, forging the composed prompt's own section
+    structure. It truncates nothing and leaves a single-line note byte for byte
+    as it was, so the zero-notes prompt and every existing rendering are
+    unchanged.
+    """
+    lines = "\n".join(
+        f"{index}. {' '.join(note.split())}" for index, note in enumerate(notes, start=1)
+    )
     return f"{_HEADER}\n\n{lines}"

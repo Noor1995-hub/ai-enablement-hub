@@ -59,9 +59,15 @@ class CalibrationNoteRepository(AbstractCalibrationNoteRepository):
         return query
 
     async def list_admin(self, *, status: str | None = None, limit: int, offset: int) -> list[Any]:
+        # `id DESC` is the tiebreaker, and it is load-bearing: create_many
+        # inserts every note of one critique in a single transaction, and
+        # `created_at`'s server default is transaction_timestamp(), so a whole
+        # batch shares ONE timestamp. Without a total order, a tied batch
+        # straddling a page boundary can hand back a row twice or never, and a
+        # `suggested` note nobody ever sees is never decided on.
         query = (
             self._admin_query(status)
-            .order_by(CalibrationNote.created_at.desc())
+            .order_by(CalibrationNote.created_at.desc(), CalibrationNote.id.desc())
             .limit(limit)
             .offset(offset)
         )
@@ -80,10 +86,16 @@ class CalibrationNoteRepository(AbstractCalibrationNoteRepository):
         await self._session.commit()
 
     async def list_for_injection(self, *, limit: int) -> list[str]:
+        # NULLS LAST because Postgres DESC defaults to NULLS FIRST, and
+        # `set_status(note, status, None)` is an implemented contract with no
+        # guard against status="approved": such a row would carry
+        # reviewed_at = NULL, sort to the HEAD of the injection list, and
+        # displace the newest real guidance. `id DESC` makes the rest a total
+        # order so the capped slice is deterministic.
         query = (
             select(CalibrationNote.note)
             .where(CalibrationNote.status == "approved")
-            .order_by(CalibrationNote.reviewed_at.desc())
+            .order_by(CalibrationNote.reviewed_at.desc().nullslast(), CalibrationNote.id.desc())
             .limit(limit)
         )
         return [row[0] for row in (await self._session.execute(query)).all()]

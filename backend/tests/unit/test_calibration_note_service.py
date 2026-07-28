@@ -116,5 +116,43 @@ async def test_list_notes_shapes_the_rows_and_returns_the_total() -> None:
     assert total == 1
     assert items[0]["id"] == note.id
     assert items[0]["note"] == note.note
+    assert items[0]["source_proposal_id"] == note.source_proposal_id
     assert items[0]["source_lesson_id"] == lesson_id
     assert items[0]["source_lesson_title"] == "Prompting basics"
+
+
+async def test_list_notes_passes_the_paging_window_straight_through() -> None:
+    notes = AsyncMock(spec=AbstractCalibrationNoteRepository)
+    notes.list_admin.return_value = []
+    notes.count_admin.return_value = 0
+    service = CalibrationNoteService(notes)
+
+    await service.list_notes(status="approved", limit=2, offset=4)
+
+    # A hardcoded offset would silently serve page 1 forever.
+    notes.list_admin.assert_awaited_once_with(status="approved", limit=2, offset=4)
+    notes.count_admin.assert_awaited_once_with(status="approved")
+
+
+@pytest.mark.parametrize("status", ["suggested", "approved", "rejected", "retired"])
+async def test_every_list_row_carries_the_same_paste_ready_line_graduate_returns(
+    status: str,
+) -> None:
+    """One renderer, two callers.
+
+    Graduating is a one-way door that used to hand this line back exactly once,
+    so an admin who dismissed the banner lost it for good. It is derived from
+    `note`, which is NOT NULL, so it is on every row whatever the status.
+    """
+    note = _note(status=status)
+    notes = AsyncMock(spec=AbstractCalibrationNoteRepository)
+    notes.list_admin.return_value = [(note, uuid.uuid4(), "Prompting basics")]
+    notes.count_admin.return_value = 1
+    notes.get_by_id.return_value = _note(status="approved", note=note.note)
+    service = CalibrationNoteService(notes)
+
+    items, _total = await service.list_notes(status=None, limit=25, offset=0)
+    from_transition = await service.graduate(note_id=note.id, reviewer_id=uuid.uuid4())
+
+    assert items[0]["paste_ready"] == "- Prefer inline bullets over a card group."
+    assert items[0]["paste_ready"] == from_transition

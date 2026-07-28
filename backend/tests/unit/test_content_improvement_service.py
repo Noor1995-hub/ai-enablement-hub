@@ -14,6 +14,7 @@ from src.repositories.base import (
     AbstractProposalRepository,
 )
 from src.services import content_improvement_service
+from src.services.calibration_prompt import MAX_INJECTED_NOTES
 from src.services.content_improvement_service import ContentImprovementService
 from src.services.llm_service import LlmUsage
 from src.services.prompts import load_prompt
@@ -181,7 +182,9 @@ async def test_the_notes_repository_is_read_once_per_run_not_once_per_lesson() -
     await service.run(max_lessons=3)
 
     assert len(llm.prompts) == 2
-    notes.list_for_injection.assert_awaited_once()
+    # The limit is asserted, not just the call: hardcoding limit=1 here would
+    # quietly starve the prompt of guidance and survive every other test.
+    notes.list_for_injection.assert_awaited_once_with(limit=MAX_INJECTED_NOTES)
     # One read, but both drafting calls still carry the guidance.
     assert all("Prefer inline bullets over a card group." in system for system in llm.systems)
 

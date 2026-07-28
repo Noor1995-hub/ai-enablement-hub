@@ -757,7 +757,11 @@ class AbstractCalibrationNoteRepository(ABC):
         """Newest-first review rows: (note, source_lesson_id, source_lesson_title).
         BOTH joins are outer — `source_proposal_id` is ON DELETE SET NULL, so an
         approved note outlives the lesson it came from and must not disappear
-        from the queue when that lesson is deleted."""
+        from the queue when that lesson is deleted.
+
+        The order must be TOTAL, not just newest-first: one `create_many` batch
+        shares a single `created_at`, so a tiebreaker is what stops a paged read
+        from returning a row twice or skipping it entirely."""
 
     @abstractmethod
     async def count_admin(self, *, status: str | None = None) -> int:
@@ -776,5 +780,7 @@ class AbstractCalibrationNoteRepository(ABC):
         `limit`. Only `approved` — a `suggested` note has not been through the
         human gate, and `rejected`/`retired` are deliberately out (retired means
         it was hand-copied into house_style.md and injecting it too would
-        duplicate it). The caller applies the character budget on top, via
+        duplicate it). A row with no `reviewed_at` sorts LAST, never first, so
+        an unstamped approval can never displace the newest real guidance. The
+        caller applies the character budget on top, via
         services/calibration_prompt.py::render_calibration_block."""

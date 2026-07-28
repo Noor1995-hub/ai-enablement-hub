@@ -30,9 +30,16 @@ _URL = "/api/admin/calibration-notes"
 
 
 class Seeded:
-    def __init__(self, admin: User, lesson_title: str, notes: list[CalibrationNote]) -> None:
+    def __init__(
+        self,
+        admin: User,
+        lesson_title: str,
+        proposal_id: uuid.UUID,
+        notes: list[CalibrationNote],
+    ) -> None:
         self.admin = admin
         self.lesson_title = lesson_title
+        self.proposal_id = proposal_id
         self.notes = notes
 
 
@@ -58,7 +65,7 @@ async def seeded(db_session: AsyncSession) -> Seeded:
         source_proposal_id=proposal.id,
         notes=["Prefer inline bullets over a card group.", "Do not pad the intro."],
     )
-    return Seeded(admin, lesson.title, notes)
+    return Seeded(admin, lesson.title, proposal.id, notes)
 
 
 def _headers(seeded: Seeded, test_settings: Settings) -> dict[str, str]:
@@ -85,6 +92,38 @@ class TestList:
         assert first["source_lesson_title"] == "Prompting basics"
         assert first["source_lesson_id"] is not None
         assert first["reviewed_at"] is None
+        # Provenance the queue renders; blanking it in the list response would
+        # otherwise pass every other test in the suite.
+        assert first["source_proposal_id"] == str(seeded.proposal_id)
+        # Derived from `note`, present whatever the status.
+        assert first["paste_ready"] == f"- {first['note']}"
+
+    async def test_paging_hands_back_every_note_exactly_once(
+        self, client: AsyncClient, seeded: Seeded, db_session: AsyncSession, test_settings: Settings
+    ) -> None:
+        """Pins BOTH the offset pass-through and the ordering tiebreaker.
+
+        All five notes share one `created_at`, so an unstable order or a
+        hardcoded offset shows up here as a duplicate or a missing note, not
+        just as a wrong page length.
+        """
+        headers = _headers(seeded, test_settings)
+        extra = await CalibrationNoteRepository(db_session).create_many(
+            source_proposal_id=seeded.proposal_id,
+            notes=["third note.", "fourth note.", "fifth note."],
+        )
+        expected = {note.note for note in [*seeded.notes, *extra]}
+
+        seen: list[str] = []
+        for offset in (0, 2, 4):
+            page = await client.get(_URL, params={"limit": 2, "offset": offset}, headers=headers)
+            assert page.status_code == 200
+            assert page.json()["total"] == 5
+            assert page.json()["offset"] == offset
+            seen.extend(item["note"] for item in page.json()["items"])
+
+        assert len(seen) == 5
+        assert set(seen) == expected
 
     async def test_filters_by_status(
         self, client: AsyncClient, seeded: Seeded, test_settings: Settings
@@ -205,6 +244,27 @@ class TestGraduate:
         }
         await db_session.refresh(note)
         assert note.status == "retired"
+
+    async def test_the_paste_ready_line_is_on_the_row_before_and_after_graduating(
+        self, client: AsyncClient, seeded: Seeded, test_settings: Settings
+    ) -> None:
+        """Graduation is a one-way door: the second POST 409s. So the line a
+        human has to paste into house_style.md must be readable from the list
+        BEFORE they retire the note, and must stay readable afterwards."""
+        headers = _headers(seeded, test_settings)
+        note = seeded.notes[0]
+        expected = f"- {note.note}"
+        await client.post(f"{_URL}/{note.id}/review", json={"decision": "approve"}, headers=headers)
+
+        approved = await client.get(_URL, params={"status": "approved"}, headers=headers)
+        assert [item["paste_ready"] for item in approved.json()["items"]] == [expected]
+
+        graduated = await client.post(f"{_URL}/{note.id}/graduate", headers=headers)
+        assert graduated.json()["paste_ready"] == expected
+        # The transition 409s from here on, so the row is now the only source.
+        assert (await client.post(f"{_URL}/{note.id}/graduate", headers=headers)).status_code == 409
+        retired = await client.get(_URL, params={"status": "retired"}, headers=headers)
+        assert [item["paste_ready"] for item in retired.json()["items"]] == [expected]
 
     async def test_graduating_a_suggested_note_conflicts(
         self, client: AsyncClient, seeded: Seeded, db_session: AsyncSession, test_settings: Settings
