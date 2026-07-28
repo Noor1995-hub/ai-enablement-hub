@@ -114,7 +114,6 @@ async def test_create_get_and_set_status(db_session: AsyncSession) -> None:
     assert created.status == "pending"
     # uuids are stored as strings so the JSONB round-trip is lossless.
     assert created.source_feedback_ids == [str(feedback_id)]
-    assert await repo.count_pending() == 1
 
     fetched = await repo.get_by_id(created.id)
     assert fetched is not None
@@ -124,7 +123,6 @@ async def test_create_get_and_set_status(db_session: AsyncSession) -> None:
     assert fetched.status == "approved"
     assert fetched.reviewed_by == user.id
     assert fetched.reviewed_at is not None
-    assert await repo.count_pending() == 0
 
     assert await repo.get_by_id(uuid.uuid4()) is None
 

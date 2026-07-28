@@ -7,6 +7,7 @@ __all__ = [
     "KNOWN_BLOCK_TYPES",
     "check_media_immutable",
     "media_locators",
+    "normalise_nested_ids",
     "validate_content_blocks",
 ]
 
@@ -26,12 +27,23 @@ KNOWN_BLOCK_TYPES = {
 }
 _INTERACTIVE_MODES = {"sort", "predict", "spot_the_flaw"}
 _WHITESPACE_SIZES = {"sm", "md", "lg"}
+# Every nested list whose dict entries carry their own `id` — the lists the
+# validators below check and `normalise_nested_ids` back-fills. A quiz
+# question's `options` is a list of plain strings, not dicts; the "entry is a
+# dict" guard in the normaliser is what keeps those strings as strings.
+_NESTED_ID_LISTS = ("cards", "questions", "steps", "buckets", "items", "options", "candidates")
 
 
 def validate_content_blocks(blocks: object) -> list[str]:
     """Structurally validate a proposed content_blocks array against the
     frontend union in frontend/src/types/contentBlocks.ts. Returns a list of
     human-readable error strings; an empty list means the array is valid.
+
+    Ids must be unique — top-level block ids across the whole array, nested
+    item ids within their own list. Duplicates pass every per-field check but
+    collide on `key={...}` in the learner renderer once approved, and a
+    duplicated media block would even slip past `check_media_immutable` (both
+    copies match the base entry for that id).
 
     Purely structural. It does NOT enforce media immutability (that a proposal
     must not add or alter image/video blob_paths) — that lives in
@@ -40,12 +52,13 @@ def validate_content_blocks(blocks: object) -> list[str]:
     if not isinstance(blocks, list):
         return ["content_blocks must be a list"]
     errors: list[str] = []
+    seen_ids: set[str] = set()
     for i, block in enumerate(blocks):
-        errors.extend(_validate_block(i, block))
+        errors.extend(_validate_block(i, block, seen_ids))
     return errors
 
 
-def _validate_block(i: int, block: object) -> list[str]:
+def _validate_block(i: int, block: object, seen_ids: set[str]) -> list[str]:
     where = f"block[{i}]"
     if not isinstance(block, dict):
         return [f"{where} must be an object"]
@@ -53,6 +66,10 @@ def _validate_block(i: int, block: object) -> list[str]:
     block_id = block.get("id")
     if not isinstance(block_id, str) or not block_id:
         errs.append(f"{where} missing non-empty string 'id'")
+    elif block_id in seen_ids:
+        errs.append(f"{where} duplicate id {block_id!r}")
+    else:
+        seen_ids.add(block_id)
     btype = block.get("type")
     if not isinstance(btype, str) or btype not in KNOWN_BLOCK_TYPES:
         errs.append(f"{where} has unknown type {btype!r}")
@@ -65,6 +82,24 @@ def _require_str(where: str, block: Mapping[str, object], field: str) -> list[st
     value = block.get(field)
     if not isinstance(value, str) or not value:
         return [f"{where}.{field} must be a non-empty string"]
+    return []
+
+
+def _require_unique_id(where: str, item: Mapping[str, object], seen: set[str]) -> list[str]:
+    """Require a non-empty string `id` on a nested item and reject one already
+    used earlier in the SAME list. `seen` is mutated with each accepted id.
+
+    A missing id is normally repaired upstream by `normalise_nested_ids`; a
+    duplicate is the model reusing one id for two items, which survives every
+    other check here and then collides on `key={...}` in the learner renderer.
+    """
+    errs = _require_str(where, item, "id")
+    if errs:
+        return errs
+    item_id = cast(str, item.get("id"))
+    if item_id in seen:
+        return [f"{where} duplicate id {item_id!r}"]
+    seen.add(item_id)
     return []
 
 
@@ -110,13 +145,14 @@ def _validate_card_group(where: str, block: Mapping[str, object]) -> list[str]:
     if not isinstance(cards, list) or not cards:
         return [f"{where}.cards must be a non-empty list"]
     errs: list[str] = []
+    card_ids: set[str] = set()
     for j, card in enumerate(cards):
         cwhere = f"{where}.cards[{j}]"
         if not isinstance(card, dict):
             errs.append(f"{cwhere} must be an object")
             continue
         card_fields = cast(Mapping[str, object], card)
-        errs += _require_str(cwhere, card_fields, "id")
+        errs += _require_unique_id(cwhere, card_fields, card_ids)
         errs += _require_str(cwhere, card_fields, "title")
         errs += _require_str(cwhere, card_fields, "body")
     return errs
@@ -127,13 +163,14 @@ def _validate_quiz(where: str, block: Mapping[str, object]) -> list[str]:
     if not isinstance(questions, list) or not questions:
         return [f"{where}.questions must be a non-empty list"]
     errs: list[str] = []
+    question_ids: set[str] = set()
     for j, question in enumerate(questions):
         qwhere = f"{where}.questions[{j}]"
         if not isinstance(question, dict):
             errs.append(f"{qwhere} must be an object")
             continue
         question_fields = cast(Mapping[str, object], question)
-        errs += _require_str(qwhere, question_fields, "id")
+        errs += _require_unique_id(qwhere, question_fields, question_ids)
         errs += _require_str(qwhere, question_fields, "q")
         errs += _require_str(qwhere, question_fields, "explanation")
         options = question.get("options")
@@ -159,13 +196,14 @@ def _validate_steps(where: str, block: Mapping[str, object]) -> list[str]:
     if not isinstance(steps, list):
         return [f"{where}.steps must be a list"]
     errs: list[str] = []
+    step_ids: set[str] = set()
     for j, step in enumerate(steps):
         swhere = f"{where}.steps[{j}]"
         if not isinstance(step, dict):
             errs.append(f"{swhere} must be an object")
             continue
         step_fields = cast(Mapping[str, object], step)
-        errs += _require_str(swhere, step_fields, "id")
+        errs += _require_unique_id(swhere, step_fields, step_ids)
         errs += _require_str(swhere, step_fields, "label")
         errs += _require_str(swhere, step_fields, "text")
     return errs
@@ -198,12 +236,13 @@ def _validate_sort(where: str, block: Mapping[str, object]) -> list[str]:
                 errs.append(f"{bwhere} must be an object")
                 continue
             bucket_fields = cast(Mapping[str, object], bucket)
-            errs += _require_str(bwhere, bucket_fields, "id")
+            # bucket_ids doubles as the set the items below are cross-checked
+            # against; a duplicate id is reported but stays in the set, so a
+            # dangling-bucketId error is never raised on top of it.
+            errs += _require_unique_id(bwhere, bucket_fields, bucket_ids)
             errs += _require_str(bwhere, bucket_fields, "label")
-            bucket_id = bucket.get("id")
-            if isinstance(bucket_id, str) and bucket_id:
-                bucket_ids.add(bucket_id)
     items = block.get("items")
+    item_ids: set[str] = set()
     if not isinstance(items, list):
         errs.append(f"{where}.items must be a list")
     else:
@@ -213,7 +252,7 @@ def _validate_sort(where: str, block: Mapping[str, object]) -> list[str]:
                 errs.append(f"{iwhere} must be an object")
                 continue
             item_fields = cast(Mapping[str, object], item)
-            errs += _require_str(iwhere, item_fields, "id")
+            errs += _require_unique_id(iwhere, item_fields, item_ids)
             errs += _require_str(iwhere, item_fields, "text")
             errs += _require_str(iwhere, item_fields, "reason")
             bucket_id = item.get("bucketId")
@@ -237,12 +276,11 @@ def _validate_predict(where: str, block: Mapping[str, object]) -> list[str]:
                 errs.append(f"{owhere} must be an object")
                 continue
             option_fields = cast(Mapping[str, object], option)
-            errs += _require_str(owhere, option_fields, "id")
+            # Like the sort buckets above, option_ids is also the set
+            # correctOptionId is resolved against.
+            errs += _require_unique_id(owhere, option_fields, option_ids)
             errs += _require_str(owhere, option_fields, "label")
             errs += _require_str(owhere, option_fields, "reason")
-            option_id = option.get("id")
-            if isinstance(option_id, str) and option_id:
-                option_ids.add(option_id)
     errs += _require_str(where, block, "correctOptionId")
     correct_option_id = block.get("correctOptionId")
     if (
@@ -260,18 +298,114 @@ def _validate_spot_the_flaw(where: str, block: Mapping[str, object]) -> list[str
     if not isinstance(candidates, list):
         errs.append(f"{where}.candidates must be a list")
         return errs
+    candidate_ids: set[str] = set()
     for j, candidate in enumerate(candidates):
         cwhere = f"{where}.candidates[{j}]"
         if not isinstance(candidate, dict):
             errs.append(f"{cwhere} must be an object")
             continue
         candidate_fields = cast(Mapping[str, object], candidate)
-        errs += _require_str(cwhere, candidate_fields, "id")
+        errs += _require_unique_id(cwhere, candidate_fields, candidate_ids)
         errs += _require_str(cwhere, candidate_fields, "text")
         errs += _require_str(cwhere, candidate_fields, "reason")
         if not isinstance(candidate.get("isFlaw"), bool):
             errs.append(f"{cwhere}.isFlaw must be a bool")
     return errs
+
+
+def normalise_nested_ids(blocks: object) -> list[Any]:
+    """Mint a deterministic `id` for every nested item that has none, returning
+    a NEW array. Never mutates its input (same discipline as
+    services/media_blocks.py).
+
+    WHY this exists: the real catalogue predates the nested-id rule. Measured
+    over db/baseline/data/lessons.json, 66 of 91 lessons carry at least one
+    id-less nested item — 214 of 328 cards and 202 of 282 quiz questions have
+    no `id` (every TOP-level block id is present). The content-improvement
+    agent is told to copy unchanged blocks through verbatim, so on those
+    lessons a faithful copy would fail `validate_content_blocks` forever: the
+    draft is thrown away, its source feedback is marked covered, and the
+    admin's only recovery re-queues the lesson to burn another 16k-token call
+    and fail identically. Normalising repairs the draft instead, and approving
+    it back-fills the ids into the stored lesson — the gap heals one lesson at
+    a time rather than blocking the feature.
+
+    Scheme: `f"{block_id}-{list_name}{index}"` — `"b3-cards0"`,
+    `"b3-questions1"`. Deterministic (two runs over the same block produce the
+    same ids) and unique within the block, since `(list_name, index)` is. In
+    the rare case the derived id collides with one the block already carries,
+    `-1`, `-2`, … is appended until it is free.
+
+    Only the nested lists this module validates are walked. Non-list input
+    returns an empty list; non-dict entries pass through untouched — including
+    a quiz question's `options`, which is a list of plain STRINGS and stays
+    strings. A block with no usable `id` of its own is passed through
+    untouched: there is nothing stable to derive from, and inventing a parent
+    id here would hide a defect `validate_content_blocks` should report.
+    """
+    if not isinstance(blocks, list):
+        return []
+    result: list[Any] = []
+    for block in blocks:
+        if not isinstance(block, dict):
+            result.append(block)
+            continue
+        block_id = block.get("id")
+        if not isinstance(block_id, str) or not block_id:
+            result.append(block)
+            continue
+        result.append(_normalise_block(cast("dict[str, Any]", block), block_id))
+    return result
+
+
+def _normalise_block(block: dict[str, Any], block_id: str) -> dict[str, Any]:
+    """A copy of `block` with ids minted into its nested lists, or `block`
+    itself when nothing was missing."""
+    patched: dict[str, Any] = {}
+    for name in _NESTED_ID_LISTS:
+        entries = block.get(name)
+        if not isinstance(entries, list):
+            continue
+        replacement = _normalise_entries(cast("list[Any]", entries), block_id, name)
+        if replacement is not None:
+            patched[name] = replacement
+    return {**block, **patched} if patched else block
+
+
+def _usable_id(entry: object) -> str | None:
+    """The entry's own `id` if it is a dict carrying a non-empty string one."""
+    if not isinstance(entry, dict):
+        return None
+    entry_id = entry.get("id")
+    return entry_id if isinstance(entry_id, str) and entry_id else None
+
+
+def _normalise_entries(entries: list[Any], block_id: str, name: str) -> list[Any] | None:
+    """A copy of `entries` with an id minted into every id-less dict entry, or
+    None when every entry already had one (so the block can be left alone)."""
+    taken = {found for entry in entries if (found := _usable_id(entry)) is not None}
+    result: list[Any] = []
+    minted_any = False
+    for index, entry in enumerate(entries):
+        # Non-dict entries (a quiz question's plain-string options) and entries
+        # that already have an id are carried across as they are.
+        if not isinstance(entry, dict) or _usable_id(entry) is not None:
+            result.append(entry)
+            continue
+        minted = _free_id(f"{block_id}-{name}{index}", taken)
+        taken.add(minted)
+        result.append({**cast("dict[str, Any]", entry), "id": minted})
+        minted_any = True
+    return result if minted_any else None
+
+
+def _free_id(base: str, taken: set[str]) -> str:
+    if base not in taken:
+        return base
+    suffix = 1
+    while f"{base}-{suffix}" in taken:
+        suffix += 1
+    return f"{base}-{suffix}"
 
 
 def _media_entry(block: dict[str, Any]) -> tuple[str, str] | None:

@@ -95,9 +95,6 @@ class ProposalRepository(AbstractProposalRepository):
         query = select(func.count()).select_from(self._admin_query(status).subquery())
         return int((await self._session.execute(query)).scalar_one())
 
-    async def count_pending(self) -> int:
-        return await self.count_admin(status="pending")
-
     async def set_status(
         self, proposal: LessonContentProposal, status: str, reviewed_by: uuid.UUID | None
     ) -> None:

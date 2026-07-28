@@ -1,6 +1,9 @@
+import copy
+
 from src.services.content_blocks_validation import (
     check_media_immutable,
     media_locators,
+    normalise_nested_ids,
     validate_content_blocks,
 )
 
@@ -218,6 +221,182 @@ def test_fully_populated_nested_blocks_pass() -> None:
         },
     ]
     assert validate_content_blocks(blocks) == []
+
+
+def test_duplicate_top_level_block_ids_are_rejected() -> None:
+    # Two blocks under one id collide on key={block.id} in the learner
+    # renderer, and a duplicated media block would even satisfy
+    # check_media_immutable (both copies match the base entry for that id).
+    errors = validate_content_blocks(
+        [
+            {"id": "b1", "type": "paragraph", "text": "First."},
+            {"id": "b1", "type": "paragraph", "text": "Second."},
+        ]
+    )
+    assert errors == ["block[1] duplicate id 'b1'"]
+
+
+def test_duplicate_nested_item_ids_are_rejected() -> None:
+    errors = validate_content_blocks(
+        [
+            {
+                "id": "b1",
+                "type": "card_group",
+                "cards": [
+                    {"id": "c1", "title": "T", "body": "B"},
+                    {"id": "c1", "title": "T2", "body": "B2"},
+                ],
+            }
+        ]
+    )
+    assert errors == ["block[0].cards[1] duplicate id 'c1'"]
+
+
+def test_the_same_nested_id_in_two_different_blocks_is_allowed() -> None:
+    # Nested ids only have to be unique within their own list — two card_groups
+    # that each number their cards from c1 are fine, and real lessons do this.
+    assert (
+        validate_content_blocks(
+            [
+                {
+                    "id": "b1",
+                    "type": "card_group",
+                    "cards": [{"id": "c1", "title": "T", "body": "B"}],
+                },
+                {
+                    "id": "b2",
+                    "type": "card_group",
+                    "cards": [{"id": "c1", "title": "U", "body": "C"}],
+                },
+            ]
+        )
+        == []
+    )
+
+
+_CARD_GROUP_NO_IDS = {
+    "id": "b3",
+    "type": "card_group",
+    "cards": [{"title": "First", "body": "B1"}, {"title": "Second", "body": "B2"}],
+}
+_QUIZ_NO_IDS = {
+    "id": "b4",
+    "type": "quiz",
+    "questions": [
+        {"q": "Q?", "options": ["a", "b"], "correct": 1, "explanation": "e"},
+        {"q": "R?", "options": ["c", "d"], "correct": 0, "explanation": "e"},
+    ],
+}
+_TRY_IT_NO_IDS = {
+    "id": "b5",
+    "type": "try_it_yourself",
+    "task": "Do it",
+    "material": "Your AI tool",
+    "whatToNotice": "n",
+    "steps": [{"label": "Step 1", "text": "Do the thing."}],
+}
+_SORT_NO_IDS = {
+    "id": "b6",
+    "type": "interactive",
+    "mode": "sort",
+    "prompt": "p",
+    "buckets": [{"label": "Good"}],
+    "items": [{"text": "x", "bucketId": "b6-buckets0", "reason": "r"}],
+}
+
+
+def test_normalise_mints_ids_for_id_less_cards() -> None:
+    result = normalise_nested_ids([_CARD_GROUP_NO_IDS])
+
+    assert [card["id"] for card in result[0]["cards"]] == ["b3-cards0", "b3-cards1"]
+    assert validate_content_blocks(result) == []
+
+
+def test_normalise_mints_ids_for_id_less_quiz_questions() -> None:
+    result = normalise_nested_ids([_QUIZ_NO_IDS])
+
+    assert [q["id"] for q in result[0]["questions"]] == ["b4-questions0", "b4-questions1"]
+    assert validate_content_blocks(result) == []
+
+
+def test_normalise_mints_ids_for_steps_buckets_and_sort_items() -> None:
+    result = normalise_nested_ids([_TRY_IT_NO_IDS, _SORT_NO_IDS])
+
+    assert [step["id"] for step in result[0]["steps"]] == ["b5-steps0"]
+    assert [bucket["id"] for bucket in result[1]["buckets"]] == ["b6-buckets0"]
+    assert [item["id"] for item in result[1]["items"]] == ["b6-items0"]
+    # The minted bucket id is the one the sort item already points at, so the
+    # bucketId cross-reference resolves.
+    assert validate_content_blocks(result) == []
+
+
+def test_normalise_leaves_existing_ids_exactly_as_they_were() -> None:
+    blocks = [
+        {"id": "b1", "type": "card_group", "cards": [{"id": "keep-me", "title": "T", "body": "B"}]},
+    ]
+
+    assert normalise_nested_ids(blocks) == blocks
+
+
+def test_normalise_never_mutates_its_input() -> None:
+    blocks = [copy.deepcopy(_CARD_GROUP_NO_IDS)]
+    before = copy.deepcopy(blocks)
+
+    result = normalise_nested_ids(blocks)
+
+    assert blocks == before
+    assert all("id" not in card for card in blocks[0]["cards"])
+    assert result is not blocks
+
+
+def test_normalise_keeps_quiz_options_as_plain_strings() -> None:
+    result = normalise_nested_ids([_QUIZ_NO_IDS])
+
+    assert result[0]["questions"][0]["options"] == ["a", "b"]
+
+
+def test_normalise_passes_through_a_block_with_no_top_level_id() -> None:
+    # Nothing stable to derive nested ids from; inventing a parent id here
+    # would hide the missing block id that the validator must report.
+    orphan = {"type": "card_group", "cards": [{"title": "T", "body": "B"}]}
+
+    result = normalise_nested_ids([orphan])
+
+    assert result == [orphan]
+    assert any("missing non-empty string 'id'" in e for e in validate_content_blocks(result))
+
+
+def test_normalise_is_idempotent() -> None:
+    once = normalise_nested_ids([_CARD_GROUP_NO_IDS, _QUIZ_NO_IDS, _SORT_NO_IDS])
+
+    assert normalise_nested_ids(once) == once
+
+
+def test_normalise_returns_an_empty_list_for_non_list_input() -> None:
+    assert normalise_nested_ids({"id": "b1", "type": "paragraph"}) == []
+    assert normalise_nested_ids(None) == []
+
+
+def test_normalise_passes_non_dict_entries_through() -> None:
+    assert normalise_nested_ids(["not a block", 7]) == ["not a block", 7]
+
+
+def test_normalise_never_mints_an_id_that_collides_within_the_list() -> None:
+    # A model could hand back one card already carrying the id the scheme would
+    # derive for another. Minting it anyway would produce a duplicate that the
+    # uniqueness check then rejects, so the collision is stepped over instead.
+    blocks = [
+        {
+            "id": "b1",
+            "type": "card_group",
+            "cards": [{"title": "T", "body": "B"}, {"id": "b1-cards0", "title": "U", "body": "C"}],
+        }
+    ]
+
+    result = normalise_nested_ids(blocks)
+
+    assert [card["id"] for card in result[0]["cards"]] == ["b1-cards0-1", "b1-cards0"]
+    assert validate_content_blocks(result) == []
 
 
 _IMAGE = {"id": "m1", "type": "image", "blob_path": "images/a.png", "alt": "a chart"}

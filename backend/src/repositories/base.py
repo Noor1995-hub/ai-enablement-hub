@@ -701,10 +701,6 @@ class AbstractProposalRepository(ABC):
         """Total rows matching the same filter as list_admin (pagination total)."""
 
     @abstractmethod
-    async def count_pending(self) -> int:
-        """How many proposals still await a decision (sidebar badge)."""
-
-    @abstractmethod
     async def set_status(
         self, proposal: LessonContentProposal, status: str, reviewed_by: uuid.UUID | None
     ) -> None:

@@ -151,7 +151,12 @@ async def test_invalid_blocks_are_never_stored_as_a_pending_proposal() -> None:
     assert "banner" in proposals.create.await_args.kwargs["summary"]
 
 
-async def test_a_card_missing_a_nested_id_is_rejected() -> None:
+async def test_a_card_missing_a_nested_id_is_repaired_not_rejected() -> None:
+    # 66 of the 91 lessons in db/baseline/data/lessons.json have cards or quiz
+    # questions with no `id`, and the agent is told to copy unchanged blocks
+    # through verbatim — so rejecting an id-less nested item would fail on most
+    # of the real catalogue, forever. The draft path normalises instead, and
+    # the minted ids are what gets STORED (approving heals the live lesson).
     lesson = _lesson()
     llm = _ScriptedLlm(
         [
@@ -171,9 +176,36 @@ async def test_a_card_missing_a_nested_id_is_rejected() -> None:
 
     proposed, skipped, _remaining = await service.run(max_lessons=3)
 
+    assert (proposed, skipped) == (1, 0)
+    content.update_lesson.assert_not_awaited()
+    kwargs = proposals.create.await_args.kwargs
+    assert kwargs.get("status", "pending") == "pending"
+    assert kwargs["proposed_blocks"][0]["cards"][0]["id"] == "b1-cards0"
+
+
+async def test_duplicate_block_ids_are_still_rejected() -> None:
+    # Normalisation repairs a MISSING id; it must not paper over two blocks
+    # sharing one, which would collide in the learner renderer.
+    lesson = _lesson()
+    llm = _ScriptedLlm(
+        [
+            {
+                "proposed_blocks": [
+                    {"id": "b1", "type": "paragraph", "text": "First."},
+                    {"id": "b1", "type": "paragraph", "text": "Second."},
+                ],
+                "summary": "s",
+            }
+        ]
+    )
+    service, proposals, content = _service([(_feedback("a"), lesson)], llm=llm)
+
+    proposed, skipped, _remaining = await service.run(max_lessons=3)
+
     assert (proposed, skipped) == (0, 1)
     content.update_lesson.assert_not_awaited()
     assert proposals.create.await_args.kwargs["status"] == "failed"
+    assert "duplicate id" in proposals.create.await_args.kwargs["summary"]
 
 
 async def test_a_new_media_locator_is_rejected() -> None:

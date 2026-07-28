@@ -18,11 +18,12 @@ import json
 import logging
 import uuid
 from time import monotonic
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 from src.services.content_blocks_validation import (
     KNOWN_BLOCK_TYPES,
     check_media_immutable,
+    normalise_nested_ids,
     validate_content_blocks,
 )
 from src.services.exceptions import ConflictError, InvalidRequestError, NotFoundError
@@ -331,15 +332,22 @@ class ContentImprovementService:
             msg = "the agent returned an empty summary"
             raise LlmError(msg)
         # An empty array passes the structural validator (it is a valid, empty
-        # list) but would blank the lesson on approve — refuse it here.
+        # list) but would blank the lesson on approve — refuse it here. This
+        # guard MUST stay ahead of the normaliser, which would happily hand an
+        # empty array straight back through as valid.
         if not isinstance(blocks, list) or not blocks:
             msg = "the agent returned no blocks"
             raise LlmError(msg)
-        errors = validate_content_blocks(blocks) + check_media_immutable(base, blocks)
+        # Most real lessons predate the nested-id rule (see normalise_nested_ids),
+        # so the agent faithfully copying an unchanged block hands back cards and
+        # quiz questions with no `id`. Repair that rather than reject it, and
+        # validate — and store — the repaired array.
+        normalised = normalise_nested_ids(blocks)
+        errors = validate_content_blocks(normalised) + check_media_immutable(base, normalised)
         if errors:
             msg = "proposed blocks rejected: " + "; ".join(errors[:5])
             raise LlmError(msg)
-        return cast("list[Any]", blocks), summary.strip()[:_MAX_SUMMARY_CHARS]
+        return normalised, summary.strip()[:_MAX_SUMMARY_CHARS]
 
     async def _record_failure(
         self, lesson: Lesson, feedback_items: list[Feedback], exc: Exception
