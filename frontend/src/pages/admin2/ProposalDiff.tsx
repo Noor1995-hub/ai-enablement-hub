@@ -117,13 +117,6 @@ export function diffBlocks(base: unknown[], proposed: unknown[]): DiffEntry[] {
   return entries
 }
 
-const KIND_LABEL: Record<DiffKind, string> = {
-  unchanged: 'unchanged',
-  changed: 'changed',
-  added: 'added',
-  removed: 'removed',
-}
-
 interface ProposalDiffProps {
   base: unknown[]
   proposed: unknown[]
@@ -134,42 +127,54 @@ export default function ProposalDiff({ base, proposed }: ProposalDiffProps) {
   const changes = entries.filter(entry => entry.kind !== 'unchanged').length
 
   return (
-    <div className="adm-ci-diff">
+    <div className="adm-ci-sbs">
       <p className="adm-subtext">
         {entries.length} block{entries.length === 1 ? '' : 's'} · {changes} change{changes === 1 ? '' : 's'}
       </p>
+      <div className="adm-ci-sbs-head">
+        <span>Current lesson</span>
+        <span>Proposed draft</span>
+      </div>
       {entries.map(entry => (
-        <div key={entry.key} className={`adm-ci-block adm-ci-block-${entry.kind}`}>
-          <div className="adm-ci-block-head">
-            <span className="adm-ci-block-kind">{KIND_LABEL[entry.kind]}</span>
-            <span className="adm-ci-block-type">{typeLabel(entry)}</span>
-          </div>
-          {entry.kind === 'changed' ? (
-            <>
-              <p className="adm-ci-block-text adm-ci-block-before">{readable(entry.before)}</p>
-              <p className="adm-ci-block-text adm-ci-block-after">{readable(entry.after)}</p>
-            </>
-          ) : (
-            <p className="adm-ci-block-text">{readable(entry.after ?? entry.before)}</p>
-          )}
+        <div key={entry.key} className={`adm-ci-sbs-row adm-ci-sbs-${entry.kind}`}>
+          <DiffCell block={entry.before} kind={entry.kind} side="before" />
+          <DiffCell block={entry.after} kind={entry.kind} side="after" />
         </div>
       ))}
     </div>
   )
 }
 
-/** The type shown on a diff row's header. A RETYPE — `paragraph` → `callout`
- * with the same text — changes how the block renders for the learner but
- * leaves the two text lines identical, so showing only the new type makes it
- * indistinguishable from the accepted key-reorder false positive. Show both
- * sides when a `changed` entry's types differ. */
-function typeLabel(entry: DiffEntry): string {
-  const before = entry.before ? blockType(entry.before) : null
-  const after = entry.after ? blockType(entry.after) : null
-  if (entry.kind === 'changed' && before && after && before !== after) {
-    return `${before} → ${after}`
+interface DiffCellProps {
+  block: Block | null
+  kind: DiffKind
+  side: 'before' | 'after'
+}
+
+/** One side of one aligned row. An absent block on either side is what makes an
+ * addition or a removal read at a glance, so it renders an explicit marker
+ * rather than an empty cell. A block whose `type` changed shows the old type on
+ * the left and the new one on the right, so the retype is visible without any
+ * special casing — which is why the old single-cell `typeLabel` is gone. */
+function DiffCell({ block, kind, side }: DiffCellProps) {
+  if (block === null) {
+    return (
+      <div className="adm-ci-sbs-cell adm-ci-sbs-cell-empty">
+        <span className="adm-ci-block-kind">{side === 'before' ? 'added' : 'removed'}</span>
+      </div>
+    )
   }
-  return after ?? before ?? 'unknown'
+  return (
+    <div className="adm-ci-sbs-cell">
+      <div className="adm-ci-block-head">
+        <span className="adm-ci-block-type">{blockType(block)}</span>
+        {kind !== 'unchanged' && side === 'after' && (
+          <span className="adm-ci-block-kind">{kind}</span>
+        )}
+      </div>
+      <p className="adm-ci-block-text">{readable(block)}</p>
+    </div>
+  )
 }
 
 function readable(block: Block | null): string {

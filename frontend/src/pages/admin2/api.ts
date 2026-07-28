@@ -22,6 +22,7 @@ import type {
   FeedbackStatus,
   FeedbackStatusUpdateRequest,
   ImprovementRunResponse,
+  LearnCardOut,
   LinkResponse,
   ProjectOut,
   ProposalDetailOut,
@@ -874,13 +875,17 @@ export function useRunImprovement() {
 export interface ReviewProposalInput {
   proposalId: string
   decision: 'approve' | 'reject'
+  /** The blocks the admin wants applied, when they changed the draft in the
+   * review pane. Omitted means "accept exactly as drafted", which is also what
+   * tells the backend there is nothing to learn from this one. */
+  editedBlocks?: unknown[]
 }
 
-async function reviewProposal({ proposalId, decision }: ReviewProposalInput): Promise<ProposalReviewResponse> {
+async function reviewProposal({ proposalId, decision, editedBlocks }: ReviewProposalInput): Promise<ProposalReviewResponse> {
   const { data, error } = await rawRequest<ProposalReviewResponse>(
     'POST',
     `/api/admin/content-improvement/${proposalId}/review`,
-    { body: { decision } },
+    { body: { decision, edited_blocks: editedBlocks ?? null } },
   )
   if (!data) throw new Error(errorMessage(error, 'Failed to review the proposal.'))
   return data
@@ -897,6 +902,29 @@ export function useReviewProposal() {
     onSettled: (_data, _error, variables) => {
       void queryClient.invalidateQueries({ queryKey: ['admin', 'proposals'] })
       void queryClient.invalidateQueries({ queryKey: ['admin', 'proposal', variables.proposalId] })
+    },
+  })
+}
+
+async function generateLearnCard(proposalId: string): Promise<LearnCardOut> {
+  const { data, error } = await rawRequest<LearnCardOut>('POST', `/api/admin/content-improvement/${proposalId}/critique`)
+  if (!data) throw new Error(errorMessage(error, 'Failed to generate the learn card.'))
+  return data
+}
+
+/** Asks the agent what it can learn from the difference between its draft and
+ * the version you accepted. Deliberately a second request rather than part of
+ * Accept: Accept must return as soon as your content is safely written, and a
+ * model call would put up to 45 seconds between the click and that
+ * confirmation. If this fails nothing is lost — the delta is stored, so the row
+ * offers a retry. */
+export function useGenerateLearnCard() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: generateLearnCard,
+    onSettled: (_data, _error, proposalId) => {
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'proposals'] })
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'proposal', proposalId] })
     },
   })
 }

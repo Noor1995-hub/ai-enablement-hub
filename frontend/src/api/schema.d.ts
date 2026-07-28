@@ -1317,6 +1317,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/content-improvement/{proposal_id}/critique": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Generate Learn Card
+         * @description Ask the agent what it can learn from the difference between its draft and
+         *     the version the admin accepted. Only meaningful once a draft was accepted
+         *     WITH edits; 409 otherwise, and 409 again if a learn card already exists so a
+         *     retry can never duplicate the suggested notes.
+         */
+        post: operations["generate_learn_card_api_admin_content_improvement__proposal_id__critique_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/dashboard": {
         parameters: {
             query?: never;
@@ -1824,6 +1847,18 @@ export interface components {
             /** Assigned */
             assigned: boolean;
         };
+        /** CalibrationNoteBrief */
+        CalibrationNoteBrief: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Note */
+            note: string;
+            /** Status */
+            status: string;
+        };
         /** ChatMessageCreate */
         ChatMessageCreate: {
             /** Content */
@@ -2119,6 +2154,25 @@ export interface components {
              * @enum {string}
              */
             learning_status: "not_started" | "in_progress" | "complete";
+        };
+        /**
+         * LearnCardOut
+         * @description What the agent concluded from comparing its draft to the accepted version.
+         *     `calibration_notes` are SUGGESTIONS — they influence nothing until an admin
+         *     approves them.
+         */
+        LearnCardOut: {
+            /** Critique Agent Wrong */
+            critique_agent_wrong: string;
+            /** Critique Admin Preferred */
+            critique_admin_preferred: string;
+            /**
+             * Critiqued At
+             * Format: date-time
+             */
+            critiqued_at: string;
+            /** Calibration Notes */
+            calibration_notes: components["schemas"]["CalibrationNoteBrief"][];
         };
         /** LearningGraphResponse */
         LearningGraphResponse: {
@@ -2474,6 +2528,16 @@ export interface components {
             created_at: string;
             /** Reviewed At */
             reviewed_at: string | null;
+            /** Edited Blocks */
+            edited_blocks?: unknown[] | null;
+            /** Critique Agent Wrong */
+            critique_agent_wrong?: string | null;
+            /** Critique Admin Preferred */
+            critique_admin_preferred?: string | null;
+            /** Critiqued At */
+            critiqued_at?: string | null;
+            /** Calibration Notes */
+            calibration_notes?: components["schemas"]["CalibrationNoteBrief"][];
         };
         /** ProposalFeedbackOut */
         ProposalFeedbackOut: {
@@ -2508,6 +2572,10 @@ export interface components {
              * @enum {string}
              */
             decision: "approve" | "reject";
+            /** Edited Blocks */
+            edited_blocks?: {
+                [key: string]: unknown;
+            }[] | null;
         };
         /** ProposalReviewResponse */
         ProposalReviewResponse: {
@@ -5028,6 +5096,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProposalReviewResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    generate_learn_card_api_admin_content_improvement__proposal_id__critique_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proposal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LearnCardOut"];
                 };
             };
             /** @description Validation Error */
