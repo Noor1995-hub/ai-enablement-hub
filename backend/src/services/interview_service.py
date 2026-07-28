@@ -62,13 +62,13 @@ class InterviewService:
         return InterviewStateResponse(
             status="complete",
             conversation_id=conversation.id,
-            playbook=PlaybookShared(**conversation.summary["shared"]),
+            playbook=PlaybookShared.model_validate(conversation.summary["shared"]),
         )
 
     async def build_playbook(self, *, user: User) -> PlaybookShared:
         conversation = await self._interview_conversation(user.id)
         if conversation is None:
-            raise NotFoundError("No interview to build from")
+            raise NotFoundError("Interview")
         if conversation.summary is not None:
             return PlaybookShared.model_validate(conversation.summary["shared"])
 
@@ -115,10 +115,10 @@ class InterviewService:
             return AdminInterviewResponse(status="in_progress", transcript=transcript)
 
         internal = PlaybookInternal(**conversation.summary["internal"])
-        shared = PlaybookShared(**conversation.summary["shared"])
+        shared = PlaybookShared.model_validate(conversation.summary["shared"])
         return AdminInterviewResponse(
             status="complete",
-            tier=conversation.summary["internal"]["input_quality"]["tier"],
+            tier=internal.input_quality.tier,
             internal=internal,
             shared=shared,
             transcript=transcript,

@@ -11,11 +11,11 @@ from unittest.mock import AsyncMock
 import pytest
 
 from src.repositories.base import AbstractConversationRepository, AbstractMessageRepository
-from src.schemas.interview import PlaybookShared
+from src.schemas.interview import PlaybookInternal, PlaybookShared
 from src.services.exceptions import DomainError
 from src.services.interview_context import InterviewContextService
 from src.services.interview_service import InterviewService
-from src.services.llm_service import LlmUsage
+from src.services.llm_service import LlmError, LlmUsage
 from tests.fixtures.llm import FakeLlmClient
 
 # One fully-populated extraction: both boxes complete, one use_case
@@ -241,3 +241,79 @@ async def test_get_state_transitions() -> None:
     assert state.status == "complete"
     assert state.conversation_id == complete_conv.id
     assert isinstance(state.playbook, PlaybookShared)
+
+
+async def test_get_admin_view_returns_both_boxes_and_tier() -> None:
+    llm = FakeLlmClient(chunks=[])
+    service, conversations, messages, _context = _service(llm)
+    conversation = _conversation(summary=_EXTRACTION)
+    conversations.list_for_user.return_value = [conversation]
+    messages.list_for_conversation.return_value = [
+        SimpleNamespace(role="user", content="hi"),
+        SimpleNamespace(role="assistant", content="hello"),
+    ]
+
+    result = await service.get_admin_view(user_id=uuid.uuid4())
+
+    assert result.status == "complete"
+    assert isinstance(result.internal, PlaybookInternal)
+    assert isinstance(result.shared, PlaybookShared)
+    assert result.tier == _EXTRACTION["internal"]["input_quality"]["tier"]  # ty: ignore[not-subscriptable]
+    assert len(result.transcript) == 2
+    assert result.transcript[0].role == "user"
+    assert result.transcript[0].content == "hi"
+    assert result.transcript[1].role == "assistant"
+    assert result.transcript[1].content == "hello"
+
+
+async def test_get_admin_view_not_started() -> None:
+    llm = FakeLlmClient(chunks=[])
+    service, conversations, _messages, _context = _service(llm)
+    conversations.list_for_user.return_value = []
+
+    result = await service.get_admin_view(user_id=uuid.uuid4())
+
+    assert result.status == "not_started"
+    assert result.internal is None
+    assert result.shared is None
+    assert result.transcript == []
+
+
+async def test_reset_deletes_all_interview_conversations() -> None:
+    llm = FakeLlmClient(chunks=[])
+    service, conversations, _messages, _context = _service(llm)
+    conv_a = _conversation()
+    conv_b = _conversation()
+    conversations.list_for_user.return_value = [conv_a, conv_b]
+
+    await service.reset(user_id=uuid.uuid4())
+
+    assert conversations.delete.await_count == 2
+    conversations.delete.assert_any_await(conv_a.id)
+    conversations.delete.assert_any_await(conv_b.id)
+
+
+async def test_generate_retries_on_llm_error_then_succeeds() -> None:
+    class _FakeLlmErrorThenSuccess:
+        """First call raises LlmError, second returns the valid extraction."""
+
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def complete_structured(self, **_: object) -> tuple[dict[str, object], LlmUsage]:
+            self.calls += 1
+            if self.calls == 1:
+                raise LlmError("temporary failure")
+            return _EXTRACTION, LlmUsage(input_tokens=10, output_tokens=10)
+
+    llm = _FakeLlmErrorThenSuccess()
+    service, conversations, messages, _context = _service(llm)
+    conversation = _conversation(summary=None)
+    conversations.list_for_user.return_value = [conversation]
+    messages.list_for_conversation.return_value = []
+    user = _user()
+
+    result = await service.build_playbook(user=user)  # ty: ignore[invalid-argument-type]
+
+    assert isinstance(result, PlaybookShared)
+    assert llm.calls == 2
