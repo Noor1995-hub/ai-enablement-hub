@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from typing import Any, cast
 
 __all__ = [
     "KNOWN_BLOCK_TYPES",
+    "check_house_style",
     "check_media_immutable",
     "media_locators",
     "normalise_nested_ids",
@@ -531,3 +533,259 @@ def check_media_immutable(base: object, proposed: object) -> list[str]:
                 f"the lesson: {entry[1]!r} (block id {block_id!r})"
             )
     return errors
+
+
+# --- house style (backend/prompts/house_style.md, rules marked [enforced]) ---
+
+# The house style's own top-level scalar text fields, by block type. `quiz`
+# and `card_group` are absent here — their prose lives inside `questions` /
+# `cards`, walked separately below (see _QUIZ_TEXT_FIELDS and _LIST_TEXT_FIELDS).
+_SCALAR_TEXT_FIELDS: dict[str, tuple[str, ...]] = {
+    "heading": ("text",),
+    "paragraph": ("text",),
+    "callout": ("text",),
+    "kicker": ("text",),
+    "question": ("prompt",),
+    "try_it_yourself": ("task", "material", "whatToNotice"),
+    "interactive": ("prompt", "example"),
+    "image": ("alt", "caption"),
+    "video": ("caption",),
+}
+# The nested-list text fields this module already knows how to walk (same
+# lists as _NESTED_ID_LISTS), keyed to the field names on each entry that
+# carry prose. `questions`' own `q`/`explanation` plus its `options` (a list of
+# plain strings, not dicts) are handled separately by _quiz_text_fields.
+_LIST_TEXT_FIELDS: dict[str, tuple[str, ...]] = {
+    "cards": ("title", "body"),
+    "steps": ("label", "text"),
+    "buckets": ("label",),
+    "items": ("text", "reason"),
+    "options": ("label", "reason"),  # interactive predict-mode options (dicts)
+    "candidates": ("text", "reason"),
+}
+
+_FORBIDDEN_CHARS = "—–…"  # em dash, en dash, ellipsis
+_ARTIFACT_RE = re.compile(r"\bartifact\b", re.IGNORECASE)
+_BOLD_SPAN_RE = re.compile(r"\*\*(.+?)\*\*")
+# A bullet lead-in is `- **Term.**` at the very start of a line: a bold span
+# whose content ends in a period, opening right after "- ". Only bold spans of
+# exactly this shape are exempt from the two-span cap.
+_BULLET_LEAD_IN_RE = re.compile(r"(?m)^-[ \t]\*\*[^*\n]+\.\*\*")
+_CHECK_UNDERSTANDING_HEADING = "Check your understanding"
+
+
+def check_house_style(base: object, proposed: object) -> list[str]:
+    """Enforce the **[enforced]** rules from backend/prompts/house_style.md
+    against the blocks the agent actually WROTE. Returns human-readable error
+    strings; empty means the proposal is clean.
+
+    Matches proposed blocks to base blocks by id, exactly like
+    `check_media_immutable` above, and only judges a block that is new (no
+    base counterpart) or whose content differs from its base counterpart (a
+    direct dict comparison — the JSON-equivalent of that block). A block
+    copied through unchanged is exempt.
+
+    This scoping is load-bearing, not an optimisation. The real lesson corpus
+    predates these rules (see `normalise_nested_ids`'s docstring for the same
+    story with nested ids): applying them to every block, changed or not,
+    rejects a faithful copy of ordinary legacy content, and the calling
+    service records that as a `failed` proposal — the exact failure mode a
+    validator tightening produced in this feature's own review, where it
+    turned out to reject 66 of 91 real lessons. Scoping to changed blocks
+    makes the agent accountable for its own writing and nothing else.
+
+    Callers are expected to also run `validate_content_blocks` and
+    `check_media_immutable` — this function only carries the house-style
+    rules, not structural or media-locator validation.
+    """
+    if not isinstance(proposed, list):
+        return ["proposed content_blocks must be a list"]
+    base_by_id = _blocks_by_id(base)
+    errors: list[str] = []
+    for i, block in enumerate(proposed):
+        if not isinstance(block, dict):
+            continue
+        if not _is_changed(cast(dict[str, Any], block), base_by_id):
+            continue
+        where = f"block[{i}]"
+        for path, text in _text_fields(where, cast(dict[str, Any], block)):
+            errors.extend(_check_text_field(path, text))
+        if block.get("type") == "quiz":
+            errors.extend(_check_quiz_house_style(where, cast(dict[str, Any], block), i, proposed))
+    return errors
+
+
+def _blocks_by_id(blocks: object) -> dict[str, dict[str, Any]]:
+    """The base's blocks keyed by id, for matching a proposal's blocks back to
+    their base counterpart. Skips non-list input, non-dict entries, and blocks
+    with no non-empty string id (nothing to match them by)."""
+    by_id: dict[str, dict[str, Any]] = {}
+    if not isinstance(blocks, list):
+        return by_id
+    for block in blocks:
+        if not isinstance(block, dict):
+            continue
+        block_id = block.get("id")
+        if isinstance(block_id, str) and block_id:
+            by_id[block_id] = cast(dict[str, Any], block)
+    return by_id
+
+
+def _is_changed(block: dict[str, Any], base_by_id: dict[str, dict[str, Any]]) -> bool:
+    """True when `block` is new (no base counterpart to match by id) or its
+    content differs from that counterpart. A block with no id of its own
+    cannot be matched to a base block at all, so it is treated as changed —
+    the agent produced it, whether or not it is well-formed."""
+    block_id = block.get("id")
+    if not isinstance(block_id, str) or not block_id:
+        return True
+    return base_by_id.get(block_id) != block
+
+
+def _text_fields(where: str, block: dict[str, Any]) -> list[tuple[str, str]]:
+    """Every text-bearing (path, text) pair on one changed block, walking the
+    same nested lists `validate_content_blocks` knows about. Non-string or
+    empty values are skipped; there is nothing to check in them."""
+    btype = block.get("type")
+    fields: list[tuple[str, str]] = []
+    for name in _SCALAR_TEXT_FIELDS.get(btype, ()):
+        _add_scalar(fields, where, block, name)
+    if btype == "quiz":
+        fields.extend(_quiz_text_fields(where, block))
+    else:
+        for list_name, item_fields in _LIST_TEXT_FIELDS.items():
+            fields.extend(_list_text_fields(where, block, list_name, item_fields))
+    return fields
+
+
+def _add_scalar(
+    fields: list[tuple[str, str]], where: str, block: Mapping[str, object], name: str
+) -> None:
+    value = block.get(name)
+    if isinstance(value, str) and value:
+        fields.append((f"{where}.{name}", value))
+
+
+def _list_text_fields(
+    where: str, block: Mapping[str, object], list_name: str, item_fields: tuple[str, ...]
+) -> list[tuple[str, str]]:
+    entries = block.get(list_name)
+    if not isinstance(entries, list):
+        return []
+    fields: list[tuple[str, str]] = []
+    for j, entry in enumerate(entries):
+        if not isinstance(entry, dict):
+            continue
+        ewhere = f"{where}.{list_name}[{j}]"
+        for name in item_fields:
+            _add_scalar(fields, ewhere, cast(Mapping[str, object], entry), name)
+    return fields
+
+
+def _quiz_text_fields(where: str, block: Mapping[str, object]) -> list[tuple[str, str]]:
+    """A quiz's prose lives inside `questions`, one level deeper than every
+    other block type's nested lists: each question carries `q`, `explanation`,
+    and `options` — a list of plain strings, not dicts."""
+    questions = block.get("questions")
+    if not isinstance(questions, list):
+        return []
+    fields: list[tuple[str, str]] = []
+    for j, question in enumerate(questions):
+        if not isinstance(question, dict):
+            continue
+        qwhere = f"{where}.questions[{j}]"
+        _add_scalar(fields, qwhere, cast(Mapping[str, object], question), "q")
+        _add_scalar(fields, qwhere, cast(Mapping[str, object], question), "explanation")
+        options = question.get("options")
+        if isinstance(options, list):
+            for k, option in enumerate(options):
+                if isinstance(option, str) and option:
+                    fields.append((f"{qwhere}.options[{k}]", option))
+    return fields
+
+
+def _check_text_field(path: str, text: str) -> list[str]:
+    """Rules 1-3: no forbidden dash/ellipsis, at most two bold spans (bullet
+    lead-ins exempt), and never the word "Artifact"."""
+    errors: list[str] = []
+    if any(ch in text for ch in _FORBIDDEN_CHARS):
+        errors.append(f"{path} contains a forbidden dash or ellipsis")
+    if _has_too_many_bold_spans(text):
+        errors.append(f"{path} has more than two bold spans")
+    if _ARTIFACT_RE.search(text):
+        errors.append(f"{path} uses 'Artifact'; house style requires 'Artefact'")
+    return errors
+
+
+def _has_too_many_bold_spans(text: str) -> bool:
+    spans = [m.span() for m in _BOLD_SPAN_RE.finditer(text)]
+    if len(spans) <= 2:
+        return False
+    bullet_spans = _bullet_lead_in_bold_spans(text)
+    return not all(span in bullet_spans for span in spans)
+
+
+def _bullet_lead_in_bold_spans(text: str) -> set[tuple[int, int]]:
+    """The (start, end) span of the `**...**` inside every `- **Term.**`
+    bullet lead-in at the start of a line, so `_has_too_many_bold_spans` can
+    check whether EVERY bold span in the field is one of these."""
+    spans: set[tuple[int, int]] = set()
+    for match in _BULLET_LEAD_IN_RE.finditer(text):
+        bold_start = match.group().index("**") + match.start()
+        spans.add((bold_start, match.end()))
+    return spans
+
+
+def _check_quiz_house_style(
+    where: str, block: dict[str, Any], index: int, proposed: list[Any]
+) -> list[str]:
+    """Rules 4-6, all specific to a changed `quiz` block: the correct answer
+    is never the unique longest option, the `correct` index is not identical
+    across every question, and the block is immediately preceded by a
+    "Check your understanding" heading."""
+    errors: list[str] = []
+    questions = block.get("questions")
+    if isinstance(questions, list):
+        corrects: list[int] = []
+        for j, question in enumerate(questions):
+            if not isinstance(question, dict):
+                continue
+            correct = question.get("correct")
+            if isinstance(correct, int) and not isinstance(correct, bool):
+                corrects.append(correct)
+                errors.extend(
+                    _check_longest_option(
+                        f"{where}.questions[{j}]",
+                        cast(Mapping[str, object], question),
+                        correct,
+                    )
+                )
+        if len(questions) > 1 and len(corrects) == len(questions) and len(set(corrects)) == 1:
+            errors.append(f"{where}.questions 'correct' index is identical across every question")
+    preceding = proposed[index - 1] if index > 0 else None
+    if not _is_check_understanding_heading(preceding):
+        errors.append(
+            f"{where} must be immediately preceded by a heading reading "
+            f"{_CHECK_UNDERSTANDING_HEADING!r}"
+        )
+    return errors
+
+
+def _check_longest_option(qwhere: str, question: Mapping[str, object], correct: int) -> list[str]:
+    options = question.get("options")
+    if not isinstance(options, list) or not options or not all(isinstance(o, str) for o in options):
+        return []
+    if not 0 <= correct < len(options):
+        return []
+    lengths = [len(cast(str, o)) for o in options]
+    longest = max(lengths)
+    if lengths[correct] == longest and lengths.count(longest) == 1:
+        return [f"{qwhere}.correct is the unique longest option"]
+    return []
+
+
+def _is_check_understanding_heading(block: object) -> bool:
+    if not isinstance(block, dict) or block.get("type") != "heading":
+        return False
+    text = block.get("text")
+    return isinstance(text, str) and text.strip() == _CHECK_UNDERSTANDING_HEADING

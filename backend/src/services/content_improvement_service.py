@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING, Any
 
 from src.services.content_blocks_validation import (
     KNOWN_BLOCK_TYPES,
+    check_house_style,
     check_media_immutable,
     normalise_nested_ids,
     validate_content_blocks,
@@ -275,8 +276,10 @@ class ContentImprovementService:
             raise ConflictError(msg)
         # Re-validated at apply time, not just at draft time: the row could
         # predate a validator change or have been written by an older build.
-        errors = validate_content_blocks(proposal.proposed_blocks) + check_media_immutable(
-            proposal.base_blocks, proposal.proposed_blocks
+        errors = (
+            validate_content_blocks(proposal.proposed_blocks)
+            + check_media_immutable(proposal.base_blocks, proposal.proposed_blocks)
+            + check_house_style(proposal.base_blocks, proposal.proposed_blocks)
         )
         if errors:
             msg = "the proposed blocks are not valid: " + "; ".join(errors[:5])
@@ -321,7 +324,7 @@ class ContentImprovementService:
             )
             raise LlmError(msg)
         result, _usage = await self._llm.complete_structured(
-            system=load_prompt("content_improvement"),
+            system=_system_prompt(),
             prompt=_build_prompt(lesson, rendered, feedback_items),
             schema=IMPROVEMENT_SCHEMA,
             max_tokens=_MAX_TOKENS,
@@ -343,7 +346,11 @@ class ContentImprovementService:
         # quiz questions with no `id`. Repair that rather than reject it, and
         # validate — and store — the repaired array.
         normalised = normalise_nested_ids(blocks)
-        errors = validate_content_blocks(normalised) + check_media_immutable(base, normalised)
+        errors = (
+            validate_content_blocks(normalised)
+            + check_media_immutable(base, normalised)
+            + check_house_style(base, normalised)
+        )
         if errors:
             msg = "proposed blocks rejected: " + "; ".join(errors[:5])
             raise LlmError(msg)
@@ -364,6 +371,15 @@ class ContentImprovementService:
             summary=f"No revision could be drafted for this lesson. {reason}"[:_MAX_SUMMARY_CHARS],
             status="failed",
         )
+
+
+def _system_prompt() -> str:
+    """House style first, then the task prompt: `content_improvement.md` reads
+    as a continuation of it ("The house style above is not background
+    reading"). The triage agent (feedback_triage_service.py) never writes
+    lesson content, so it does not load this and must not get the house style
+    prepended to it."""
+    return f"{load_prompt('house_style')}\n\n---\n\n{load_prompt('content_improvement')}"
 
 
 def _build_prompt(lesson: Lesson, rendered_blocks: str, feedback_items: list[Feedback]) -> str:

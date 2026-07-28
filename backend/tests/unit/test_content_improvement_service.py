@@ -114,6 +114,22 @@ async def test_prompt_carries_the_lesson_and_every_feedback_message() -> None:
     assert "content" in llm.systems[0].lower()
 
 
+async def test_system_prompt_composes_house_style_before_the_task_prompt() -> None:
+    # _draft's system prompt must now be house_style.md FIRST, then
+    # content_improvement.md, so the task prompt's "The house style above is
+    # not background reading" reads as a continuation of real content.
+    lesson = _lesson()
+    llm = _ScriptedLlm([{"proposed_blocks": _GOOD_BLOCKS, "summary": "s"}])
+    service, _proposals, _content = _service([(_feedback("a"), lesson)], llm=llm)
+
+    await service.run(max_lessons=3)
+
+    system = llm.systems[0]
+    assert "Artefact" in system  # distinctive string from house_style.md
+    assert "block by block diff" in system  # distinctive string from content_improvement.md
+    assert system.index("Artefact") < system.index("block by block diff")
+
+
 async def test_already_incorporated_feedback_is_not_redrafted() -> None:
     lesson = _lesson()
     done = _feedback("already covered")
@@ -222,6 +238,32 @@ async def test_a_new_media_locator_is_rejected() -> None:
     assert (proposed, skipped) == (0, 1)
     assert proposals.create.await_args.kwargs["status"] == "failed"
     assert "made-up.png" in proposals.create.await_args.kwargs["summary"]
+
+
+async def test_a_changed_block_with_an_em_dash_produces_a_failed_proposal_not_pending() -> None:
+    # content_blocks_validation.check_house_style is wired into _draft, not
+    # just structural/media validation -- a house-style violation in a block
+    # the agent actually wrote must be refused the same way.
+    lesson = _lesson(blocks=[{"id": "b1", "type": "paragraph", "text": "Old text."}])
+    llm = _ScriptedLlm(
+        [
+            {
+                "proposed_blocks": [
+                    {"id": "b1", "type": "paragraph", "text": "New text — with an em dash."}
+                ],
+                "summary": "s",
+            }
+        ]
+    )
+    service, proposals, content = _service([(_feedback("a"), lesson)], llm=llm)
+
+    proposed, skipped, _remaining = await service.run(max_lessons=3)
+
+    assert (proposed, skipped) == (0, 1)
+    content.update_lesson.assert_not_awaited()
+    kwargs = proposals.create.await_args.kwargs
+    assert kwargs["status"] == "failed"
+    assert "dash" in kwargs["summary"].lower()
 
 
 async def test_an_empty_block_array_is_rejected() -> None:

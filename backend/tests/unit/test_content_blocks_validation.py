@@ -1,6 +1,7 @@
 import copy
 
 from src.services.content_blocks_validation import (
+    check_house_style,
     check_media_immutable,
     media_locators,
     normalise_nested_ids,
@@ -477,3 +478,194 @@ def test_media_block_with_no_id_is_rejected() -> None:
 
 def test_proposed_not_a_list_is_rejected() -> None:
     assert check_media_immutable([], "not a list") != []
+
+
+# --- check_house_style: only judges blocks the agent actually WROTE (new, or
+# changed from their base counterpart by id). A block copied through
+# unchanged is exempt from every rule below, even if it would otherwise
+# violate one — see check_house_style's docstring for why that scoping is
+# load-bearing, not an optimisation. ---
+
+_HEADING_CHECK = {"id": "h1", "type": "heading", "level": 2, "text": "Check your understanding"}
+
+
+def _quiz_one_question(options: list[str], correct: int) -> dict:
+    return {
+        "id": "b1",
+        "type": "quiz",
+        "questions": [
+            {
+                "id": "q1",
+                "q": "Which is best?",
+                "options": options,
+                "correct": correct,
+                "explanation": "Because.",
+            }
+        ],
+    }
+
+
+def _quiz_two_questions(corrects: tuple[int, int]) -> dict:
+    # Every option is the same length (4 chars) so rule 4 (unique longest
+    # option) never fires here — these fixtures are for rules 5 and 6 only.
+    return {
+        "id": "b1",
+        "type": "quiz",
+        "questions": [
+            {
+                "id": "q1",
+                "q": "First?",
+                "options": ["aaaa", "bbbb"],
+                "correct": corrects[0],
+                "explanation": "Because.",
+            },
+            {
+                "id": "q2",
+                "q": "Second?",
+                "options": ["cccc", "dddd"],
+                "correct": corrects[1],
+                "explanation": "Because.",
+            },
+        ],
+    }
+
+
+# rule 1: no em dash, en dash, or ellipsis in any text field
+
+
+def test_house_style_forbidden_dash_in_a_changed_block_is_caught() -> None:
+    base = [{"id": "b1", "type": "paragraph", "text": "Old text."}]
+    proposed = [{"id": "b1", "type": "paragraph", "text": "New text — with an em dash."}]
+    errors = check_house_style(base, proposed)
+    assert any("contains a forbidden dash or ellipsis" in e for e in errors)
+
+
+def test_house_style_forbidden_dash_in_an_unchanged_block_is_not_caught() -> None:
+    # The real corpus predates this rule; a faithful copy must not be judged.
+    legacy = {"id": "b1", "type": "paragraph", "text": "Legacy text — with an em dash."}
+    assert check_house_style([legacy], [legacy]) == []
+
+
+# rule 2: at most two bold spans in one text field
+
+
+def test_house_style_too_many_bold_spans_in_a_changed_block_is_caught() -> None:
+    base = [{"id": "b1", "type": "paragraph", "text": "Old text."}]
+    proposed = [
+        {
+            "id": "b1",
+            "type": "paragraph",
+            "text": "This is **great** and **wonderful** and also **amazing**.",
+        }
+    ]
+    errors = check_house_style(base, proposed)
+    assert any("more than two bold spans" in e for e in errors)
+
+
+def test_house_style_too_many_bold_spans_in_an_unchanged_block_is_not_caught() -> None:
+    legacy = {
+        "id": "b1",
+        "type": "paragraph",
+        "text": "This is **great** and **wonderful** and also **amazing**.",
+    }
+    assert check_house_style([legacy], [legacy]) == []
+
+
+def test_house_style_bullet_lead_in_bold_spans_are_exempt_from_the_cap() -> None:
+    base = [{"id": "b1", "type": "paragraph", "text": "Old text."}]
+    proposed = [
+        {
+            "id": "b1",
+            "type": "paragraph",
+            "text": (
+                "Pick one:\n"
+                "- **Speed.** Get an answer back fast.\n"
+                "- **Depth.** Get a thorough answer.\n"
+                "- **Cost.** Spend less per call."
+            ),
+        }
+    ]
+    assert check_house_style(base, proposed) == []
+
+
+# rule 3: "Artifact" is forbidden; the house term is "Artefact"
+
+
+def test_house_style_artifact_word_in_a_changed_block_is_caught() -> None:
+    base = [{"id": "b1", "type": "paragraph", "text": "Old text."}]
+    proposed = [{"id": "b1", "type": "paragraph", "text": "This is an Artifact of the run."}]
+    errors = check_house_style(base, proposed)
+    assert any("Artifact" in e for e in errors)
+
+
+def test_house_style_artifact_word_in_an_unchanged_block_is_not_caught() -> None:
+    legacy = {"id": "b1", "type": "paragraph", "text": "This is an Artifact of the run."}
+    assert check_house_style([legacy], [legacy]) == []
+
+
+# rule 4: the correct answer is never the unique longest option
+
+
+def test_house_style_unique_longest_correct_option_in_a_changed_quiz_is_caught() -> None:
+    quiz = _quiz_one_question(["short", "a much longer option than the rest"], 1)
+    errors = check_house_style([], [_HEADING_CHECK, quiz])
+    assert any("unique longest option" in e for e in errors)
+
+
+def test_house_style_unique_longest_correct_option_in_an_unchanged_quiz_is_not_caught() -> None:
+    quiz = _quiz_one_question(["short", "a much longer option than the rest"], 1)
+    # No preceding heading either -- still exempt, because the block itself is
+    # unchanged from its base counterpart.
+    assert check_house_style([quiz], [quiz]) == []
+
+
+# rule 5: the correct index must vary across a quiz's questions
+
+
+def test_house_style_identical_correct_index_in_a_changed_quiz_is_caught() -> None:
+    quiz = _quiz_two_questions((0, 0))
+    errors = check_house_style([], [_HEADING_CHECK, quiz])
+    assert any("identical across every question" in e for e in errors)
+
+
+def test_house_style_identical_correct_index_in_an_unchanged_quiz_is_not_caught() -> None:
+    quiz = _quiz_two_questions((0, 0))
+    assert check_house_style([quiz], [quiz]) == []
+
+
+# rule 6: a quiz must be immediately preceded by a "Check your understanding" heading
+
+
+def test_house_style_quiz_without_a_preceding_heading_is_caught_when_changed() -> None:
+    quiz = _quiz_two_questions((0, 1))
+    paragraph = {"id": "p1", "type": "paragraph", "text": "Some text."}
+    errors = check_house_style([], [paragraph, quiz])
+    assert any("must be immediately preceded" in e for e in errors)
+
+
+def test_house_style_quiz_without_a_preceding_heading_is_not_caught_when_unchanged() -> None:
+    quiz = _quiz_two_questions((0, 1))
+    paragraph = {"id": "p1", "type": "paragraph", "text": "Some text."}
+    # Same quiz block content as its base counterpart, even though its
+    # position in the proposed array still lacks the required heading.
+    assert check_house_style([quiz], [paragraph, quiz]) == []
+
+
+# positive tests: fully house-style-compliant changed content passes clean
+
+
+def test_house_style_compliant_changed_text_block_passes() -> None:
+    base = [{"id": "b1", "type": "paragraph", "text": "Old text."}]
+    proposed = [
+        {
+            "id": "b1",
+            "type": "paragraph",
+            "text": "New text with one **bolded** term and no forbidden words.",
+        }
+    ]
+    assert check_house_style(base, proposed) == []
+
+
+def test_house_style_compliant_changed_quiz_passes() -> None:
+    quiz = _quiz_two_questions((0, 1))
+    assert check_house_style([], [_HEADING_CHECK, quiz]) == []
