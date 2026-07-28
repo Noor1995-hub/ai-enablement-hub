@@ -104,7 +104,7 @@ async def test_unknown_suggested_status_is_rejected(db_session: AsyncSession) ->
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run (inside `backend/`): `uv run pytest tests/integration/test_models/test_feedback_ai_triage.py -v -p no:xdist`
+Run (inside `backend/`): `uv run pytest tests/integration/test_models/test_feedback_ai_triage.py -v -n0`
 Expected: FAIL — `AttributeError`/`TypeError` on `ai_suggested_status` (the column doesn't exist yet).
 
 - [ ] **Step 3: Add the columns to the model**
@@ -207,7 +207,7 @@ Expected: exactly one line, `d7e8f9a0b1c2 (head)`.
 
 - [ ] **Step 6: Run the tests**
 
-Run (inside `backend/`): `uv run pytest tests/integration/test_models/test_feedback_ai_triage.py -v -p no:xdist`
+Run (inside `backend/`): `uv run pytest tests/integration/test_models/test_feedback_ai_triage.py -v -n0`
 Expected: PASS (3 tests). The test DB's schema comes from `Base.metadata.create_all`, so the model change alone makes it green — the migration is verified separately by `alembic heads` above and by the deploy's `alembic upgrade`.
 
 Then the full gate: `uv run poe format && uv run poe lint && uv run poe test`
@@ -342,7 +342,7 @@ async def test_set_ai_suggestion_never_touches_status(db_session: AsyncSession) 
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run (inside `backend/`): `uv run pytest tests/integration/test_repositories/test_feedback_triage_repository.py -v -p no:xdist`
+Run (inside `backend/`): `uv run pytest tests/integration/test_repositories/test_feedback_triage_repository.py -v -n0`
 Expected: FAIL — `AttributeError: 'FeedbackRepository' object has no attribute 'list_awaiting_suggestion'`.
 
 - [ ] **Step 3: Add the abstract contract**
@@ -414,7 +414,7 @@ In `backend/src/repositories/feedback_repository.py`, add these methods at the e
 
 - [ ] **Step 5: Run the tests**
 
-Run (inside `backend/`): `uv run pytest tests/integration/test_repositories/test_feedback_triage_repository.py -v -p no:xdist`
+Run (inside `backend/`): `uv run pytest tests/integration/test_repositories/test_feedback_triage_repository.py -v -n0`
 Expected: PASS (3 tests).
 
 Then: `uv run poe format && uv run poe lint && uv run poe test && uv run poe ty`
@@ -1076,7 +1076,7 @@ class TestProjectScope:
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run (inside `backend/`): `uv run pytest tests/integration/test_routers/test_admin_feedback_triage.py -v -p no:xdist`
+Run (inside `backend/`): `uv run pytest tests/integration/test_routers/test_admin_feedback_triage.py -v -n0`
 Expected: FAIL — `ModuleNotFoundError: No module named 'src.core.dependencies.content_ai'`.
 
 - [ ] **Step 3: Add the DI provider**
@@ -1252,7 +1252,7 @@ In `backend/tests/integration/test_routers/test_authz.py`, add to `_MATRIX` righ
 - [ ] **Step 8: Run the tests**
 
 Run (inside `backend/`):
-`uv run pytest tests/integration/test_routers/test_admin_feedback_triage.py tests/integration/test_routers/test_admin_feedback.py tests/integration/test_routers/test_authz.py -v -p no:xdist`
+`uv run pytest tests/integration/test_routers/test_admin_feedback_triage.py tests/integration/test_routers/test_admin_feedback.py tests/integration/test_routers/test_authz.py -v -n0`
 Expected: PASS — the new triage file (9 tests), the existing feedback router tests, and the whole authz matrix including the new row.
 
 - [ ] **Step 9: Run the full backend checks**
