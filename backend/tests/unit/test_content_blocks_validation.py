@@ -1,4 +1,8 @@
-from src.services.content_blocks_validation import validate_content_blocks
+from src.services.content_blocks_validation import (
+    check_media_immutable,
+    media_locators,
+    validate_content_blocks,
+)
 
 
 def test_valid_blocks_pass() -> None:
@@ -74,3 +78,54 @@ def test_interactive_bad_mode_is_rejected() -> None:
         [{"id": "b1", "type": "interactive", "mode": "wat", "prompt": "p"}]
     )
     assert any("mode" in e for e in errors)
+
+
+_IMAGE = {"id": "m1", "type": "image", "blob_path": "images/a.png", "alt": "a chart"}
+_EMBED = {"id": "m2", "type": "video", "source": "embed", "url": "https://x.test/v"}
+_BLOB_VIDEO = {"id": "m3", "type": "video", "source": "blob", "blob_path": "videos/b.mp4"}
+_TEXT = {"id": "t1", "type": "paragraph", "text": "Hello."}
+
+
+def test_media_locators_extracts_every_persisted_locator() -> None:
+    assert media_locators([_TEXT, _IMAGE, _EMBED, _BLOB_VIDEO]) == [
+        ("image", "images/a.png"),
+        ("video", "https://x.test/v"),
+        ("video", "videos/b.mp4"),
+    ]
+
+
+def test_media_locators_ignores_the_ephemeral_url() -> None:
+    # A read-time SAS url must never be mistaken for a locator.
+    stamped = {**_IMAGE, "url": "https://blob.test/images/a.png?sig=abc"}
+    assert media_locators([stamped]) == [("image", "images/a.png")]
+
+
+def test_unchanged_media_passes() -> None:
+    assert check_media_immutable([_TEXT, _IMAGE], [_IMAGE, _TEXT]) == []
+
+
+def test_dropping_a_media_block_is_allowed() -> None:
+    # The agent may restructure a lesson and leave an image out; the admin sees
+    # that in the diff. Only ADDING or ALTERING a locator is forbidden.
+    assert check_media_immutable([_IMAGE, _TEXT], [_TEXT]) == []
+
+
+def test_inventing_an_image_is_rejected() -> None:
+    errors = check_media_immutable([_TEXT], [_TEXT, _IMAGE])
+    assert any("images/a.png" in e for e in errors)
+
+
+def test_altering_a_blob_path_is_rejected() -> None:
+    moved = {**_IMAGE, "blob_path": "images/somewhere-else.png"}
+    errors = check_media_immutable([_IMAGE], [moved])
+    assert any("somewhere-else" in e for e in errors)
+
+
+def test_duplicating_an_existing_image_is_rejected() -> None:
+    errors = check_media_immutable([_IMAGE], [_IMAGE, {**_IMAGE, "id": "m1b"}])
+    assert any("images/a.png" in e for e in errors)
+
+
+def test_changing_alt_text_is_allowed() -> None:
+    # Only the locator is immutable — captions/alt text are editable content.
+    assert check_media_immutable([_IMAGE], [{**_IMAGE, "alt": "a clearer caption"}]) == []

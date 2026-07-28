@@ -1,9 +1,15 @@
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Mapping
 from typing import cast
 
-__all__ = ["KNOWN_BLOCK_TYPES", "validate_content_blocks"]
+__all__ = [
+    "KNOWN_BLOCK_TYPES",
+    "check_media_immutable",
+    "media_locators",
+    "validate_content_blocks",
+]
 
 KNOWN_BLOCK_TYPES = {
     "heading",
@@ -29,8 +35,8 @@ def validate_content_blocks(blocks: object) -> list[str]:
     human-readable error strings; an empty list means the array is valid.
 
     Purely structural. It does NOT enforce media immutability (that a proposal
-    must not add or alter image/video blob_paths) — that is a service-layer
-    diff against the lesson's base blocks in the content-improvement apply path.
+    must not add or alter image/video blob_paths) — that lives in
+    `check_media_immutable` below.
     """
     if not isinstance(blocks, list):
         return ["content_blocks must be a list"]
@@ -166,3 +172,47 @@ def _validate_interactive(where: str, block: Mapping[str, object]) -> list[str]:
         if not isinstance(block.get("candidates"), list):
             errs.append(f"{where}.candidates must be a list")
     return errs
+
+
+def media_locators(blocks: object) -> list[tuple[str, str]]:
+    """Every (block type, PERSISTED media locator) pair, in document order.
+
+    The persisted locator is `blob_path` for an image or an uploaded video and
+    `url` for an embed video. An image/blob-video `url` is an ephemeral SAS
+    stamped at read time (see services/media_blocks.py) and is deliberately
+    ignored here — comparing it would flag every proposal.
+    """
+    found: list[tuple[str, str]] = []
+    if not isinstance(blocks, list):
+        return found
+    for block in blocks:
+        if not isinstance(block, dict):
+            continue
+        btype = block.get("type")
+        locator: object = None
+        if btype == "image":
+            locator = block.get("blob_path")
+        elif btype == "video":
+            locator = block.get("url") if block.get("source") == "embed" else block.get("blob_path")
+        if isinstance(btype, str) and isinstance(locator, str) and locator:
+            found.append((btype, locator))
+    return found
+
+
+def check_media_immutable(base: object, proposed: object) -> list[str]:
+    """Reject a proposal that ADDS a media block or ALTERS an existing one's
+    locator. Returns human-readable error strings; empty means it is safe.
+
+    Dropping a media block is allowed — the agent may restructure a lesson and
+    leave one out, and the admin sees that in the approval diff. Inventing a
+    `blob_path` is not: it would point the learner renderer at a blob that does
+    not exist, and the model has no way to know a real one.
+    """
+    base_counts = Counter(media_locators(base))
+    errors: list[str] = []
+    for (btype, locator), count in Counter(media_locators(proposed)).items():
+        if count > base_counts[(btype, locator)]:
+            errors.append(
+                f"proposal adds or alters a {btype} locator not present in the lesson: {locator!r}"
+            )
+    return errors
