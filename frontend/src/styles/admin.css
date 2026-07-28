@@ -670,6 +670,14 @@ button.adm-loc-chip:hover .adm-loc-label { color: var(--adm-red-deep); }
 .adm-fb-foot { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 .adm-fb-actions { margin-left: auto; display: flex; gap: 8px; }
 
+/* AI triage hint (feedback-driven content improvement, Plan B). A suggestion
+   only — the admin's Accept/Dismiss buttons stay the decision, the matching
+   one is merely ringed. */
+.adm-fb-ai { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin: 0 0 12px; padding: 8px 10px; border: 1px solid var(--adm-info-border); background: var(--adm-info-bg); border-radius: var(--adm-radius-sm, 8px); }
+.adm-fb-ai-label { font-size: 12px; font-weight: 600; color: var(--adm-info-text); text-transform: uppercase; letter-spacing: .04em; }
+.adm-fb-ai-reason { font-size: 13px; color: var(--adm-text); }
+.adm-btn-suggested { box-shadow: 0 0 0 2px var(--adm-info-border); }
+
 /* ── Projects, Email templates, Setup (Task 19) ───────────────────────────
    Backs frontend/src/pages/admin2/{ProjectsPage,TemplatesPage,SetupPage}.tsx.
    Projects/Setup mostly reuse existing kit + prior-task classes verbatim

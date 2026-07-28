@@ -24,6 +24,7 @@ import type {
   LinkResponse,
   ProjectOut,
   ReminderResponse,
+  SuggestTriageResponse,
   Track,
 } from '../../types/domain'
 
@@ -506,6 +507,35 @@ export function usePatchFeedback() {
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ['admin', 'feedback'] })
       void queryClient.invalidateQueries({ queryKey: ['admin', 'dashboard'] })
+    },
+  })
+}
+
+export interface SuggestTriageInput {
+  project: string | null
+  limit?: number
+}
+
+async function suggestTriage({ project, limit }: SuggestTriageInput): Promise<SuggestTriageResponse> {
+  const { data, error } = await rawRequest<SuggestTriageResponse>('POST', '/api/admin/feedback/suggest-triage', {
+    params: { query: { project_id: project ?? undefined, limit } },
+  })
+  if (!data) throw new Error(errorMessage(error, 'Failed to generate triage suggestions.'))
+  return data
+}
+
+/** Fills the AI triage hints on `new` feedback that has none yet. Deliberately
+ * admin-triggered (a button), not fired on page mount: every run costs model
+ * tokens, and the backend bounds it per call. Invalidates `['admin','feedback']`
+ * so the queue (and the sidebar badge, same key prefix) re-renders with the
+ * suggestions; the item `status` is untouched by the run, so nothing moves
+ * between pills. */
+export function useSuggestTriage() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: suggestTriage,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'feedback'] })
     },
   })
 }

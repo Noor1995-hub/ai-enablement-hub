@@ -1190,6 +1190,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/feedback/suggest-triage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Suggest Feedback Triage
+         * @description Generate AI triage suggestions for `new` feedback that has none yet.
+         *
+         *     Lazy + admin-triggered on purpose: the learner's POST /api/feedback stays
+         *     free of LLM latency and cost. Bounded by `limit`; the response reports what
+         *     is still outstanding so a truncated run is visible, never silent. This only
+         *     ever writes the ai_* columns — the real `status` is the admin's call.
+         */
+        post: operations["suggest_feedback_triage_api_admin_feedback_suggest_triage_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/feedback/{feedback_id}": {
         parameters: {
             query?: never;
@@ -1333,6 +1358,12 @@ export interface components {
             created_at: string;
             /** Reviewed At */
             reviewed_at: string | null;
+            /** Ai Suggested Status */
+            ai_suggested_status?: ("accepted" | "dismissed") | null;
+            /** Ai Rationale */
+            ai_rationale?: string | null;
+            /** Ai Suggested At */
+            ai_suggested_at?: string | null;
         };
         /** AdminLearningLessonOut */
         AdminLearningLessonOut: {
@@ -2332,6 +2363,17 @@ export interface components {
             token: string;
             /** Password */
             password: string;
+        };
+        /**
+         * SuggestTriageResponse
+         * @description `suggested` = suggestions written by this (bounded) run; `remaining` =
+         *     rows that still lack one, so a truncated run is never silent.
+         */
+        SuggestTriageResponse: {
+            /** Suggested */
+            suggested: number;
+            /** Remaining */
+            remaining: number;
         };
         /** SurveyCompleteResponse */
         SurveyCompleteResponse: {
@@ -4561,6 +4603,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminFeedbackListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    suggest_feedback_triage_api_admin_feedback_suggest_triage_post: {
+        parameters: {
+            query?: {
+                project_id?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuggestTriageResponse"];
                 };
             };
             /** @description Validation Error */

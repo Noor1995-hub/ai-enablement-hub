@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { formatDate } from '../admin/adminHelpers'
 import { resolveTrackColor } from '../../lib/trackColors'
 import type { AdminFeedbackOut, FeedbackStatus } from '../../types/domain'
-import { FEEDBACK_PAGE_SIZE, useFeedback, usePatchFeedback, useTracks } from './api'
+import { FEEDBACK_PAGE_SIZE, useFeedback, usePatchFeedback, useSuggestTriage, useTracks } from './api'
 import { Chip, EmptyState, ErrorState, Spinner } from './kit'
 import type { ChipTone } from './kit'
 import { useScope } from './useScope'
@@ -16,11 +16,13 @@ const STATUS_PILLS: { value: StatusFilter; label: string }[] = [
   { value: undefined, label: 'All' },
 ]
 
-/** Feedback triage queue (spec §3.5, `/admin/feedback`) — message-only by
- * design: no type chip, no AI-triage box (both belong to the parked AI
- * feature, §8 — the mock shows them only as a preview of that later state).
- * Prototype: docs/design-prototypes/admin-redesign option-b.html `feedback()`
- * + common.js `mountFeedback()`. */
+/** Feedback triage queue (spec §3.5, `/admin/feedback`). Carries the AI triage
+ * hint from the feedback-driven content-improvement feature: "Suggest triage"
+ * fills `ai_suggested_status`/`ai_rationale` on `new` items that have none, and
+ * each such card then shows the suggestion + reason with the matching action
+ * ringed. The suggestion never changes an item's real status — the admin still
+ * clicks. Prototype: docs/design-prototypes/admin-redesign option-b.html
+ * `feedback()` + common.js `mountFeedback()`. */
 export default function FeedbackPage() {
   const scope = useScope()
   const unscoped = scope.projectId === null
@@ -44,6 +46,8 @@ export default function FeedbackPage() {
   // and deliberately the SAME query the sidebar badge (AdminShell) fires, so
   // the two share one cache entry and one number.
   const newCountQuery = useFeedback({ status: 'new', project: scope.projectId, limit: 1 })
+
+  const suggestTriage = useSuggestTriage()
 
   const tracksQuery = useTracks()
   const sortedTracks = [...(tracksQuery.data ?? [])].sort((a, b) => a.sort_order - b.sort_order)
@@ -99,7 +103,28 @@ export default function FeedbackPage() {
             </button>
           ))}
         </div>
+        <div className="adm-push-right">
+          <button
+            type="button"
+            className="adm-btn adm-btn-ghost adm-btn-sm"
+            disabled={suggestTriage.isPending}
+            onClick={() => suggestTriage.mutate({ project: scope.projectId })}
+          >
+            {suggestTriage.isPending ? 'Suggesting…' : 'Suggest triage'}
+          </button>
+        </div>
       </div>
+      {suggestTriage.isSuccess && (
+        <p className="adm-subtext">
+          Suggested {suggestTriage.data.suggested} item{suggestTriage.data.suggested === 1 ? '' : 's'}
+          {suggestTriage.data.remaining > 0 && ` · ${suggestTriage.data.remaining} still without a suggestion — run again`}
+        </p>
+      )}
+      {suggestTriage.isError && (
+        <p className="adm-form-msg adm-form-msg-err">
+          {suggestTriage.error instanceof Error ? suggestTriage.error.message : 'Failed to generate triage suggestions.'}
+        </p>
+      )}
 
       <div className="adm-toolbar adm-filter-row">
         <span className="adm-filter-label">
@@ -212,13 +237,22 @@ function FeedbackCard({ item, unscoped, onSelectTrack }: FeedbackCardProps) {
 
       <p className="adm-fb-quote">“{item.message}”</p>
 
+      {item.status === 'new' && item.ai_suggested_status && (
+        <div className="adm-fb-ai">
+          <span className="adm-fb-ai-label">
+            AI suggests {item.ai_suggested_status === 'accepted' ? 'accept' : 'dismiss'}
+          </span>
+          <span className="adm-fb-ai-reason">{item.ai_rationale}</span>
+        </div>
+      )}
+
       <div className="adm-fb-foot">
         <div className="adm-fb-actions">
           {item.status === 'new' ? (
             <>
               <button
                 type="button"
-                className="adm-btn adm-btn-ghost adm-btn-sm"
+                className={`adm-btn adm-btn-ghost adm-btn-sm${item.ai_suggested_status === 'dismissed' ? ' adm-btn-suggested' : ''}`}
                 disabled={patch.isPending}
                 onClick={() => patch.mutate({ id: item.id, status: 'dismissed' })}
               >
@@ -226,7 +260,7 @@ function FeedbackCard({ item, unscoped, onSelectTrack }: FeedbackCardProps) {
               </button>
               <button
                 type="button"
-                className="adm-btn adm-btn-red adm-btn-sm"
+                className={`adm-btn adm-btn-red adm-btn-sm${item.ai_suggested_status === 'accepted' ? ' adm-btn-suggested' : ''}`}
                 disabled={patch.isPending}
                 onClick={() => patch.mutate({ id: item.id, status: 'accepted' })}
               >

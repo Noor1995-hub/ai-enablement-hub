@@ -63,6 +63,8 @@ export type AdminFeedbackOut = components['schemas']['AdminFeedbackOut']
 export type FeedbackStatus = AdminFeedbackOut['status']
 export type AdminFeedbackListResponse = components['schemas']['AdminFeedbackListResponse']
 export type FeedbackStatusUpdateRequest = components['schemas']['FeedbackStatusUpdateRequest']
+export type SuggestTriageResponse = components['schemas']['SuggestTriageResponse']
+export type FeedbackSuggestion = NonNullable<AdminFeedbackOut['ai_suggested_status']>
 
 // §Task 7 — reminder email
 export type ReminderResponse = components['schemas']['ReminderResponse']
