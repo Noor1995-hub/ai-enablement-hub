@@ -78,10 +78,21 @@ export default function CalibrationNotesQueue() {
         </div>
       </div>
 
+      {/* Stated once, not per row: the "Approved" chip means approved, not
+        * injected. The drafting prompt only takes what fits its cap, so an
+        * admin who approves a ninth note needs to know why nothing changed. */}
+      <p className="adm-hint">
+        Approving a note does not guarantee it reaches the agent. Each drafting run injects only the
+        most recently approved notes, up to 8 notes and 1500 characters, so older approved notes
+        fall off as newer ones are approved. Graduating a note into the house style is how you free
+        a slot.
+      </p>
+
       {graduate.isSuccess && (
         <p className="adm-subtext">
-          Retired. Paste this into the calibration section of <code>backend/prompts/house_style.md</code> and commit it —
-          the app never writes that file:
+          Retired. If it is not in the file yet, paste this into the calibration section of{' '}
+          <code>backend/prompts/house_style.md</code> and commit it — the app never writes that
+          file:
           <br />
           <code>{graduate.data.paste_ready}</code>
         </p>
@@ -153,8 +164,10 @@ function NoteRow({ item, onReview, onGraduate, busy }: NoteRowProps) {
         <span className="adm-ci-when">{formatDate(item.created_at)}</span>
       </div>
 
-      {/* Agent output — plain text, never HTML or markdown. */}
-      <p className="adm-ci-summary">{item.note}</p>
+      {/* Agent output — plain text, never HTML or markdown. `adm-ci-note-text`
+        * adds pre-wrap so an embedded newline is visible to the reviewing
+        * admin instead of collapsing into one wrapped line. */}
+      <p className="adm-ci-summary adm-ci-note-text">{item.note}</p>
 
       <div className="adm-ci-loc">
         <span className="adm-loc-chip">
@@ -163,17 +176,36 @@ function NoteRow({ item, onReview, onGraduate, busy }: NoteRowProps) {
         </span>
       </div>
 
+      {/* Available BEFORE graduating, and still there afterwards: graduating is
+        * a one-way door, so handing this back only as part of that transition
+        * meant one dismissed banner lost the line for good. */}
+      {(item.status === 'approved' || item.status === 'retired') && (
+        <div className="adm-ci-paste">
+          <p className="adm-subtext">
+            {item.status === 'approved'
+              ? 'Paste this into the calibration section of '
+              : 'Graduated. If it never made it in, paste this into the calibration section of '}
+            <code>backend/prompts/house_style.md</code> and commit it
+            {item.status === 'approved' ? ', then mark it graduated' : ''} — the app never writes
+            that file:
+          </p>
+          <code className="adm-ci-paste-line">{item.paste_ready}</code>
+        </div>
+      )}
+
       <div className="adm-ci-foot">
         {item.status === 'suggested' && (
           <div className="adm-ci-actions">
-            <button
-              type="button"
-              className="adm-btn adm-btn-ghost adm-btn-sm"
-              disabled={busy}
-              onClick={() => onReview('reject')}
-            >
-              Reject
-            </button>
+            {/* Rejecting is terminal and, unlike discarding a proposal, the
+              * substance never comes back: there is no path that re-derives
+              * this observation. Confirm it like the destructive action it is. */}
+            <ConfirmButton
+              label="Reject"
+              confirmLabel="Yes, reject"
+              tone="danger"
+              busy={busy}
+              onConfirm={() => onReview('reject')}
+            />
             <ConfirmButton
               label="Approve"
               confirmLabel="Yes, approve"
@@ -206,9 +238,11 @@ function statusTone(status: CalibrationNoteStatus): ChipTone {
 }
 
 function statusLabel(status: CalibrationNoteStatus): string {
+  // Deliberately NOT "In the prompt": approval makes a note eligible for
+  // injection, and the cap decides which of the approved ones actually land.
   const labels: Record<CalibrationNoteStatus, string> = {
     suggested: 'Awaiting review',
-    approved: 'In the prompt',
+    approved: 'Approved',
     rejected: 'Rejected',
     retired: 'Graduated to house style',
   }

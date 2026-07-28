@@ -737,6 +737,15 @@ button.adm-loc-chip:hover .adm-loc-label { color: var(--adm-red-deep); }
 .adm-ci-when { margin-left: auto; font-size: 12px; color: var(--adm-faint); }
 .adm-ci-loc { display: flex; align-items: center; gap: 5px; margin: 0 0 10px; flex-wrap: wrap; }
 .adm-ci-summary { font-size: 14.5px; color: var(--adm-ink); margin: 0 0 12px; padding-left: 12px; border-left: 3px solid var(--adm-info-border); }
+/* Calibration-note text only. A note is stored verbatim, so a newline in it has
+   to be visible to the admin deciding whether to approve it. Deliberately a
+   separate class rather than pre-wrap on .adm-ci-summary, which the proposal
+   summary shares. */
+.adm-ci-note-text { white-space: pre-wrap; }
+/* The line to hand-copy into house_style.md. Selectable text, wrapped rather
+   than clipped, so a long note stays fully copyable. */
+.adm-ci-paste { margin: 0 0 12px; }
+.adm-ci-paste-line { display: block; margin-top: 4px; padding: 6px 8px; background: var(--adm-surface); border: 1px solid var(--adm-border); border-radius: var(--adm-radius); font-family: ui-monospace, monospace; font-size: 12.5px; color: var(--adm-ink); white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
 .adm-ci-foot { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 .adm-ci-actions { margin-left: auto; display: flex; gap: 8px; }
 
