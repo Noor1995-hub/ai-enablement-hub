@@ -17,6 +17,7 @@ if TYPE_CHECKING:
         Conversation,
         Feedback,
         Lesson,
+        LessonContentProposal,
         LessonProgress,
         Message,
         Module,
@@ -44,6 +45,7 @@ __all__ = [
     "AbstractMessageRepository",
     "AbstractOrgRepository",
     "AbstractProgressRepository",
+    "AbstractProposalRepository",
     "AbstractSurveyRepository",
     "AbstractUserRepository",
 ]
@@ -464,6 +466,17 @@ class AbstractFeedbackRepository(ABC):
         row: the admin triages this one by hand, as they did before AI triage
         existed. Like set_ai_suggestion, it never touches the real `status`."""
 
+    @abstractmethod
+    async def list_accepted_with_lesson(self) -> list[tuple[Feedback, Lesson]]:
+        """Every `status='accepted'` row joined to its lesson, oldest first.
+        The content-improvement run subtracts the already-incorporated ids from
+        this and groups what is left by lesson."""
+
+    @abstractmethod
+    async def list_by_ids(self, feedback_ids: list[uuid.UUID]) -> list[Feedback]:
+        """The given feedback rows (proposal provenance display). An empty
+        input returns an empty list without touching the database."""
+
 
 class AbstractAssignmentRepository(ABC):
     """user_tracks / user_modules / user_lessons assignment links."""
@@ -647,3 +660,52 @@ class AbstractMessageRepository(ABC):
     @abstractmethod
     async def list_recent(self, conversation_id: uuid.UUID, *, limit: int) -> list[Message]:
         """Last `limit` messages, chronological order (window cap sent to the model)."""
+
+
+class AbstractProposalRepository(ABC):
+    """lesson_content_proposals — AI-drafted lesson revisions awaiting review."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    @abstractmethod
+    async def create(
+        self,
+        *,
+        lesson_id: uuid.UUID,
+        proposed_blocks: list[Any],
+        base_blocks: list[Any],
+        source_feedback_ids: list[uuid.UUID],
+        summary: str,
+        status: str = "pending",
+    ) -> LessonContentProposal:
+        """Insert a draft. The feedback ids are stored as strings so the JSONB
+        round-trip is lossless."""
+
+    @abstractmethod
+    async def get_by_id(self, proposal_id: uuid.UUID) -> LessonContentProposal | None: ...
+
+    @abstractmethod
+    async def covered_feedback_ids(self) -> set[uuid.UUID]:
+        """Feedback ids already carried by a pending/approved/failed proposal —
+        i.e. "incorporated" for the purposes of a run, so re-running never
+        re-drafts the same feedback. `rejected` and `superseded` are absent on
+        purpose: their source feedback becomes eligible again."""
+
+    @abstractmethod
+    async def list_admin(self, *, status: str | None = None, limit: int, offset: int) -> list[Any]:
+        """Newest-first review queue rows (proposal + lesson/module/track names)."""
+
+    @abstractmethod
+    async def count_admin(self, *, status: str | None = None) -> int:
+        """Total rows matching the same filter as list_admin (pagination total)."""
+
+    @abstractmethod
+    async def count_pending(self) -> int:
+        """How many proposals still await a decision (sidebar badge)."""
+
+    @abstractmethod
+    async def set_status(
+        self, proposal: LessonContentProposal, status: str, reviewed_by: uuid.UUID | None
+    ) -> None:
+        """Update status + reviewer stamp; reviewed_by=None clears reviewed_at too."""

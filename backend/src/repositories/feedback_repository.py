@@ -137,3 +137,19 @@ class FeedbackRepository(AbstractFeedbackRepository):
     async def mark_suggestion_attempted(self, feedback: Feedback) -> None:
         feedback.ai_suggested_at = datetime.now(UTC)
         await self._session.commit()
+
+    async def list_accepted_with_lesson(self) -> list[tuple[Feedback, Lesson]]:
+        query = (
+            select(Feedback, Lesson)
+            .join(Lesson, Lesson.id == Feedback.lesson_id)
+            .where(Feedback.status == "accepted")
+            .order_by(Feedback.created_at)
+        )
+        rows = (await self._session.execute(query)).all()
+        return [(row[0], row[1]) for row in rows]
+
+    async def list_by_ids(self, feedback_ids: list[uuid.UUID]) -> list[Feedback]:
+        if not feedback_ids:
+            return []
+        query = select(Feedback).where(Feedback.id.in_(feedback_ids)).order_by(Feedback.created_at)
+        return list((await self._session.execute(query)).scalars().all())
