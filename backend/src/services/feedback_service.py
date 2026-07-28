@@ -64,6 +64,9 @@ class FeedbackService:
                 "status": fb.status,
                 "created_at": fb.created_at,
                 "reviewed_at": fb.reviewed_at,
+                "ai_suggested_status": fb.ai_suggested_status,
+                "ai_rationale": fb.ai_rationale,
+                "ai_suggested_at": fb.ai_suggested_at,
             }
             for (
                 fb,

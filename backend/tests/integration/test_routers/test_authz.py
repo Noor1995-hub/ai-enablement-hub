@@ -389,6 +389,18 @@ _MATRIX: list[tuple[str, str, Any, Any, bool]] = [
         lambda s: {"status": "accepted"},
         True,
     ),
+    # test_settings.llm is None here, so get_feedback_triage_service resolves to
+    # None and this 404s "AI triage is not configured" for the admin — before
+    # any model call. The row still validly pins anonymous->401 and
+    # non-admin->403 (the router-level require_admin fires first); the 200 path
+    # is covered by test_admin_feedback_triage.py, which overrides the DI.
+    (
+        "feedback-admin-suggest-triage",
+        "POST",
+        lambda s: "/api/admin/feedback/suggest-triage",
+        lambda s: None,
+        True,
+    ),
     ("dashboard", "GET", lambda s: "/api/admin/dashboard", lambda s: None, True),
 ]
 
