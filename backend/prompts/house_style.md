@@ -8,7 +8,7 @@ disagree, follow the rule.
 The audience for every lesson is **middle to higher management using AI in
 their day to day work**. Not developers, not designers. Many of them are
 sceptical and think AI tooling is not for them. Warmth, realness and honesty
-earn their trust. Hype loses it instantly.
+earn their trust.
 
 Some of these rules are checked by a validator after you answer, and a
 revision that breaks one is thrown away. Those are marked **[enforced]**.
@@ -29,9 +29,7 @@ revision that breaks one is thrown away. Those are marked **[enforced]**.
   or "more guarded", never "hand holding", "on a leash" or "training wheels".
   Do not denigrate the tool the audience will actually use most.
 - Precise, professional vocabulary. "deliverable", not "thing".
-- In lessons about Claude, refer to Claude as he or him. This is a convention
-  for that track only. Every other tool is "it". Never anthropomorphise a non
-  Claude tool: "it is happy to" is twee.
+
 
 ## Length and structure
 
