@@ -540,6 +540,10 @@ def check_media_immutable(base: object, proposed: object) -> list[str]:
 # The house style's own top-level scalar text fields, by block type. `quiz`
 # and `card_group` are absent here — their prose lives inside `questions` /
 # `cards`, walked separately below (see _QUIZ_TEXT_FIELDS and _LIST_TEXT_FIELDS).
+# `image` deliberately excludes `alt`: that is accessibility text, not learner
+# -facing prose voice, so an em dash or "Artifact" there is not a house-style
+# problem. It stays covered by validate_content_blocks's non-empty-string
+# requirement — nothing is lost, only judged by the right rule.
 _SCALAR_TEXT_FIELDS: dict[str, tuple[str, ...]] = {
     "heading": ("text",),
     "paragraph": ("text",),
@@ -548,7 +552,7 @@ _SCALAR_TEXT_FIELDS: dict[str, tuple[str, ...]] = {
     "question": ("prompt",),
     "try_it_yourself": ("task", "material", "whatToNotice"),
     "interactive": ("prompt", "example"),
-    "image": ("alt", "caption"),
+    "image": ("caption",),
     "video": ("caption",),
 }
 # The nested-list text fields this module already knows how to walk (same
@@ -565,7 +569,7 @@ _LIST_TEXT_FIELDS: dict[str, tuple[str, ...]] = {
 }
 
 _FORBIDDEN_CHARS = "—–…"  # em dash, en dash, ellipsis
-_ARTIFACT_RE = re.compile(r"\bartifact\b", re.IGNORECASE)
+_ARTIFACT_RE = re.compile(r"\bartifacts?\b", re.IGNORECASE)  # singular AND plural
 _BOLD_SPAN_RE = re.compile(r"\*\*(.+?)\*\*")
 # A bullet lead-in is `- **Term.**` at the very start of a line: a bold span
 # whose content ends in a period, opening right after "- ". Only bold spans of
@@ -594,6 +598,16 @@ def check_house_style(base: object, proposed: object) -> list[str]:
     turned out to reject 66 of 91 real lessons. Scoping to changed blocks
     makes the agent accountable for its own writing and nothing else.
 
+    Rule 6 (a quiz needs a "Check your understanding" heading immediately
+    before it) is the one exception to "only the quiz's own dict matters":
+    that invariant belongs to the (heading, quiz) PAIR. It is evaluated
+    whenever the quiz itself changed, OR its immediate predecessor in
+    `proposed` changed, OR the block that used to precede it in `base` has
+    been deleted outright — so editing or removing the heading in front of an
+    otherwise-untouched quiz cannot silently break the pairing. A quiz that
+    never had that heading, left alone along with its neighbour, stays
+    exempt, same as every other rule here.
+
     Callers are expected to also run `validate_content_blocks` and
     `check_media_immutable` — this function only carries the house-style
     rules, not structural or media-locator validation.
@@ -601,18 +615,87 @@ def check_house_style(base: object, proposed: object) -> list[str]:
     if not isinstance(proposed, list):
         return ["proposed content_blocks must be a list"]
     base_by_id = _blocks_by_id(base)
+    base_list = base if isinstance(base, list) else []
+    base_index_by_id = _index_by_id(base_list)
+    proposed_ids = set(_blocks_by_id(proposed))
     errors: list[str] = []
     for i, block in enumerate(proposed):
         if not isinstance(block, dict):
             continue
-        if not _is_changed(cast(dict[str, Any], block), base_by_id):
-            continue
+        block = cast(dict[str, Any], block)
+        changed = _is_changed(block, base_by_id)
         where = f"block[{i}]"
-        for path, text in _text_fields(where, cast(dict[str, Any], block)):
-            errors.extend(_check_text_field(path, text))
-        if block.get("type") == "quiz":
-            errors.extend(_check_quiz_house_style(where, cast(dict[str, Any], block), i, proposed))
+        if changed:
+            for path, text in _text_fields(where, block):
+                errors.extend(_check_text_field(path, text))
+            if block.get("type") == "quiz":
+                errors.extend(_check_quiz_correctness(where, block))
+        if block.get("type") == "quiz" and _quiz_heading_rule_applies(
+            i, block, changed, proposed, base_list, base_by_id, base_index_by_id, proposed_ids
+        ):
+            errors.extend(_check_quiz_heading(where, proposed, i))
     return errors
+
+
+def _index_by_id(blocks: list[Any]) -> dict[str, int]:
+    """Every block's position within `blocks`, keyed by id — used to find what
+    preceded a given (now possibly moved-or-deleted) block in the BASE array."""
+    index_by_id: dict[str, int] = {}
+    for idx, block in enumerate(blocks):
+        if not isinstance(block, dict):
+            continue
+        block_id = block.get("id")
+        if isinstance(block_id, str) and block_id:
+            index_by_id[block_id] = idx
+    return index_by_id
+
+
+def _quiz_heading_rule_applies(
+    index: int,
+    quiz: Mapping[str, object],
+    quiz_changed: bool,
+    proposed: list[Any],
+    base_list: list[Any],
+    base_by_id: dict[str, dict[str, Any]],
+    base_index_by_id: dict[str, int],
+    proposed_ids: set[str],
+) -> bool:
+    """True when the (heading, quiz) pairing is something this proposal could
+    have broken: the quiz itself changed, its new immediate predecessor
+    changed (an edit — same id, different content — or a brand new block in
+    that slot), or its old immediate predecessor in `base` is gone from the
+    proposal entirely (a deletion). A quiz that had no predecessor in `base`
+    and still has none in `proposed` triggers none of these — genuinely
+    untouched legacy content stays exempt."""
+    if quiz_changed:
+        return True
+    proposed_prev = proposed[index - 1] if index > 0 else None
+    if isinstance(proposed_prev, dict) and _is_changed(
+        cast(dict[str, Any], proposed_prev), base_by_id
+    ):
+        return True
+    quiz_id = quiz.get("id")
+    if isinstance(quiz_id, str):
+        base_index = base_index_by_id.get(quiz_id)
+        if base_index is not None and base_index > 0:
+            base_prev = base_list[base_index - 1]
+            if isinstance(base_prev, dict):
+                base_prev_id = base_prev.get("id")
+                if isinstance(base_prev_id, str) and base_prev_id not in proposed_ids:
+                    return True
+    return False
+
+
+def _check_quiz_heading(where: str, proposed: list[Any], index: int) -> list[str]:
+    """Rule 6 alone: the block immediately before `proposed[index]` (the
+    quiz) must be a heading reading exactly "Check your understanding"."""
+    preceding = proposed[index - 1] if index > 0 else None
+    if _is_check_understanding_heading(preceding):
+        return []
+    return [
+        f"{where} must be immediately preceded by a heading reading "
+        f"{_CHECK_UNDERSTANDING_HEADING!r}"
+    ]
 
 
 def _blocks_by_id(blocks: object) -> dict[str, dict[str, Any]]:
@@ -718,17 +801,19 @@ def _check_text_field(path: str, text: str) -> list[str]:
 
 
 def _has_too_many_bold_spans(text: str) -> bool:
-    spans = [m.span() for m in _BOLD_SPAN_RE.finditer(text)]
-    if len(spans) <= 2:
-        return False
+    """The cap is on bold spans OTHER than bullet lead-ins, not on the total.
+    A field can carry any number of `- **Term.**` lead-ins (house_style.md
+    models exactly that pattern) plus up to two ordinary bold spans — exempt
+    the lead-ins first, then cap what remains."""
     bullet_spans = _bullet_lead_in_bold_spans(text)
-    return not all(span in bullet_spans for span in spans)
+    non_exempt = [m.span() for m in _BOLD_SPAN_RE.finditer(text) if m.span() not in bullet_spans]
+    return len(non_exempt) > 2
 
 
 def _bullet_lead_in_bold_spans(text: str) -> set[tuple[int, int]]:
     """The (start, end) span of the `**...**` inside every `- **Term.**`
     bullet lead-in at the start of a line, so `_has_too_many_bold_spans` can
-    check whether EVERY bold span in the field is one of these."""
+    filter these out of the count before applying the two-span cap."""
     spans: set[tuple[int, int]] = set()
     for match in _BULLET_LEAD_IN_RE.finditer(text):
         bold_start = match.group().index("**") + match.start()
@@ -736,13 +821,13 @@ def _bullet_lead_in_bold_spans(text: str) -> set[tuple[int, int]]:
     return spans
 
 
-def _check_quiz_house_style(
-    where: str, block: dict[str, Any], index: int, proposed: list[Any]
-) -> list[str]:
-    """Rules 4-6, all specific to a changed `quiz` block: the correct answer
-    is never the unique longest option, the `correct` index is not identical
-    across every question, and the block is immediately preceded by a
-    "Check your understanding" heading."""
+def _check_quiz_correctness(where: str, block: Mapping[str, object]) -> list[str]:
+    """Rules 4-5, both specific to a changed `quiz` block's own questions: the
+    correct answer is never the unique longest option, and (when there is more
+    than one question) the `correct` index is not identical across every one
+    of them. Rule 6 (the preceding heading) lives in `_check_quiz_heading` —
+    it applies under broader conditions than "this block changed", see
+    `_quiz_heading_rule_applies`."""
     errors: list[str] = []
     questions = block.get("questions")
     if isinstance(questions, list):
@@ -762,12 +847,6 @@ def _check_quiz_house_style(
                 )
         if len(questions) > 1 and len(corrects) == len(questions) and len(set(corrects)) == 1:
             errors.append(f"{where}.questions 'correct' index is identical across every question")
-    preceding = proposed[index - 1] if index > 0 else None
-    if not _is_check_understanding_heading(preceding):
-        errors.append(
-            f"{where} must be immediately preceded by a heading reading "
-            f"{_CHECK_UNDERSTANDING_HEADING!r}"
-        )
     return errors
 
 

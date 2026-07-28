@@ -486,7 +486,8 @@ def test_proposed_not_a_list_is_rejected() -> None:
 # violate one — see check_house_style's docstring for why that scoping is
 # load-bearing, not an optimisation. ---
 
-_HEADING_CHECK = {"id": "h1", "type": "heading", "level": 2, "text": "Check your understanding"}
+_CHECK_UNDERSTANDING_TEXT = "Check your understanding"
+_HEADING_CHECK = {"id": "h1", "type": "heading", "level": 2, "text": _CHECK_UNDERSTANDING_TEXT}
 
 
 def _quiz_one_question(options: list[str], correct: int) -> dict:
@@ -588,7 +589,27 @@ def test_house_style_bullet_lead_in_bold_spans_are_exempt_from_the_cap() -> None
     assert check_house_style(base, proposed) == []
 
 
-# rule 3: "Artifact" is forbidden; the house term is "Artefact"
+def test_house_style_one_ordinary_bold_span_alongside_bullet_lead_ins_is_not_capped() -> None:
+    # Exempt the bullet lead-ins FIRST, then apply the cap of two to what is
+    # left. One real bold span plus three lead-ins must not be rejected --
+    # house_style.md itself models exactly this combination.
+    base = [{"id": "b1", "type": "paragraph", "text": "Old text."}]
+    proposed = [
+        {
+            "id": "b1",
+            "type": "paragraph",
+            "text": (
+                "Here is the **one key idea** of this section.\n"
+                "- **Speed.** Get an answer back fast.\n"
+                "- **Depth.** Get a thorough answer.\n"
+                "- **Cost.** Spend less per call."
+            ),
+        }
+    ]
+    assert check_house_style(base, proposed) == []
+
+
+# rule 3: "Artifact"/"Artifacts" is forbidden; the house term is "Artefact"/"Artefacts"
 
 
 def test_house_style_artifact_word_in_a_changed_block_is_caught() -> None:
@@ -601,6 +622,13 @@ def test_house_style_artifact_word_in_a_changed_block_is_caught() -> None:
 def test_house_style_artifact_word_in_an_unchanged_block_is_not_caught() -> None:
     legacy = {"id": "b1", "type": "paragraph", "text": "This is an Artifact of the run."}
     assert check_house_style([legacy], [legacy]) == []
+
+
+def test_house_style_artifact_plural_in_a_changed_block_is_caught() -> None:
+    base = [{"id": "b1", "type": "paragraph", "text": "Old text."}]
+    proposed = [{"id": "b1", "type": "paragraph", "text": "These are the Artifacts of the run."}]
+    errors = check_house_style(base, proposed)
+    assert any("Artifact" in e for e in errors)
 
 
 # rule 4: the correct answer is never the unique longest option
@@ -644,11 +672,37 @@ def test_house_style_quiz_without_a_preceding_heading_is_caught_when_changed() -
 
 
 def test_house_style_quiz_without_a_preceding_heading_is_not_caught_when_unchanged() -> None:
-    quiz = _quiz_two_questions((0, 1))
+    # A genuinely untouched legacy pairing: neither the quiz nor its neighbour
+    # changed, and the quiz never had the required heading before it. The
+    # rule 6 invariant belongs to the (heading, quiz) pair, so it only fires
+    # when something in that pair moved -- not on a pairing that was already
+    # like this and stays like this.
     paragraph = {"id": "p1", "type": "paragraph", "text": "Some text."}
-    # Same quiz block content as its base counterpart, even though its
-    # position in the proposed array still lacks the required heading.
-    assert check_house_style([quiz], [paragraph, quiz]) == []
+    quiz = _quiz_two_questions((0, 1))
+    legacy = [paragraph, quiz]
+    assert check_house_style(legacy, legacy) == []
+
+
+def test_house_style_editing_the_heading_before_an_unchanged_quiz_is_caught() -> None:
+    # The quiz's own dict never changes -- only its neighbour does. Rule 6 is
+    # a pair invariant, so this must still be caught.
+    heading = {"id": "h1", "type": "heading", "level": 2, "text": _CHECK_UNDERSTANDING_TEXT}
+    quiz = _quiz_two_questions((0, 1))
+    base = [heading, quiz]
+    edited_heading = {**heading, "text": "Let's see what stuck"}
+    errors = check_house_style(base, [edited_heading, quiz])
+    assert any("must be immediately preceded" in e for e in errors)
+
+
+def test_house_style_deleting_the_heading_before_an_unchanged_quiz_is_caught() -> None:
+    # The quiz's own dict never changes and it has no immediate predecessor
+    # left at all in `proposed` -- caught via "its old base predecessor is
+    # gone", not via "its new predecessor changed".
+    heading = {"id": "h1", "type": "heading", "level": 2, "text": _CHECK_UNDERSTANDING_TEXT}
+    quiz = _quiz_two_questions((0, 1))
+    base = [heading, quiz]
+    errors = check_house_style(base, [quiz])
+    assert any("must be immediately preceded" in e for e in errors)
 
 
 # positive tests: fully house-style-compliant changed content passes clean
