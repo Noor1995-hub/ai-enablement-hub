@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { formatDate } from '../admin/adminHelpers'
 import { resolveTrackColor } from '../../lib/trackColors'
-import type { ProposalStatus, ProposalSummaryOut } from '../../types/domain'
+import type { CalibrationNoteBrief, ProposalStatus, ProposalSummaryOut } from '../../types/domain'
+import LessonEditor from '../../components/lesson/LessonEditor'
 import ProposalDiff from './ProposalDiff'
-import { PROPOSAL_PAGE_SIZE, useProposal, useProposals, useReviewProposal, useRunImprovement } from './api'
+import { PROPOSAL_PAGE_SIZE, useGenerateLearnCard, useProposal, useProposals, useReviewProposal, useRunImprovement } from './api'
 import { Chip, ConfirmButton, EmptyState, ErrorState, Spinner } from './kit'
 import type { ChipTone } from './kit'
 
@@ -135,13 +136,39 @@ interface ProposalRowProps {
 /** One proposal in the queue. The diff payload carries two whole
  * content_blocks arrays, so it is fetched only once the admin expands the row
  * (`useProposal(null)` is disabled). Approve is a two-step ConfirmButton
- * because it overwrites live lesson content — never a native window.confirm. */
+ * because it overwrites live lesson content — never a native window.confirm.
+ *
+ * Compare and edit are separate modes, not a hybrid: the diff's row-level
+ * alignment cannot survive inside the block editor's own layout, so "Edit the
+ * draft" swaps the comparison out for the real block editor rather than
+ * blending them. `workingBlocks` is the single source of truth for what
+ * Accept submits — seeded from the fetched draft, and updated live by the
+ * editor while in edit mode. */
 function ProposalRow({ item }: ProposalRowProps) {
   const [expanded, setExpanded] = useState(false)
+  const [editing, setEditing] = useState(false)
+  // The working copy of the draft. null until the detail loads; thereafter it
+  // is what Accept submits, so it is the single source of truth for what lands.
+  const [workingBlocks, setWorkingBlocks] = useState<unknown[] | null>(null)
   const detail = useProposal(expanded ? item.id : null)
   const review = useReviewProposal()
+  const learnCard = useGenerateLearnCard()
   const done = item.status !== 'pending'
   const dotColor = resolveTrackColor({ required_level: item.track_level, is_introduction: false })
+
+  // Seed the working copy once the detail arrives.
+  useEffect(() => {
+    if (detail.data && workingBlocks === null) setWorkingBlocks(detail.data.proposed_blocks)
+  }, [detail.data, workingBlocks])
+
+  // Collapsing the row drops the working copy so re-expanding starts fresh
+  // from whatever the server now has (and leaves edit mode).
+  useEffect(() => {
+    if (!expanded) {
+      setWorkingBlocks(null)
+      setEditing(false)
+    }
+  }, [expanded])
 
   return (
     <div className={`adm-ci-card${done ? ' adm-ci-card-done' : ''}`}>
@@ -198,6 +225,7 @@ function ProposalRow({ item }: ProposalRowProps) {
                   <li key={feedback.id}>“{feedback.message}”</li>
                 ))}
               </ul>
+
               {/* A `failed` proposal stores no blocks at all, so diffing it
                   against the lesson would list every existing block as
                   `removed` and read as "the agent proposes to wipe this
@@ -207,8 +235,45 @@ function ProposalRow({ item }: ProposalRowProps) {
                 <p className="adm-subtext">
                   No revision was drafted for this lesson, so there is nothing to compare.
                 </p>
+              ) : editing ? (
+                <div className="adm-ci-editor">
+                  <p className="adm-subtext">
+                    Editing the draft. Accept applies what is here, and the agent gets a learn card
+                    from whatever you changed.
+                  </p>
+                  <LessonEditor
+                    embedded
+                    lesson={{
+                      id: detail.data.lesson_id,
+                      title: detail.data.lesson_title,
+                      content_blocks: workingBlocks ?? detail.data.proposed_blocks,
+                    }}
+                    onLiveChange={next => setWorkingBlocks(next.content_blocks)}
+                  />
+                </div>
               ) : (
-                <ProposalDiff base={detail.data.base_blocks} proposed={detail.data.proposed_blocks} />
+                <ProposalDiff
+                  base={detail.data.base_blocks}
+                  proposed={workingBlocks ?? detail.data.proposed_blocks}
+                />
+              )}
+
+              {detail.data.status === 'pending' && detail.data.proposed_blocks.length > 0 && (
+                <button
+                  type="button"
+                  className="adm-btn adm-btn-subtle adm-btn-sm"
+                  onClick={() => setEditing(open => !open)}
+                >
+                  {editing ? 'Back to comparison' : 'Edit the draft'}
+                </button>
+              )}
+
+              {detail.data.critiqued_at && (
+                <LearnCard
+                  agentWrong={detail.data.critique_agent_wrong ?? ''}
+                  adminPreferred={detail.data.critique_admin_preferred ?? ''}
+                  notes={detail.data.calibration_notes ?? []}
+                />
               )}
             </>
           )}
@@ -234,10 +299,22 @@ function ProposalRow({ item }: ProposalRowProps) {
               Discard
             </button>
             <ConfirmButton
-              label="Apply to the lesson"
-              confirmLabel="Yes, apply"
+              label="Accept"
+              confirmLabel="Yes, accept"
               busy={review.isPending}
-              onConfirm={() => review.mutate({ proposalId: item.id, decision: 'approve' })}
+              onConfirm={() => {
+                const edited =
+                  workingBlocks !== null &&
+                  JSON.stringify(workingBlocks) !== JSON.stringify(detail.data?.proposed_blocks)
+                    ? workingBlocks
+                    : undefined
+                review.mutate(
+                  { proposalId: item.id, decision: 'approve', editedBlocks: edited },
+                  // Only ask for a learn card when there is actually a
+                  // difference to learn from. The backend refuses otherwise.
+                  { onSuccess: () => { if (edited) learnCard.mutate(item.id) } },
+                )
+              }}
             />
           </div>
         )}
@@ -253,7 +330,24 @@ function ProposalRow({ item }: ProposalRowProps) {
             </button>
           </div>
         )}
+        {item.status === 'approved' && detail.data?.edited_blocks && !detail.data.critiqued_at && (
+          <div className="adm-ci-actions">
+            <button
+              type="button"
+              className="adm-btn adm-btn-subtle adm-btn-sm"
+              disabled={learnCard.isPending}
+              onClick={() => learnCard.mutate(item.id)}
+            >
+              {learnCard.isPending ? 'Generating…' : 'Generate learn card'}
+            </button>
+          </div>
+        )}
       </div>
+      {learnCard.isError && (
+        <p className="adm-form-msg adm-form-msg-err">
+          {learnCard.error instanceof Error ? learnCard.error.message : 'Failed to generate the learn card.'}
+        </p>
+      )}
       {review.isError && (
         <p className="adm-form-msg adm-form-msg-err">
           {review.error instanceof Error ? review.error.message : 'Failed to review this proposal.'}
@@ -287,5 +381,37 @@ function ExternalIcon() {
       <path d="M15 3h6v6" />
       <path d="M10 14 21 3" />
     </svg>
+  )
+}
+
+interface LearnCardProps {
+  agentWrong: string
+  adminPreferred: string
+  notes: CalibrationNoteBrief[]
+}
+
+/** What the agent concluded from the difference between its draft and what you
+ * accepted. Every string here is model output, so it renders as plain text.
+ * The notes are SUGGESTIONS: they change nothing until they are approved. */
+function LearnCard({ agentWrong, adminPreferred, notes }: LearnCardProps) {
+  return (
+    <div className="adm-ci-learn">
+      <span className="adm-ci-block-kind">What the agent learned</span>
+      <p className="adm-ci-block-text">{agentWrong}</p>
+      <p className="adm-ci-block-text">{adminPreferred}</p>
+      {notes.length > 0 && (
+        <>
+          <span className="adm-ci-block-kind">Suggested calibration notes</span>
+          <ul className="adm-ci-feedback">
+            {notes.map(note => (
+              <li key={note.id}>{note.note}</li>
+            ))}
+          </ul>
+          <p className="adm-subtext">
+            These are suggestions. They do not affect future drafts until they are approved.
+          </p>
+        </>
+      )}
+    </div>
   )
 }

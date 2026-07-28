@@ -137,15 +137,31 @@ export interface EditedLesson {
   content_blocks: ContentBlock[]
 }
 
-interface LessonEditorProps {
-  lesson: { id: string; title: string; content_blocks: ContentBlock[] }
-  onSave?: (updated: EditedLesson) => void
-  onLiveChange?: (updated: EditedLesson) => void
+// The minimal structural shape this component actually reads (lesson.id,
+// lesson.title, lesson.content_blocks). Narrowed from a full LessonDetail so
+// a caller can pass a synthetic lesson (e.g. built from an AI proposal)
+// without fabricating an entire LessonDetail — any real lesson still
+// satisfies this structurally, so existing callers are unaffected.
+interface EditableLesson {
+  id: string
+  title: string
+  content_blocks: unknown[]
 }
 
-export default function LessonEditor({ lesson, onSave, onLiveChange }: LessonEditorProps) {
+interface LessonEditorProps {
+  lesson: EditableLesson
+  onSave?: (updated: EditedLesson) => void
+  onLiveChange?: (updated: EditedLesson) => void
+  // When true, this instance is embedded in another surface (e.g. the content
+  // review pane) that owns saving: the toolbar's dirty label and Save button
+  // are not rendered, so `save()` — which PATCHes /api/admin/lessons/{id} —
+  // is never reachable from that surface.
+  embedded?: boolean
+}
+
+export default function LessonEditor({ lesson, onSave, onLiveChange, embedded = false }: LessonEditorProps) {
   const [title, setTitle]     = useState(lesson.title ?? '')
-  const [blocks, setBlocks]   = useState<ContentBlock[]>(lesson.content_blocks ?? [])
+  const [blocks, setBlocks]   = useState<ContentBlock[]>((lesson.content_blocks as ContentBlock[] | undefined) ?? [])
   const [dirty, setDirty]     = useState(false)
   const [saving, setSaving]   = useState(false)
   const [error, setError]     = useState<string | null>(null)
@@ -226,29 +242,33 @@ export default function LessonEditor({ lesson, onSave, onLiveChange }: LessonEdi
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
 
-      {/* Toolbar */}
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '12px 20px', borderBottom: '1px solid #E2E2E2', flexShrink: 0,
-        background: '#fff',
-      }}>
-        <span style={{ fontFamily: 'var(--dlw-font-body)', fontWeight: 600, fontSize: 14, color: dirty ? '#B45309' : '#8A8A8A' }}>
-          {dirty ? 'Unsaved changes' : 'Saved'}
-        </span>
-        <button
-          onClick={save}
-          disabled={!dirty || saving}
-          style={{
-            padding: '7px 20px', borderRadius: 999,
-            background: dirty ? '#3BC9BC' : '#E2E2E2',
-            border: 'none', color: dirty ? '#fff' : '#8A8A8A',
-            fontFamily: 'var(--dlw-font-body)', fontWeight: 600, fontSize: 14,
-            cursor: dirty ? 'pointer' : 'default',
-          }}
-        >
-          {saving ? 'Saving…' : 'Save'}
-        </button>
-      </div>
+      {/* Toolbar — embedded instances (e.g. the content review pane) own
+          saving themselves, so neither the dirty label nor the Save button
+          (the only call site of `save()`) is rendered here. */}
+      {!embedded && (
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '12px 20px', borderBottom: '1px solid #E2E2E2', flexShrink: 0,
+          background: '#fff',
+        }}>
+          <span style={{ fontFamily: 'var(--dlw-font-body)', fontWeight: 600, fontSize: 14, color: dirty ? '#B45309' : '#8A8A8A' }}>
+            {dirty ? 'Unsaved changes' : 'Saved'}
+          </span>
+          <button
+            onClick={save}
+            disabled={!dirty || saving}
+            style={{
+              padding: '7px 20px', borderRadius: 999,
+              background: dirty ? '#3BC9BC' : '#E2E2E2',
+              border: 'none', color: dirty ? '#fff' : '#8A8A8A',
+              fontFamily: 'var(--dlw-font-body)', fontWeight: 600, fontSize: 14,
+              cursor: dirty ? 'pointer' : 'default',
+            }}
+          >
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+        </div>
+      )}
 
       {error && (
         <div style={{ padding: '10px 20px', background: '#FEF2F2', color: '#C42828', fontFamily: 'var(--dlw-font-body)', fontSize: 13 }}>

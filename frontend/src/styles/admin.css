@@ -756,3 +756,8 @@ button.adm-loc-chip:hover .adm-loc-label { color: var(--adm-red-deep); }
 .adm-ci-sbs-removed { background: var(--adm-red-tint); }
 .adm-ci-sbs-cell { padding: 0 8px; min-width: 0; }
 .adm-ci-sbs-cell-empty { display: flex; align-items: center; justify-content: center; }
+
+/* Inline draft editing (embedded LessonEditor) and the post-accept learn card. */
+.adm-ci-editor { border: 1px solid var(--adm-border); border-radius: var(--adm-radius); margin: 12px 0; padding: 10px; }
+.adm-ci-editor .adm-subtext { margin-bottom: 8px; }
+.adm-ci-learn { margin: 12px 0; padding: 10px 12px; border: 1px solid var(--adm-info-border); background: var(--adm-info-bg); border-radius: var(--adm-radius); }
