@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import select, update
 
@@ -54,5 +55,11 @@ class ConversationRepository(AbstractConversationRepository):
             update(Conversation)
             .where(Conversation.id == conversation_id)
             .values(updated_at=datetime.now(UTC))
+        )
+        await self._session.commit()
+
+    async def update_summary(self, conversation_id: uuid.UUID, summary: dict[str, Any]) -> None:
+        await self._session.execute(
+            update(Conversation).where(Conversation.id == conversation_id).values(summary=summary)
         )
         await self._session.commit()
