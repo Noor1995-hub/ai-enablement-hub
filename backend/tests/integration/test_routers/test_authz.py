@@ -401,6 +401,39 @@ _MATRIX: list[tuple[str, str, Any, Any, bool]] = [
         lambda s: None,
         True,
     ),
+    # As with the triage row: test_settings.llm is None here, so
+    # get_content_improvement_service resolves to None and all four 404 for the
+    # admin — before any model call or DB write. The rows still pin
+    # anonymous->401 and non-admin->403 (router-level require_admin). The 200
+    # paths are covered by test_admin_content_improvement.py via a DI override.
+    (
+        "content-improvement-run",
+        "POST",
+        lambda s: "/api/admin/content-improvement/run",
+        lambda s: None,
+        True,
+    ),
+    (
+        "content-improvement-list",
+        "GET",
+        lambda s: "/api/admin/content-improvement",
+        lambda s: None,
+        True,
+    ),
+    (
+        "content-improvement-detail",
+        "GET",
+        lambda s: f"/api/admin/content-improvement/{uuid.uuid4()}",
+        lambda s: None,
+        True,
+    ),
+    (
+        "content-improvement-review",
+        "POST",
+        lambda s: f"/api/admin/content-improvement/{uuid.uuid4()}/review",
+        lambda s: {"decision": "reject"},
+        True,
+    ),
     ("dashboard", "GET", lambda s: "/api/admin/dashboard", lambda s: None, True),
 ]
 

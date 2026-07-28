@@ -189,6 +189,72 @@ class ContentImprovementService:
         msg = f"unknown review decision {decision!r}"
         raise InvalidRequestError(msg)
 
+    async def list_proposals(
+        self, *, status: str | None = None, limit: int, offset: int
+    ) -> tuple[list[dict[str, Any]], int]:
+        """The review queue: newest first, with lesson/module/track context.
+
+        Deliberately omits `base_blocks`/`proposed_blocks` — a queue page would
+        otherwise carry every draft's full content. The diff comes from
+        `proposal_detail` when the admin opens one row.
+        """
+        rows = await self._proposals.list_admin(status=status, limit=limit, offset=offset)
+        total = await self._proposals.count_admin(status=status)
+        items = [
+            {
+                "id": proposal.id,
+                "lesson_id": proposal.lesson_id,
+                "lesson_title": lesson_title,
+                "module_title": module_title,
+                "track_id": track_id,
+                "track_name": track_name,
+                "track_level": track_level,
+                "summary": proposal.summary,
+                "status": proposal.status,
+                "source_feedback_count": len(proposal.source_feedback_ids or []),
+                "created_at": proposal.created_at,
+                "reviewed_at": proposal.reviewed_at,
+            }
+            for (
+                proposal,
+                lesson_title,
+                module_title,
+                track_id,
+                track_name,
+                track_level,
+            ) in rows
+        ]
+        return items, total
+
+    async def proposal_detail(self, proposal_id: uuid.UUID) -> dict[str, Any]:
+        """One proposal with both block arrays and the feedback that drove it."""
+        proposal = await self._proposals.get_by_id(proposal_id)
+        if proposal is None:
+            raise NotFoundError("Proposal")
+        lesson = await self._content.get_lesson(proposal.lesson_id)
+        feedback_ids: list[uuid.UUID] = []
+        for raw in proposal.source_feedback_ids or []:
+            try:
+                feedback_ids.append(uuid.UUID(str(raw)))
+            except ValueError:
+                continue
+        source = await self._feedback.list_by_ids(feedback_ids)
+        return {
+            "id": proposal.id,
+            "lesson_id": proposal.lesson_id,
+            "lesson_title": lesson.title if lesson is not None else "(deleted lesson)",
+            "summary": proposal.summary,
+            "status": proposal.status,
+            "base_blocks": proposal.base_blocks,
+            "proposed_blocks": proposal.proposed_blocks,
+            "source_feedback": [
+                {"id": item.id, "message": item.message, "created_at": item.created_at}
+                for item in source
+            ],
+            "created_at": proposal.created_at,
+            "reviewed_at": proposal.reviewed_at,
+        }
+
     async def _apply(self, proposal: LessonContentProposal, reviewer_id: uuid.UUID) -> None:
         if proposal.status == "failed":
             msg = "this proposal has no drafted revision to apply; reject it instead"
