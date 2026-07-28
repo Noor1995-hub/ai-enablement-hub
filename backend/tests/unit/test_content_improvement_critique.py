@@ -66,6 +66,11 @@ def _service(
     proposals.get_by_id.return_value = proposal
     notes = AsyncMock(spec=AbstractCalibrationNoteRepository)
     notes.create_many.return_value = []
+    # AsyncMock(spec=...) would otherwise return a truthy Mock from an
+    # unconfigured `list_for_proposal`, which would make the "already
+    # critiqued" guard fire on every proposal that has a critiqued_at set,
+    # including the ones testing the recovery path below.
+    notes.list_for_proposal.return_value = []
     service = ContentImprovementService(
         proposals,
         AsyncMock(spec=AbstractFeedbackRepository),
@@ -129,13 +134,41 @@ async def test_a_pending_proposal_is_refused() -> None:
 
 
 async def test_a_second_critique_is_refused_so_notes_are_never_duplicated() -> None:
+    # A COMPLETE learn card: critiqued_at is stamped AND notes exist. That is
+    # the only state that must permanently refuse a retry.
     proposal = _proposal(critiqued_at="2026-07-28T00:00:00Z")
     service, _proposals, notes = _service(proposal, _ScriptedLlm([]))
+    notes.list_for_proposal.return_value = [
+        SimpleNamespace(id=uuid.uuid4(), note="n", status="suggested")
+    ]
 
     with pytest.raises(ConflictError):
         await service.critique(proposal_id=proposal.id)
 
     notes.create_many.assert_not_awaited()
+
+
+async def test_a_stamped_but_noteless_critique_is_retried_not_refused() -> None:
+    # The recovery path: set_critique committed but create_many failed (a DB
+    # hiccup, a constraint violation), leaving critiqued_at stamped with zero
+    # notes. Nothing ever clears critiqued_at, so this state must stay
+    # retriable — refusing it here would turn a transient failure into a
+    # learn card that can never be finished.
+    proposal = _proposal(critiqued_at="2026-07-28T00:00:00Z")
+    llm = _ScriptedLlm([_GOOD])
+    service, proposals, notes = _service(proposal, llm)
+    notes.list_for_proposal.return_value = []
+
+    await service.critique(proposal_id=proposal.id)
+
+    proposals.set_critique.assert_awaited_once_with(
+        proposal,
+        agent_wrong=_GOOD["what_agent_got_wrong"],
+        admin_preferred=_GOOD["what_admin_preferred"],
+    )
+    notes.create_many.assert_awaited_once_with(
+        source_proposal_id=proposal.id, notes=_GOOD["calibration_notes"]
+    )
 
 
 async def test_unknown_proposal_raises_not_found() -> None:

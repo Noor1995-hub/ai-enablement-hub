@@ -47,7 +47,7 @@ if TYPE_CHECKING:
     )
     from src.services.llm_service import LlmClient
 
-__all__ = ["IMPROVEMENT_SCHEMA", "ContentImprovementService"]
+__all__ = ["CRITIQUE_SCHEMA", "IMPROVEMENT_SCHEMA", "ContentImprovementService"]
 
 logger = logging.getLogger(__name__)
 
@@ -262,8 +262,9 @@ class ContentImprovementService:
         piece of guidance.
 
         Both arrays are frozen at accept time, so this never re-reads the live
-        lesson and its result is stable. Refused once already critiqued, so the
-        notes can never be duplicated by a retried request.
+        lesson and its result is stable. Refused once a COMPLETE learn card
+        already exists, so the notes can never be duplicated by a retried
+        request.
         """
         proposal = await self._proposals.get_by_id(proposal_id)
         if proposal is None:
@@ -271,7 +272,19 @@ class ContentImprovementService:
         if proposal.status != "approved" or proposal.edited_blocks is None:
             msg = "a learn card only exists for a draft that was accepted with edits"
             raise ConflictError(msg)
-        if proposal.critiqued_at is not None:
+        # `critique` makes two independent commits: set_critique, then
+        # create_many. If the second one fails (a DB hiccup, a constraint
+        # violation), the proposal is left with critiqued_at stamped but zero
+        # notes. Refusing on the stamp alone would make that half-written state
+        # permanent — nothing ever clears critiqued_at, so every retry would
+        # 409 forever with no way to finish the card. Requiring BOTH the stamp
+        # and at least one note is what makes a failed second commit retriable:
+        # a complete card (stamp + notes) still 409s, so notes can never be
+        # duplicated, but a stamp with no notes is treated as unfinished and
+        # runs again.
+        if proposal.critiqued_at is not None and await self._calibration_notes.list_for_proposal(
+            proposal.id
+        ):
             msg = "this proposal already has a learn card"
             raise ConflictError(msg)
         try:
