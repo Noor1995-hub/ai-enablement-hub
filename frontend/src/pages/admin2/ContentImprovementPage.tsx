@@ -78,6 +78,7 @@ export default function ContentImprovementPage() {
             confirmLabel="Yes, draft"
             busy={run.isPending}
             onConfirm={() => run.mutate(3)}
+            tone="neutral"
           />
         </div>
       </div>

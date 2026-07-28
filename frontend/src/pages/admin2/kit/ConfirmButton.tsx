@@ -6,6 +6,14 @@ interface ConfirmButtonProps {
   confirmLabel: string
   onConfirm: () => void
   busy?: boolean
+  /** Unarmed-button styling only. Defaults to 'danger' (the original, only
+   * pre-existing caller: "Remove participant"). 'neutral' drops the danger
+   * class for actions that are reversible/non-destructive but still worth a
+   * confirm step (e.g. "Draft proposals" — spends tokens, doesn't publish
+   * anything). The armed confirm/cancel pair is unaffected by this prop:
+   * armed always means "you are about to do this", so red stays red there
+   * for both tones. */
+  tone?: 'danger' | 'neutral'
 }
 
 const DISARM_DELAY_MS = 150
@@ -20,7 +28,7 @@ const DISARM_DELAY_MS = 150
  * timer resets to the unarmed button, so a later click can't land on a
  * still-armed Confirm and fire `onConfirm` unexpectedly. Focus moving
  * *within* the pair (Confirm ↔ Cancel) cancels the pending disarm. */
-export function ConfirmButton({ label, confirmLabel, onConfirm, busy = false }: ConfirmButtonProps) {
+export function ConfirmButton({ label, confirmLabel, onConfirm, busy = false, tone = 'danger' }: ConfirmButtonProps) {
   const [armed, setArmed] = useState(false)
   const disarmTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -64,7 +72,7 @@ export function ConfirmButton({ label, confirmLabel, onConfirm, busy = false }: 
     return (
       <button
         type="button"
-        className="adm-btn adm-btn-ghost adm-btn-danger adm-btn-sm"
+        className={`adm-btn adm-btn-ghost${tone === 'danger' ? ' adm-btn-danger' : ''} adm-btn-sm`}
         onClick={() => setArmed(true)}
       >
         {label}

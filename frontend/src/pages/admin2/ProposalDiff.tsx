@@ -38,6 +38,17 @@ function blockText(block: Block): string {
   const push = (value: unknown) => {
     if (typeof value === 'string' && value.trim()) parts.push(value.trim())
   }
+  // Surfaced explicitly: these are non-string correctness fields that `blockText`
+  // would otherwise never read. A block that differs ONLY in one of them (e.g.
+  // which quiz option is graded correct) would render byte-identical before/after
+  // text under a "changed" badge — indistinguishable from the accepted key-reorder
+  // false positive — and an admin could approve a flipped answer without ever
+  // seeing it change.
+  if (typeof block.level === 'number') push(`heading level ${block.level}`)
+  if (typeof block.width === 'number') push(`width ${block.width}%`)
+  if (typeof block.correctOptionId === 'string' && block.correctOptionId) {
+    push(`correct option: ${block.correctOptionId}`)
+  }
   for (const key of [
     'text', 'prompt', 'task', 'material', 'whatToNotice', 'example',
     'alt', 'caption', 'blob_path', 'url', 'size',
@@ -58,6 +69,14 @@ function blockText(block: Block): string {
         push(record[childKey])
       }
       if (Array.isArray(record.options)) record.options.forEach(push)
+      if (typeof record.correct === 'number') {
+        const options = Array.isArray(record.options) ? record.options : []
+        const chosen = options[record.correct]
+        const answer = typeof chosen === 'string' && chosen.trim() ? chosen.trim() : `#${record.correct}`
+        push(`correct answer: ${answer}`)
+      }
+      if (typeof record.bucketId === 'string' && record.bucketId) push(`bucket: ${record.bucketId}`)
+      if (typeof record.isFlaw === 'boolean') push(record.isFlaw ? 'is a flaw' : 'not a flaw')
     }
   }
   return parts.join(' · ')
