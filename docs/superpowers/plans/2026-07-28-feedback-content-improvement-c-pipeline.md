@@ -367,6 +367,18 @@ git commit -m "feat(content): lesson_content_proposals draft store + migration"
 
 ### Task 2: media-immutability check
 
+> **SUPERSEDED IN EXECUTION (commit `5d78f89`).** The `Counter` multiset design
+> written below has a real hole the task review caught: a global bag of
+> locators cannot see a locator *move*. Base `b1→a.png`, `b2→b.png` swapped to
+> `b1→b.png`, `b2→a.png` leaves the multiset identical, and an
+> `{source:"embed",url:X}` → `{source:"blob",blob_path:X}` flip keys to the same
+> `("video", X)`. As shipped, the check matches media **per block id** and puts
+> the media kind (`image` / `video:embed` / `video:blob` / `video:invalid`) in
+> the key. Read the shipped `backend/src/services/content_blocks_validation.py`,
+> not the code below, if you are re-deriving this. Everything else in this task
+> — the two public signatures, the drop-is-allowed rule, the ephemeral-SAS-url
+> exclusion, and the eight tests — is as written.
+
 **Files:**
 - Modify: `backend/src/services/content_blocks_validation.py`
 - Test: `backend/tests/unit/test_content_blocks_validation.py`
