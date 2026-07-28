@@ -114,7 +114,7 @@ class InterviewService:
         if conversation.summary is None:
             return AdminInterviewResponse(status="in_progress", transcript=transcript)
 
-        internal = PlaybookInternal(**conversation.summary["internal"])
+        internal = PlaybookInternal.model_validate(conversation.summary["internal"])
         shared = PlaybookShared.model_validate(conversation.summary["shared"])
         return AdminInterviewResponse(
             status="complete",

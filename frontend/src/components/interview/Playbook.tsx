@@ -8,6 +8,10 @@ const DIFFICULTY_BADGE: Record<Difficulty, { bg: string; color: string }> = {
   'Bigger Build':     { bg: '#FFF1E8', color: '#B24A0F' },
 }
 
+/* Neutral fallback for a difficulty label outside the three known values —
+   degrade gracefully (raw label, neutral colours) instead of crashing. */
+const DIFFICULTY_BADGE_FALLBACK = { bg: 'var(--dlw-surface)', color: 'var(--dlw-muted)' }
+
 /* ── Styles — mirrors the JourneyHome idiom: inline styles, hub card
    treatment (1px #E2E2E2 border, 12px radius, hub shadow), Mulish body /
    Work Sans headings via the --dlw-font-* tokens. ── */
@@ -153,7 +157,7 @@ const s = {
 
 /* ── Use-case card (collapsed header + expandable body) ── */
 function UseCaseCard({ uc, open, onToggle }: { uc: UseCase; open: boolean; onToggle: () => void }) {
-  const badge = DIFFICULTY_BADGE[uc.difficulty]
+  const badge = DIFFICULTY_BADGE[uc.difficulty] ?? DIFFICULTY_BADGE_FALLBACK
   return (
     <div style={{ ...s.ucCard, ...(uc.start_here ? s.ucCardStartHere : {}) }}>
       <button type="button" onClick={onToggle} style={s.ucTop} aria-expanded={open}>

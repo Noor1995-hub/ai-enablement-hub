@@ -8,6 +8,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from src.core.dependencies.auth import get_current_user, require_admin
 from src.core.dependencies.domain import get_admin_user_service
 from src.core.dependencies.interview import get_interview_service, require_interview_surface
+from src.core.dependencies.ratelimit import get_rate_limiter
+from src.core.ratelimit import RateLimiter
 from src.db.models import User
 from src.schemas.interview import AdminInterviewResponse, InterviewStateResponse, PlaybookResponse
 from src.services.admin_user_service import AdminUserService
@@ -25,6 +27,7 @@ admin_router = APIRouter(
 CurrentUserDep = Annotated[User, Depends(get_current_user)]
 InterviewServiceDep = Annotated[InterviewService | None, Depends(get_interview_service)]
 AdminUserServiceDep = Annotated[AdminUserService, Depends(get_admin_user_service)]
+RateLimiterDep = Annotated[RateLimiter, Depends(get_rate_limiter)]
 
 _NOT_CONFIGURED = HTTPException(
     status_code=status.HTTP_404_NOT_FOUND, detail="Interview is not configured"
@@ -45,7 +48,14 @@ async def get_my_interview_state(
 async def create_my_playbook(
     current_user: CurrentUserDep,
     interview_service: InterviewServiceDep,
+    limiter: RateLimiterDep,
 ) -> PlaybookResponse:
+    if limiter.is_limited(f"interview-playbook:{current_user.id}", max_calls=5, window_seconds=600):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many playbook builds — please wait a few minutes.",
+            headers={"Retry-After": "600"},
+        )
     if interview_service is None:
         raise _NOT_CONFIGURED
     shared = await interview_service.build_playbook(user=current_user)
