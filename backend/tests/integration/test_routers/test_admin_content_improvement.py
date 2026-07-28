@@ -431,6 +431,81 @@ class TestReview:
 
         assert resp.status_code == 404
 
+    async def test_accepting_with_edits_applies_the_admin_version(
+        self,
+        improvement_client: Callable[[FakeImprovementLlm], AsyncClient],
+        db_session: AsyncSession,
+        test_settings: Settings,
+    ) -> None:
+        admin, lesson, _feedback = await _seed(db_session, "ci-edited")
+        client = improvement_client(FakeImprovementLlm(_GOOD_RESULT))
+        headers = auth_headers(admin, test_settings)
+        proposal_id = await self._draft(client, headers)
+        admin_blocks = [{"id": "b1", "type": "paragraph", "text": "My own wording."}]
+
+        resp = await client.post(
+            f"/api/admin/content-improvement/{proposal_id}/review",
+            json={"decision": "approve", "edited_blocks": admin_blocks},
+            headers=headers,
+        )
+
+        assert resp.status_code == 200
+        assert resp.json() == {"status": "approved"}
+        await db_session.refresh(lesson)
+        assert lesson.content_blocks == admin_blocks
+        row = (await db_session.execute(select(LessonContentProposal))).scalars().one()
+        assert row.edited_blocks == admin_blocks
+        # The agent's own draft is preserved for the comparison.
+        assert row.proposed_blocks == _GOOD_RESULT["proposed_blocks"]
+
+    async def test_accepting_untouched_leaves_no_delta(
+        self,
+        improvement_client: Callable[[FakeImprovementLlm], AsyncClient],
+        db_session: AsyncSession,
+        test_settings: Settings,
+    ) -> None:
+        admin, lesson, _feedback = await _seed(db_session, "ci-untouched")
+        client = improvement_client(FakeImprovementLlm(_GOOD_RESULT))
+        headers = auth_headers(admin, test_settings)
+        proposal_id = await self._draft(client, headers)
+
+        await client.post(
+            f"/api/admin/content-improvement/{proposal_id}/review",
+            json={"decision": "approve"},
+            headers=headers,
+        )
+
+        await db_session.refresh(lesson)
+        assert lesson.content_blocks == _GOOD_RESULT["proposed_blocks"]
+        row = (await db_session.execute(select(LessonContentProposal))).scalars().one()
+        assert row.edited_blocks is None
+
+    async def test_invalid_admin_edits_are_refused_and_nothing_lands(
+        self,
+        improvement_client: Callable[[FakeImprovementLlm], AsyncClient],
+        db_session: AsyncSession,
+        test_settings: Settings,
+    ) -> None:
+        admin, lesson, _feedback = await _seed(db_session, "ci-badedit")
+        client = improvement_client(FakeImprovementLlm(_GOOD_RESULT))
+        headers = auth_headers(admin, test_settings)
+        proposal_id = await self._draft(client, headers)
+
+        resp = await client.post(
+            f"/api/admin/content-improvement/{proposal_id}/review",
+            json={
+                "decision": "approve",
+                "edited_blocks": [{"id": "b1", "type": "banner", "text": "x"}],
+            },
+            headers=headers,
+        )
+
+        assert resp.status_code == 409
+        await db_session.refresh(lesson)
+        assert lesson.content_blocks == _BASE_BLOCKS
+        row = (await db_session.execute(select(LessonContentProposal))).scalars().one()
+        assert row.status == "pending"
+
 
 class TestBadModelOutputNeverPublishes:
     async def test_an_invented_media_block_is_recorded_as_failed(

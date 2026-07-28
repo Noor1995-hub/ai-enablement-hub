@@ -67,7 +67,9 @@ async def test_approve_writes_the_lesson_and_stamps_the_proposal() -> None:
 
     assert result == "approved"
     content.update_lesson.assert_awaited_once_with(lesson, {"content_blocks": _PROPOSED})
-    proposals.set_status.assert_awaited_once_with(proposal, "approved", reviewer_id)
+    proposals.set_approved.assert_awaited_once_with(
+        proposal, edited_blocks=None, reviewed_by=reviewer_id
+    )
 
 
 async def test_approve_strips_an_ephemeral_media_url_before_writing() -> None:
@@ -205,3 +207,151 @@ async def test_an_unknown_decision_never_applies_anything() -> None:
 
     content.update_lesson.assert_not_awaited()
     proposals.set_status.assert_not_awaited()
+
+
+_ADMIN_EDITED = [
+    {"id": "b1", "type": "paragraph", "text": "The admin's own wording."},
+]
+
+
+async def test_approving_without_edits_is_unchanged_behaviour() -> None:
+    # THE regression guard for this whole plan: the no-edits path must keep
+    # applying the agent's array and must leave edited_blocks NULL.
+    proposal = _proposal()
+    lesson = _lesson(list(_BASE))
+    service, proposals, content = _service(proposal, lesson)
+    reviewer_id = uuid.uuid4()
+
+    assert (
+        await service.review(proposal_id=proposal.id, decision="approve", reviewer_id=reviewer_id)
+        == "approved"
+    )
+
+    content.update_lesson.assert_awaited_once_with(lesson, {"content_blocks": _PROPOSED})
+    proposals.set_approved.assert_awaited_once_with(
+        proposal, edited_blocks=None, reviewed_by=reviewer_id
+    )
+
+
+async def test_edits_identical_to_the_draft_count_as_unchanged() -> None:
+    proposal = _proposal()
+    service, proposals, content = _service(proposal, _lesson(list(_BASE)))
+
+    await service.review(
+        proposal_id=proposal.id,
+        decision="approve",
+        reviewer_id=uuid.uuid4(),
+        edited_blocks=list(_PROPOSED),
+    )
+
+    content.update_lesson.assert_awaited_once()
+    assert proposals.set_approved.await_args.kwargs["edited_blocks"] is None
+
+
+async def test_edits_apply_the_admin_array_and_store_the_delta() -> None:
+    proposal = _proposal()
+    lesson = _lesson(list(_BASE))
+    service, proposals, content = _service(proposal, lesson)
+    reviewer_id = uuid.uuid4()
+
+    await service.review(
+        proposal_id=proposal.id,
+        decision="approve",
+        reviewer_id=reviewer_id,
+        edited_blocks=list(_ADMIN_EDITED),
+    )
+
+    # The ADMIN's text reaches the lesson, not the agent's.
+    content.update_lesson.assert_awaited_once_with(lesson, {"content_blocks": _ADMIN_EDITED})
+    proposals.set_approved.assert_awaited_once_with(
+        proposal, edited_blocks=_ADMIN_EDITED, reviewed_by=reviewer_id
+    )
+
+
+async def test_admin_edits_are_structurally_validated() -> None:
+    proposal = _proposal()
+    service, proposals, content = _service(proposal, _lesson(list(_BASE)))
+
+    with pytest.raises(ConflictError):
+        await service.review(
+            proposal_id=proposal.id,
+            decision="approve",
+            reviewer_id=uuid.uuid4(),
+            edited_blocks=[{"id": "b1", "type": "banner", "text": "x"}],
+        )
+
+    content.update_lesson.assert_not_awaited()
+    proposals.set_approved.assert_not_awaited()
+
+
+async def test_admin_edits_cannot_invent_a_media_locator() -> None:
+    proposal = _proposal()
+    service, _proposals, content = _service(proposal, _lesson(list(_BASE)))
+
+    with pytest.raises(ConflictError):
+        await service.review(
+            proposal_id=proposal.id,
+            decision="approve",
+            reviewer_id=uuid.uuid4(),
+            edited_blocks=[
+                {"id": "b1", "type": "image", "blob_path": "images/made-up.png", "alt": "x"}
+            ],
+        )
+
+    content.update_lesson.assert_not_awaited()
+
+
+async def test_admin_edits_are_NOT_house_style_checked() -> None:
+    # House style is a rule for the AGENT, derived from this person's own
+    # writing. An em dash in the admin's own paragraph must be accepted.
+    proposal = _proposal()
+    lesson = _lesson(list(_BASE))
+    service, _proposals, content = _service(proposal, lesson)
+
+    await service.review(
+        proposal_id=proposal.id,
+        decision="approve",
+        reviewer_id=uuid.uuid4(),
+        edited_blocks=[
+            {"id": "b1", "type": "paragraph", "text": "Written by a human — with a dash."}
+        ],
+    )
+
+    content.update_lesson.assert_awaited_once()
+
+
+async def test_a_stale_base_still_supersedes_even_with_edits() -> None:
+    proposal = _proposal()
+    moved = _lesson([{"id": "b1", "type": "paragraph", "text": "Someone else edited this."}])
+    service, proposals, content = _service(proposal, moved)
+    reviewer_id = uuid.uuid4()
+
+    with pytest.raises(ConflictError):
+        await service.review(
+            proposal_id=proposal.id,
+            decision="approve",
+            reviewer_id=reviewer_id,
+            edited_blocks=list(_ADMIN_EDITED),
+        )
+
+    content.update_lesson.assert_not_awaited()
+    proposals.set_status.assert_awaited_once_with(proposal, "superseded", reviewer_id)
+
+
+async def test_edited_blocks_are_ignored_on_reject() -> None:
+    proposal = _proposal()
+    service, proposals, content = _service(proposal, _lesson(list(_BASE)))
+    reviewer_id = uuid.uuid4()
+
+    assert (
+        await service.review(
+            proposal_id=proposal.id,
+            decision="reject",
+            reviewer_id=reviewer_id,
+            edited_blocks=list(_ADMIN_EDITED),
+        )
+        == "rejected"
+    )
+
+    content.update_lesson.assert_not_awaited()
+    proposals.set_status.assert_awaited_once_with(proposal, "rejected", reviewer_id)

@@ -109,6 +109,9 @@ async def review_proposal(
     if service is None:
         raise _NOT_CONFIGURED
     new_status = await service.review(
-        proposal_id=proposal_id, decision=body.decision, reviewer_id=admin.id
+        proposal_id=proposal_id,
+        decision=body.decision,
+        reviewer_id=admin.id,
+        edited_blocks=body.edited_blocks,
     )
     return ProposalReviewResponse(status=new_status)  # ty: ignore[invalid-argument-type]

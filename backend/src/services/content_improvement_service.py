@@ -170,11 +170,19 @@ class ContentImprovementService:
             proposed += 1
         return proposed, skipped, len(pending) - attempted
 
-    async def review(self, *, proposal_id: uuid.UUID, decision: str, reviewer_id: uuid.UUID) -> str:
+    async def review(
+        self,
+        *,
+        proposal_id: uuid.UUID,
+        decision: str,
+        reviewer_id: uuid.UUID,
+        edited_blocks: list[Any] | None = None,
+    ) -> str:
         """Apply or discard a proposal. Returns the proposal's new status.
 
         This is the ONLY path in the feature that writes a live lesson, and it
-        only runs because an admin asked for it.
+        only runs because an admin asked for it. `edited_blocks` lets the admin
+        change the draft before accepting it; it is ignored on a reject.
         """
         proposal = await self._proposals.get_by_id(proposal_id)
         if proposal is None:
@@ -186,7 +194,7 @@ class ContentImprovementService:
             await self._proposals.set_status(proposal, "rejected", reviewer_id)
             return "rejected"
         if decision == "approve":
-            await self._apply(proposal, reviewer_id)
+            await self._apply(proposal, reviewer_id, edited_blocks)
             return "approved"
         msg = f"unknown review decision {decision!r}"
         raise InvalidRequestError(msg)
@@ -257,7 +265,12 @@ class ContentImprovementService:
             "reviewed_at": proposal.reviewed_at,
         }
 
-    async def _apply(self, proposal: LessonContentProposal, reviewer_id: uuid.UUID) -> None:
+    async def _apply(
+        self,
+        proposal: LessonContentProposal,
+        reviewer_id: uuid.UUID,
+        edited_blocks: list[Any] | None = None,
+    ) -> None:
         if proposal.status == "failed":
             msg = "this proposal has no drafted revision to apply; reject it instead"
             raise ConflictError(msg)
@@ -274,23 +287,37 @@ class ContentImprovementService:
                 "marked superseded — run the improvement pass again"
             )
             raise ConflictError(msg)
+
+        proposed = list(proposal.proposed_blocks)
+        # Equal arrays are treated as "accepted exactly as drafted": the stored
+        # delta is then never a no-op, and no learn card is produced for a draft
+        # the admin did not actually change.
+        admin_edits: list[Any] | None = None
+        if edited_blocks is not None and list(edited_blocks) != proposed:
+            admin_edits = normalise_nested_ids(edited_blocks)
+        blocks = admin_edits if admin_edits is not None else proposed
+
         # Re-validated at apply time, not just at draft time: the row could
         # predate a validator change or have been written by an older build.
-        errors = (
-            validate_content_blocks(proposal.proposed_blocks)
-            + check_media_immutable(proposal.base_blocks, proposal.proposed_blocks)
-            + check_house_style(proposal.base_blocks, proposal.proposed_blocks)
+        errors = validate_content_blocks(blocks) + check_media_immutable(
+            proposal.base_blocks, blocks
         )
+        if admin_edits is None:
+            # House style is a rule for the AGENT, and it was derived from this
+            # very person's editing decisions. Holding an admin's own prose to
+            # it would be backwards, so it only gates an unchanged agent draft.
+            errors += check_house_style(proposal.base_blocks, blocks)
         if errors:
             msg = "the proposed blocks are not valid: " + "; ".join(errors[:5])
             raise ConflictError(msg)
+
         # Same write path as ContentService.update_lesson — whole-array overwrite
         # with the ephemeral SAS urls stripped. Called at the repository layer
         # because services never call other services (python-be-architecture.md).
-        await self._content.update_lesson(
-            lesson, {"content_blocks": strip_ephemeral(list(proposal.proposed_blocks))}
+        await self._content.update_lesson(lesson, {"content_blocks": strip_ephemeral(list(blocks))})
+        await self._proposals.set_approved(
+            proposal, edited_blocks=admin_edits, reviewed_by=reviewer_id
         )
-        await self._proposals.set_status(proposal, "approved", reviewer_id)
 
     async def _lessons_awaiting_draft(self) -> list[tuple[Lesson, list[Feedback]]]:
         """Lessons with accepted feedback that no pending/approved/failed

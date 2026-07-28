@@ -71,6 +71,11 @@ class ProposalDetailOut(BaseModel):
 
 class ProposalReviewRequest(BaseModel):
     decision: ReviewDecision
+    # The blocks the admin actually wants applied, when they changed the draft
+    # in the review pane. Omitted (or identical to the agent's draft) means
+    # "accept exactly as drafted", which is also what tells the pipeline there
+    # is nothing to learn from this one. Ignored entirely on a reject.
+    edited_blocks: list[dict[str, Any]] | None = None
 
 
 class ProposalReviewResponse(BaseModel):
