@@ -441,6 +441,32 @@ _MATRIX: list[tuple[str, str, Any, Any, bool]] = [
         lambda s: None,
         True,
     ),
+    # Unlike the content-improvement rows, this router is NOT LLM-gated —
+    # curating notes needs no model. So the admin case here hits the real
+    # handler: a 200 for the list, and a genuine 404 (NotFoundError) for a
+    # random note id on review/graduate, rather than "not configured". That
+    # difference is deliberate, not a copy-paste slip.
+    (
+        "calibration-notes-list",
+        "GET",
+        lambda s: "/api/admin/calibration-notes",
+        lambda s: None,
+        True,
+    ),
+    (
+        "calibration-notes-review",
+        "POST",
+        lambda s: f"/api/admin/calibration-notes/{uuid.uuid4()}/review",
+        lambda s: {"decision": "approve"},
+        True,
+    ),
+    (
+        "calibration-notes-graduate",
+        "POST",
+        lambda s: f"/api/admin/calibration-notes/{uuid.uuid4()}/graduate",
+        lambda s: None,
+        True,
+    ),
     ("dashboard", "GET", lambda s: "/api/admin/dashboard", lambda s: None, True),
 ]
 

@@ -21,6 +21,7 @@ from src.repositories.auth_session_repository import AuthSessionRepository
 from src.repositories.auth_token_repository import AuthTokenRepository
 from src.repositories.user_repository import UserRepository
 from src.routers import (
+    admin_calibration_notes,
     admin_content,
     admin_content_improvement,
     admin_dashboard,
@@ -191,6 +192,7 @@ app.include_router(chat.router)
 app.include_router(admin_defaults.router)
 app.include_router(admin_feedback.router)
 app.include_router(admin_content_improvement.router)
+app.include_router(admin_calibration_notes.router)
 app.include_router(admin_dashboard.router)
 app.include_router(feedback.router)
 

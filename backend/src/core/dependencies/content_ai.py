@@ -19,12 +19,14 @@ from src.repositories.calibration_note_repository import CalibrationNoteReposito
 from src.repositories.content_repository import ContentRepository
 from src.repositories.feedback_repository import FeedbackRepository
 from src.repositories.proposal_repository import ProposalRepository
+from src.services.calibration_note_service import CalibrationNoteService
 from src.services.content_improvement_service import ContentImprovementService
 from src.services.feedback_triage_service import FeedbackTriageService
 from src.services.llm_service import AnthropicLlmClient
 
 __all__ = [
     "get_calibration_note_repository",
+    "get_calibration_note_service",
     "get_content_improvement_service",
     "get_feedback_triage_service",
     "get_proposal_repository",
@@ -52,6 +54,14 @@ def get_calibration_note_repository(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> CalibrationNoteRepository:
     return CalibrationNoteRepository(session)
+
+
+def get_calibration_note_service(
+    notes: Annotated[CalibrationNoteRepository, Depends(get_calibration_note_repository)],
+) -> CalibrationNoteService:
+    """Unconditional, unlike the two agent services: curating notes needs no
+    model, so it must keep working even when LLM__* is unconfigured."""
+    return CalibrationNoteService(notes)
 
 
 def get_content_improvement_service(
