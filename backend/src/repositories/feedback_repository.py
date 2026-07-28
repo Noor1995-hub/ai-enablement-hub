@@ -133,3 +133,7 @@ class FeedbackRepository(AbstractFeedbackRepository):
         feedback.ai_rationale = rationale
         feedback.ai_suggested_at = datetime.now(UTC)
         await self._session.commit()
+
+    async def mark_suggestion_attempted(self, feedback: Feedback) -> None:
+        feedback.ai_suggested_at = datetime.now(UTC)
+        await self._session.commit()

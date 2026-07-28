@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import asyncio
 import uuid
 from types import SimpleNamespace
 from typing import Any
+from unittest import mock
 from unittest.mock import AsyncMock
 
 from src.repositories.base import AbstractFeedbackRepository
+from src.services import feedback_triage_service
 from src.services.feedback_triage_service import FeedbackTriageService
 from src.services.llm_service import LlmUsage
 
@@ -52,9 +55,9 @@ async def test_writes_the_suggestion_and_never_the_status() -> None:
     llm = _ScriptedLlm([{"suggested_status": "accepted", "rationale": "Asks for an example."}])
     service = FeedbackTriageService(repo, llm)  # ty: ignore[invalid-argument-type]
 
-    suggested, remaining = await service.suggest(limit=5)
+    suggested, failed, remaining = await service.suggest(limit=5)
 
-    assert (suggested, remaining) == (1, 0)
+    assert (suggested, failed, remaining) == (1, 0, 0)
     repo.set_ai_suggestion.assert_awaited_once_with(
         feedback, suggested_status="accepted", rationale="Asks for an example."
     )
@@ -83,9 +86,9 @@ async def test_malformed_output_is_skipped_not_written() -> None:
     llm = _ScriptedLlm([{"suggested_status": "maybe", "rationale": "hmm"}])
     service = FeedbackTriageService(repo, llm)  # ty: ignore[invalid-argument-type]
 
-    suggested, remaining = await service.suggest(limit=5)
+    suggested, failed, remaining = await service.suggest(limit=5)
 
-    assert (suggested, remaining) == (0, 1)
+    assert (suggested, failed, remaining) == (0, 1, 1)
     repo.set_ai_suggestion.assert_not_awaited()
 
 
@@ -101,7 +104,7 @@ async def test_one_failing_row_does_not_abort_the_batch() -> None:
     )
     service = FeedbackTriageService(repo, llm)  # ty: ignore[invalid-argument-type]
 
-    suggested, _remaining = await service.suggest(limit=5)
+    suggested, _failed, _remaining = await service.suggest(limit=5)
 
     assert suggested == 1
     repo.set_ai_suggestion.assert_awaited_once_with(
@@ -114,7 +117,7 @@ async def test_empty_queue_makes_no_model_calls() -> None:
     llm = _ScriptedLlm([])
     service = FeedbackTriageService(repo, llm)  # ty: ignore[invalid-argument-type]
 
-    assert await service.suggest(limit=5) == (0, 0)
+    assert await service.suggest(limit=5) == (0, 0, 0)
     assert llm.prompts == []
 
 
@@ -127,3 +130,51 @@ async def test_limit_and_project_scope_are_passed_through() -> None:
 
     repo.list_awaiting_suggestion.assert_awaited_once_with(project_id=project_id, limit=3)
     repo.count_awaiting_suggestion.assert_awaited_once_with(project_id=project_id)
+
+
+async def test_a_failed_row_is_marked_attempted_so_it_leaves_the_queue() -> None:
+    feedback, lesson = _row()
+    repo = _repo([(feedback, lesson)])
+    llm = _ScriptedLlm([RuntimeError("Anthropic API unreachable")])
+    service = FeedbackTriageService(repo, llm)  # ty: ignore[invalid-argument-type]
+
+    suggested, failed, _remaining = await service.suggest(limit=5)
+
+    assert (suggested, failed) == (0, 1)
+    repo.mark_suggestion_attempted.assert_awaited_once_with(feedback)
+    repo.set_ai_suggestion.assert_not_awaited()
+    # A failed attempt is still not a decision.
+    repo.set_status.assert_not_awaited()
+
+
+async def test_unusable_output_is_also_marked_attempted() -> None:
+    feedback, lesson = _row()
+    repo = _repo([(feedback, lesson)])
+    llm = _ScriptedLlm([{"suggested_status": "maybe", "rationale": "hmm"}])
+    service = FeedbackTriageService(repo, llm)  # ty: ignore[invalid-argument-type]
+
+    suggested, failed, _remaining = await service.suggest(limit=5)
+
+    assert (suggested, failed) == (0, 1)
+    repo.mark_suggestion_attempted.assert_awaited_once_with(feedback)
+    repo.set_ai_suggestion.assert_not_awaited()
+
+
+async def test_a_hanging_model_call_times_out_and_counts_as_failed() -> None:
+    feedback, lesson = _row()
+    repo = _repo([(feedback, lesson)])
+
+    class _HangingLlm:
+        async def complete_structured(
+            self, *, system: str, prompt: str, schema: object, max_tokens: int
+        ) -> tuple[dict[str, Any], LlmUsage]:
+            await asyncio.sleep(3600)
+            raise AssertionError("unreachable")
+
+    service = FeedbackTriageService(repo, _HangingLlm())  # ty: ignore[invalid-argument-type]
+
+    with mock.patch.object(feedback_triage_service, "_PER_ITEM_TIMEOUT_SECONDS", 0.01):
+        suggested, failed, _remaining = await service.suggest(limit=5)
+
+    assert (suggested, failed) == (0, 1)
+    repo.mark_suggestion_attempted.assert_awaited_once_with(feedback)

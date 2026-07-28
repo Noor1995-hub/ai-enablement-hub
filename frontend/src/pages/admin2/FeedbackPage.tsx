@@ -117,6 +117,8 @@ export default function FeedbackPage() {
       {suggestTriage.isSuccess && (
         <p className="adm-subtext">
           Suggested {suggestTriage.data.suggested} item{suggestTriage.data.suggested === 1 ? '' : 's'}
+          {suggestTriage.data.failed > 0 &&
+            ` · ${suggestTriage.data.failed} could not be triaged automatically — review ${suggestTriage.data.failed === 1 ? 'it' : 'them'} by hand`}
           {suggestTriage.data.remaining > 0 && ` · ${suggestTriage.data.remaining} still without a suggestion — run again`}
         </p>
       )}

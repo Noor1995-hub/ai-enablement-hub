@@ -455,6 +455,15 @@ class AbstractFeedbackRepository(ABC):
         """Write the three ai_* columns and stamp ai_suggested_at. NEVER touches
         `status`/`reviewed_by` — an AI suggestion is advice, the admin decides."""
 
+    @abstractmethod
+    async def mark_suggestion_attempted(self, feedback: Feedback) -> None:
+        """Stamp `ai_suggested_at` WITHOUT a suggestion, so a row whose triage
+        attempt failed drops out of the awaiting queue instead of re-consuming
+        every future bounded run (the queue is oldest-first, so a permanently
+        failing row would otherwise starve newer feedback). One attempt per
+        row: the admin triages this one by hand, as they did before AI triage
+        existed. Like set_ai_suggestion, it never touches the real `status`."""
+
 
 class AbstractAssignmentRepository(ABC):
     """user_tracks / user_modules / user_lessons assignment links."""

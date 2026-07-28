@@ -120,7 +120,7 @@ class TestSuggestTriage:
         )
 
         assert resp.status_code == 200
-        assert resp.json() == {"suggested": 1, "remaining": 0}
+        assert resp.json() == {"suggested": 1, "failed": 0, "remaining": 0}
         row = (
             await db_session.execute(select(Feedback).where(Feedback.id == feedback.id))
         ).scalar_one()
@@ -144,7 +144,7 @@ class TestSuggestTriage:
         await client.post("/api/admin/feedback/suggest-triage", headers=headers)
         resp = await client.post("/api/admin/feedback/suggest-triage", headers=headers)
 
-        assert resp.json() == {"suggested": 0, "remaining": 0}
+        assert resp.json() == {"suggested": 0, "failed": 0, "remaining": 0}
         assert llm.calls == 1
 
     async def test_limit_bounds_the_run(
@@ -166,7 +166,7 @@ class TestSuggestTriage:
             headers=auth_headers(admin, test_settings),
         )
 
-        assert resp.json() == {"suggested": 1, "remaining": 1}
+        assert resp.json() == {"suggested": 1, "failed": 0, "remaining": 1}
 
     async def test_bad_limit_is_422(
         self,
@@ -183,6 +183,32 @@ class TestSuggestTriage:
         )
 
         assert resp.status_code == 422
+
+    async def test_a_failed_row_does_not_come_back_on_the_next_run(
+        self,
+        triage_client: Callable[[FakeTriageLlm], AsyncClient],
+        db_session: AsyncSession,
+        test_settings: Settings,
+    ) -> None:
+        _project, admin, feedback = await _seed(db_session, "triage-poison")
+        # An unusable enum value fails validation for this row every time.
+        llm = FakeTriageLlm({"suggested_status": "maybe", "rationale": "nope"})
+        client = triage_client(llm)
+        headers = auth_headers(admin, test_settings)
+
+        first = await client.post("/api/admin/feedback/suggest-triage", headers=headers)
+        second = await client.post("/api/admin/feedback/suggest-triage", headers=headers)
+
+        assert first.json() == {"suggested": 0, "failed": 1, "remaining": 0}
+        # The second run finds nothing to do — no repeat model call, no starvation.
+        assert second.json() == {"suggested": 0, "failed": 0, "remaining": 0}
+        assert llm.calls == 1
+        row = (
+            await db_session.execute(select(Feedback).where(Feedback.id == feedback.id))
+        ).scalar_one()
+        assert row.ai_suggested_at is not None
+        assert row.ai_suggested_status is None
+        assert row.status == "new"
 
     async def test_404_when_llm_unconfigured(
         self, client: AsyncClient, db_session: AsyncSession, test_settings: Settings
@@ -251,7 +277,7 @@ class TestProjectScope:
             headers=auth_headers(admin, test_settings),
         )
 
-        assert resp.json() == {"suggested": 1, "remaining": 0}
+        assert resp.json() == {"suggested": 1, "failed": 0, "remaining": 0}
         # The other project's item was never touched.
         others = (
             (await db_session.execute(select(Feedback).where(Feedback.ai_suggested_at.is_(None))))
@@ -276,4 +302,4 @@ class TestProjectScope:
             headers=auth_headers(admin, test_settings),
         )
 
-        assert resp.json() == {"suggested": 0, "remaining": 0}
+        assert resp.json() == {"suggested": 0, "failed": 0, "remaining": 0}

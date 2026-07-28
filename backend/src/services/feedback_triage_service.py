@@ -8,9 +8,11 @@ bounded (`limit`) and lazy — nothing here sits on the learner's submit path.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import uuid
+from time import monotonic
 from typing import TYPE_CHECKING, Any
 
 from src.services.llm_service import LlmError, StructuredSchema
@@ -31,6 +33,11 @@ _MAX_TOKENS = 300
 _LESSON_CONTEXT_CHARS = 6000
 _MAX_RATIONALE_CHARS = 240
 _SUGGESTED_STATUSES = ("accepted", "dismissed")
+# One admin click can fan out to `limit` sequential model calls, so the run
+# needs its own bounds: the Anthropic SDK's default per-request timeout is
+# minutes long, and there is no client-side abort behind a plain POST.
+_PER_ITEM_TIMEOUT_SECONDS = 30.0
+_RUN_BUDGET_SECONDS = 120.0
 
 TRIAGE_SCHEMA = StructuredSchema(
     name="suggest_triage",
@@ -71,29 +78,47 @@ class FeedbackTriageService:
         self._feedback = feedback
         self._llm = llm
 
-    async def suggest(self, *, project_id: uuid.UUID | None = None, limit: int) -> tuple[int, int]:
+    async def suggest(
+        self, *, project_id: uuid.UUID | None = None, limit: int
+    ) -> tuple[int, int, int]:
         """Suggest a disposition for up to `limit` un-suggested `new` rows.
 
-        Returns `(suggested, remaining)` — how many suggestions this run wrote,
-        and how many rows still lack one afterwards (so a bounded run never
-        silently hides a backlog).
+        Returns `(suggested, failed, remaining)`. A run is monotonic: every row
+        it touches leaves the awaiting queue, whether the model produced a
+        usable suggestion or not, so `remaining` strictly decreases and "run
+        again" is always honest. Rows left unattempted because the run hit its
+        time budget keep `ai_suggested_at IS NULL` and are picked up next time.
         """
         rows = await self._feedback.list_awaiting_suggestion(project_id=project_id, limit=limit)
+        deadline = monotonic() + _RUN_BUDGET_SECONDS
         suggested = 0
-        for feedback, lesson in rows:
+        failed = 0
+        for index, (feedback, lesson) in enumerate(rows):
+            if monotonic() >= deadline:
+                logger.warning(
+                    "triage run hit its %ss budget; %d row(s) left unattempted",
+                    _RUN_BUDGET_SECONDS,
+                    len(rows) - index,
+                )
+                break
             try:
-                status, rationale = await self._suggest_one(feedback, lesson)
+                async with asyncio.timeout(_PER_ITEM_TIMEOUT_SECONDS):
+                    status, rationale = await self._suggest_one(feedback, lesson)
             except Exception:
-                # One bad row (model error, unusable output) must not abort the
-                # batch — same log-and-continue posture as _auth_cleanup_loop.
+                # One bad row (model error, timeout, unusable output) must not
+                # abort the batch — same log-and-continue posture as
+                # _auth_cleanup_loop. Stamping the attempt is what stops this
+                # row from re-consuming the oldest-first slot on every rerun.
                 logger.exception("triage suggestion failed for feedback %s", feedback.id)
+                await self._feedback.mark_suggestion_attempted(feedback)
+                failed += 1
                 continue
             await self._feedback.set_ai_suggestion(
                 feedback, suggested_status=status, rationale=rationale
             )
             suggested += 1
         remaining = await self._feedback.count_awaiting_suggestion(project_id=project_id)
-        return suggested, remaining
+        return suggested, failed, remaining
 
     async def _suggest_one(self, feedback: Feedback, lesson: Lesson) -> tuple[str, str]:
         result, _usage = await self._llm.complete_structured(

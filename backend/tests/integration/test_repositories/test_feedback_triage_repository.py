@@ -95,3 +95,24 @@ async def test_set_ai_suggestion_never_touches_status(db_session: AsyncSession) 
     assert row.reviewed_by is None
     # ...and it drops out of the awaiting queue.
     assert await repo.count_awaiting_suggestion() == 0
+
+
+async def test_mark_suggestion_attempted_drops_the_row_without_a_suggestion(
+    db_session: AsyncSession,
+) -> None:
+    _project, user, lesson = await _seed(db_session, "attempted")
+    row = Feedback(user_id=user.id, lesson_id=lesson.id, message="model choked on this")
+    db_session.add(row)
+    await db_session.commit()
+
+    repo = FeedbackRepository(db_session)
+    await repo.mark_suggestion_attempted(row)
+    await db_session.refresh(row)
+
+    assert row.ai_suggested_at is not None
+    assert row.ai_suggested_status is None
+    assert row.ai_rationale is None
+    assert row.status == "new"
+    assert row.reviewed_at is None
+    # ...and it no longer re-consumes a bounded run.
+    assert await repo.count_awaiting_suggestion() == 0

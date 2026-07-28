@@ -78,8 +78,8 @@ async def suggest_feedback_triage(
             detail="Too many triage runs — try again shortly",
             headers={"Retry-After": "60"},
         )
-    suggested, remaining = await triage_service.suggest(project_id=project_id, limit=limit)
-    return SuggestTriageResponse(suggested=suggested, remaining=remaining)
+    suggested, failed, remaining = await triage_service.suggest(project_id=project_id, limit=limit)
+    return SuggestTriageResponse(suggested=suggested, failed=failed, remaining=remaining)
 
 
 @router.patch("/feedback/{feedback_id}", status_code=status.HTTP_204_NO_CONTENT)

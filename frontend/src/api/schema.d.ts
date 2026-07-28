@@ -2366,12 +2366,16 @@ export interface components {
         };
         /**
          * SuggestTriageResponse
-         * @description `suggested` = suggestions written by this (bounded) run; `remaining` =
-         *     rows that still lack one, so a truncated run is never silent.
+         * @description `suggested` = suggestions written by this (bounded) run; `failed` = rows
+         *     the model could not usefully triage, which are marked attempted and left
+         *     for manual triage; `remaining` = rows that still lack an attempt, so a
+         *     truncated run is never silent.
          */
         SuggestTriageResponse: {
             /** Suggested */
             suggested: number;
+            /** Failed */
+            failed: number;
             /** Remaining */
             remaining: number;
         };

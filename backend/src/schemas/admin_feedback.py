@@ -55,8 +55,11 @@ class FeedbackStatusUpdateRequest(BaseModel):
 
 
 class SuggestTriageResponse(BaseModel):
-    """`suggested` = suggestions written by this (bounded) run; `remaining` =
-    rows that still lack one, so a truncated run is never silent."""
+    """`suggested` = suggestions written by this (bounded) run; `failed` = rows
+    the model could not usefully triage, which are marked attempted and left
+    for manual triage; `remaining` = rows that still lack an attempt, so a
+    truncated run is never silent."""
 
     suggested: int
+    failed: int
     remaining: int
