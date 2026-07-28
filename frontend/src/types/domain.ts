@@ -133,10 +133,20 @@ export interface InterviewState {
   conversation_id?: string | null
   playbook?: PlaybookShared | null
 }
+export interface PlaybookInternal {
+  input_quality: { tier: string; evidence: string; what_to_probe_next: string[] }
+  person: { role_reality: string; influence: string; decision_rights: string; champion_potential: string; confidence: string }
+  pains: { pain: string; evidence: string; frequency: string; est_time_cost: string; basis: string; confidence: string }[]
+  blockers: { stated: string[]; diagnosed: { type: string; reasoning: string; basis: string; confidence: string }[] }
+  maturity: { placement: string; behavioural_evidence: string; vs_self_reported: string; trajectory: string }
+  systems_landscape: { system: string; how_used: string; implication: string }[]
+  company_context: string
+  engagement_notes: { opportunities: string[]; risks: string[]; follow_up_questions: string[] }
+}
 export interface AdminInterview {
   status: 'not_started' | 'in_progress' | 'complete'
   tier?: string | null
-  internal?: unknown
+  internal?: PlaybookInternal | null
   shared?: PlaybookShared | null
   transcript: { role: string; content: string }[]
 }
