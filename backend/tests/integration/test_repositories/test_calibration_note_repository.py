@@ -146,8 +146,8 @@ async def test_list_for_injection_returns_approved_text_newest_first(
     notes = await repo.list_for_injection(limit=10)
 
     assert "never approved" not in notes
-    assert set(notes) == {"older", "newer"}
-    assert await repo.list_for_injection(limit=1) == notes[:1]
+    assert notes == ["newer", "older"]
+    assert await repo.list_for_injection(limit=1) == ["newer"]
 
 
 async def test_only_approved_notes_are_injected(db_session: AsyncSession) -> None:
