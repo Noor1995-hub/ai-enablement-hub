@@ -20,6 +20,7 @@ import uuid
 from time import monotonic
 from typing import TYPE_CHECKING, Any
 
+from src.services.calibration_prompt import MAX_INJECTED_NOTES, render_calibration_block
 from src.services.content_blocks_validation import (
     KNOWN_BLOCK_TYPES,
     check_house_style,
@@ -196,6 +197,12 @@ class ContentImprovementService:
         `remaining` counts lessons the run did not get to.
         """
         pending = await self._lessons_awaiting_draft()
+        # Once per run, not once per lesson: a three-lesson run must not issue
+        # three identical queries, and every lesson in one run should be
+        # drafted against the same guidance.
+        calibration_notes = await self._calibration_notes.list_for_injection(
+            limit=MAX_INJECTED_NOTES
+        )
         deadline = monotonic() + _RUN_BUDGET_SECONDS
         proposed = 0
         skipped = 0
@@ -211,7 +218,7 @@ class ContentImprovementService:
             attempted += 1
             try:
                 async with asyncio.timeout(_PER_LESSON_TIMEOUT_SECONDS):
-                    blocks, summary = await self._draft(lesson, feedback_items)
+                    blocks, summary = await self._draft(lesson, feedback_items, calibration_notes)
             except Exception as exc:
                 logger.exception("content improvement failed for lesson %s", lesson.id)
                 await self._record_failure(lesson, feedback_items, exc)
@@ -511,7 +518,9 @@ class ContentImprovementService:
                 entry[1].append(feedback)
         return list(grouped.values())
 
-    async def _draft(self, lesson: Lesson, feedback_items: list[Feedback]) -> tuple[list[Any], str]:
+    async def _draft(
+        self, lesson: Lesson, feedback_items: list[Feedback], calibration_notes: list[str]
+    ) -> tuple[list[Any], str]:
         base = list(lesson.content_blocks)
         rendered = json.dumps(base, ensure_ascii=False, default=str)
         if len(rendered) > _MAX_LESSON_CHARS:
@@ -521,7 +530,7 @@ class ContentImprovementService:
             )
             raise LlmError(msg)
         result, _usage = await self._llm.complete_structured(
-            system=_system_prompt(),
+            system=_system_prompt(calibration_notes),
             prompt=_build_prompt(lesson, rendered, feedback_items),
             schema=IMPROVEMENT_SCHEMA,
             max_tokens=_MAX_TOKENS,
@@ -570,13 +579,29 @@ class ContentImprovementService:
         )
 
 
-def _system_prompt() -> str:
-    """House style first, then the task prompt: `content_improvement.md` reads
-    as a continuation of it ("The house style above is not background
-    reading"). The triage agent (feedback_triage_service.py) never writes
-    lesson content, so it does not load this and must not get the house style
-    prepended to it."""
-    return f"{load_prompt('house_style')}\n\n---\n\n{load_prompt('content_improvement')}"
+def _system_prompt(calibration_notes: list[str]) -> str:
+    """House style, then any admin-approved calibration notes, then the task
+    prompt: `content_improvement.md` reads as a continuation of the house style
+    ("The house style above is not background reading"), and the notes sit
+    between them because they extend it, being literally more entries for its
+    calibration section. The triage agent (feedback_triage_service.py) never
+    writes lesson content, so it does not load this and must not get the house
+    style prepended to it.
+
+    With no approved notes the block renders as "" and is skipped, so the
+    composed prompt is byte-identical to what it was before injection existed.
+
+    NOT cached, and `load_prompt` must not be made dynamic to do it:
+    `load_prompt` is `@lru_cache`d by filename because it reads static files,
+    whereas this value depends on whatever is currently approved in the
+    database.
+    """
+    parts = [load_prompt("house_style")]
+    block = render_calibration_block(calibration_notes)
+    if block:
+        parts.append(block)
+    parts.append(load_prompt("content_improvement"))
+    return "\n\n---\n\n".join(parts)
 
 
 def _build_prompt(lesson: Lesson, rendered_blocks: str, feedback_items: list[Feedback]) -> str:

@@ -16,6 +16,7 @@ from src.repositories.base import (
 from src.services import content_improvement_service
 from src.services.content_improvement_service import ContentImprovementService
 from src.services.llm_service import LlmUsage
+from src.services.prompts import load_prompt
 
 _GOOD_BLOCKS = [
     {"id": "b1", "type": "heading", "level": 2, "text": "Prompting basics"},
@@ -56,10 +57,22 @@ def _feedback(message: str) -> Any:
     return SimpleNamespace(id=uuid.uuid4(), message=message)
 
 
+def _notes_repo(approved: list[str] | None = None) -> AsyncMock:
+    """A calibration-note repository whose injection read returns real strings.
+
+    A bare AsyncMock would hand `render_calibration_block` a MagicMock, which
+    is not what the real repository returns.
+    """
+    notes = AsyncMock(spec=AbstractCalibrationNoteRepository)
+    notes.list_for_injection.return_value = approved or []
+    return notes
+
+
 def _service(
     pairs: list[tuple[Any, Any]],
     covered: set[uuid.UUID] | None = None,
     llm: _ScriptedLlm | None = None,
+    notes: AsyncMock | None = None,
 ) -> tuple[ContentImprovementService, AsyncMock, AsyncMock]:
     proposals = AsyncMock(spec=AbstractProposalRepository)
     proposals.covered_feedback_ids.return_value = covered or set()
@@ -71,7 +84,7 @@ def _service(
         feedback,
         content,
         llm or _ScriptedLlm([]),  # ty: ignore[invalid-argument-type]
-        AsyncMock(spec=AbstractCalibrationNoteRepository),
+        notes if notes is not None else _notes_repo(),
     )
     return service, proposals, content
 
@@ -130,6 +143,47 @@ async def test_system_prompt_composes_house_style_before_the_task_prompt() -> No
     assert "Artefact" in system  # distinctive string from house_style.md
     assert "block by block diff" in system  # distinctive string from content_improvement.md
     assert system.index("Artefact") < system.index("block by block diff")
+
+
+async def test_zero_approved_notes_leaves_the_prompt_byte_identical() -> None:
+    # THE regression guard for this plan: nothing about drafting may change
+    # just because the injection mechanism exists.
+    expected = f"{load_prompt('house_style')}\n\n---\n\n{load_prompt('content_improvement')}"
+
+    assert content_improvement_service._system_prompt([]) == expected
+
+
+async def test_approved_notes_are_injected_between_house_style_and_the_task() -> None:
+    composed = content_improvement_service._system_prompt(
+        ["Prefer inline bullets over a card group."]
+    )
+
+    assert "Prefer inline bullets over a card group." in composed
+    # House style first, notes in the middle, the task prompt last.
+    assert composed.index("Artefact") < composed.index("Prefer inline bullets")
+    assert composed.index("Prefer inline bullets") < composed.index("block by block diff")
+
+
+async def test_the_notes_repository_is_read_once_per_run_not_once_per_lesson() -> None:
+    first, lesson_a = _feedback("first"), _lesson("First")
+    second, lesson_b = _feedback("second"), _lesson("Second")
+    llm = _ScriptedLlm(
+        [
+            {"proposed_blocks": _GOOD_BLOCKS, "summary": "s"},
+            {"proposed_blocks": _GOOD_BLOCKS, "summary": "s"},
+        ]
+    )
+    notes = _notes_repo(["Prefer inline bullets over a card group."])
+    service, _proposals, _content = _service(
+        [(first, lesson_a), (second, lesson_b)], llm=llm, notes=notes
+    )
+
+    await service.run(max_lessons=3)
+
+    assert len(llm.prompts) == 2
+    notes.list_for_injection.assert_awaited_once()
+    # One read, but both drafting calls still carry the guidance.
+    assert all("Prefer inline bullets over a card group." in system for system in llm.systems)
 
 
 async def test_already_incorporated_feedback_is_not_redrafted() -> None:
@@ -329,7 +383,7 @@ async def test_a_hanging_call_times_out_and_counts_as_skipped() -> None:
         feedback,
         AsyncMock(spec=AbstractContentRepository),
         _HangingLlm(),  # ty: ignore[invalid-argument-type]
-        AsyncMock(spec=AbstractCalibrationNoteRepository),
+        _notes_repo(),
     )
 
     with mock.patch.object(content_improvement_service, "_PER_LESSON_TIMEOUT_SECONDS", 0.01):
