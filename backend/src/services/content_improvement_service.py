@@ -3,8 +3,8 @@
 `run` picks lessons that have accepted feedback no proposal covers yet, asks
 the model for a full revised `content_blocks` array, gates it through the
 structural validator and the media-immutability diff, and stores the result as
-a `pending` proposal for an admin to approve. `review` (added in the next task)
-is the only code path that can touch a live lesson.
+a `pending` proposal for an admin to approve. `review` is the only code path
+that can touch a live lesson.
 
 Bounded like the triage run (services/feedback_triage_service.py): a per-lesson
 timeout plus an overall budget, and honest counts, because one admin click can
@@ -25,11 +25,13 @@ from src.services.content_blocks_validation import (
     check_media_immutable,
     validate_content_blocks,
 )
+from src.services.exceptions import ConflictError, NotFoundError
 from src.services.llm_service import LlmError, StructuredSchema
+from src.services.media_blocks import strip_ephemeral
 from src.services.prompts import load_prompt
 
 if TYPE_CHECKING:
-    from src.db.models import Feedback, Lesson
+    from src.db.models import Feedback, Lesson, LessonContentProposal
     from src.repositories.base import (
         AbstractContentRepository,
         AbstractFeedbackRepository,
@@ -57,6 +59,8 @@ _MAX_LESSON_CHARS = 24_000
 _PER_LESSON_TIMEOUT_SECONDS = 90.0
 _RUN_BUDGET_SECONDS = 90.0
 _MAX_SUMMARY_CHARS = 600
+# A proposal an admin can still act on. Everything else is already decided.
+_REVIEWABLE_STATUSES = ("pending", "failed")
 
 IMPROVEMENT_SCHEMA = StructuredSchema(
     name="propose_lesson_revision",
@@ -120,7 +124,7 @@ class ContentImprovementService:
     ) -> None:
         self._proposals = proposals
         self._feedback = feedback
-        self._content = content  # unused until the apply path lands (Task 5)
+        self._content = content  # used by _apply, the review path below
         self._llm = llm
 
     async def run(self, *, max_lessons: int) -> tuple[int, int, int]:
@@ -163,6 +167,57 @@ class ContentImprovementService:
             )
             proposed += 1
         return proposed, skipped, len(pending) - attempted
+
+    async def review(self, *, proposal_id: uuid.UUID, decision: str, reviewer_id: uuid.UUID) -> str:
+        """Apply or discard a proposal. Returns the proposal's new status.
+
+        This is the ONLY path in the feature that writes a live lesson, and it
+        only runs because an admin asked for it.
+        """
+        proposal = await self._proposals.get_by_id(proposal_id)
+        if proposal is None:
+            raise NotFoundError("Proposal")
+        if proposal.status not in _REVIEWABLE_STATUSES:
+            msg = f"this proposal is already {proposal.status}"
+            raise ConflictError(msg)
+        if decision == "reject":
+            await self._proposals.set_status(proposal, "rejected", reviewer_id)
+            return "rejected"
+        await self._apply(proposal, reviewer_id)
+        return "approved"
+
+    async def _apply(self, proposal: LessonContentProposal, reviewer_id: uuid.UUID) -> None:
+        if proposal.status == "failed":
+            msg = "this proposal has no drafted revision to apply; reject it instead"
+            raise ConflictError(msg)
+        lesson = await self._content.get_lesson(proposal.lesson_id)
+        if lesson is None:
+            raise NotFoundError("Lesson")
+        if list(lesson.content_blocks) != list(proposal.base_blocks):
+            # Someone edited the lesson after this was drafted, so the diff the
+            # admin just approved is not the change that would land. Refuse and
+            # mark it superseded rather than silently overwriting their edit.
+            await self._proposals.set_status(proposal, "superseded", reviewer_id)
+            msg = (
+                "the lesson changed after this proposal was drafted; it has been "
+                "marked superseded — run the improvement pass again"
+            )
+            raise ConflictError(msg)
+        # Re-validated at apply time, not just at draft time: the row could
+        # predate a validator change or have been written by an older build.
+        errors = validate_content_blocks(proposal.proposed_blocks) + check_media_immutable(
+            proposal.base_blocks, proposal.proposed_blocks
+        )
+        if errors:
+            msg = "the proposed blocks are not valid: " + "; ".join(errors[:5])
+            raise ConflictError(msg)
+        # Same write path as ContentService.update_lesson — whole-array overwrite
+        # with the ephemeral SAS urls stripped. Called at the repository layer
+        # because services never call other services (python-be-architecture.md).
+        await self._content.update_lesson(
+            lesson, {"content_blocks": strip_ephemeral(list(proposal.proposed_blocks))}
+        )
+        await self._proposals.set_status(proposal, "approved", reviewer_id)
 
     async def _lessons_awaiting_draft(self) -> list[tuple[Lesson, list[Feedback]]]:
         """Lessons with accepted feedback that no pending/approved/failed
