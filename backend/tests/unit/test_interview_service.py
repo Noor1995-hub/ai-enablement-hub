@@ -317,3 +317,41 @@ async def test_generate_retries_on_llm_error_then_succeeds() -> None:
 
     assert isinstance(result, PlaybookShared)
     assert llm.calls == 2
+
+
+async def test_build_playbook_strips_ready_marker_from_transcript() -> None:
+    # The interviewer appends [[READY_TO_BUILD]] to its build-offer turn (a UI signal);
+    # it must not bleed into the generation transcript.
+    llm = FakeLlmClient(chunks=[], structured=_EXTRACTION)
+    service, conversations, messages, _context = _service(llm)
+    conversation = _conversation(summary=None)
+    conversations.list_for_user.return_value = [conversation]
+    messages.list_for_conversation.return_value = [
+        SimpleNamespace(role="user", content="hi"),
+        SimpleNamespace(
+            role="assistant",
+            content="Great — want me to build your playbook?\n[[READY_TO_BUILD]]",
+        ),
+    ]
+    user = _user()
+
+    await service.build_playbook(user=user)  # ty: ignore[invalid-argument-type]
+
+    system = llm.structured_calls[0]["system"]
+    assert isinstance(system, str)
+    assert "[[READY_TO_BUILD]]" not in system
+    assert "want me to build your playbook?" in system
+
+
+async def test_get_admin_view_strips_ready_marker_from_transcript() -> None:
+    llm = FakeLlmClient(chunks=[])
+    service, conversations, messages, _context = _service(llm)
+    conversation = _conversation(summary=_EXTRACTION)
+    conversations.list_for_user.return_value = [conversation]
+    messages.list_for_conversation.return_value = [
+        SimpleNamespace(role="assistant", content="Ready when you are.\n[[READY_TO_BUILD]]"),
+    ]
+
+    result = await service.get_admin_view(user_id=uuid.uuid4())
+
+    assert result.transcript[0].content == "Ready when you are."

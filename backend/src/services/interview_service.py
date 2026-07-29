@@ -31,6 +31,15 @@ _KIND = "interview"
 _MAX_TOKENS = 8192
 _GENERATE_PROMPT = "Produce the playbook now by calling the record_playbook tool."
 
+# The interviewer appends this marker to the turn where it offers to build the playbook
+# (prompts/interview.md) — a UI signal the frontend detects to reveal the build button.
+# It's not conversation, so strip it from both the generation transcript and the admin view.
+_READY_MARKER = "[[READY_TO_BUILD]]"
+
+
+def _strip_ready_marker(text: str) -> str:
+    return text.replace(_READY_MARKER, "").rstrip() if _READY_MARKER in text else text
+
 
 class InterviewService:
     """Owns the interviewer's wrap-up generation (retry-once structured LLM
@@ -73,7 +82,7 @@ class InterviewService:
             return PlaybookShared.model_validate(conversation.summary["shared"])
 
         rows = await self._messages.list_for_conversation(conversation.id)
-        transcript = "\n".join(f"{m.role}: {m.content}" for m in rows)
+        transcript = "\n".join(f"{m.role}: {_strip_ready_marker(m.content)}" for m in rows)
         assessment = await self._context.build_assessment_context(user)
         system = (
             load_prompt("interview_playbook")
@@ -109,7 +118,9 @@ class InterviewService:
             return AdminInterviewResponse(status="not_started", transcript=[])
 
         rows = await self._messages.list_for_conversation(conversation.id)
-        transcript = [TranscriptMessage(role=m.role, content=m.content) for m in rows]
+        transcript = [
+            TranscriptMessage(role=m.role, content=_strip_ready_marker(m.content)) for m in rows
+        ]
 
         if conversation.summary is None:
             return AdminInterviewResponse(status="in_progress", transcript=transcript)

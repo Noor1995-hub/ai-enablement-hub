@@ -6,7 +6,7 @@
 // docs/design-prototypes/ai-interviewer/mockup.html's "Welcome" screen, restyled onto
 // the hub's real design system (index.css --dlw-* tokens), the same idiom as
 // pages/JourneyHome.tsx and pages/Assessment.tsx.
-import { useEffect, useState, type CSSProperties, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent } from 'react'
 import AppNav from '../components/AppNav'
 import Spinner from '../components/Spinner'
 import Playbook from '../components/interview/Playbook'
@@ -15,6 +15,36 @@ import { useChat } from '../lib/useChat'
 import type { InterviewState } from '../types/domain'
 
 type Phase = 'loading' | 'welcome' | 'chat' | 'building' | 'done'
+
+/** Fallback floor: if the interviewer never signals readiness, the manual build still
+ *  unlocks once the learner has sent this many answers, so no one is ever stuck. The
+ *  primary path is the model's own readiness signal (READY_MARKER). */
+const FALLBACK_MIN_ANSWERS = 6
+
+/** Server caps chat message content at 4000 chars (backend/src/schemas/chat.py); over that is
+ *  a 422. Guard the input so it can't be exceeded. */
+const MAX_INPUT = 4000
+
+/** The interviewer appends this marker (backend/prompts/interview.md) to the turn where it
+ *  offers to build the playbook — the signal to reveal the button. Always stripped from
+ *  display; the learner never sees it. */
+const READY_MARKER = '[[READY_TO_BUILD]]'
+
+/** Strip the readiness marker from an assistant message for display, and report whether the
+ *  full marker has arrived. Also hides a trailing *partial* marker so it never flashes while
+ *  the message streams in a few characters at a time. */
+function parseReadySignal(content: string): { text: string; ready: boolean } {
+  if (content.includes(READY_MARKER)) {
+    return { text: content.split(READY_MARKER).join('').trimEnd(), ready: true }
+  }
+  const max = Math.min(content.length, READY_MARKER.length - 1)
+  for (let n = max; n > 0; n--) {
+    if (READY_MARKER.startsWith(content.slice(content.length - n))) {
+      return { text: content.slice(0, content.length - n).trimEnd(), ready: false }
+    }
+  }
+  return { text: content, ready: false }
+}
 
 const s = {
   page: { minHeight: '100vh', background: '#fff', display: 'flex', flexDirection: 'column' },
@@ -87,11 +117,12 @@ const s = {
 
   privacyNotice: { fontSize: 11.5, fontWeight: 300, color: 'var(--dlw-muted)', textAlign: 'center', padding: '8px 18px 0', margin: 0 },
 
-  chatForm: { display: 'flex', gap: 10, alignItems: 'center', padding: '14px 18px', borderTop: '1px solid var(--dlw-border)' },
+  chatForm: { display: 'flex', gap: 10, alignItems: 'flex-end', padding: '14px 18px', borderTop: '1px solid var(--dlw-border)' },
   chatInput: {
-    flex: 1, padding: '11px 16px', borderRadius: 999,
+    flex: 1, padding: '11px 16px', borderRadius: 16,
     border: '1.5px solid var(--dlw-border)', fontFamily: 'var(--dlw-font-body)',
-    fontSize: 14.5, color: 'var(--dlw-text)', outline: 'none', boxSizing: 'border-box',
+    fontSize: 14.5, lineHeight: 1.45, color: 'var(--dlw-text)', outline: 'none',
+    boxSizing: 'border-box', resize: 'none', maxHeight: 140, overflowY: 'auto',
   },
   chatSend: { padding: '11px 24px', flexShrink: 0 },
 
@@ -158,18 +189,55 @@ interface ChatScreenProps {
 
 function ChatScreen({ chat, buildError, onBuildPlaybook }: ChatScreenProps) {
   const [input, setInput] = useState('')
+  const messagesRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
 
-  // The placeholder assistant bubble `send()` appends while streaming starts out
-  // empty — don't count that as "the interviewer has replied" or the button would
-  // enable a beat before any real content lands.
-  const hasAssistantReply = chat.messages.some(m => m.role === 'assistant' && m.content.trim().length > 0)
+  // Strip the readiness marker for display and detect the interviewer's build-offer signal.
+  // `modelReady` is sticky: the marker lives in a past assistant message, which persists.
+  const display = chat.messages.map(m =>
+    m.role === 'assistant'
+      ? { role: m.role, ...parseReadySignal(m.content) }
+      : { role: m.role, text: m.content, ready: false },
+  )
+  const modelReady = display.some(d => d.ready)
+  const answerCount = chat.messages.filter(m => m.role === 'user').length
+  // Primary: reveal when the interviewer signals it's ready. Fallback: after the floor.
+  const canBuild = modelReady || answerCount >= FALLBACK_MIN_ANSWERS
 
-  function onSubmit(e: FormEvent) {
-    e.preventDefault()
+  // Pin the latest turn into view as messages arrive and stream in (keyed on message
+  // count + the last message's length so it follows both new turns and streaming growth).
+  const lastContentLen = chat.messages[chat.messages.length - 1]?.content.length ?? 0
+  useEffect(() => {
+    const el = messagesRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [chat.messages.length, lastContentLen])
+
+  // Grow the input vertically with its content (long / multi-line answers); CSS maxHeight caps it.
+  useEffect(() => {
+    const el = inputRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight}px`
+  }, [input])
+
+  function submit() {
     const trimmed = input.trim()
     if (!trimmed || chat.loading) return
     setInput('')
     void chat.send(trimmed)
+  }
+
+  function onSubmit(e: FormEvent) {
+    e.preventDefault()
+    submit()
+  }
+
+  // Enter sends; Shift+Enter inserts a newline so learners can draft multi-line answers.
+  function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      submit()
+    }
   }
 
   return (
@@ -177,31 +245,36 @@ function ChatScreen({ chat, buildError, onBuildPlaybook }: ChatScreenProps) {
       <div style={s.chatShell}>
         <div style={s.chatToolbar}>
           <p style={s.chatToolbarHint}>
-            {hasAssistantReply
-              ? "You can keep chatting as long as you like — build your playbook whenever you're ready."
-              : 'Say hello to get started.'}
+            {modelReady
+              ? "Your playbook's ready to build whenever you are — or keep chatting to add more."
+              : canBuild
+                ? 'You can build your playbook now, or keep going for a richer result.'
+                : answerCount === 0
+                  ? 'Say hello to get started.'
+                  : 'Keep going — the more you share, the better your playbook.'}
           </p>
-          <button
-            type="button"
-            className="btn-red"
-            style={{ ...s.btnPrimary, ...s.btnSmall, ...(!hasAssistantReply ? s.btnPrimaryDisabled : {}) }}
-            disabled={!hasAssistantReply}
-            onClick={onBuildPlaybook}
-          >
-            Build my playbook
-          </button>
+          {canBuild && (
+            <button
+              type="button"
+              className="btn-red"
+              style={{ ...s.btnPrimary, ...s.btnSmall }}
+              onClick={onBuildPlaybook}
+            >
+              Build my playbook
+            </button>
+          )}
         </div>
 
-        <div style={s.messages}>
+        <div style={s.messages} ref={messagesRef}>
           {chat.messages.length === 0 && (
             <p style={s.emptyHint}>Say hello to begin the interview.</p>
           )}
-          {chat.messages.map((m, i) => (
+          {display.map((m, i) => (
             <div
               key={i}
               style={{ ...s.bubble, ...(m.role === 'user' ? s.bubbleUser : s.bubbleAssistant) }}
             >
-              {m.content}
+              {m.text}
             </div>
           ))}
           {chat.error && <p style={s.chatError}>{chat.error}</p>}
@@ -213,11 +286,15 @@ function ChatScreen({ chat, buildError, onBuildPlaybook }: ChatScreenProps) {
         </p>
 
         <form onSubmit={onSubmit} style={s.chatForm}>
-          <input
+          <textarea
+            ref={inputRef}
             value={input}
             onChange={e => setInput(e.target.value)}
-            placeholder="Type your answer…"
+            onKeyDown={onKeyDown}
+            placeholder="Type your answer…  (Shift+Enter for a new line)"
             style={s.chatInput}
+            rows={1}
+            maxLength={MAX_INPUT}
             disabled={chat.loading}
           />
           <button
@@ -242,7 +319,8 @@ function BuildingScreen() {
       <Spinner />
       <h2 style={s.buildingTitle}>Building your playbook&hellip;</h2>
       <p style={s.buildingSub}>
-        Turning our conversation into practical use-cases and clear next steps.
+        Turning our conversation into practical use-cases and clear next steps. This usually takes
+        a minute or two — hang tight and keep this tab open; your playbook will appear here.
       </p>
     </div>
   )
