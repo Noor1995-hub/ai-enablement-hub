@@ -271,6 +271,23 @@ export function useInterview(userId: string | null) {
   })
 }
 
+async function resetInterview(userId: string): Promise<void> {
+  const { error } = await client.DELETE('/api/admin/interviews/{user_id}', {
+    params: { path: { user_id: userId } },
+  })
+  if (error) throw new Error(errorMessage(error, 'Failed to reset the interview.'))
+}
+
+export function useResetInterview() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: resetInterview,
+    onSuccess: (_data, userId) => {
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'interview', userId] })
+    },
+  })
+}
+
 // ── Mutations ───────────────────────────────────────────────────────────────────────────────
 // Every mutation below just invalidates the query keys it can affect; optimistic patches are a
 // screen-level concern for later Phase C tasks.

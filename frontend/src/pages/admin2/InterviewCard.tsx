@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react'
 import Playbook from '../../components/interview/Playbook'
 import { s } from '../admin/adminStyles'
 import type { AdminInterview, PlaybookInternal } from '../../types/domain'
-import { useInterview } from './api'
+import { useInterview, useResetInterview } from './api'
 import { Chip, EmptyState, ErrorState, Spinner } from './kit'
 import type { ChipTone } from './kit'
 
@@ -20,6 +20,7 @@ const TIER_TONE: Record<string, ChipTone> = {
  * (UserDetailPage.tsx's `useSurvey` wiring). */
 export default function InterviewCard({ userId }: { userId: string }) {
   const q = useInterview(userId)
+  const reset = useResetInterview()
 
   if (q.isLoading) {
     return (
@@ -69,6 +70,30 @@ export default function InterviewCard({ userId }: { userId: string }) {
       )}
 
       <TranscriptBlock transcript={data.transcript} />
+
+      <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid #F0EFED' }}>
+        <button
+          type="button"
+          className="adm-btn adm-btn-ghost adm-btn-sm"
+          disabled={reset.isPending}
+          onClick={() => {
+            if (
+              !window.confirm(
+                'Reset this interview? The conversation and generated playbook are permanently deleted; the learner starts fresh.',
+              )
+            )
+              return
+            reset.mutate(userId)
+          }}
+        >
+          {reset.isPending ? 'Resetting…' : 'Reset interview'}
+        </button>
+        {reset.isError && (
+          <p className="adm-form-msg adm-form-msg-err">
+            {reset.error instanceof Error ? reset.error.message : 'Failed to reset the interview.'}
+          </p>
+        )}
+      </div>
     </div>
   )
 }
