@@ -88,7 +88,13 @@ class _AnthropicReplyStream:
 
 
 class AnthropicLlmClient:
-    """Thin wrapper over `AsyncAnthropic` — mirrors how EmailService wraps ACS."""
+    """Thin wrapper over `AsyncAnthropic` — mirrors how EmailService wraps ACS.
+
+    Both calls disable thinking explicitly. From Sonnet 5 onward a request that
+    omits the field thinks by default, and `max_tokens` caps thinking *plus*
+    visible output — which the callers' budgets (300 for feedback triage, 1024
+    for chat) cannot absorb. Raise the caller's budget before turning it back on.
+    """
 
     def __init__(self, client: AsyncAnthropic, *, model: str) -> None:
         self._client = client
@@ -100,6 +106,7 @@ class AnthropicLlmClient:
         manager = self._client.messages.stream(
             model=self._model,
             max_tokens=max_tokens,
+            thinking={"type": "disabled"},
             system=system,
             messages=messages,  # ty: ignore[invalid-argument-type]
         )
@@ -111,6 +118,7 @@ class AnthropicLlmClient:
         message = await self._client.messages.create(
             model=self._model,
             max_tokens=max_tokens,
+            thinking={"type": "disabled"},
             system=system,
             messages=[{"role": "user", "content": prompt}],
             tools=[
