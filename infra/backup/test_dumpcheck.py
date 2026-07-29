@@ -107,3 +107,23 @@ def test_select_prunable_never_touches_names_it_cannot_parse():
 def test_select_prunable_prunes_globals_too():
     names = ["ai-enablement-hub/2026/06/01/globals-20260601T023000Z.sql"]
     assert select_prunable(names, NOW, keep_days=30) == names
+
+
+def test_backup_script_exits_2_when_required_env_is_missing():
+    """A misconfigured job must fail fast with exit code 2, not run pg_dump.
+
+    Also proves the Azure SDKs are imported *after* the config guard: this runs
+    on a machine where azure-storage-blob isn't installed.
+    """
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    script = Path(__file__).with_name("backup.py")
+    env = {k: v for k, v in os.environ.items() if k not in ("PGURL", "STORAGE_ACCOUNT")}
+    proc = subprocess.run(
+        [sys.executable, str(script)], capture_output=True, text=True, env=env
+    )
+    assert proc.returncode == 2, f"stdout={proc.stdout!r} stderr={proc.stderr!r}"
+    assert "PGURL" in proc.stderr
