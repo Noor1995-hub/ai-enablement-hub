@@ -87,67 +87,18 @@ export type AdminUsersResponseEnriched = components['schemas']['AdminUsersRespon
 export type AdminLearningResponseEnriched = components['schemas']['AdminLearningResponse']
 // --- end admin-redesign types ---
 
-// ── INTERIM interview types — swap to components['schemas'][...] aliases after `npm run gen:api`
-//    (the backend endpoints aren't in schema.d.ts yet). Mirrors backend/src/schemas/interview.py.
-export type Difficulty = 'Quick Win' | 'Worth a Session' | 'Bigger Build'
-export interface UseCase {
-  rank: number
-  start_here: boolean
-  name: string
-  pain_it_kills: string
-  in_practice: string
-  before: string
-  after: string
-  impact: string
-  difficulty: Difficulty
-  systems_involved: string[]
-  assumption_to_check: string | null
-  cross_functional: boolean
-}
-export interface NextMove {
-  order: number
-  move: string
-  why_now: string
-  linked_use_case: number
-}
-export interface Reframe {
-  their_hesitation: string
-  the_concern: string
-  reframe: string
-  first_proof: string
-}
-export interface DoThisToday {
-  action: string
-  time_required: string
-  why_this_one: string
-}
-export interface PlaybookShared {
-  where_you_are_today: string
-  use_cases: UseCase[]
-  next_moves: NextMove[]
-  reframes: Reframe[]
-  do_this_today: DoThisToday
-}
-export interface InterviewState {
-  status: 'not_started' | 'in_progress' | 'complete'
-  conversation_id?: string | null
-  playbook?: PlaybookShared | null
-}
-export interface PlaybookInternal {
-  input_quality: { tier: string; evidence: string; what_to_probe_next: string[] }
-  person: { role_reality: string; influence: string; decision_rights: string; champion_potential: string; confidence: string }
-  pains: { pain: string; evidence: string; frequency: string; est_time_cost: string; basis: string; confidence: string }[]
-  blockers: { stated: string[]; diagnosed: { type: string; reasoning: string; basis: string; confidence: string }[] }
-  maturity: { placement: string; behavioural_evidence: string; vs_self_reported: string; trajectory: string }
-  systems_landscape: { system: string; how_used: string; implication: string }[]
-  company_context: string
-  engagement_notes: { opportunities: string[]; risks: string[]; follow_up_questions: string[] }
-}
-export interface AdminInterview {
-  status: 'not_started' | 'in_progress' | 'complete'
-  tier?: string | null
-  internal?: PlaybookInternal | null
-  shared?: PlaybookShared | null
-  transcript: { role: string; content: string }[]
-}
-// --- end INTERIM interview types ---
+// ── Interview types — aliased onto the generated schema (runbook §3 gen:api swap).
+//    Formerly hand-written interim types mirroring backend/src/schemas/interview.py; now that the
+//    interview endpoints are in schema.d.ts, every name has a real components['schemas'][...]
+//    counterpart. The hand-written shapes matched field-for-field (incl. TranscriptMessage =
+//    {role,content}), so this is a pure zero-drift aliasing swap — typecheck is the proof.
+export type UseCase = components['schemas']['UseCase']
+export type Difficulty = UseCase['difficulty']
+export type NextMove = components['schemas']['NextMove']
+export type Reframe = components['schemas']['Reframe']
+export type DoThisToday = components['schemas']['DoThisToday']
+export type PlaybookShared = components['schemas']['PlaybookShared']
+export type PlaybookInternal = components['schemas']['PlaybookInternal']
+export type InterviewState = components['schemas']['InterviewStateResponse']
+export type AdminInterview = components['schemas']['AdminInterviewResponse']
+// --- end interview types ---

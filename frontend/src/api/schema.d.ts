@@ -1138,6 +1138,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/interview/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get My Interview State */
+        get: operations["get_my_interview_state_api_interview_me_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/interview/playbook": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create My Playbook */
+        post: operations["create_my_playbook_api_interview_playbook_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/interviews/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Admin Interview */
+        get: operations["get_admin_interview_api_admin_interviews__user_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Admin Interview */
+        delete: operations["delete_admin_interview_api_admin_interviews__user_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{project_id}/defaults": {
         parameters: {
             query?: never;
@@ -1333,6 +1385,20 @@ export interface components {
             created_at: string;
             /** Reviewed At */
             reviewed_at: string | null;
+        };
+        /** AdminInterviewResponse */
+        AdminInterviewResponse: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "not_started" | "in_progress" | "complete";
+            /** Tier */
+            tier?: string | null;
+            internal?: components["schemas"]["PlaybookInternal"] | null;
+            shared?: components["schemas"]["PlaybookShared"] | null;
+            /** Transcript */
+            transcript: components["schemas"]["TranscriptMessage"][];
         };
         /** AdminLearningLessonOut */
         AdminLearningLessonOut: {
@@ -1609,6 +1675,13 @@ export interface components {
             /** Entra */
             entra: boolean;
         };
+        /** Blockers */
+        Blockers: {
+            /** Stated */
+            stated: string[];
+            /** Diagnosed */
+            diagnosed: components["schemas"]["DiagnosedBlocker"][];
+        };
         /** Body_create_bulk_invites_api_admin_invites_bulk_post */
         Body_create_bulk_invites_api_admin_invites_bulk_post: {
             /** File */
@@ -1834,6 +1907,26 @@ export interface components {
             /** Track Ids */
             track_ids: string[];
         };
+        /** DiagnosedBlocker */
+        DiagnosedBlocker: {
+            /** Type */
+            type: string;
+            /** Reasoning */
+            reasoning: string;
+            /** Basis */
+            basis: string;
+            /** Confidence */
+            confidence: string;
+        };
+        /** DoThisToday */
+        DoThisToday: {
+            /** Action */
+            action: string;
+            /** Time Required */
+            time_required: string;
+            /** Why This One */
+            why_this_one: string;
+        };
         /** EmailTemplateOut */
         EmailTemplateOut: {
             /**
@@ -1875,6 +1968,15 @@ export interface components {
         EmailTemplatesResponse: {
             /** Templates */
             templates: components["schemas"]["EmailTemplateOut"][];
+        };
+        /** EngagementNotes */
+        EngagementNotes: {
+            /** Opportunities */
+            opportunities: string[];
+            /** Risks */
+            risks: string[];
+            /** Follow Up Questions */
+            follow_up_questions: string[];
         };
         /** EntraRedeemRequest */
         EntraRedeemRequest: {
@@ -1938,6 +2040,29 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** InputQuality */
+        InputQuality: {
+            /**
+             * Tier
+             * @enum {string}
+             */
+            tier: "RICH" | "PARTIAL" | "THIN";
+            /** Evidence */
+            evidence: string;
+            /** What To Probe Next */
+            what_to_probe_next: string[];
+        };
+        /** InterviewStateResponse */
+        InterviewStateResponse: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "not_started" | "in_progress" | "complete";
+            /** Conversation Id */
+            conversation_id?: string | null;
+            playbook?: components["schemas"]["PlaybookShared"] | null;
         };
         /** InviteInfoResponse */
         InviteInfoResponse: {
@@ -2133,6 +2258,17 @@ export interface components {
             /** Refresh Token */
             refresh_token: string;
         };
+        /** Maturity */
+        Maturity: {
+            /** Placement */
+            placement: string;
+            /** Behavioural Evidence */
+            behavioural_evidence: string;
+            /** Vs Self Reported */
+            vs_self_reported: string;
+            /** Trajectory */
+            trajectory: string;
+        };
         /** MaturityDistributionOut */
         MaturityDistributionOut: {
             /** Explore */
@@ -2262,6 +2398,78 @@ export interface components {
             /** Sort Order */
             sort_order: number;
         };
+        /** NextMove */
+        NextMove: {
+            /** Order */
+            order: number;
+            /** Move */
+            move: string;
+            /** Why Now */
+            why_now: string;
+            /** Linked Use Case */
+            linked_use_case: number;
+        };
+        /** Pain */
+        Pain: {
+            /** Pain */
+            pain: string;
+            /** Evidence */
+            evidence: string;
+            /** Frequency */
+            frequency: string;
+            /** Est Time Cost */
+            est_time_cost: string;
+            /**
+             * Basis
+             * @enum {string}
+             */
+            basis: "stated" | "inferred";
+            /** Confidence */
+            confidence: string;
+        };
+        /** Person */
+        Person: {
+            /** Role Reality */
+            role_reality: string;
+            /** Influence */
+            influence: string;
+            /** Decision Rights */
+            decision_rights: string;
+            /** Champion Potential */
+            champion_potential: string;
+            /** Confidence */
+            confidence: string;
+        };
+        /** PlaybookInternal */
+        PlaybookInternal: {
+            input_quality: components["schemas"]["InputQuality"];
+            person: components["schemas"]["Person"];
+            /** Pains */
+            pains: components["schemas"]["Pain"][];
+            blockers: components["schemas"]["Blockers"];
+            maturity: components["schemas"]["Maturity"];
+            /** Systems Landscape */
+            systems_landscape: components["schemas"]["SystemEntry"][];
+            /** Company Context */
+            company_context: string;
+            engagement_notes: components["schemas"]["EngagementNotes"];
+        };
+        /** PlaybookResponse */
+        PlaybookResponse: {
+            playbook: components["schemas"]["PlaybookShared"];
+        };
+        /** PlaybookShared */
+        PlaybookShared: {
+            /** Where You Are Today */
+            where_you_are_today: string;
+            /** Use Cases */
+            use_cases: components["schemas"]["UseCase"][];
+            /** Next Moves */
+            next_moves: components["schemas"]["NextMove"][];
+            /** Reframes */
+            reframes: components["schemas"]["Reframe"][];
+            do_this_today: components["schemas"]["DoThisToday"];
+        };
         /** PrerequisiteEdge */
         PrerequisiteEdge: {
             /**
@@ -2304,6 +2512,17 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** Reframe */
+        Reframe: {
+            /** Their Hesitation */
+            their_hesitation: string;
+            /** The Concern */
+            the_concern: string;
+            /** Reframe */
+            reframe: string;
+            /** First Proof */
+            first_proof: string;
         };
         /** RefreshRequest */
         RefreshRequest: {
@@ -2488,6 +2707,15 @@ export interface components {
              */
             updated_at: string;
         };
+        /** SystemEntry */
+        SystemEntry: {
+            /** System */
+            system: string;
+            /** How Used */
+            how_used: string;
+            /** Implication */
+            implication: string;
+        };
         /** TokenPairResponse */
         TokenPairResponse: {
             /** Access Token */
@@ -2570,6 +2798,43 @@ export interface components {
             required_level: string;
             /** Is Introduction */
             is_introduction: boolean;
+        };
+        /** TranscriptMessage */
+        TranscriptMessage: {
+            /** Role */
+            role: string;
+            /** Content */
+            content: string;
+        };
+        /** UseCase */
+        UseCase: {
+            /** Rank */
+            rank: number;
+            /** Start Here */
+            start_here: boolean;
+            /** Name */
+            name: string;
+            /** Pain It Kills */
+            pain_it_kills: string;
+            /** In Practice */
+            in_practice: string;
+            /** Before */
+            before: string;
+            /** After */
+            after: string;
+            /** Impact */
+            impact: string;
+            /**
+             * Difficulty
+             * @enum {string}
+             */
+            difficulty: "Quick Win" | "Worth a Session" | "Bigger Build";
+            /** Systems Involved */
+            systems_involved: string[];
+            /** Assumption To Check */
+            assumption_to_check: string | null;
+            /** Cross Functional */
+            cross_functional: boolean;
         };
         /** UserProfileResponse */
         UserProfileResponse: {
@@ -4432,6 +4697,106 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ConversationDetailResponse"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_my_interview_state_api_interview_me_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InterviewStateResponse"];
+                };
+            };
+        };
+    };
+    create_my_playbook_api_interview_playbook_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlaybookResponse"];
+                };
+            };
+        };
+    };
+    get_admin_interview_api_admin_interviews__user_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminInterviewResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_admin_interview_api_admin_interviews__user_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
