@@ -191,6 +191,18 @@ A backup nobody watches isn't a backup. Two cheap layers:
 
 ### 8. Restore runbook + one real drill (the acceptance test)
 
+**Amended 2026-07-29 during planning:** this section originally assumed restores could be
+driven from the maintainer's machine. That machine has **no `pg_restore`, no `psql`, no
+`pg_dump` and no Docker** (verified) — only `uv`, `git` and the `az` CLI. Requiring a
+Postgres-client install mid-outage is exactly the wrong dependency, so:
+
+- **Restores run in Azure**, as a second **manually-triggered** Container Apps Job
+  `ai-enablement-hub-db-restore` built from the **same image** (`restore.py` entrypoint).
+  It downloads a chosen (or the newest) dump and `pg_restore`s it into a target database.
+  It holds `Storage Blob Data Reader` on the container — it only ever downloads.
+- **Row-level inspection and cherry-picking run locally over `asyncpg`** (no binaries
+  needed), via committed `uv` scripts: `verify_restore.py`, `drill_db.py`, `copy_lesson.py`.
+
 New doc `docs/db-backup-restore.md`, covering three paths:
 
 1. **One table** — download a dated dump, `pg_restore -t <table> --data-only` into a
@@ -215,6 +227,8 @@ observed numbers are written into the runbook.
 
 - [ ] `infra/backup/Dockerfile` + `infra/backup/backup.py` committed; image built in ACR.
 - [ ] Container Apps Job exists, schedule `30 2 * * *`, system-assigned MI, DB secret set.
+- [ ] Manual restore job `ai-enablement-hub-db-restore` exists on the same image, with
+      `Storage Blob Data Reader` (not Contributor) on the container (see §8 amendment).
 - [ ] Private `db-backups` container exists; MI holds `Storage Blob Data Contributor`
       scoped to that container and nothing wider.
 - [ ] A **manually triggered** run (`az containerapp job start`) succeeds end-to-end and
@@ -261,3 +275,9 @@ Both are one command each and were flagged during design; neither is assumed:
   commands, that is a re-run of §"mutations", not a redesign.
 - **Daily granularity**: up to ~24 h of learner progress could be lost if PITR is also
   unavailable. Accepted (chosen cadence); PITR covers the sub-day window for 7 days.
+- **No local Postgres client tooling**: every restore goes through the Azure-side restore
+  job (§8 amendment). If that job or its environment is unavailable, the fallback is
+  installing PG 18 client tools locally — noted in the runbook so nobody discovers it
+  mid-incident.
+
+**Implementation plan:** [`../plans/2026-07-29-database-backups.md`](../plans/2026-07-29-database-backups.md)
