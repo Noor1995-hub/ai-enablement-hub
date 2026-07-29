@@ -5,6 +5,7 @@ import { LevelBadge, formatDate } from '../admin/adminHelpers'
 import SurveyResults from '../admin/SurveyResults'
 import { LEVELS, levelByCode } from '../../lib/levels'
 import type { AdminSurvey, AdminUserEnriched } from '../../types/domain'
+import InterviewCard from './InterviewCard'
 import {
   useAdminUsers,
   useDeleteUser,
@@ -153,6 +154,10 @@ export default function UserDetailPage() {
           <LearningProgressCard user={user} />
         </div>
       </div>
+
+      <Card title="AI interview">
+        <InterviewCard userId={userId} />
+      </Card>
     </div>
   )
 }

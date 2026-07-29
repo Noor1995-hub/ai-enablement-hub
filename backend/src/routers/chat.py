@@ -10,6 +10,7 @@ from fastapi.sse import EventSourceResponse, ServerSentEvent
 
 from src.core.dependencies.auth import get_current_user
 from src.core.dependencies.chat import ChatKind, get_chat_service, require_ai_surface
+from src.core.dependencies.interview import get_interview_context_service
 from src.core.dependencies.ratelimit import get_rate_limiter
 from src.core.ratelimit import RateLimiter
 from src.db.models import User
@@ -22,6 +23,7 @@ from src.schemas.chat import (
 )
 from src.services.chat_service import ChatService, DoneEvent, TokenEvent
 from src.services.exceptions import NotFoundError
+from src.services.interview_context import InterviewContextService
 
 if TYPE_CHECKING:
     from src.db.models import Conversation
@@ -82,6 +84,7 @@ class _PreparedChat:
     chat_service: ChatService
     conversation: Conversation
     content: str
+    system_suffix: str | None = None
 
 
 async def _prepare_chat_message(
@@ -90,6 +93,7 @@ async def _prepare_chat_message(
     user: CurrentUserDep,
     chat_service: ChatServiceDep,
     limiter: RateLimiterDep,
+    interview_context: Annotated[InterviewContextService, Depends(get_interview_context_service)],
 ) -> _PreparedChat:
     if chat_service is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chat is not configured")
@@ -100,7 +104,13 @@ async def _prepare_chat_message(
     conversation = await chat_service.resolve_conversation(
         user_id=user.id, kind=kind, conversation_id=body.conversation_id
     )
-    return _PreparedChat(chat_service=chat_service, conversation=conversation, content=body.content)
+    system_suffix = await interview_context.build_briefing(user) if kind == "interview" else None
+    return _PreparedChat(
+        chat_service=chat_service,
+        conversation=conversation,
+        content=body.content,
+        system_suffix=system_suffix,
+    )
 
 
 ChatRequestDep = Annotated[_PreparedChat, Depends(_prepare_chat_message)]
@@ -113,7 +123,9 @@ ChatRequestDep = Annotated[_PreparedChat, Depends(_prepare_chat_message)]
 )
 async def send_chat_message(chat_request: ChatRequestDep) -> AsyncIterator[ServerSentEvent]:
     async for event in chat_request.chat_service.send_message(
-        conversation=chat_request.conversation, content=chat_request.content
+        conversation=chat_request.conversation,
+        content=chat_request.content,
+        system_suffix=chat_request.system_suffix,
     ):
         if isinstance(event, TokenEvent):
             yield ServerSentEvent(data={"text": event.text}, event="token")

@@ -1,5 +1,5 @@
 import { useLayoutEffect } from 'react'
-import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import Spinner from './components/Spinner'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import AdminShell from './pages/admin2/AdminShell'
@@ -15,27 +15,13 @@ import UserDetailPage from './pages/admin2/UserDetailPage'
 import Assessment from './pages/Assessment'
 import AuthCallback from './pages/AuthCallback'
 import DevChat from './pages/DevChat'
+import Interview from './pages/Interview'
 import InviteRedirect from './pages/InviteRedirect'
 import JourneyHome from './pages/JourneyHome'
 import LearningPathNew from './pages/LearningPathNew'
 import LessonPage from './pages/LessonPage'
 import Login from './pages/Login'
 import SetPassword from './pages/SetPassword'
-
-function ComingSoon() {
-  const navigate = useNavigate()
-  return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, background: '#fff' }}>
-      <p style={{ fontSize: 17, fontWeight: 300, color: '#8A8A8A', margin: 0 }}>This component is coming soon.</p>
-      <button
-        style={{ background: 'none', border: '1px solid #E2E2E2', borderRadius: 999, padding: '9px 20px', cursor: 'pointer', fontSize: 14, color: '#8A8A8A', fontFamily: 'var(--dlw-font-body)' }}
-        onClick={() => navigate('/')}
-      >
-        ← Back to hub
-      </button>
-    </div>
-  )
-}
 
 // React Router v6 keeps the window scroll offset across navigations, so a route
 // like /learning could open mid-page (whatever you'd scrolled to before). Reset
@@ -58,7 +44,6 @@ function AppRoutes() {
   // via Microsoft and may never have a hub password at all.
   const needsPassword = session && passwordSet === false && !externalLogin
 
-  // /interview is ComingSoon in the old app too. Guard semantics are final.
   return (
     <Routes>
       <Route path="/login" element={session ? <Navigate to="/" replace /> : <Login />} />
@@ -88,7 +73,7 @@ function AppRoutes() {
           old graph page (/learning/old) + ModulePopup were removed 2026-07-09. */}
       <Route path="/learning" element={session ? <LearningPathNew /> : <Navigate to="/login" replace />} />
       <Route path="/learning/lesson/:lessonId" element={session ? <LessonPage /> : <Navigate to="/login" replace />} />
-      <Route path="/interview" element={session ? <ComingSoon /> : <Navigate to="/login" replace />} />
+      <Route path="/interview" element={session ? <Interview /> : <Navigate to="/login" replace />} />
       {/* Temporary Batch A dev-only verification route for the AI chat foundation.
           Admin-only (the AI-enable toggles now live on /admin/projects; this is just
           the ChatPanel harness). Delete once Batch B mounts ChatPanel for real. */}

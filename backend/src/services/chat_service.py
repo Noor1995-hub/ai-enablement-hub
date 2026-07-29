@@ -76,10 +76,12 @@ class ChatService:
         return conversation, messages
 
     async def send_message(
-        self, *, conversation: Conversation, content: str
+        self, *, conversation: Conversation, content: str, system_suffix: str | None = None
     ) -> AsyncIterator[ChatStreamEvent]:
         await self._messages.create(conversation.id, role="user", content=content, metadata=None)
         system_prompt = load_prompt(conversation.kind)
+        if system_suffix:
+            system_prompt = f"{system_prompt}\n\n{system_suffix}"
         history = await self._history_for(conversation.id)
 
         chunks: list[str] = []

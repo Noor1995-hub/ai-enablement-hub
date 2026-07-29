@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { client, errorMessage } from '../../api/client'
 import type {
   AdminFeedbackListResponse,
+  AdminInterview,
   AdminLearningResponseEnriched,
   AdminLearningUserEnriched,
   AdminSurvey,
@@ -263,6 +264,37 @@ export function useSurvey(userId: string | null) {
     queryKey: ['admin', 'survey', userId] as const,
     queryFn: () => fetchSurvey(userId as string),
     enabled: userId !== null,
+  })
+}
+
+async function fetchInterview(userId: string): Promise<AdminInterview> {
+  const { data, error } = await rawRequest<AdminInterview>('GET', `/api/admin/interviews/${userId}`)
+  if (!data) throw new Error(errorMessage(error, "Failed to load the user's interview."))
+  return data
+}
+
+export function useInterview(userId: string | null) {
+  return useQuery({
+    queryKey: ['admin', 'interview', userId] as const,
+    queryFn: () => fetchInterview(userId as string),
+    enabled: userId !== null,
+  })
+}
+
+async function resetInterview(userId: string): Promise<void> {
+  const { error } = await client.DELETE('/api/admin/interviews/{user_id}', {
+    params: { path: { user_id: userId } },
+  })
+  if (error) throw new Error(errorMessage(error, 'Failed to reset the interview.'))
+}
+
+export function useResetInterview() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: resetInterview,
+    onSuccess: (_data, userId) => {
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'interview', userId] })
+    },
   })
 }
 
