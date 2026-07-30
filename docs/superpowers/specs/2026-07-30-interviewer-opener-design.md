@@ -108,8 +108,10 @@ round-2 **item 4** (wiring interview status through the hub JourneyHome pill).
   - LLM failure → **no** conversation is created and `DomainError` is raised.
 - **Backend router** (`tests/unit/` interview router tests): `POST /api/interview/opener`
   returns 200 with `{conversation_id, greeting}`; returns 403 without the interview surface.
-- **Frontend** (Vitest): opener fires exactly once on a fresh start and renders the greeting;
-  does **not** fire on resume (existing conversation).
+- **Frontend**: the repo has no Vitest harness (FE is verified by the gate:
+  `npm run typecheck && npm run lint && npm run build`). The opener behaviour (fires once on
+  a fresh start, renders the greeting, does **not** fire on resume) is verified by the gate
+  plus a Playwright smoke against the running app, not a new unit-test framework.
 
 ## Non-goals (v1)
 
