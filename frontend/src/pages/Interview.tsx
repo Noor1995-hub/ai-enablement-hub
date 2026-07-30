@@ -10,7 +10,7 @@ import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type K
 import AppNav from '../components/AppNav'
 import Spinner from '../components/Spinner'
 import Playbook from '../components/interview/Playbook'
-import { buildPlaybook, getInterviewState } from '../lib/interviewApi'
+import { buildPlaybook, getInterviewState, openInterview } from '../lib/interviewApi'
 import { useChat } from '../lib/useChat'
 import type { InterviewState } from '../types/domain'
 
@@ -190,9 +190,12 @@ interface ChatScreenProps {
   chat: ReturnType<typeof useChat>
   buildError: string | null
   onBuildPlaybook: () => void
+  opening: boolean
+  openError: string | null
+  onRetryOpen: () => void
 }
 
-function ChatScreen({ chat, buildError, onBuildPlaybook }: ChatScreenProps) {
+function ChatScreen({ chat, buildError, onBuildPlaybook, opening, openError, onRetryOpen }: ChatScreenProps) {
   const [input, setInput] = useState('')
   const messagesRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -267,7 +270,18 @@ function ChatScreen({ chat, buildError, onBuildPlaybook }: ChatScreenProps) {
         </div>
 
         <div style={s.messages} ref={messagesRef}>
-          {chat.messages.length === 0 && (
+          {chat.messages.length === 0 && opening && (
+            <p style={s.emptyHint}>Starting the interview…</p>
+          )}
+          {chat.messages.length === 0 && !opening && openError && (
+            <div style={{ textAlign: 'center', marginTop: 40 }}>
+              <p style={s.chatError}>{openError}</p>
+              <button type="button" className="btn-red" style={{ ...s.btnPrimary, ...s.btnSmall, marginTop: 12 }} onClick={onRetryOpen}>
+                Try again
+              </button>
+            </div>
+          )}
+          {chat.messages.length === 0 && !opening && !openError && (
             <p style={s.emptyHint}>Say hello to begin the interview.</p>
           )}
           {display.map((m, i) => (
@@ -347,6 +361,9 @@ export default function Interview() {
   const [phase, setPhase] = useState<Phase>('loading')
   const [loadError, setLoadError] = useState<string | null>(null)
   const [buildError, setBuildError] = useState<string | null>(null)
+  const [opening, setOpening] = useState(false)
+  const [openError, setOpenError] = useState<string | null>(null)
+  const openedRef = useRef(false)
 
   useEffect(() => {
     let cancelled = false
@@ -359,6 +376,7 @@ export default function Interview() {
         if (data.status === 'not_started') {
           setPhase('welcome')
         } else if (data.status === 'in_progress') {
+          openedRef.current = true
           setPhase('chat')
           if (data.conversation_id) void chat.loadConversation(data.conversation_id)
         } else {
@@ -376,6 +394,24 @@ export default function Interview() {
     // effect must run exactly once regardless of the fresh `chat` object identity each render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  function runOpener() {
+    setOpening(true)
+    setOpenError(null)
+    openInterview()
+      .then(({ conversation_id }) => chat.loadConversation(conversation_id))
+      .catch((e: unknown) =>
+        setOpenError(e instanceof Error ? e.message : 'Could not start the interview.'),
+      )
+      .finally(() => setOpening(false))
+  }
+
+  function handleStart() {
+    setPhase('chat')
+    if (openedRef.current) return
+    openedRef.current = true
+    runOpener()
+  }
 
   function handleBuildPlaybook() {
     setPhase('building')
@@ -400,9 +436,16 @@ export default function Interview() {
         ) : phase === 'loading' ? (
           <div style={s.loadingWrap}><Spinner /></div>
         ) : phase === 'welcome' ? (
-          <WelcomeScreen onStart={() => setPhase('chat')} />
+          <WelcomeScreen onStart={handleStart} />
         ) : phase === 'chat' ? (
-          <ChatScreen chat={chat} buildError={buildError} onBuildPlaybook={handleBuildPlaybook} />
+          <ChatScreen
+            chat={chat}
+            buildError={buildError}
+            onBuildPlaybook={handleBuildPlaybook}
+            opening={opening}
+            openError={openError}
+            onRetryOpen={runOpener}
+          />
         ) : phase === 'building' ? (
           <BuildingScreen />
         ) : state?.playbook ? (
