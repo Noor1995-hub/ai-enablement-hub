@@ -35,6 +35,7 @@ from src.routers import (
     auth_entra,
     chat,
     feedback,
+    interview,
     learning,
     me,
     survey,
@@ -189,6 +190,8 @@ app.include_router(admin_email_templates.router)
 app.include_router(admin_content.router)
 app.include_router(admin_media.router)
 app.include_router(chat.router)
+app.include_router(interview.router)
+app.include_router(interview.admin_router)
 app.include_router(admin_defaults.router)
 app.include_router(admin_feedback.router)
 app.include_router(admin_content_improvement.router)

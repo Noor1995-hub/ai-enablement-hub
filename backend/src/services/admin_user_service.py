@@ -92,6 +92,13 @@ class AdminUserService:
             user_counts = counts.get(user.id, {})
             assigned_total = sum(assigned for assigned, _ in user_counts.values())
             completed_total = sum(completed for _, completed in user_counts.values())
+            track_progress: dict[uuid.UUID, tuple[int, int]] = {}
+            for mid, (assigned, completed) in user_counts.items():
+                tid = module_track.get(mid)
+                if tid is None:
+                    continue
+                prev_assigned, prev_completed = track_progress.get(tid, (0, 0))
+                track_progress[tid] = (prev_assigned + assigned, prev_completed + completed)
             activated = user.password_set or user.external_id is not None
             assigned_tracks = track_map.get(user.id, [])
             in_progress = {
@@ -136,6 +143,10 @@ class AdminUserService:
                     "assigned_track_ids": assigned_tracks,
                     "assigned_module_ids": module_map.get(user.id, []),
                     "assigned_lesson_ids": lesson_map.get(user.id, []),
+                    "track_progress": {
+                        tid: {"assigned": a, "completed": c}
+                        for tid, (a, c) in track_progress.items()
+                    },
                     "maturity_override": user.maturity_override,
                     "effective_maturity": effective.get(user.id),
                     "last_active_at": last_active_at,

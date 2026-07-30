@@ -8,9 +8,9 @@ import { useAiSettings, useComponents, useCompanies, useToggleAiSetting, useTogg
 import { Card, EmptyState, ErrorState, Spinner } from './kit'
 import { useScope } from './useScope'
 
-/** AI surfaces that get their own row below the component list. `assessment` is not
- * here — it rides as a third toggle on the Assessment component row — and `interview`
- * is intentionally not exposed (redundant with the Interview component). */
+/** AI surfaces that get their own row below the component list. `assessment` and
+ * `interview` are not here — each rides as a third toggle on its own component row
+ * (Assessment / Interview), since both are also journey components. */
 const AI_ROWS: { kind: AiSurfaceKind; label: string }[] = [
   { kind: 'chatbot', label: 'Chatbot' },
   { kind: 'lesson', label: 'Lesson helper' },
@@ -112,9 +112,9 @@ export default function ProjectsPage() {
 /** One project card's settings — component access AND AI surfaces. With N projects,
  * hooks can't run in a loop at the page level, so each card owns its own
  * queries/mutations via this child component (the established per-row-owns-its-query
- * pattern; c.f. Matrix.tsx at a different grain). The `assessment` AI surface rides as
- * a third toggle on the Assessment component row; `chatbot`/`lesson` get their own rows
- * (AI_ROWS); the `interview` surface is intentionally not exposed. */
+ * pattern; c.f. Matrix.tsx at a different grain). The `assessment` and `interview` AI
+ * surfaces each ride as a third toggle on their own component row; `chatbot`/`lesson`
+ * get their own rows (AI_ROWS). */
 function ProjectSettingsToggles({ projectId }: { projectId: string }) {
   const componentsQuery = useComponents(projectId)
   const aiQuery = useAiSettings(projectId)
@@ -205,15 +205,15 @@ function ProjectSettingsToggles({ projectId }: { projectId: string }) {
               />
               unlocked
             </label>
-            {comp === 'assessment' && (
+            {(comp === 'assessment' || comp === 'interview') && (
               <label className="adm-switch-label">
                 <button
                   type="button"
-                  className={`adm-switch${aiData.assessment?.enabled ? ' on' : ''}`}
-                  disabled={busyKey === 'ai-assessment'}
-                  aria-pressed={aiData.assessment?.enabled ?? false}
-                  aria-label="Assessment AI enabled"
-                  onClick={() => void handleToggleAi('assessment', aiData.assessment?.enabled ?? false)}
+                  className={`adm-switch${aiData[comp]?.enabled ? ' on' : ''}`}
+                  disabled={busyKey === `ai-${comp}`}
+                  aria-pressed={aiData[comp]?.enabled ?? false}
+                  aria-label={`${COMPONENT_LABELS[comp]} AI enabled`}
+                  onClick={() => void handleToggleAi(comp, aiData[comp]?.enabled ?? false)}
                 />
                 AI enabled
               </label>

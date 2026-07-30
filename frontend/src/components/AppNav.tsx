@@ -5,7 +5,10 @@ import { useAuth } from '../contexts/AuthContext'
 const s = {
   nav:      { flexShrink: 0, zIndex: 20, background: '#fff', borderBottom: '1px solid #E2E2E2', display: 'flex', alignItems: 'center', padding: '0 40px', height: 64 },
   left:     { flex: '1 1 0', display: 'flex', alignItems: 'center', gap: 12 },
-  center:   { flex: '1 1 0', display: 'flex', justifyContent: 'center', fontFamily: 'var(--dlw-font-body)', fontWeight: 700, fontSize: 30, textTransform: 'capitalize', color: '#8A8A8A', pointerEvents: 'none' },
+  // Centered title. Font shrinks with viewport (clamp) so it stays on one line on
+  // normal widths; on very narrow screens it wraps to two centered lines rather than
+  // truncating — the reduced font keeps two lines inside the 64px bar. No ellipsis.
+  center:   { flex: '1 1 0', minWidth: 0, textAlign: 'center', lineHeight: 1.15, fontFamily: 'var(--dlw-font-body)', fontWeight: 700, fontSize: 'clamp(16px, 2.5vw, 30px)', textTransform: 'capitalize', color: '#8A8A8A', pointerEvents: 'none' },
   right:    { flex: '1 1 0', position: 'relative', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10 },
   logo:     { height: 28, width: 'auto', display: 'block' },
   divider:  { width: 1, height: 20, background: '#E2E2E2', flexShrink: 0 },

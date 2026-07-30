@@ -1040,6 +1040,38 @@ class TestAdminUserEnrichment:
         entry = next(u for u in overview["users"] if u["id"] == str(user.id))
         assert entry["default_track_ids"] == [str(track.id)]
 
+    async def test_track_progress_sums_completion_per_track(
+        self, client: AsyncClient, db_session: AsyncSession, org: Org
+    ) -> None:
+        """track_progress additively surfaces per-track (assigned, completed)
+        lesson counts, summed across every module in the track — a user
+        detail concern the aggregate assigned_lesson_count/completed_lesson_count
+        can't answer on its own."""
+        user = await create_user(
+            db_session, email="track-progress@example.com", project_id=org.project.id
+        )
+        track = await create_track(db_session, "Progress Track")
+        module_a = await create_module(db_session, track, "Progress Module A")
+        module_b = await create_module(db_session, track, "Progress Module B")
+        lesson_a1 = await create_lesson(db_session, module_a, "A1", sort_order=0)
+        lesson_a2 = await create_lesson(db_session, module_a, "A2", sort_order=1)
+        lesson_b1 = await create_lesson(db_session, module_b, "B1", sort_order=0)
+        await assign_track(db_session, user, track)
+        await assign_lesson(db_session, user, lesson_a1)
+        await assign_lesson(db_session, user, lesson_a2)
+        await assign_lesson(db_session, user, lesson_b1)
+        # Partial completion: 1 of 3 assigned lessons done across the track.
+        await complete_lesson(db_session, user, lesson_a1)
+
+        response = await client.get(
+            f"/api/admin/users?project_id={org.project.id}", headers=org.headers
+        )
+        assert response.status_code == 200
+        entry = next(
+            u for u in response.json()["users"] if u["email"] == "track-progress@example.com"
+        )
+        assert entry["track_progress"][str(track.id)] == {"assigned": 3, "completed": 1}
+
 
 class TestAdminUsersPagination:
     """Task 9: q/status filters + limit/offset pagination on /admin/users and

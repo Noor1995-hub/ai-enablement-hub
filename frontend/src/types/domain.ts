@@ -107,3 +107,19 @@ export type CalibrationNoteOut = components['schemas']['CalibrationNoteOut']
 export type CalibrationNoteListResponse = components['schemas']['CalibrationNoteListResponse']
 export type CalibrationNoteStatus = CalibrationNoteOut['status']
 export type CalibrationNoteGraduateResponse = components['schemas']['CalibrationNoteGraduateResponse']
+
+// ── Interview types — aliased onto the generated schema (runbook §3 gen:api swap).
+//    Formerly hand-written interim types mirroring backend/src/schemas/interview.py; now that the
+//    interview endpoints are in schema.d.ts, every name has a real components['schemas'][...]
+//    counterpart. The hand-written shapes matched field-for-field (incl. TranscriptMessage =
+//    {role,content}), so this is a pure zero-drift aliasing swap — typecheck is the proof.
+export type UseCase = components['schemas']['UseCase']
+export type Difficulty = UseCase['difficulty']
+export type NextMove = components['schemas']['NextMove']
+export type Reframe = components['schemas']['Reframe']
+export type DoThisToday = components['schemas']['DoThisToday']
+export type PlaybookShared = components['schemas']['PlaybookShared']
+export type PlaybookInternal = components['schemas']['PlaybookInternal']
+export type InterviewState = components['schemas']['InterviewStateResponse']
+export type AdminInterview = components['schemas']['AdminInterviewResponse']
+// --- end interview types ---
