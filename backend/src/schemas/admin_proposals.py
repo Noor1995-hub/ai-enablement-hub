@@ -7,7 +7,9 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 __all__ = [
+    "MAX_LESSONS_PER_RUN",
     "CalibrationNoteBrief",
+    "ImprovementRunRequest",
     "ImprovementRunResponse",
     "LearnCardOut",
     "ProposalDetailOut",
@@ -16,6 +18,8 @@ __all__ = [
     "ProposalReviewRequest",
     "ProposalReviewResponse",
     "ProposalSummaryOut",
+    "QueueItemOut",
+    "QueueResponse",
 ]
 
 # 'failed' means the agent could not draft a revision for that lesson; the row
@@ -106,11 +110,48 @@ class ProposalReviewResponse(BaseModel):
     status: ProposalStatus
 
 
+# One click fans out to this many whole-lesson rewrites at most. The ceiling is
+# the run's time budget, not the model: see _RUN_BUDGET_SECONDS in
+# services/content_improvement_service.py, which must stay under the container
+# ingress timeout.
+MAX_LESSONS_PER_RUN = 3
+
+
+class ImprovementRunRequest(BaseModel):
+    """The lessons the admin picked out of the queue. Explicit on purpose — a
+    run that chose for itself would spend money on lessons nobody asked about."""
+
+    lesson_ids: list[uuid.UUID] = Field(min_length=1, max_length=MAX_LESSONS_PER_RUN)
+
+
 class ImprovementRunResponse(BaseModel):
     """`proposed` = drafts created; `skipped` = lessons the agent could not
     draft (each recorded as a `failed` proposal carrying the reason);
-    `remaining` = lessons the bounded run did not reach."""
+    `deferred` = lessons the AI provider was too busy for, still queued and
+    retried by the next run; `remaining` = selected lessons the bounded run did
+    not reach; `not_queued` = requested lessons that were already drafted."""
 
     proposed: int
     skipped: int
+    deferred: int
     remaining: int
+    not_queued: int
+
+
+class QueueItemOut(BaseModel):
+    """One lesson awaiting a draft. `track_id` is nullable because the queue's
+    module/track labels come from a second read — a lesson whose track row went
+    away still needs to be pickable."""
+
+    lesson_id: uuid.UUID
+    lesson_title: str
+    module_title: str
+    track_id: uuid.UUID | None
+    track_name: str
+    track_level: str
+    feedback_count: int
+
+
+class QueueResponse(BaseModel):
+    items: list[QueueItemOut]
+    total: int

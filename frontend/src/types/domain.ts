@@ -95,6 +95,9 @@ export type ProposalDetailOut = components['schemas']['ProposalDetailOut']
 export type ProposalStatus = ProposalSummaryOut['status']
 export type ProposalReviewResponse = components['schemas']['ProposalReviewResponse']
 export type ImprovementRunResponse = components['schemas']['ImprovementRunResponse']
+// The picker's option list: lessons with accepted feedback no proposal covers yet.
+export type ImprovementQueueItem = components['schemas']['QueueItemOut']
+export type ImprovementQueueResponse = components['schemas']['QueueResponse']
 export type LearnCardOut = components['schemas']['LearnCardOut']
 export type CalibrationNoteBrief = components['schemas']['CalibrationNoteBrief']
 

@@ -12,6 +12,7 @@ from src.core.ratelimit import RateLimiter
 from src.db.models import User
 from src.schemas.admin_proposals import (
     CalibrationNoteBrief,
+    ImprovementRunRequest,
     ImprovementRunResponse,
     LearnCardOut,
     ProposalDetailOut,
@@ -19,6 +20,8 @@ from src.schemas.admin_proposals import (
     ProposalReviewRequest,
     ProposalReviewResponse,
     ProposalSummaryOut,
+    QueueItemOut,
+    QueueResponse,
 )
 from src.services.content_improvement_service import ContentImprovementService
 
@@ -40,19 +43,42 @@ _NOT_CONFIGURED = HTTPException(
 )
 
 
+@router.get("/queue", response_model=QueueResponse)
+async def list_draft_queue(service: ImprovementServiceDep) -> QueueResponse:
+    """The lessons an admin can pick to redraft: accepted feedback that no
+    proposal covers yet, oldest feedback first.
+
+    Unpaginated on purpose — this is the picker's option list, and an admin
+    choosing from it needs to see the whole queue, not page one of it. It stays
+    small by construction: a lesson leaves as soon as a draft or a `failed`
+    proposal covers its feedback.
+    """
+    if service is None:
+        raise _NOT_CONFIGURED
+    items = await service.list_queue()
+    return QueueResponse(
+        items=[QueueItemOut.model_validate(item) for item in items], total=len(items)
+    )
+
+
 @router.post("/run", response_model=ImprovementRunResponse)
 async def run_improvement_pass(
+    body: ImprovementRunRequest,
     service: ImprovementServiceDep,
     admin: Annotated[User, Depends(require_admin)],
     limiter: RateLimiterDep,
-    max_lessons: Annotated[int, Query(ge=1, le=3)] = 3,
 ) -> ImprovementRunResponse:
-    """Draft revisions for lessons with accepted, not-yet-incorporated feedback.
+    """Draft revisions for the lessons the admin picked out of `GET /queue`.
 
-    Admin-triggered, bounded and synchronous: `max_lessons` caps the fan-out and
-    the service carries a per-lesson timeout plus an overall budget, so one
-    click can never hold the request past the ingress timeout. Nothing here
-    touches a live lesson — every draft lands as a `pending` proposal.
+    Admin-triggered, bounded and synchronous: the request caps the selection at
+    MAX_LESSONS_PER_RUN and the service carries a per-lesson timeout plus an
+    overall budget, so one click can never hold the request past the ingress
+    timeout. Nothing here touches a live lesson — every draft lands as a
+    `pending` proposal.
+
+    A lesson id that is no longer queued is reported in `not_queued` rather than
+    404ing the whole call: with two admins on the page, one drafting a lesson
+    must not fail the other's batch.
 
     Not project-scoped on purpose: lessons are shared catalogue content, not
     per-project, so a "run for project X" would be a category error.
@@ -65,8 +91,14 @@ async def run_improvement_pass(
             detail="Too many improvement passes — try again shortly",
             headers={"Retry-After": "120"},
         )
-    proposed, skipped, remaining = await service.run(max_lessons=max_lessons)
-    return ImprovementRunResponse(proposed=proposed, skipped=skipped, remaining=remaining)
+    outcome = await service.run(lesson_ids=body.lesson_ids)
+    return ImprovementRunResponse(
+        proposed=outcome.proposed,
+        skipped=outcome.skipped,
+        deferred=outcome.deferred,
+        remaining=outcome.remaining,
+        not_queued=outcome.not_queued,
+    )
 
 
 @router.get("", response_model=ProposalListResponse)

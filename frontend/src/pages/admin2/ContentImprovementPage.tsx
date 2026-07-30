@@ -1,9 +1,15 @@
 import { useEffect, useState } from 'react'
 import { formatDate } from '../admin/adminHelpers'
 import { resolveTrackColor } from '../../lib/trackColors'
-import type { CalibrationNoteBrief, ProposalStatus, ProposalSummaryOut } from '../../types/domain'
+import type {
+  CalibrationNoteBrief,
+  ImprovementRunResponse,
+  ProposalStatus,
+  ProposalSummaryOut,
+} from '../../types/domain'
 import LessonEditor from '../../components/lesson/LessonEditor'
 import CalibrationNotesQueue from './CalibrationNotesQueue'
+import DraftQueuePicker from './DraftQueuePicker'
 import ProposalDiff from './ProposalDiff'
 import {
   PROPOSAL_PAGE_SIZE,
@@ -39,6 +45,7 @@ export default function ContentImprovementPage() {
   const [tab, setTab] = useState<Tab>('proposals')
   const [status, setStatus] = useState<StatusFilter>('pending')
   const [page, setPage] = useState(1)
+  const [picking, setPicking] = useState(false)
   const run = useRunImprovement()
   // Owned by the PAGE, not by the row that triggers it. Accepting a proposal
   // flips it to `approved`, which drops it from the default `pending` filter as
@@ -48,6 +55,12 @@ export default function ContentImprovementPage() {
   const learnCard = useGenerateLearnCard()
 
   useEffect(() => setPage(1), [status])
+  // The picker lives in the proposals body, so leaving the tab unmounts it while
+  // `picking` stays true — coming back would silently re-open it with the
+  // selection already lost. Close it on the way out instead.
+  useEffect(() => {
+    if (tab !== 'proposals') setPicking(false)
+  }, [tab])
 
   const { data, isLoading, error, refetch } = useProposals({ status, page })
   const pendingCountQuery = useProposals({ status: 'pending', limit: 1 })
@@ -97,24 +110,32 @@ export default function ContentImprovementPage() {
             ))}
           </div>
           <div className="adm-push-right">
-            <ConfirmButton
-              label="Draft proposals"
-              confirmLabel="Yes, draft"
-              busy={run.isPending}
-              onConfirm={() => run.mutate(3)}
-              tone="neutral"
-            />
+            <button
+              type="button"
+              className="adm-btn adm-btn-primary adm-btn-sm"
+              disabled={run.isPending}
+              onClick={() => setPicking(true)}
+            >
+              {run.isPending ? 'Drafting…' : 'Draft proposals…'}
+            </button>
           </div>
         </div>
 
-        {run.isSuccess && (
-          <p className="adm-subtext">
-            Drafted {run.data.proposed} proposal{run.data.proposed === 1 ? '' : 's'}
-            {run.data.skipped > 0 && ` · ${run.data.skipped} lesson${run.data.skipped === 1 ? '' : 's'} could not be drafted (see the Failed tab)`}
-            {run.data.remaining > 0 && ` · ${run.data.remaining} lesson${run.data.remaining === 1 ? '' : 's'} still waiting — run again`}
-            {run.data.proposed === 0 && run.data.skipped === 0 && run.data.remaining === 0 && ' — nothing was waiting'}
-          </p>
+        {picking && (
+          <DraftQueuePicker
+            busy={run.isPending}
+            onClose={() => setPicking(false)}
+            onDraft={lessonIds => {
+              // Close on submit, not on success: the run takes tens of seconds
+              // per lesson and its result is reported by the page below, so
+              // holding the modal open would just block the queue behind it.
+              setPicking(false)
+              run.mutate(lessonIds)
+            }}
+          />
         )}
+
+        {run.isSuccess && <RunOutcomeLine outcome={run.data} />}
         {run.isError && (
           <p className="adm-form-msg adm-form-msg-err">
             {run.error instanceof Error ? run.error.message : 'Failed to run the improvement pass.'}
@@ -140,7 +161,7 @@ export default function ContentImprovementPage() {
         {data.items.length === 0 ? (
           <EmptyState
             title="No proposals here."
-            hint="Accept some lesson feedback, then use “Draft proposals”."
+            hint="Accept some lesson feedback, then use “Draft proposals…” to pick which lessons to redraft."
           />
         ) : (
           data.items.map(item => <ProposalRow key={item.id} item={item} learnCard={learnCard} />)
@@ -426,6 +447,39 @@ function ProposalRow({ item, learnCard }: ProposalRowProps) {
       )}
     </div>
   )
+}
+
+/** What the run just did, in the terms the admin's next action depends on.
+ *
+ * `deferred` is called out separately from `skipped` because they need opposite
+ * responses: a skipped lesson has a card on the Failed tab that has to be
+ * dismissed by hand, while a deferred one is still in the picker and just needs
+ * another go once the provider has capacity. Reporting a 529 as "could not be
+ * drafted" is what made this feature feel broken.
+ */
+function RunOutcomeLine({ outcome }: { outcome: ImprovementRunResponse }) {
+  const { proposed, skipped, deferred, remaining, not_queued: notQueued } = outcome
+  const parts: string[] = []
+  if (proposed > 0) parts.push(`Drafted ${proposed} proposal${proposed === 1 ? '' : 's'}`)
+  if (skipped > 0) {
+    parts.push(
+      `${skipped} lesson${skipped === 1 ? '' : 's'} could not be drafted (see the Failed tab)`,
+    )
+  }
+  if (deferred > 0) {
+    parts.push(
+      `the AI provider was busy for ${deferred} lesson${deferred === 1 ? '' : 's'} — still queued, try again in a minute`,
+    )
+  }
+  if (remaining > 0) {
+    parts.push(`${remaining} selected lesson${remaining === 1 ? '' : 's'} ran out of time`)
+  }
+  if (notQueued > 0) {
+    parts.push(`${notQueued} lesson${notQueued === 1 ? '' : 's'} had already been drafted`)
+  }
+
+  const tone = deferred > 0 || skipped > 0 ? 'adm-form-msg adm-form-msg-err' : 'adm-subtext'
+  return <p className={tone}>{parts.length > 0 ? parts.join(' · ') : 'Nothing was drafted.'}</p>
 }
 
 function statusTone(status: ProposalStatus): ChipTone {

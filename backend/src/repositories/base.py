@@ -364,6 +364,19 @@ class AbstractContentRepository(ABC):
         (admin learning overview)."""
 
     @abstractmethod
+    async def lesson_context(
+        self, lesson_ids: list[uuid.UUID]
+    ) -> dict[uuid.UUID, tuple[str, uuid.UUID, str, str]]:
+        """Module/track labels for the given lessons, keyed by lesson id, as
+        `(module_title, track_id, track_name, track_level)`.
+
+        One batched read for a list of lessons the caller already has — the
+        content-improvement queue needs the same Track/Module chips the proposal
+        rows show. A lesson id with no row in the result simply has no context;
+        callers must tolerate that rather than assume every id comes back.
+        """
+
+    @abstractmethod
     async def count_tracks_by_ids(self, track_ids: list[uuid.UUID]) -> int:
         """How many of the given track ids exist (bulk-assignment validation)."""
 

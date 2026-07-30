@@ -25,6 +25,7 @@ import type {
   DefaultsUpdateRequest,
   FeedbackStatus,
   FeedbackStatusUpdateRequest,
+  ImprovementQueueResponse,
   ImprovementRunResponse,
   LearnCardOut,
   LinkResponse,
@@ -631,9 +632,16 @@ export function useSetMaturity() {
   })
 }
 
-async function resetLink(userId: string): Promise<LinkResponse> {
+export interface ResetLinkInput {
+  userId: string
+  /** false = the "Create reset link" action: mint the link, never email it. */
+  sendEmail: boolean
+}
+
+async function resetLink({ userId, sendEmail }: ResetLinkInput): Promise<LinkResponse> {
   const { data, error } = await client.POST('/api/admin/users/{user_id}/reset-link', {
     params: { path: { user_id: userId } },
+    body: { send_email: sendEmail },
   })
   if (!data) throw new Error(errorMessage(error, 'Failed to generate a reset link.'))
   return data
@@ -887,22 +895,46 @@ export function useProposal(proposalId: string | null) {
   })
 }
 
-async function runImprovement(maxLessons: number): Promise<ImprovementRunResponse> {
+/** Mirrors MAX_LESSONS_PER_RUN in backend/src/schemas/admin_proposals.py, which
+ * refuses a bigger selection with a 422. The ceiling is the run's time budget
+ * against the container ingress timeout — change both together. */
+export const MAX_LESSONS_PER_RUN = 3
+
+async function fetchImprovementQueue(): Promise<ImprovementQueueResponse> {
+  const { data, error } = await rawRequest<ImprovementQueueResponse>('GET', '/api/admin/content-improvement/queue')
+  if (!data) throw new Error(errorMessage(error, 'Failed to load the draft queue.'))
+  return data
+}
+
+/** The lessons that can be redrafted right now. Cheap (two plain reads, no model
+ * call), so unlike useRunImprovement this is safe to fetch when the picker opens. */
+export function useImprovementQueue(enabled: boolean) {
+  return useQuery({
+    queryKey: ['admin', 'improvement-queue'] as const,
+    queryFn: fetchImprovementQueue,
+    enabled,
+  })
+}
+
+async function runImprovement(lessonIds: string[]): Promise<ImprovementRunResponse> {
   const { data, error } = await rawRequest<ImprovementRunResponse>('POST', '/api/admin/content-improvement/run', {
-    params: { query: { max_lessons: maxLessons } },
+    body: { lesson_ids: lessonIds },
   })
   if (!data) throw new Error(errorMessage(error, 'Failed to run the improvement pass.'))
   return data
 }
 
-/** Drafts proposals for lessons with accepted feedback. Deliberately a button, never fired on
- * mount: each lesson costs a large model call, and the backend bounds the fan-out per request. */
+/** Drafts proposals for the lessons the admin picked. Deliberately a button, never fired on
+ * mount: each lesson costs a large model call, and the backend bounds the fan-out per request.
+ * Invalidates the QUEUE as well as the proposal list — a drafted lesson leaves the picker, and
+ * a deferred one has to stay in it. */
 export function useRunImprovement() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: runImprovement,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['admin', 'proposals'] })
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'improvement-queue'] })
     },
   })
 }

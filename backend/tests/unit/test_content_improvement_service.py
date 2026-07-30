@@ -7,6 +7,9 @@ from typing import Any
 from unittest import mock
 from unittest.mock import AsyncMock
 
+import anthropic
+import httpx
+
 from src.repositories.base import (
     AbstractCalibrationNoteRepository,
     AbstractContentRepository,
@@ -23,6 +26,14 @@ _GOOD_BLOCKS = [
     {"id": "b1", "type": "heading", "level": 2, "text": "Prompting basics"},
     {"id": "b2", "type": "paragraph", "text": "Be specific, and give an example."},
 ]
+
+
+def _overloaded() -> Exception:
+    """The real 529 a run hits when Anthropic is at capacity."""
+    request = httpx.Request("POST", "https://api.anthropic.com/v1/messages")
+    return anthropic.OverloadedError(
+        "Overloaded", response=httpx.Response(529, request=request), body=None
+    )
 
 
 class _ScriptedLlm:
@@ -80,6 +91,7 @@ def _service(
     feedback = AsyncMock(spec=AbstractFeedbackRepository)
     feedback.list_accepted_with_lesson.return_value = pairs
     content = AsyncMock(spec=AbstractContentRepository)
+    content.lesson_context.return_value = {}
     service = ContentImprovementService(
         proposals,
         feedback,
@@ -96,9 +108,10 @@ async def test_drafts_one_proposal_per_lesson_with_provenance() -> None:
     llm = _ScriptedLlm([{"proposed_blocks": _GOOD_BLOCKS, "summary": "Added an example."}])
     service, proposals, content = _service([(one, lesson), (two, lesson)], llm=llm)
 
-    proposed, skipped, remaining = await service.run(max_lessons=3)
+    outcome = await service.run(lesson_ids=[lesson.id])
 
-    assert (proposed, skipped, remaining) == (1, 0, 0)
+    assert (outcome.proposed, outcome.skipped, outcome.deferred) == (1, 0, 0)
+    assert (outcome.remaining, outcome.not_queued) == (0, 0)
     # One call for the lesson, not one per feedback item.
     assert len(llm.prompts) == 1
     proposals.create.assert_awaited_once()
@@ -113,6 +126,81 @@ async def test_drafts_one_proposal_per_lesson_with_provenance() -> None:
     content.update_lesson.assert_not_awaited()
 
 
+async def test_only_the_selected_lessons_are_drafted() -> None:
+    # THE point of explicit selection: a queue of three, one picked, one call.
+    wanted, other, third = _lesson("Wanted"), _lesson("Other"), _lesson("Third")
+    llm = _ScriptedLlm([{"proposed_blocks": _GOOD_BLOCKS, "summary": "s"}])
+    service, proposals, _content = _service(
+        [(_feedback("a"), wanted), (_feedback("b"), other), (_feedback("c"), third)], llm=llm
+    )
+
+    outcome = await service.run(lesson_ids=[wanted.id])
+
+    assert (outcome.proposed, outcome.skipped, outcome.deferred) == (1, 0, 0)
+    # The two lessons the admin did not pick are untouched, not "remaining":
+    # they were never part of this run's work.
+    assert (outcome.remaining, outcome.not_queued) == (0, 0)
+    assert len(llm.prompts) == 1
+    assert proposals.create.await_args.kwargs["lesson_id"] == wanted.id
+
+
+async def test_an_id_that_is_no_longer_queued_is_reported_not_silently_dropped() -> None:
+    # Two admins with the page open: the other one drafted this lesson already.
+    lesson = _lesson()
+    llm = _ScriptedLlm([])
+    service, proposals, _content = _service([], llm=llm)
+
+    outcome = await service.run(lesson_ids=[lesson.id])
+
+    assert (outcome.proposed, outcome.skipped, outcome.not_queued) == (0, 0, 1)
+    assert llm.prompts == []
+    proposals.create.assert_not_awaited()
+
+
+async def test_an_empty_selection_makes_no_model_calls() -> None:
+    lesson = _lesson()
+    llm = _ScriptedLlm([])
+    service, proposals, _content = _service([(_feedback("a"), lesson)], llm=llm)
+
+    outcome = await service.run(lesson_ids=[])
+
+    assert outcome == content_improvement_service.RunOutcome(0, 0, 0, 0, 0)
+    assert llm.prompts == []
+    proposals.create.assert_not_awaited()
+
+
+async def test_a_transient_provider_error_leaves_the_lesson_queued() -> None:
+    # The 529 case. No proposal row of ANY status, so the lesson's feedback stays
+    # uncovered and the next run picks it up -- no "Dismiss and retry later"
+    # click needed. This is the whole point of the deferred count.
+    lesson = _lesson()
+    llm = _ScriptedLlm([_overloaded()])
+    service, proposals, content = _service([(_feedback("a"), lesson)], llm=llm)
+
+    outcome = await service.run(lesson_ids=[lesson.id])
+
+    assert (outcome.proposed, outcome.skipped, outcome.deferred) == (0, 0, 1)
+    proposals.create.assert_not_awaited()
+    content.update_lesson.assert_not_awaited()
+
+
+async def test_a_transient_error_on_one_lesson_does_not_abort_the_others() -> None:
+    first, second = _lesson("First"), _lesson("Second")
+    llm = _ScriptedLlm(
+        [_overloaded(), {"proposed_blocks": _GOOD_BLOCKS, "summary": "Second one worked."}]
+    )
+    service, proposals, _content = _service(
+        [(_feedback("a"), first), (_feedback("b"), second)], llm=llm
+    )
+
+    outcome = await service.run(lesson_ids=[first.id, second.id])
+
+    assert (outcome.proposed, outcome.skipped, outcome.deferred) == (1, 0, 1)
+    # Exactly one row: the success. The deferred lesson wrote nothing.
+    assert proposals.create.await_count == 1
+    assert proposals.create.await_args.kwargs["lesson_id"] == second.id
+
+
 async def test_prompt_carries_the_lesson_and_every_feedback_message() -> None:
     lesson = _lesson()
     llm = _ScriptedLlm([{"proposed_blocks": _GOOD_BLOCKS, "summary": "s"}])
@@ -120,7 +208,7 @@ async def test_prompt_carries_the_lesson_and_every_feedback_message() -> None:
         [(_feedback("too abstract"), lesson), (_feedback("add an example"), lesson)], llm=llm
     )
 
-    await service.run(max_lessons=3)
+    await service.run(lesson_ids=[lesson.id])
 
     prompt = llm.prompts[0]
     assert "Prompting basics" in prompt
@@ -138,7 +226,7 @@ async def test_system_prompt_composes_house_style_before_the_task_prompt() -> No
     llm = _ScriptedLlm([{"proposed_blocks": _GOOD_BLOCKS, "summary": "s"}])
     service, _proposals, _content = _service([(_feedback("a"), lesson)], llm=llm)
 
-    await service.run(max_lessons=3)
+    await service.run(lesson_ids=[lesson.id])
 
     system = llm.systems[0]
     assert "Artefact" in system  # distinctive string from house_style.md
@@ -179,7 +267,7 @@ async def test_the_notes_repository_is_read_once_per_run_not_once_per_lesson() -
         [(first, lesson_a), (second, lesson_b)], llm=llm, notes=notes
     )
 
-    await service.run(max_lessons=3)
+    await service.run(lesson_ids=[lesson_a.id, lesson_b.id])
 
     assert len(llm.prompts) == 2
     # The limit is asserted, not just the call: hardcoding limit=1 here would
@@ -195,19 +283,29 @@ async def test_already_incorporated_feedback_is_not_redrafted() -> None:
     llm = _ScriptedLlm([])
     service, proposals, _content = _service([(done, lesson)], covered={done.id}, llm=llm)
 
-    assert await service.run(max_lessons=3) == (0, 0, 0)
+    outcome = await service.run(lesson_ids=[lesson.id])
+
+    # Covered feedback leaves the lesson out of the queue entirely, so asking
+    # for it by id is a not_queued miss rather than a wasted model call.
+    assert (outcome.proposed, outcome.not_queued) == (0, 1)
     assert llm.prompts == []
     proposals.create.assert_not_awaited()
 
 
-async def test_max_lessons_bounds_the_run_and_reports_what_is_left() -> None:
+async def test_the_run_budget_stops_the_batch_and_reports_what_is_left() -> None:
     first, second = _lesson("First"), _lesson("Second")
     llm = _ScriptedLlm([{"proposed_blocks": _GOOD_BLOCKS, "summary": "s"}])
     service, _proposals, _content = _service(
         [(_feedback("a"), first), (_feedback("b"), second)], llm=llm
     )
 
-    assert await service.run(max_lessons=1) == (1, 0, 1)
+    # A budget that is already spent after the first lesson: the second is never
+    # attempted, and must be reported as remaining rather than silently dropped.
+    with mock.patch.object(content_improvement_service, "_RUN_BUDGET_SECONDS", 0.0):
+        outcome = await service.run(lesson_ids=[first.id, second.id])
+
+    assert (outcome.proposed, outcome.remaining) == (0, 2)
+    assert llm.prompts == []
 
 
 async def test_invalid_blocks_are_never_stored_as_a_pending_proposal() -> None:
@@ -217,9 +315,9 @@ async def test_invalid_blocks_are_never_stored_as_a_pending_proposal() -> None:
     )
     service, proposals, content = _service([(_feedback("a"), lesson)], llm=llm)
 
-    proposed, skipped, _remaining = await service.run(max_lessons=3)
+    outcome = await service.run(lesson_ids=[lesson.id])
 
-    assert (proposed, skipped) == (0, 1)
+    assert (outcome.proposed, outcome.skipped, outcome.deferred) == (0, 1, 0)
     content.update_lesson.assert_not_awaited()
     # Recorded as a `failed` proposal so this lesson stops re-consuming runs.
     assert proposals.create.await_args.kwargs["status"] == "failed"
@@ -229,7 +327,7 @@ async def test_invalid_blocks_are_never_stored_as_a_pending_proposal() -> None:
 async def test_a_card_missing_a_nested_id_is_repaired_not_rejected() -> None:
     # 66 of the 91 lessons in db/baseline/data/lessons.json have cards or quiz
     # questions with no `id`, and the agent is told to copy unchanged blocks
-    # through verbatim — so rejecting an id-less nested item would fail on most
+    # through verbatim -- so rejecting an id-less nested item would fail on most
     # of the real catalogue, forever. The draft path normalises instead, and
     # the minted ids are what gets STORED (approving heals the live lesson).
     lesson = _lesson()
@@ -249,9 +347,9 @@ async def test_a_card_missing_a_nested_id_is_repaired_not_rejected() -> None:
     )
     service, proposals, content = _service([(_feedback("a"), lesson)], llm=llm)
 
-    proposed, skipped, _remaining = await service.run(max_lessons=3)
+    outcome = await service.run(lesson_ids=[lesson.id])
 
-    assert (proposed, skipped) == (1, 0)
+    assert (outcome.proposed, outcome.skipped) == (1, 0)
     content.update_lesson.assert_not_awaited()
     kwargs = proposals.create.await_args.kwargs
     assert kwargs.get("status", "pending") == "pending"
@@ -275,9 +373,9 @@ async def test_duplicate_block_ids_are_still_rejected() -> None:
     )
     service, proposals, content = _service([(_feedback("a"), lesson)], llm=llm)
 
-    proposed, skipped, _remaining = await service.run(max_lessons=3)
+    outcome = await service.run(lesson_ids=[lesson.id])
 
-    assert (proposed, skipped) == (0, 1)
+    assert (outcome.proposed, outcome.skipped) == (0, 1)
     content.update_lesson.assert_not_awaited()
     assert proposals.create.await_args.kwargs["status"] == "failed"
     assert "duplicate id" in proposals.create.await_args.kwargs["summary"]
@@ -292,9 +390,9 @@ async def test_a_new_media_locator_is_rejected() -> None:
     llm = _ScriptedLlm([{"proposed_blocks": invented, "summary": "s"}])
     service, proposals, _content = _service([(_feedback("a"), lesson)], llm=llm)
 
-    proposed, skipped, _remaining = await service.run(max_lessons=3)
+    outcome = await service.run(lesson_ids=[lesson.id])
 
-    assert (proposed, skipped) == (0, 1)
+    assert (outcome.proposed, outcome.skipped) == (0, 1)
     assert proposals.create.await_args.kwargs["status"] == "failed"
     assert "made-up.png" in proposals.create.await_args.kwargs["summary"]
 
@@ -316,9 +414,9 @@ async def test_a_changed_block_with_an_em_dash_produces_a_failed_proposal_not_pe
     )
     service, proposals, content = _service([(_feedback("a"), lesson)], llm=llm)
 
-    proposed, skipped, _remaining = await service.run(max_lessons=3)
+    outcome = await service.run(lesson_ids=[lesson.id])
 
-    assert (proposed, skipped) == (0, 1)
+    assert (outcome.proposed, outcome.skipped) == (0, 1)
     content.update_lesson.assert_not_awaited()
     kwargs = proposals.create.await_args.kwargs
     assert kwargs["status"] == "failed"
@@ -330,13 +428,15 @@ async def test_an_empty_block_array_is_rejected() -> None:
     llm = _ScriptedLlm([{"proposed_blocks": [], "summary": "wiped it"}])
     service, proposals, _content = _service([(_feedback("a"), lesson)], llm=llm)
 
-    proposed, skipped, _remaining = await service.run(max_lessons=3)
+    outcome = await service.run(lesson_ids=[lesson.id])
 
-    assert (proposed, skipped) == (0, 1)
+    assert (outcome.proposed, outcome.skipped) == (0, 1)
     assert proposals.create.await_args.kwargs["status"] == "failed"
 
 
-async def test_a_model_error_is_recorded_and_does_not_abort_the_batch() -> None:
+async def test_an_unknown_model_error_is_recorded_and_does_not_abort_the_batch() -> None:
+    # An unrecognised exception is TERMINAL, unlike the 529 above: re-queueing
+    # on every unknown failure would let one poison lesson eat every run.
     first, second = _lesson("First"), _lesson("Second")
     llm = _ScriptedLlm(
         [
@@ -348,9 +448,9 @@ async def test_a_model_error_is_recorded_and_does_not_abort_the_batch() -> None:
         [(_feedback("a"), first), (_feedback("b"), second)], llm=llm
     )
 
-    proposed, skipped, remaining = await service.run(max_lessons=3)
+    outcome = await service.run(lesson_ids=[first.id, second.id])
 
-    assert (proposed, skipped, remaining) == (1, 1, 0)
+    assert (outcome.proposed, outcome.skipped, outcome.deferred) == (1, 1, 0)
     assert proposals.create.await_count == 2
 
 
@@ -359,15 +459,17 @@ async def test_an_oversized_lesson_is_skipped_without_a_model_call() -> None:
     llm = _ScriptedLlm([])
     service, proposals, _content = _service([(_feedback("a"), huge)], llm=llm)
 
-    proposed, skipped, _remaining = await service.run(max_lessons=3)
+    outcome = await service.run(lesson_ids=[huge.id])
 
-    assert (proposed, skipped) == (0, 1)
+    assert (outcome.proposed, outcome.skipped) == (0, 1)
     assert llm.prompts == []
     assert proposals.create.await_args.kwargs["status"] == "failed"
     assert "character" in proposals.create.await_args.kwargs["summary"]
 
 
 async def test_a_hanging_call_times_out_and_counts_as_skipped() -> None:
+    # A timeout is TERMINAL, not deferred: a lesson that always exceeds the
+    # per-lesson budget would otherwise consume the whole run every time.
     lesson = _lesson()
 
     class _HangingLlm:
@@ -390,16 +492,45 @@ async def test_a_hanging_call_times_out_and_counts_as_skipped() -> None:
     )
 
     with mock.patch.object(content_improvement_service, "_PER_LESSON_TIMEOUT_SECONDS", 0.01):
-        proposed, skipped, _remaining = await service.run(max_lessons=3)
+        outcome = await service.run(lesson_ids=[lesson.id])
 
-    assert (proposed, skipped) == (0, 1)
+    assert (outcome.proposed, outcome.skipped, outcome.deferred) == (0, 1, 0)
     assert proposals.create.await_args.kwargs["status"] == "failed"
 
 
-async def test_empty_queue_makes_no_model_calls() -> None:
-    llm = _ScriptedLlm([])
-    service, proposals, _content = _service([], llm=llm)
+async def test_the_queue_lists_lessons_awaiting_a_draft_with_their_feedback_count() -> None:
+    lesson = _lesson("Prompting basics")
+    other = _lesson("Beyond chat")
+    service, _proposals, content = _service(
+        [
+            (_feedback("too abstract"), lesson),
+            (_feedback("add an example"), lesson),
+            (_feedback("confusing"), other),
+        ]
+    )
+    content.lesson_context.return_value = {
+        lesson.id: ("Module A", uuid.uuid4(), "General I", "explore"),
+        other.id: ("Module B", uuid.uuid4(), "General II", "practitioner"),
+    }
 
-    assert await service.run(max_lessons=3) == (0, 0, 0)
-    assert llm.prompts == []
-    proposals.create.assert_not_awaited()
+    items = await service.list_queue()
+
+    assert [item["lesson_title"] for item in items] == ["Prompting basics", "Beyond chat"]
+    assert [item["feedback_count"] for item in items] == [2, 1]
+    assert items[0]["module_title"] == "Module A"
+    assert items[0]["track_name"] == "General I"
+    assert items[0]["track_level"] == "explore"
+
+
+async def test_a_queued_lesson_whose_track_is_missing_still_lists() -> None:
+    # lesson_context is a separate read, so a lesson whose module/track row went
+    # away between the two queries must not blank the whole picker.
+    lesson = _lesson("Orphaned")
+    service, _proposals, content = _service([(_feedback("a"), lesson)])
+    content.lesson_context.return_value = {}
+
+    items = await service.list_queue()
+
+    assert len(items) == 1
+    assert items[0]["lesson_title"] == "Orphaned"
+    assert items[0]["feedback_count"] == 1
