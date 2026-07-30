@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import ValidationError
 
@@ -94,6 +94,16 @@ class InterviewService:
             conversation_id=conversation.id,
             playbook=PlaybookShared.model_validate(conversation.summary["shared"]),
         )
+
+    async def status_for(
+        self, *, user: User
+    ) -> Literal["not_started", "in_progress", "complete"]:
+        """The journey-pill status, derived from the same source as get_state
+        but without materialising the playbook."""
+        conversation = await self._interview_conversation(user.id)
+        if conversation is None:
+            return "not_started"
+        return "in_progress" if conversation.summary is None else "complete"
 
     async def open_interview(self, *, user: User) -> InterviewOpenerResponse:
         """Generate the AI's opening greeting for a fresh interview. Idempotent:

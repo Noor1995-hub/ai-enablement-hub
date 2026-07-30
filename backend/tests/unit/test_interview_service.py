@@ -244,6 +244,21 @@ async def test_get_state_transitions() -> None:
     assert isinstance(state.playbook, PlaybookShared)
 
 
+async def test_status_for_reflects_conversation_state() -> None:
+    llm = FakeLlmClient(chunks=[])
+    service, conversations, _messages, _context = _service(llm)
+    user = _user()
+
+    conversations.list_for_user.return_value = []
+    assert await service.status_for(user=user) == "not_started"  # ty: ignore[invalid-argument-type]
+
+    conversations.list_for_user.return_value = [_conversation(summary=None)]
+    assert await service.status_for(user=user) == "in_progress"  # ty: ignore[invalid-argument-type]
+
+    conversations.list_for_user.return_value = [_conversation(summary=_EXTRACTION)]
+    assert await service.status_for(user=user) == "complete"  # ty: ignore[invalid-argument-type]
+
+
 async def test_get_admin_view_returns_both_boxes_and_tier() -> None:
     llm = FakeLlmClient(chunks=[])
     service, conversations, messages, _context = _service(llm)

@@ -2,6 +2,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from src.core.dependencies.interview import get_interview_service
+from src.main import app
+from src.repositories.conversation_repository import ConversationRepository
+from src.repositories.message_repository import MessageRepository
+from src.services.interview_service import InterviewService
 from tests.fixtures.auth import auth_headers
 from tests.fixtures.factories import (
     assign_lesson,
@@ -14,6 +19,7 @@ from tests.fixtures.factories import (
     create_track,
     create_user,
 )
+from tests.fixtures.llm import FakeLlmClient
 
 if TYPE_CHECKING:
     from httpx import AsyncClient
@@ -67,6 +73,7 @@ class TestJourney:
             },
             "survey_status": "not_started",
             "learning_status": "not_started",
+            "interview_status": "not_started",
         }
 
     async def test_defaults_for_project_without_settings_rows(
@@ -165,4 +172,42 @@ class TestJourney:
         await complete_lesson(db_session, user, lesson_b)
         assert (await client.get("/api/me/journey", headers=headers)).json()[
             "learning_status"
+        ] == "complete"
+
+    async def test_interview_status_progression(
+        self, client: AsyncClient, db_session: AsyncSession, test_settings: Settings
+    ) -> None:
+        from src.db.models import Conversation
+
+        # test_settings.llm is None here (conftest keeps LLM__* out of the
+        # hermetic test settings), so the real DI chain resolves
+        # get_interview_service to None and the router would always report
+        # "not_started". Override it with a real InterviewService bound to
+        # db_session (mirrors test_chat.py/test_admin_content_improvement.py);
+        # status_for never touches the LLM, so the fake client is inert.
+        app.dependency_overrides[get_interview_service] = lambda: InterviewService(
+            ConversationRepository(db_session),
+            MessageRepository(db_session),
+            FakeLlmClient(chunks=[]),  # ty: ignore[invalid-argument-type]
+            None,  # ty: ignore[invalid-argument-type] - status_for never touches context
+        )
+
+        user = await create_user(db_session, email="journey-interview@example.com")
+        headers = auth_headers(user, test_settings)
+
+        assert (await client.get("/api/me/journey", headers=headers)).json()[
+            "interview_status"
+        ] == "not_started"
+
+        conv = Conversation(user_id=user.id, kind="interview")
+        db_session.add(conv)
+        await db_session.commit()
+        assert (await client.get("/api/me/journey", headers=headers)).json()[
+            "interview_status"
+        ] == "in_progress"
+
+        conv.summary = {"internal": {}, "shared": {}}
+        await db_session.commit()
+        assert (await client.get("/api/me/journey", headers=headers)).json()[
+            "interview_status"
         ] == "complete"
