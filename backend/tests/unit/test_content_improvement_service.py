@@ -111,7 +111,7 @@ async def test_drafts_one_proposal_per_lesson_with_provenance() -> None:
     outcome = await service.run(lesson_ids=[lesson.id])
 
     assert (outcome.proposed, outcome.skipped, outcome.deferred) == (1, 0, 0)
-    assert (outcome.remaining, outcome.not_queued) == (0, 0)
+    assert outcome.not_queued == 0
     # One call for the lesson, not one per feedback item.
     assert len(llm.prompts) == 1
     proposals.create.assert_awaited_once()
@@ -137,9 +137,8 @@ async def test_only_the_selected_lessons_are_drafted() -> None:
     outcome = await service.run(lesson_ids=[wanted.id])
 
     assert (outcome.proposed, outcome.skipped, outcome.deferred) == (1, 0, 0)
-    # The two lessons the admin did not pick are untouched, not "remaining":
-    # they were never part of this run's work.
-    assert (outcome.remaining, outcome.not_queued) == (0, 0)
+    # The two lessons the admin did not pick are simply untouched.
+    assert outcome.not_queued == 0
     assert len(llm.prompts) == 1
     assert proposals.create.await_args.kwargs["lesson_id"] == wanted.id
 
@@ -164,7 +163,7 @@ async def test_an_empty_selection_makes_no_model_calls() -> None:
 
     outcome = await service.run(lesson_ids=[])
 
-    assert outcome == content_improvement_service.RunOutcome(0, 0, 0, 0, 0)
+    assert outcome == content_improvement_service.RunOutcome(0, 0, 0, 0)
     assert llm.prompts == []
     proposals.create.assert_not_awaited()
 
@@ -290,22 +289,6 @@ async def test_already_incorporated_feedback_is_not_redrafted() -> None:
     assert (outcome.proposed, outcome.not_queued) == (0, 1)
     assert llm.prompts == []
     proposals.create.assert_not_awaited()
-
-
-async def test_the_run_budget_stops_the_batch_and_reports_what_is_left() -> None:
-    first, second = _lesson("First"), _lesson("Second")
-    llm = _ScriptedLlm([{"proposed_blocks": _GOOD_BLOCKS, "summary": "s"}])
-    service, _proposals, _content = _service(
-        [(_feedback("a"), first), (_feedback("b"), second)], llm=llm
-    )
-
-    # A budget that is already spent after the first lesson: the second is never
-    # attempted, and must be reported as remaining rather than silently dropped.
-    with mock.patch.object(content_improvement_service, "_RUN_BUDGET_SECONDS", 0.0):
-        outcome = await service.run(lesson_ids=[first.id, second.id])
-
-    assert (outcome.proposed, outcome.remaining) == (0, 2)
-    assert llm.prompts == []
 
 
 async def test_invalid_blocks_are_never_stored_as_a_pending_proposal() -> None:
@@ -534,3 +517,98 @@ async def test_a_queued_lesson_whose_track_is_missing_still_lists() -> None:
     assert len(items) == 1
     assert items[0]["lesson_title"] == "Orphaned"
     assert items[0]["feedback_count"] == 1
+
+
+async def test_the_selected_lessons_are_drafted_concurrently_not_one_after_another() -> None:
+    # A barrier is a real concurrency proof rather than a timing assertion: all
+    # three calls must be in flight at once to get past it. Run sequentially,
+    # the first call would wait for parties that never arrive and this test
+    # would hang until its timeout -- which is exactly the bug it guards.
+    lessons = [_lesson("First"), _lesson("Second"), _lesson("Third")]
+    barrier = asyncio.Barrier(len(lessons))
+
+    class _BarrierLlm:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def complete_structured(
+            self, *, system: str, prompt: str, schema: object, max_tokens: int
+        ) -> tuple[dict[str, Any], LlmUsage]:
+            self.calls += 1
+            async with asyncio.timeout(5):
+                await barrier.wait()
+            return (
+                {"proposed_blocks": _GOOD_BLOCKS, "summary": "s"},
+                LlmUsage(input_tokens=1, output_tokens=1),
+            )
+
+    llm = _BarrierLlm()
+    service, proposals, _content = _service(
+        [(_feedback(f"f{i}"), lesson) for i, lesson in enumerate(lessons)],
+        llm=llm,  # ty: ignore[invalid-argument-type]
+    )
+
+    outcome = await service.run(lesson_ids=[lesson.id for lesson in lessons])
+
+    assert outcome.proposed == 3
+    assert llm.calls == 3
+    assert proposals.create.await_count == 3
+
+
+async def test_every_selected_lesson_is_attempted_even_when_one_fails() -> None:
+    # "Don't queue lessons silently": with the drafts concurrent there is no
+    # run-budget check between them, so a slow or failing lesson can no longer
+    # cause a later one to be skipped and reported as merely "remaining".
+    first, bad, third = _lesson("First"), _lesson("Bad"), _lesson("Third")
+    llm = _ScriptedLlm(
+        [
+            {"proposed_blocks": _GOOD_BLOCKS, "summary": "s"},
+            RuntimeError("this one is broken"),
+            {"proposed_blocks": _GOOD_BLOCKS, "summary": "s"},
+        ]
+    )
+    service, proposals, _content = _service(
+        [(_feedback("a"), first), (_feedback("b"), bad), (_feedback("c"), third)], llm=llm
+    )
+
+    outcome = await service.run(lesson_ids=[first.id, bad.id, third.id])
+
+    assert (outcome.proposed, outcome.skipped, outcome.deferred) == (2, 1, 0)
+    # All three attempted, so nothing is left unexplained.
+    assert len(llm.prompts) == 3
+    # 2 pending + 1 failed row.
+    assert proposals.create.await_count == 3
+    statuses = sorted(
+        call.kwargs.get("status", "pending") for call in proposals.create.await_args_list
+    )
+    assert statuses == ["failed", "pending", "pending"]
+
+
+async def test_a_transient_failure_among_concurrent_drafts_only_defers_its_own_lesson() -> None:
+    first, busy, third = _lesson("First"), _lesson("Busy"), _lesson("Third")
+    llm = _ScriptedLlm(
+        [
+            {"proposed_blocks": _GOOD_BLOCKS, "summary": "s"},
+            _overloaded(),
+            {"proposed_blocks": _GOOD_BLOCKS, "summary": "s"},
+        ]
+    )
+    service, proposals, _content = _service(
+        [(_feedback("a"), first), (_feedback("b"), busy), (_feedback("c"), third)], llm=llm
+    )
+
+    outcome = await service.run(lesson_ids=[first.id, busy.id, third.id])
+
+    assert (outcome.proposed, outcome.skipped, outcome.deferred) == (2, 0, 1)
+    # The deferred lesson wrote NO row, so it is still queued for a retry.
+    assert proposals.create.await_count == 2
+
+
+async def test_the_per_lesson_timeout_leaves_headroom_under_the_container_ingress_timeout() -> None:
+    # The drafts run concurrently, so a run's wall clock is one lesson's timeout
+    # plus the sequential proposal writes -- not the sum of all three. This pins
+    # the relationship the raised timeout depends on: blow past the 240s Azure
+    # Container Apps ingress default and the admin gets a 504 while the server
+    # keeps working, which is the confusing failure this guards against.
+    assert content_improvement_service._PER_LESSON_TIMEOUT_SECONDS <= 200
+    assert not hasattr(content_improvement_service, "_RUN_BUDGET_SECONDS")

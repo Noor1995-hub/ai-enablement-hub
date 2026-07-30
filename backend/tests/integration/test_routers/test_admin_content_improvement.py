@@ -173,7 +173,6 @@ class TestRun:
             "proposed": 1,
             "skipped": 0,
             "deferred": 0,
-            "remaining": 0,
             "not_queued": 0,
         }
         row = (await db_session.execute(select(LessonContentProposal))).scalars().one()
@@ -208,7 +207,6 @@ class TestRun:
             "proposed": 0,
             "skipped": 0,
             "deferred": 0,
-            "remaining": 0,
             "not_queued": 1,
         }
         assert llm.calls == 1
@@ -243,7 +241,6 @@ class TestRun:
             "proposed": 0,
             "skipped": 0,
             "deferred": 0,
-            "remaining": 0,
             "not_queued": 1,
         }
         assert llm.calls == 0
@@ -256,7 +253,7 @@ class TestRun:
     ) -> None:
         # The cap is the run's time budget, so it has to be refused at the edge
         # rather than truncated silently: an admin who ticked ten lessons must
-        # not be told nine of them are "remaining" when four were never allowed.
+        # not have four of them silently dropped from the batch.
         admin, _lesson, _feedback = await _seed(db_session, "ci-422")
         client = improvement_client(FakeImprovementLlm(_GOOD_RESULT))
 
@@ -370,7 +367,6 @@ class TestProviderOverloaded:
             "proposed": 0,
             "skipped": 0,
             "deferred": 1,
-            "remaining": 0,
             "not_queued": 0,
         }
         assert llm.calls == 1
@@ -778,7 +774,6 @@ class TestBadModelOutputNeverPublishes:
             "proposed": 0,
             "skipped": 1,
             "deferred": 0,
-            "remaining": 0,
             "not_queued": 0,
         }
         row = (await db_session.execute(select(LessonContentProposal))).scalars().one()
