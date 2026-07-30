@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 __all__ = [
     "PromptDetail",
@@ -34,4 +34,4 @@ class PromptListResponse(BaseModel):
 
 
 class PromptUpdateRequest(BaseModel):
-    content: str
+    content: str = Field(..., min_length=1)

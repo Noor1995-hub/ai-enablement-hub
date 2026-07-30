@@ -169,7 +169,7 @@ function PromptEditor({ kind, label }: PromptEditorProps) {
 
   const data = promptQuery.data
   const dirty = content !== data.content
-  const missingTokens = data.required_tokens.filter(token => !content.includes(`{{${token}}}`))
+  const missingTokens = data.required_tokens.filter(token => !content.includes(token))
   const canSave = dirty && content.trim() !== '' && missingTokens.length === 0
   const busy = updatePrompt.isPending || resetPrompt.isPending
 
@@ -194,13 +194,14 @@ function PromptEditor({ kind, label }: PromptEditorProps) {
         <p className="adm-hint">
           Required — the save is rejected if any of these are missing:{' '}
           {data.required_tokens.map(token => (
-            <code key={token} className="adm-prompt-token">{`{{${token}}}`}</code>
+            <code key={token} className="adm-prompt-token">{token}</code>
           ))}
         </p>
       )}
 
       <textarea
         className="adm-prompt-textarea"
+        aria-label={label}
         value={content}
         onChange={e => setContent(e.target.value)}
         spellCheck
@@ -210,7 +211,7 @@ function PromptEditor({ kind, label }: PromptEditorProps) {
       {missingTokens.length > 0 && (
         <p className="adm-form-msg adm-form-msg-err">
           Missing required token{missingTokens.length === 1 ? '' : 's'}:{' '}
-          {missingTokens.map(token => `{{${token}}}`).join(', ')}
+          {missingTokens.join(', ')}
         </p>
       )}
 
