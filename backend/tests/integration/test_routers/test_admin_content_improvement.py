@@ -13,6 +13,8 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING, Any
 
+import anthropic
+import httpx
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
@@ -26,6 +28,7 @@ from src.repositories.calibration_note_repository import CalibrationNoteReposito
 from src.repositories.content_repository import ContentRepository
 from src.repositories.feedback_repository import FeedbackRepository
 from src.repositories.proposal_repository import ProposalRepository
+from src.schemas.admin_proposals import MAX_LESSONS_PER_RUN
 from src.services.content_improvement_service import ContentImprovementService
 from src.services.llm_service import LlmUsage
 from tests.fixtures.auth import auth_headers
@@ -144,6 +147,11 @@ async def _seed(db_session: AsyncSession, prefix: str) -> tuple:
     return admin, lesson, feedback
 
 
+def _run_body(*lessons: Any) -> dict[str, list[str]]:
+    """The picker's payload: draft exactly these lessons and nothing else."""
+    return {"lesson_ids": [str(lesson.id) for lesson in lessons]}
+
+
 class TestRun:
     async def test_creates_a_pending_proposal(
         self,
@@ -155,11 +163,19 @@ class TestRun:
         client = improvement_client(FakeImprovementLlm(_GOOD_RESULT))
 
         resp = await client.post(
-            "/api/admin/content-improvement/run", headers=auth_headers(admin, test_settings)
+            "/api/admin/content-improvement/run",
+            headers=auth_headers(admin, test_settings),
+            json=_run_body(lesson),
         )
 
         assert resp.status_code == 200
-        assert resp.json() == {"proposed": 1, "skipped": 0, "remaining": 0}
+        assert resp.json() == {
+            "proposed": 1,
+            "skipped": 0,
+            "deferred": 0,
+            "remaining": 0,
+            "not_queued": 0,
+        }
         row = (await db_session.execute(select(LessonContentProposal))).scalars().one()
         assert row.status == "pending"
         assert row.lesson_id == lesson.id
@@ -176,15 +192,25 @@ class TestRun:
         db_session: AsyncSession,
         test_settings: Settings,
     ) -> None:
-        admin, _lesson, _feedback = await _seed(db_session, "ci-idem")
+        admin, lesson, _feedback = await _seed(db_session, "ci-idem")
         llm = FakeImprovementLlm(_GOOD_RESULT)
         client = improvement_client(llm)
         headers = auth_headers(admin, test_settings)
 
-        await client.post("/api/admin/content-improvement/run", headers=headers)
-        second = await client.post("/api/admin/content-improvement/run", headers=headers)
+        await client.post(
+            "/api/admin/content-improvement/run", headers=headers, json=_run_body(lesson)
+        )
+        second = await client.post(
+            "/api/admin/content-improvement/run", headers=headers, json=_run_body(lesson)
+        )
 
-        assert second.json() == {"proposed": 0, "skipped": 0, "remaining": 0}
+        assert second.json() == {
+            "proposed": 0,
+            "skipped": 0,
+            "deferred": 0,
+            "remaining": 0,
+            "not_queued": 1,
+        }
         assert llm.calls == 1
 
     async def test_new_and_dismissed_feedback_is_never_drafted(
@@ -208,40 +234,223 @@ class TestRun:
         client = improvement_client(llm)
 
         resp = await client.post(
-            "/api/admin/content-improvement/run", headers=auth_headers(admin, test_settings)
+            "/api/admin/content-improvement/run",
+            headers=auth_headers(admin, test_settings),
+            json=_run_body(lesson),
         )
 
-        assert resp.json() == {"proposed": 0, "skipped": 0, "remaining": 0}
+        assert resp.json() == {
+            "proposed": 0,
+            "skipped": 0,
+            "deferred": 0,
+            "remaining": 0,
+            "not_queued": 1,
+        }
         assert llm.calls == 0
 
-    async def test_bad_max_lessons_is_422(
+    async def test_too_many_lessons_in_one_run_is_422(
         self,
         improvement_client: Callable[[FakeImprovementLlm], AsyncClient],
         db_session: AsyncSession,
         test_settings: Settings,
     ) -> None:
+        # The cap is the run's time budget, so it has to be refused at the edge
+        # rather than truncated silently: an admin who ticked ten lessons must
+        # not be told nine of them are "remaining" when four were never allowed.
         admin, _lesson, _feedback = await _seed(db_session, "ci-422")
         client = improvement_client(FakeImprovementLlm(_GOOD_RESULT))
 
         resp = await client.post(
-            "/api/admin/content-improvement/run?max_lessons=99",
+            "/api/admin/content-improvement/run",
             headers=auth_headers(admin, test_settings),
+            json={"lesson_ids": [str(uuid.uuid4()) for _ in range(MAX_LESSONS_PER_RUN + 1)]},
         )
 
         assert resp.status_code == 422
+
+    async def test_an_empty_selection_is_422(
+        self,
+        improvement_client: Callable[[FakeImprovementLlm], AsyncClient],
+        db_session: AsyncSession,
+        test_settings: Settings,
+    ) -> None:
+        admin, _lesson, _feedback = await _seed(db_session, "ci-422empty")
+        llm = FakeImprovementLlm(_GOOD_RESULT)
+        client = improvement_client(llm)
+
+        resp = await client.post(
+            "/api/admin/content-improvement/run",
+            headers=auth_headers(admin, test_settings),
+            json={"lesson_ids": []},
+        )
+
+        assert resp.status_code == 422
+        assert llm.calls == 0
+
+    async def test_an_unqueued_lesson_is_reported_not_404(
+        self,
+        improvement_client: Callable[[FakeImprovementLlm], AsyncClient],
+        db_session: AsyncSession,
+        test_settings: Settings,
+    ) -> None:
+        # Two admins with the picker open: the other one already drafted it.
+        # Failing the whole batch over that would be worse than reporting it.
+        admin, lesson, _feedback = await _seed(db_session, "ci-gone")
+        llm = FakeImprovementLlm(_GOOD_RESULT)
+        client = improvement_client(llm)
+        headers = auth_headers(admin, test_settings)
+
+        resp = await client.post(
+            "/api/admin/content-improvement/run",
+            headers=headers,
+            json={"lesson_ids": [str(lesson.id), str(uuid.uuid4())]},
+        )
+
+        assert resp.status_code == 200
+        assert resp.json()["proposed"] == 1
+        assert resp.json()["not_queued"] == 1
+        assert llm.calls == 1
 
     async def test_404_when_llm_unconfigured(
         self, client: AsyncClient, db_session: AsyncSession, test_settings: Settings
     ) -> None:
         # The plain conftest `client` uses the real DI chain with llm=None.
-        admin, _lesson, _feedback = await _seed(db_session, "ci-off")
+        admin, lesson, _feedback = await _seed(db_session, "ci-off")
 
         resp = await client.post(
-            "/api/admin/content-improvement/run", headers=auth_headers(admin, test_settings)
+            "/api/admin/content-improvement/run",
+            headers=auth_headers(admin, test_settings),
+            json=_run_body(lesson),
         )
 
         assert resp.status_code == 404
         assert resp.json()["error"]["code"] == "not_found"
+
+
+class FakeOverloadedLlm:
+    """Anthropic at capacity. Raises the real SDK exception rather than a stand-in
+    so the run's transient/terminal split is exercised through
+    `is_transient_provider_error`, not through a shape the SDK never produces."""
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def complete_structured(
+        self, *, system: str, prompt: str, schema: Any, max_tokens: int
+    ) -> tuple[dict[str, Any], LlmUsage]:
+        self.calls += 1
+        request = httpx.Request("POST", "https://api.anthropic.com/v1/messages")
+        raise anthropic.OverloadedError(
+            "Overloaded", response=httpx.Response(529, request=request), body=None
+        )
+
+
+class TestProviderOverloaded:
+    async def test_a_529_writes_no_proposal_and_keeps_the_lesson_queued(
+        self,
+        improvement_client: Callable[[Any], AsyncClient],
+        db_session: AsyncSession,
+        test_settings: Settings,
+    ) -> None:
+        # The regression this whole shape exists for. Before, a 529 stored a
+        # `failed` proposal, which covered the lesson's feedback and forced the
+        # admin to click "Dismiss and retry later" on every card. Now it writes
+        # nothing, so the lesson is still in the picker and a retry just works.
+        admin, lesson, feedback = await _seed(db_session, "ci-529")
+        llm = FakeOverloadedLlm()
+        client = improvement_client(llm)
+        headers = auth_headers(admin, test_settings)
+
+        resp = await client.post(
+            "/api/admin/content-improvement/run", headers=headers, json=_run_body(lesson)
+        )
+
+        assert resp.status_code == 200
+        assert resp.json() == {
+            "proposed": 0,
+            "skipped": 0,
+            "deferred": 1,
+            "remaining": 0,
+            "not_queued": 0,
+        }
+        assert llm.calls == 1
+        # No row of ANY status — a `failed` one here is the bug.
+        assert (await db_session.execute(select(LessonContentProposal))).scalars().all() == []
+        # And the lesson is still offered, with its feedback still uncovered.
+        queue = (await client.get("/api/admin/content-improvement/queue", headers=headers)).json()
+        assert [item["lesson_id"] for item in queue["items"]] == [str(lesson.id)]
+        assert queue["items"][0]["feedback_count"] == 1
+        await db_session.refresh(feedback)
+        assert feedback.status == "accepted"
+
+
+class TestDraftQueue:
+    """`GET /queue` is the picker's option list, so it has to agree with what
+    `POST /run` will actually accept — a lesson listed here must be draftable,
+    and a lesson already covered must not appear."""
+
+    async def test_lists_a_lesson_awaiting_a_draft_with_its_context(
+        self,
+        improvement_client: Callable[[FakeImprovementLlm], AsyncClient],
+        db_session: AsyncSession,
+        test_settings: Settings,
+    ) -> None:
+        admin, lesson, _feedback = await _seed(db_session, "ci-queue")
+        client = improvement_client(FakeImprovementLlm(_GOOD_RESULT))
+
+        body = (
+            await client.get(
+                "/api/admin/content-improvement/queue",
+                headers=auth_headers(admin, test_settings),
+            )
+        ).json()
+
+        assert body["total"] == 1
+        item = body["items"][0]
+        assert item["lesson_id"] == str(lesson.id)
+        assert item["lesson_title"] == lesson.title
+        assert item["module_title"] == "ci-queue Module"
+        assert item["track_name"] == "ci-queue Track"
+        assert item["feedback_count"] == 1
+
+    async def test_a_drafted_lesson_leaves_the_queue(
+        self,
+        improvement_client: Callable[[FakeImprovementLlm], AsyncClient],
+        db_session: AsyncSession,
+        test_settings: Settings,
+    ) -> None:
+        # The picker must not keep offering work that is already done, or the
+        # admin spends a click discovering it via not_queued.
+        admin, lesson, _feedback = await _seed(db_session, "ci-queue-drained")
+        client = improvement_client(FakeImprovementLlm(_GOOD_RESULT))
+        headers = auth_headers(admin, test_settings)
+
+        before = (await client.get("/api/admin/content-improvement/queue", headers=headers)).json()
+        await client.post(
+            "/api/admin/content-improvement/run", headers=headers, json=_run_body(lesson)
+        )
+        after = (await client.get("/api/admin/content-improvement/queue", headers=headers)).json()
+
+        assert before["total"] == 1
+        assert after["total"] == 0
+
+    async def test_the_queue_route_is_not_shadowed_by_the_detail_route(
+        self,
+        improvement_client: Callable[[FakeImprovementLlm], AsyncClient],
+        db_session: AsyncSession,
+        test_settings: Settings,
+    ) -> None:
+        # `/queue` sits next to `GET /{proposal_id}`, so declaration order is
+        # load-bearing: reordered, "queue" parses as a uuid and this 422s.
+        admin, _lesson, _feedback = await _seed(db_session, "ci-queue-route")
+        client = improvement_client(FakeImprovementLlm(_GOOD_RESULT))
+
+        resp = await client.get(
+            "/api/admin/content-improvement/queue", headers=auth_headers(admin, test_settings)
+        )
+
+        assert resp.status_code == 200
+        assert "items" in resp.json()
 
 
 class TestQueueReads:
@@ -254,7 +463,9 @@ class TestQueueReads:
         admin, lesson, _feedback = await _seed(db_session, "ci-list")
         client = improvement_client(FakeImprovementLlm(_GOOD_RESULT))
         headers = auth_headers(admin, test_settings)
-        await client.post("/api/admin/content-improvement/run", headers=headers)
+        await client.post(
+            "/api/admin/content-improvement/run", headers=headers, json=_run_body(lesson)
+        )
 
         body = (await client.get("/api/admin/content-improvement", headers=headers)).json()
 
@@ -282,7 +493,9 @@ class TestQueueReads:
         admin, lesson, feedback = await _seed(db_session, "ci-detail")
         client = improvement_client(FakeImprovementLlm(_GOOD_RESULT))
         headers = auth_headers(admin, test_settings)
-        await client.post("/api/admin/content-improvement/run", headers=headers)
+        await client.post(
+            "/api/admin/content-improvement/run", headers=headers, json=_run_body(lesson)
+        )
         proposal_id = (await client.get("/api/admin/content-improvement", headers=headers)).json()[
             "items"
         ][0]["id"]
@@ -302,7 +515,7 @@ class TestQueueReads:
         db_session: AsyncSession,
         test_settings: Settings,
     ) -> None:
-        admin, _lesson, _feedback = await _seed(db_session, "ci-detail404")
+        admin, lesson, _feedback = await _seed(db_session, "ci-detail404")
         client = improvement_client(FakeImprovementLlm(_GOOD_RESULT))
 
         resp = await client.get(
@@ -314,8 +527,10 @@ class TestQueueReads:
 
 
 class TestReview:
-    async def _draft(self, client: AsyncClient, headers: dict[str, str]) -> str:
-        await client.post("/api/admin/content-improvement/run", headers=headers)
+    async def _draft(self, client: AsyncClient, headers: dict[str, str], lesson: Any) -> str:
+        await client.post(
+            "/api/admin/content-improvement/run", headers=headers, json=_run_body(lesson)
+        )
         body = (await client.get("/api/admin/content-improvement", headers=headers)).json()
         return body["items"][0]["id"]
 
@@ -328,7 +543,7 @@ class TestReview:
         admin, lesson, _feedback = await _seed(db_session, "ci-approve")
         client = improvement_client(FakeImprovementLlm(_GOOD_RESULT))
         headers = auth_headers(admin, test_settings)
-        proposal_id = await self._draft(client, headers)
+        proposal_id = await self._draft(client, headers, lesson)
 
         resp = await client.post(
             f"/api/admin/content-improvement/{proposal_id}/review",
@@ -359,7 +574,7 @@ class TestReview:
         llm = FakeImprovementLlm(_GOOD_RESULT)
         client = improvement_client(llm)
         headers = auth_headers(admin, test_settings)
-        proposal_id = await self._draft(client, headers)
+        proposal_id = await self._draft(client, headers, lesson)
 
         resp = await client.post(
             f"/api/admin/content-improvement/{proposal_id}/review",
@@ -372,7 +587,9 @@ class TestReview:
         assert lesson.content_blocks == _BASE_BLOCKS
         # A rejected proposal no longer covers its feedback, so a later run can
         # try again (design doc, "Applying an approved proposal").
-        again = await client.post("/api/admin/content-improvement/run", headers=headers)
+        again = await client.post(
+            "/api/admin/content-improvement/run", headers=headers, json=_run_body(lesson)
+        )
         assert again.json()["proposed"] == 1
         assert llm.calls == 2
 
@@ -385,7 +602,7 @@ class TestReview:
         admin, lesson, _feedback = await _seed(db_session, "ci-stale")
         client = improvement_client(FakeImprovementLlm(_GOOD_RESULT))
         headers = auth_headers(admin, test_settings)
-        proposal_id = await self._draft(client, headers)
+        proposal_id = await self._draft(client, headers, lesson)
 
         edited = [{"id": "b1", "type": "paragraph", "text": "An admin edited this."}]
         lesson.content_blocks = edited
@@ -410,10 +627,10 @@ class TestReview:
         db_session: AsyncSession,
         test_settings: Settings,
     ) -> None:
-        admin, _lesson, _feedback = await _seed(db_session, "ci-twice")
+        admin, lesson, _feedback = await _seed(db_session, "ci-twice")
         client = improvement_client(FakeImprovementLlm(_GOOD_RESULT))
         headers = auth_headers(admin, test_settings)
-        proposal_id = await self._draft(client, headers)
+        proposal_id = await self._draft(client, headers, lesson)
 
         await client.post(
             f"/api/admin/content-improvement/{proposal_id}/review",
@@ -440,7 +657,7 @@ class TestReview:
         db_session: AsyncSession,
         test_settings: Settings,
     ) -> None:
-        admin, _lesson, _feedback = await _seed(db_session, "ci-404")
+        admin, lesson, _feedback = await _seed(db_session, "ci-404")
         client = improvement_client(FakeImprovementLlm(_GOOD_RESULT))
 
         resp = await client.post(
@@ -460,7 +677,7 @@ class TestReview:
         admin, lesson, _feedback = await _seed(db_session, "ci-edited")
         client = improvement_client(FakeImprovementLlm(_GOOD_RESULT))
         headers = auth_headers(admin, test_settings)
-        proposal_id = await self._draft(client, headers)
+        proposal_id = await self._draft(client, headers, lesson)
         admin_blocks = [{"id": "b1", "type": "paragraph", "text": "My own wording."}]
 
         resp = await client.post(
@@ -487,7 +704,7 @@ class TestReview:
         admin, lesson, _feedback = await _seed(db_session, "ci-untouched")
         client = improvement_client(FakeImprovementLlm(_GOOD_RESULT))
         headers = auth_headers(admin, test_settings)
-        proposal_id = await self._draft(client, headers)
+        proposal_id = await self._draft(client, headers, lesson)
 
         await client.post(
             f"/api/admin/content-improvement/{proposal_id}/review",
@@ -509,7 +726,7 @@ class TestReview:
         admin, lesson, _feedback = await _seed(db_session, "ci-badedit")
         client = improvement_client(FakeImprovementLlm(_GOOD_RESULT))
         headers = auth_headers(admin, test_settings)
-        proposal_id = await self._draft(client, headers)
+        proposal_id = await self._draft(client, headers, lesson)
 
         resp = await client.post(
             f"/api/admin/content-improvement/{proposal_id}/review",
@@ -553,9 +770,17 @@ class TestBadModelOutputNeverPublishes:
         )
         headers = auth_headers(admin, test_settings)
 
-        resp = await client.post("/api/admin/content-improvement/run", headers=headers)
+        resp = await client.post(
+            "/api/admin/content-improvement/run", headers=headers, json=_run_body(lesson)
+        )
 
-        assert resp.json() == {"proposed": 0, "skipped": 1, "remaining": 0}
+        assert resp.json() == {
+            "proposed": 0,
+            "skipped": 1,
+            "deferred": 0,
+            "remaining": 0,
+            "not_queued": 0,
+        }
         row = (await db_session.execute(select(LessonContentProposal))).scalars().one()
         assert row.status == "failed"
         assert "made-up.png" in row.summary
@@ -568,9 +793,12 @@ class TestLearnCard:
         self,
         client: AsyncClient,
         headers: dict[str, str],
+        lesson: Any,
         edited_blocks: list[dict[str, Any]],
     ) -> str:
-        await client.post("/api/admin/content-improvement/run", headers=headers)
+        await client.post(
+            "/api/admin/content-improvement/run", headers=headers, json=_run_body(lesson)
+        )
         body = (await client.get("/api/admin/content-improvement", headers=headers)).json()
         proposal_id = body["items"][0]["id"]
         await client.post(
@@ -580,8 +808,12 @@ class TestLearnCard:
         )
         return proposal_id
 
-    async def _accept_untouched(self, client: AsyncClient, headers: dict[str, str]) -> str:
-        await client.post("/api/admin/content-improvement/run", headers=headers)
+    async def _accept_untouched(
+        self, client: AsyncClient, headers: dict[str, str], lesson: Any
+    ) -> str:
+        await client.post(
+            "/api/admin/content-improvement/run", headers=headers, json=_run_body(lesson)
+        )
         body = (await client.get("/api/admin/content-improvement", headers=headers)).json()
         proposal_id = body["items"][0]["id"]
         await client.post(
@@ -597,11 +829,11 @@ class TestLearnCard:
         db_session: AsyncSession,
         test_settings: Settings,
     ) -> None:
-        admin, _lesson, _feedback = await _seed(db_session, "ci-learn")
+        admin, lesson, _feedback = await _seed(db_session, "ci-learn")
         client = improvement_client(FakeImprovementLlm(_GOOD_RESULT, _CRITIQUE_RESULT))
         headers = auth_headers(admin, test_settings)
         admin_blocks = [{"id": "b1", "type": "paragraph", "text": "My own wording."}]
-        proposal_id = await self._accept_with_edits(client, headers, admin_blocks)
+        proposal_id = await self._accept_with_edits(client, headers, lesson, admin_blocks)
 
         resp = await client.post(
             f"/api/admin/content-improvement/{proposal_id}/critique", headers=headers
@@ -633,10 +865,10 @@ class TestLearnCard:
         db_session: AsyncSession,
         test_settings: Settings,
     ) -> None:
-        admin, _lesson, _feedback = await _seed(db_session, "ci-learn-untouched")
+        admin, lesson, _feedback = await _seed(db_session, "ci-learn-untouched")
         client = improvement_client(FakeImprovementLlm(_GOOD_RESULT, _CRITIQUE_RESULT))
         headers = auth_headers(admin, test_settings)
-        proposal_id = await self._accept_untouched(client, headers)
+        proposal_id = await self._accept_untouched(client, headers, lesson)
 
         resp = await client.post(
             f"/api/admin/content-improvement/{proposal_id}/critique", headers=headers
@@ -652,11 +884,11 @@ class TestLearnCard:
         db_session: AsyncSession,
         test_settings: Settings,
     ) -> None:
-        admin, _lesson, _feedback = await _seed(db_session, "ci-learn-twice")
+        admin, lesson, _feedback = await _seed(db_session, "ci-learn-twice")
         client = improvement_client(FakeImprovementLlm(_GOOD_RESULT, _CRITIQUE_RESULT))
         headers = auth_headers(admin, test_settings)
         admin_blocks = [{"id": "b1", "type": "paragraph", "text": "My own wording."}]
-        proposal_id = await self._accept_with_edits(client, headers, admin_blocks)
+        proposal_id = await self._accept_with_edits(client, headers, lesson, admin_blocks)
 
         first = await client.post(
             f"/api/admin/content-improvement/{proposal_id}/critique", headers=headers
@@ -676,11 +908,11 @@ class TestLearnCard:
         db_session: AsyncSession,
         test_settings: Settings,
     ) -> None:
-        admin, _lesson, _feedback = await _seed(db_session, "ci-learn-get")
+        admin, lesson, _feedback = await _seed(db_session, "ci-learn-get")
         client = improvement_client(FakeImprovementLlm(_GOOD_RESULT, _CRITIQUE_RESULT))
         headers = auth_headers(admin, test_settings)
         admin_blocks = [{"id": "b1", "type": "paragraph", "text": "My own wording."}]
-        proposal_id = await self._accept_with_edits(client, headers, admin_blocks)
+        proposal_id = await self._accept_with_edits(client, headers, lesson, admin_blocks)
         await client.post(f"/api/admin/content-improvement/{proposal_id}/critique", headers=headers)
 
         detail = (

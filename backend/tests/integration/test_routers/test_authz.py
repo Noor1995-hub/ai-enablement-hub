@@ -410,6 +410,13 @@ _MATRIX: list[tuple[str, str, Any, Any, bool]] = [
         "content-improvement-run",
         "POST",
         lambda s: "/api/admin/content-improvement/run",
+        lambda s: {"lesson_ids": [str(uuid.uuid4())]},
+        True,
+    ),
+    (
+        "content-improvement-queue",
+        "GET",
+        lambda s: "/api/admin/content-improvement/queue",
         lambda s: None,
         True,
     ),

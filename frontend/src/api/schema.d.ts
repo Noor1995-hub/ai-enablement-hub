@@ -1232,6 +1232,32 @@ export interface paths {
         patch: operations["set_feedback_status_api_admin_feedback__feedback_id__patch"];
         trace?: never;
     };
+    "/api/admin/content-improvement/queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Draft Queue
+         * @description The lessons an admin can pick to redraft: accepted feedback that no
+         *     proposal covers yet, oldest feedback first.
+         *
+         *     Unpaginated on purpose — this is the picker's option list, and an admin
+         *     choosing from it needs to see the whole queue, not page one of it. It stays
+         *     small by construction: a lesson leaves as soon as a draft or a `failed`
+         *     proposal covers its feedback.
+         */
+        get: operations["list_draft_queue_api_admin_content_improvement_queue_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/content-improvement/run": {
         parameters: {
             query?: never;
@@ -1243,12 +1269,17 @@ export interface paths {
         put?: never;
         /**
          * Run Improvement Pass
-         * @description Draft revisions for lessons with accepted, not-yet-incorporated feedback.
+         * @description Draft revisions for the lessons the admin picked out of `GET /queue`.
          *
-         *     Admin-triggered, bounded and synchronous: `max_lessons` caps the fan-out and
-         *     the service carries a per-lesson timeout plus an overall budget, so one
-         *     click can never hold the request past the ingress timeout. Nothing here
-         *     touches a live lesson — every draft lands as a `pending` proposal.
+         *     Admin-triggered, bounded and synchronous: the request caps the selection at
+         *     MAX_LESSONS_PER_RUN and the service carries a per-lesson timeout plus an
+         *     overall budget, so one click can never hold the request past the ingress
+         *     timeout. Nothing here touches a live lesson — every draft lands as a
+         *     `pending` proposal.
+         *
+         *     A lesson id that is no longer queued is reported in `not_queued` rather than
+         *     404ing the whole call: with two admins on the page, one drafting a lesson
+         *     must not fail the other's batch.
          *
          *     Not project-scoped on purpose: lessons are shared catalogue content, not
          *     per-project, so a "run for project X" would be a category error.
@@ -2234,18 +2265,33 @@ export interface components {
             detail?: components["schemas"]["ValidationError"][];
         };
         /**
+         * ImprovementRunRequest
+         * @description The lessons the admin picked out of the queue. Explicit on purpose — a
+         *     run that chose for itself would spend money on lessons nobody asked about.
+         */
+        ImprovementRunRequest: {
+            /** Lesson Ids */
+            lesson_ids: string[];
+        };
+        /**
          * ImprovementRunResponse
          * @description `proposed` = drafts created; `skipped` = lessons the agent could not
          *     draft (each recorded as a `failed` proposal carrying the reason);
-         *     `remaining` = lessons the bounded run did not reach.
+         *     `deferred` = lessons the AI provider was too busy for, still queued and
+         *     retried by the next run; `remaining` = selected lessons the bounded run did
+         *     not reach; `not_queued` = requested lessons that were already drafted.
          */
         ImprovementRunResponse: {
             /** Proposed */
             proposed: number;
             /** Skipped */
             skipped: number;
+            /** Deferred */
+            deferred: number;
             /** Remaining */
             remaining: number;
+            /** Not Queued */
+            not_queued: number;
         };
         /** InviteInfoResponse */
         InviteInfoResponse: {
@@ -2772,6 +2818,38 @@ export interface components {
             created_at: string;
             /** Reviewed At */
             reviewed_at: string | null;
+        };
+        /**
+         * QueueItemOut
+         * @description One lesson awaiting a draft. `track_id` is nullable because the queue's
+         *     module/track labels come from a second read — a lesson whose track row went
+         *     away still needs to be pickable.
+         */
+        QueueItemOut: {
+            /**
+             * Lesson Id
+             * Format: uuid
+             */
+            lesson_id: string;
+            /** Lesson Title */
+            lesson_title: string;
+            /** Module Title */
+            module_title: string;
+            /** Track Id */
+            track_id: string | null;
+            /** Track Name */
+            track_name: string;
+            /** Track Level */
+            track_level: string;
+            /** Feedback Count */
+            feedback_count: number;
+        };
+        /** QueueResponse */
+        QueueResponse: {
+            /** Items */
+            items: components["schemas"]["QueueItemOut"][];
+            /** Total */
+            total: number;
         };
         /** RefreshRequest */
         RefreshRequest: {
@@ -5122,16 +5200,38 @@ export interface operations {
             };
         };
     };
-    run_improvement_pass_api_admin_content_improvement_run_post: {
+    list_draft_queue_api_admin_content_improvement_queue_get: {
         parameters: {
-            query?: {
-                max_lessons?: number;
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueueResponse"];
+                };
+            };
+        };
+    };
+    run_improvement_pass_api_admin_content_improvement_run_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImprovementRunRequest"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
