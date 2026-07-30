@@ -383,8 +383,17 @@ export default function JourneyHome() {
           else if (data.learning_status === 'complete') resolved[mod.key] = 'done'
           else if (data.learning_status === 'in_progress') resolved[mod.key] = 'in_progress'
           else resolved[mod.key] = 'available'
+        } else if (mod.key === 'interview') {
+          if (locked) resolved[mod.key] = 'locked'
+          else if (data.interview_status === 'complete') resolved[mod.key] = 'done'
+          else if (data.interview_status === 'in_progress') resolved[mod.key] = 'in_progress'
+          else resolved[mod.key] = 'available'
         } else {
-          resolved[mod.key] = locked ? 'locked' : 'available'
+          // Unreachable with the current ComponentKey union (assessment/learning/
+          // interview are all handled above), kept as a defensive fallback for
+          // any future component key. The cast is needed because TS narrows
+          // mod.key to `never` here once every literal is exhausted above.
+          resolved[mod.key as ComponentKey] = locked ? 'locked' : 'available'
         }
       }
       setStates(resolved)

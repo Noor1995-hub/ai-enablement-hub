@@ -11,7 +11,12 @@ from src.core.dependencies.interview import get_interview_service, require_inter
 from src.core.dependencies.ratelimit import get_rate_limiter
 from src.core.ratelimit import RateLimiter
 from src.db.models import User
-from src.schemas.interview import AdminInterviewResponse, InterviewStateResponse, PlaybookResponse
+from src.schemas.interview import (
+    AdminInterviewResponse,
+    InterviewOpenerResponse,
+    InterviewStateResponse,
+    PlaybookResponse,
+)
 from src.services.admin_user_service import AdminUserService
 from src.services.interview_service import InterviewService
 
@@ -42,6 +47,23 @@ async def get_my_interview_state(
     if interview_service is None:
         raise _NOT_CONFIGURED
     return await interview_service.get_state(user=current_user)
+
+
+@router.post("/opener", response_model=InterviewOpenerResponse)
+async def open_my_interview(
+    current_user: CurrentUserDep,
+    interview_service: InterviewServiceDep,
+    limiter: RateLimiterDep,
+) -> InterviewOpenerResponse:
+    if limiter.is_limited(f"interview-opener:{current_user.id}", max_calls=10, window_seconds=600):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many interview starts - please wait a few minutes.",
+            headers={"Retry-After": "600"},
+        )
+    if interview_service is None:
+        raise _NOT_CONFIGURED
+    return await interview_service.open_interview(user=current_user)
 
 
 @router.post("/playbook", response_model=PlaybookResponse)

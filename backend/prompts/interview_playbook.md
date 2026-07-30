@@ -77,6 +77,8 @@ what to probe next if PARTIAL/THIN). Mark non-obvious claims stated/inferred wit
 ## Output
 Return the result ONLY by calling the provided structured tool (schema: exactly two top-level
 fields, internal and shared). Emit no prose.
+STYLE: never use an em dash or en dash (the — or – characters) anywhere in internal or shared. Use
+commas, periods, or parentheses instead.
 
 ## Firewall check before finishing
 1 shared classifies/rates/characterises the person? → move/delete.  2 shared comments on how

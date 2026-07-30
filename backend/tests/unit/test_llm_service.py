@@ -1,7 +1,28 @@
 from __future__ import annotations
 
-from src.services.llm_service import AnthropicLlmClient, StructuredSchema
+from typing import Any
+
+import anthropic
+import httpx
+
+from src.services.llm_service import (
+    AnthropicLlmClient,
+    LlmError,
+    StructuredSchema,
+    is_transient_provider_error,
+)
 from tests.fixtures.llm import FakeAsyncAnthropic, FakeStructuredAsyncAnthropic
+
+
+def _status_error(cls: Any, status: int) -> Exception:
+    """A real anthropic status error, built the way the SDK builds one."""
+    request = httpx.Request("POST", "https://api.anthropic.com/v1/messages")
+    return cls("boom", response=httpx.Response(status, request=request), body=None)
+
+
+def _overloaded() -> Exception:
+    """The 529 the content-improvement run actually hit in production."""
+    return _status_error(anthropic.OverloadedError, 529)
 
 
 async def test_anthropic_client_streams_chunks_and_reports_usage() -> None:
@@ -62,3 +83,42 @@ async def test_anthropic_client_complete_structured_returns_tool_input_and_usage
     assert call["tool_choice"] == {"type": "tool", "name": "triage"}
     assert call["model"] == "claude-haiku-4-5"
     assert call["tools"][0]["name"] == "triage"  # ty: ignore[not-subscriptable]
+
+
+class TestTransientProviderErrors:
+    """`is_transient_provider_error` decides whether a failed drafting call gets
+    a `failed` proposal (terminal) or stays queued for the next run (transient).
+    Getting it wrong is expensive in both directions: a transient error recorded
+    as terminal makes the admin dismiss cards by hand, and a terminal error
+    treated as transient re-consumes every future run forever."""
+
+    def test_an_overloaded_error_is_transient(self) -> None:
+        assert is_transient_provider_error(_overloaded()) is True
+
+    def test_a_rate_limit_error_is_transient(self) -> None:
+        assert is_transient_provider_error(_status_error(anthropic.RateLimitError, 429)) is True
+
+    def test_a_server_error_is_transient(self) -> None:
+        assert (
+            is_transient_provider_error(_status_error(anthropic.InternalServerError, 500)) is True
+        )
+
+    def test_a_connection_error_is_transient(self) -> None:
+        exc = anthropic.APIConnectionError(request=httpx.Request("POST", "https://x/y"))
+        assert is_transient_provider_error(exc) is True
+
+    def test_our_own_llm_error_is_terminal(self) -> None:
+        # Raised for the char ceiling, an empty summary, and validator rejection
+        # -- re-running cannot change any of those.
+        assert is_transient_provider_error(LlmError("lesson content is 60000 characters")) is False
+
+    def test_a_timeout_is_terminal(self) -> None:
+        # A lesson that consistently exceeds the per-lesson timeout would eat the
+        # whole run budget on every future run if it stayed queued.
+        assert is_transient_provider_error(TimeoutError()) is False
+
+    def test_a_bad_request_is_terminal(self) -> None:
+        assert is_transient_provider_error(_status_error(anthropic.BadRequestError, 400)) is False
+
+    def test_an_unknown_error_is_terminal(self) -> None:
+        assert is_transient_provider_error(RuntimeError("something else")) is False

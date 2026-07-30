@@ -4,6 +4,8 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Protocol
 
+import anthropic
+
 if TYPE_CHECKING:
     from anthropic import AsyncAnthropic
 
@@ -14,11 +16,37 @@ __all__ = [
     "LlmReplyStream",
     "LlmUsage",
     "StructuredSchema",
+    "is_transient_provider_error",
 ]
+
+# The provider saying "not now" -- capacity, throttling, or a network blip.
+# Every one of these has the same right answer: try the same request again
+# later. Kept next to AnthropicLlmClient rather than in a caller because these
+# are provider-specific types, and LlmClient exists so a second provider can be
+# adapted here without callers learning its exception hierarchy.
+_TRANSIENT_PROVIDER_ERRORS = (
+    anthropic.OverloadedError,  # 529
+    anthropic.RateLimitError,  # 429
+    anthropic.InternalServerError,  # 5xx
+    anthropic.APIConnectionError,  # never reached the API
+)
 
 
 class LlmError(RuntimeError):
     """Raised when the LLM response is missing an expected structured result."""
+
+
+def is_transient_provider_error(exc: BaseException) -> bool:
+    """True when retrying the identical request could plausibly succeed.
+
+    Deliberately narrow. `LlmError` is ours and always means the request itself
+    is unusable (over the char ceiling, no tool_use block, an empty summary), a
+    `TimeoutError` usually means this particular input is too slow rather than
+    the provider being busy, and an unrecognised exception is not something to
+    retry on optimistically -- a caller that re-queues work on every unknown
+    failure re-consumes every future run forever.
+    """
+    return isinstance(exc, _TRANSIENT_PROVIDER_ERRORS)
 
 
 @dataclass(frozen=True)
@@ -88,7 +116,13 @@ class _AnthropicReplyStream:
 
 
 class AnthropicLlmClient:
-    """Thin wrapper over `AsyncAnthropic` — mirrors how EmailService wraps ACS."""
+    """Thin wrapper over `AsyncAnthropic` — mirrors how EmailService wraps ACS.
+
+    Both calls disable thinking explicitly. From Sonnet 5 onward a request that
+    omits the field thinks by default, and `max_tokens` caps thinking *plus*
+    visible output — which the callers' budgets (300 for feedback triage, 1024
+    for chat) cannot absorb. Raise the caller's budget before turning it back on.
+    """
 
     def __init__(self, client: AsyncAnthropic, *, model: str) -> None:
         self._client = client
@@ -100,6 +134,7 @@ class AnthropicLlmClient:
         manager = self._client.messages.stream(
             model=self._model,
             max_tokens=max_tokens,
+            thinking={"type": "disabled"},
             system=system,
             messages=messages,  # ty: ignore[invalid-argument-type]
         )
@@ -111,6 +146,7 @@ class AnthropicLlmClient:
         message = await self._client.messages.create(
             model=self._model,
             max_tokens=max_tokens,
+            thinking={"type": "disabled"},
             system=system,
             messages=[{"role": "user", "content": prompt}],
             tools=[

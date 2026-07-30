@@ -1,10 +1,15 @@
 """The content-improvement agent: drafts revised lessons, never publishes them.
 
-`run` picks lessons that have accepted feedback no proposal covers yet, asks
-the model for a full revised `content_blocks` array, gates it through the
-structural validator and the media-immutability diff, and stores the result as
-a `pending` proposal for an admin to approve. `review` is the only code path
-that can touch a live lesson.
+`list_queue` reports the lessons that have accepted feedback no proposal covers
+yet; `run` drafts the ones an admin explicitly picked, asks the model for a full
+revised `content_blocks` array per lesson, gates it through the structural
+validator and the media-immutability diff, and stores the result as a `pending`
+proposal for an admin to approve. `review` is the only code path that can touch
+a live lesson.
+
+Selection is the CALLER's, not this service's: an admin who reviewed a batch of
+feedback knows which lessons they want redrafted, and a run that guesses spends
+real money on lessons nobody asked about.
 
 Bounded like the triage run (services/feedback_triage_service.py): a per-lesson
 timeout plus an overall budget, and honest counts, because one admin click can
@@ -18,7 +23,7 @@ import json
 import logging
 import uuid
 from time import monotonic
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, NamedTuple
 
 from src.services.calibration_prompt import MAX_INJECTED_NOTES, render_calibration_block
 from src.services.content_blocks_validation import (
@@ -34,7 +39,7 @@ from src.services.exceptions import (
     InvalidRequestError,
     NotFoundError,
 )
-from src.services.llm_service import LlmError, StructuredSchema
+from src.services.llm_service import LlmError, StructuredSchema, is_transient_provider_error
 from src.services.media_blocks import strip_ephemeral
 from src.services.prompts import load_prompt
 
@@ -48,9 +53,31 @@ if TYPE_CHECKING:
     )
     from src.services.llm_service import LlmClient
 
-__all__ = ["CRITIQUE_SCHEMA", "IMPROVEMENT_SCHEMA", "ContentImprovementService"]
+__all__ = ["CRITIQUE_SCHEMA", "IMPROVEMENT_SCHEMA", "ContentImprovementService", "RunOutcome"]
 
 logger = logging.getLogger(__name__)
+
+
+class RunOutcome(NamedTuple):
+    """What one `run` actually did, in terms the admin UI can report honestly.
+
+    `skipped` and `deferred` are both failures, and keeping them apart is the
+    difference between "go dismiss some cards" and "wait a minute and click
+    again": a skipped lesson has a `failed` proposal on the Failed tab and has
+    LEFT the queue, whereas a deferred one wrote nothing and is still queued.
+    """
+
+    proposed: int
+    """Drafts stored as `pending`, waiting for review."""
+    skipped: int
+    """Terminal failures, each recorded as a `failed` proposal carrying why."""
+    deferred: int
+    """Transient provider failures. Still queued — running again retries them."""
+    remaining: int
+    """Selected lessons the run's time budget never reached."""
+    not_queued: int
+    """Requested ids that were no longer awaiting a draft (a concurrent run)."""
+
 
 # _MAX_LESSON_CHARS exists so a full revision of the largest lesson this
 # service will accept -- every kept block echoed back plus whatever the agent
@@ -187,16 +214,57 @@ class ContentImprovementService:
         self._llm = llm
         self._calibration_notes = calibration_notes
 
-    async def run(self, *, max_lessons: int) -> tuple[int, int, int]:
-        """Draft proposals for up to `max_lessons` lessons.
+    async def list_queue(self) -> list[dict[str, Any]]:
+        """The lessons an admin can pick from: accepted feedback that no
+        pending/approved/failed proposal already covers, oldest feedback first.
 
-        Returns `(proposed, skipped, remaining)`. Every lesson the run touches
-        leaves the queue — a success stores a `pending` proposal, a failure
-        stores a `failed` one carrying the reason — so a lesson the agent
-        cannot handle never re-consumes the front of every later run.
-        `remaining` counts lessons the run did not get to.
+        Carries the same Track/Module labels the proposal rows show, so the
+        picker and the review queue read as one screen. The context is a second
+        batched read rather than a join on the feedback query — a lesson whose
+        module or track disappeared between the two still lists, because losing
+        a label is not a reason to hide work from the admin.
         """
         pending = await self._lessons_awaiting_draft()
+        context = await self._content.lesson_context([lesson.id for lesson, _ in pending])
+        items: list[dict[str, Any]] = []
+        for lesson, feedback_items in pending:
+            module_title, track_id, track_name, track_level = context.get(
+                lesson.id, ("", None, "", "")
+            )
+            items.append(
+                {
+                    "lesson_id": lesson.id,
+                    "lesson_title": lesson.title,
+                    "module_title": module_title,
+                    "track_id": track_id,
+                    "track_name": track_name,
+                    "track_level": track_level,
+                    "feedback_count": len(feedback_items),
+                }
+            )
+        return items
+
+    async def run(self, *, lesson_ids: list[uuid.UUID]) -> RunOutcome:
+        """Draft proposals for the lessons the admin picked.
+
+        A success stores a `pending` proposal and a terminal failure stores a
+        `failed` one carrying the reason — either way the lesson leaves the
+        queue, so a lesson the agent cannot handle never re-consumes the front
+        of every later run. A TRANSIENT provider failure writes nothing at all:
+        the lesson stays queued and the next run retries it, because a 529 says
+        nothing about whether this lesson can be drafted (see
+        `is_transient_provider_error`). Requested ids that are no longer queued
+        are counted, not silently ignored.
+        """
+        wanted = set(lesson_ids)
+        if not wanted:
+            return RunOutcome(0, 0, 0, 0, 0)
+        # Queue order, not request order: oldest feedback first is a meaningful
+        # tie-break when the time budget cuts a selection short.
+        selected = [
+            entry for entry in await self._lessons_awaiting_draft() if entry[0].id in wanted
+        ]
+        not_queued = len(wanted) - len(selected)
         # Once per run, not once per lesson: a three-lesson run must not issue
         # three identical queries, and every lesson in one run should be
         # drafted against the same guidance.
@@ -206,13 +274,14 @@ class ContentImprovementService:
         deadline = monotonic() + _RUN_BUDGET_SECONDS
         proposed = 0
         skipped = 0
+        deferred = 0
         attempted = 0
-        for lesson, feedback_items in pending[:max_lessons]:
+        for lesson, feedback_items in selected:
             if monotonic() >= deadline:
                 logger.warning(
-                    "content improvement hit its %ss budget; %d lesson(s) left for a later run",
+                    "content improvement hit its %ss budget; %d selected lesson(s) not reached",
                     _RUN_BUDGET_SECONDS,
-                    len(pending) - attempted,
+                    len(selected) - attempted,
                 )
                 break
             attempted += 1
@@ -220,6 +289,17 @@ class ContentImprovementService:
                 async with asyncio.timeout(_PER_LESSON_TIMEOUT_SECONDS):
                     blocks, summary = await self._draft(lesson, feedback_items, calibration_notes)
             except Exception as exc:
+                if is_transient_provider_error(exc):
+                    # No proposal row of any status: the source feedback stays
+                    # uncovered, so this lesson is still in the queue and the
+                    # admin re-runs instead of dismissing a card by hand.
+                    logger.warning(
+                        "content improvement deferred lesson %s, provider unavailable: %s",
+                        lesson.id,
+                        exc,
+                    )
+                    deferred += 1
+                    continue
                 logger.exception("content improvement failed for lesson %s", lesson.id)
                 await self._record_failure(lesson, feedback_items, exc)
                 skipped += 1
@@ -232,7 +312,13 @@ class ContentImprovementService:
                 summary=summary,
             )
             proposed += 1
-        return proposed, skipped, len(pending) - attempted
+        return RunOutcome(
+            proposed=proposed,
+            skipped=skipped,
+            deferred=deferred,
+            remaining=len(selected) - attempted,
+            not_queued=not_queued,
+        )
 
     async def review(
         self,

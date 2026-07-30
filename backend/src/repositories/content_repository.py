@@ -174,3 +174,23 @@ class ContentRepository(AbstractContentRepository):
                 update(Lesson).where(Lesson.id == lesson_id).values(sort_order=sort_order)
             )
         await self._session.commit()
+
+    async def lesson_context(
+        self, lesson_ids: list[uuid.UUID]
+    ) -> dict[uuid.UUID, tuple[str, uuid.UUID, str, str]]:
+        if not lesson_ids:
+            return {}
+        query = (
+            select(
+                Lesson.id,
+                Module.title,
+                Track.id,
+                Track.name,
+                Track.required_level,
+            )
+            .join(Module, Module.id == Lesson.module_id)
+            .join(Track, Track.id == Module.track_id)
+            .where(Lesson.id.in_(lesson_ids))
+        )
+        rows = (await self._session.execute(query)).all()
+        return {row[0]: (row[1], row[2], row[3], row[4]) for row in rows}

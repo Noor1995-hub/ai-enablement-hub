@@ -32,3 +32,12 @@ export async function buildPlaybook(): Promise<PlaybookShared> {
   if (!data) throw new Error(errorMessage(error, 'Could not build your playbook.'))
   return data.playbook
 }
+
+export async function openInterview(): Promise<{ conversation_id: string; greeting: string }> {
+  const { data, error } = await rawRequest<{ conversation_id: string; greeting: string }>(
+    'POST',
+    '/api/interview/opener',
+  )
+  if (!data) throw new Error(errorMessage(error, 'Could not start the interview.'))
+  return data
+}

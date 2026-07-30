@@ -31,3 +31,4 @@ class JourneyResponse(BaseModel):
     components: dict[str, ComponentState]
     survey_status: Literal["not_started", "in_progress", "complete"]
     learning_status: Literal["not_started", "in_progress", "complete"]
+    interview_status: Literal["not_started", "in_progress", "complete"]
