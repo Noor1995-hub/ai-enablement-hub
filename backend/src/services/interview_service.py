@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 from pydantic import ValidationError
 
@@ -159,7 +159,7 @@ class InterviewService:
         )
 
         extraction = await self._generate(system)
-        summary = _sanitize_dashes(extraction.model_dump(mode="json"))
+        summary = cast("dict[str, Any]", _sanitize_dashes(extraction.model_dump(mode="json")))
         await self._conversations.update_summary(conversation.id, summary)
         return PlaybookShared.model_validate(summary["shared"])
 

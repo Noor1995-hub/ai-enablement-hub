@@ -377,8 +377,8 @@ async def test_build_playbook_strips_em_and_en_dashes() -> None:
     import copy
 
     dirty = copy.deepcopy(_EXTRACTION)
-    dirty["shared"]["where_you_are_today"] = "You save time — a lot of it."
-    dirty["internal"]["company_context"] = "Finance team – mid-size, inferred."
+    dirty["shared"]["where_you_are_today"] = "You save time — a lot of it."  # ty: ignore[invalid-assignment]
+    dirty["internal"]["company_context"] = "Finance team – mid-size, inferred."  # ty: ignore[invalid-assignment]
     llm = FakeLlmClient(chunks=[], structured=dirty)
     service, conversations, messages, _context = _service(llm)
     conversation = _conversation(summary=None)
@@ -417,8 +417,8 @@ async def test_open_interview_fresh_generates_persists_and_returns_greeting() ->
     assert kw["content"] == "Hi Aaron, shall we begin?"
     # the model saw a synthetic user kickoff and the briefing-grounded system prompt
     call = llm.calls[0]
-    assert call["messages"][0]["role"] == "user"
-    assert "BRIEFING" in call["system"]
+    assert call["messages"][0]["role"] == "user"  # ty: ignore[not-subscriptable]
+    assert "BRIEFING" in call["system"]  # ty: ignore[unsupported-operator]
 
 
 async def test_open_interview_idempotent_returns_existing_greeting() -> None:
