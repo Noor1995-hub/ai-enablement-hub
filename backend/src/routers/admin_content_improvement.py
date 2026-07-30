@@ -71,9 +71,11 @@ async def run_improvement_pass(
     """Draft revisions for the lessons the admin picked out of `GET /queue`.
 
     Admin-triggered, bounded and synchronous: the request caps the selection at
-    MAX_LESSONS_PER_RUN and the service carries a per-lesson timeout plus an
-    overall budget, so one click can never hold the request past the ingress
-    timeout. Nothing here touches a live lesson — every draft lands as a
+    MAX_LESSONS_PER_RUN and the service drafts them concurrently under a
+    per-lesson timeout, so the call's wall clock is the slowest single draft
+    rather than the sum — that is what keeps one click inside the ingress
+    timeout. Every selected lesson is attempted, so the response accounts for
+    all of them. Nothing here touches a live lesson — every draft lands as a
     `pending` proposal.
 
     A lesson id that is no longer queued is reported in `not_queued` rather than
@@ -96,7 +98,6 @@ async def run_improvement_pass(
         proposed=outcome.proposed,
         skipped=outcome.skipped,
         deferred=outcome.deferred,
-        remaining=outcome.remaining,
         not_queued=outcome.not_queued,
     )
 

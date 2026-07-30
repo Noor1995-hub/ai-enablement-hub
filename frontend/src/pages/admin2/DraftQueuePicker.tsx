@@ -2,11 +2,11 @@ import { useState } from 'react'
 import { resolveTrackColor } from '../../lib/trackColors'
 import type { ImprovementQueueItem } from '../../types/domain'
 import { MAX_LESSONS_PER_RUN, useImprovementQueue } from './api'
-import { EmptyState, ErrorState, Modal, Spinner } from './kit'
+import { EmptyState, ErrorState, Spinner } from './kit'
 
 interface DraftQueuePickerProps {
   /** Fired with the picked lesson ids. The caller owns the mutation so its
-   * result can outlive this modal, which closes as soon as the run starts. */
+   * result can outlive this panel, which closes as soon as the run starts. */
   onDraft: (lessonIds: string[]) => void
   onClose: () => void
   busy: boolean
@@ -17,6 +17,12 @@ interface DraftQueuePickerProps {
  * Explicit selection rather than "draft the oldest N": every lesson here is a
  * whole-lesson rewrite billed to the Anthropic key, and an admin who has just
  * triaged a batch of feedback knows which lessons they actually care about.
+ *
+ * An INLINE panel, not a modal: the queue is as long as the catalogue has
+ * un-drafted feedback, and a dialog sized to that covered the whole screen
+ * (and the proposal list the admin is picking against). The list scrolls inside
+ * a fixed-height box instead, so the panel's height is constant no matter how
+ * long the queue is.
  *
  * The cap mirrors MAX_LESSONS_PER_RUN on the backend, which refuses a bigger
  * selection outright — the ceiling is the run's time budget against the
@@ -57,55 +63,61 @@ export default function DraftQueuePicker({ onDraft, onClose, busy }: DraftQueueP
       hint="Accept some lesson feedback on the Feedback screen first."
     />
   ) : (
-    <>
-      <p className="adm-subtext">
-        Each lesson you pick is one full rewrite by the agent, using every accepted feedback item on
-        it. Nothing reaches a learner until you approve the draft.
-      </p>
-      <ul className="adm-ci-picklist">
-        {data.items.map(item => (
-          <QueueRow
-            key={item.lesson_id}
-            item={item}
-            checked={picked.includes(item.lesson_id)}
-            // A row you have already ticked must stay clickable at the cap, or
-            // there is no way to swap one choice for another.
-            disabled={busy || (atCap && !picked.includes(item.lesson_id))}
-            onToggle={() => toggle(item.lesson_id)}
-          />
-        ))}
-      </ul>
-    </>
+    // Only the LIST scrolls — the header and the actions stay put, so the
+    // Draft button never scrolls out of reach on a long queue. adm-check-list
+    // is the shared scroll box (see the assign-content picker on PeoplePage).
+    <ul className="adm-check-list adm-ci-picklist">
+      {data.items.map(item => (
+        <QueueRow
+          key={item.lesson_id}
+          item={item}
+          checked={picked.includes(item.lesson_id)}
+          // A row you have already ticked must stay clickable at the cap, or
+          // there is no way to swap one choice for another.
+          disabled={busy || (atCap && !picked.includes(item.lesson_id))}
+          onToggle={() => toggle(item.lesson_id)}
+        />
+      ))}
+    </ul>
   )
 
   return (
-    <Modal
-      title="Draft proposals"
-      onClose={onClose}
-      footer={
-        <>
-          <span className="adm-subtext">
-            {picked.length} of {MAX_LESSONS_PER_RUN} selected
-            {atCap && ' — the most one run can do'}
-          </span>
-          <div className="adm-modal-actions">
-            <button type="button" className="adm-btn adm-btn-ghost" onClick={onClose} disabled={busy}>
-              Cancel
-            </button>
-            <button
-              type="button"
-              className="adm-btn adm-btn-primary"
-              disabled={busy || picked.length === 0}
-              onClick={() => onDraft(picked)}
-            >
-              {busy ? 'Drafting…' : `Draft ${picked.length || ''}`.trim()}
-            </button>
-          </div>
-        </>
-      }
-    >
+    <div className="adm-ci-pickpanel">
+      <div className="adm-ci-pickhead">
+        <strong>Pick the lessons to redraft</strong>
+        <span className="adm-subtext">
+          {picked.length} of {MAX_LESSONS_PER_RUN} selected
+          {atCap && ' — the most one run can do'}
+        </span>
+      </div>
+
       {body}
-    </Modal>
+
+      <div className="adm-ci-pickfoot">
+        <span className="adm-subtext">
+          Each one is a full rewrite using every accepted feedback item on that lesson. Nothing
+          reaches a learner until you approve the draft.
+        </span>
+        <div className="adm-ci-pickactions">
+          <button
+            type="button"
+            className="adm-btn adm-btn-ghost adm-btn-sm"
+            onClick={onClose}
+            disabled={busy}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="adm-btn adm-btn-primary adm-btn-sm"
+            disabled={busy || picked.length === 0}
+            onClick={() => onDraft(picked)}
+          >
+            {busy ? 'Drafting…' : `Draft ${picked.length || ''}`.trim()}
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -116,26 +128,26 @@ interface QueueRowProps {
   onToggle: () => void
 }
 
-/** One pickable lesson. Carries the same Track/Module chips as a proposal row so
- * the picker and the review queue read as one screen. */
+/** One pickable lesson: title, then track / module / feedback count on a single
+ * line. Everything the proposal cards show is kept — the line is allowed to
+ * truncate rather than wrap, so every row is the same height and the scroll box
+ * holds a predictable number of them. */
 function QueueRow({ item, checked, disabled, onToggle }: QueueRowProps) {
   const dotColor = resolveTrackColor({ required_level: item.track_level, is_introduction: false })
 
   return (
-    <li className={`adm-ci-pickrow${disabled && !checked ? ' adm-ci-pickrow-off' : ''}`}>
-      <label className="adm-ci-picklabel">
+    <li className={disabled && !checked ? 'adm-ci-pickrow-off' : undefined}>
+      <label className="adm-check-row">
         <input type="checkbox" checked={checked} disabled={disabled} onChange={onToggle} />
         <span className="adm-ci-pickmain">
-          <strong>{item.lesson_title}</strong>
-          <span className="adm-ci-loc">
-            <span className="adm-loc-chip">
-              <span className="adm-loc-dot" style={{ background: dotColor }} />
-              {item.track_name}
-            </span>
-            <span className="adm-loc-chip">{item.module_title}</span>
-            <span className="adm-loc-chip">
-              {item.feedback_count} feedback item{item.feedback_count === 1 ? '' : 's'}
-            </span>
+          <span className="adm-ci-picktitle">{item.lesson_title}</span>
+          <span className="adm-ci-pickmeta">
+            <span className="adm-loc-dot" style={{ background: dotColor }} />
+            {item.track_name}
+            <span className="adm-ci-picksep">·</span>
+            {item.module_title}
+            <span className="adm-ci-picksep">·</span>
+            {item.feedback_count} feedback item{item.feedback_count === 1 ? '' : 's'}
           </span>
         </span>
       </label>

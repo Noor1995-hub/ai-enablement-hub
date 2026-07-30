@@ -11,9 +11,11 @@ Selection is the CALLER's, not this service's: an admin who reviewed a batch of
 feedback knows which lessons they want redrafted, and a run that guesses spends
 real money on lessons nobody asked about.
 
-Bounded like the triage run (services/feedback_triage_service.py): a per-lesson
-timeout plus an overall budget, and honest counts, because one admin click can
-fan out to several multi-second model calls behind a single POST.
+The selected lessons are drafted CONCURRENTLY, and every one of them is always
+attempted: a run reports what happened to each, never "I ran out of time before
+getting to this one". The model calls are gathered; the proposal writes that
+follow are sequential, because the repositories share one AsyncSession and that
+is not safe to use from several tasks at once.
 """
 
 from __future__ import annotations
@@ -22,7 +24,6 @@ import asyncio
 import json
 import logging
 import uuid
-from time import monotonic
 from typing import TYPE_CHECKING, Any, NamedTuple
 
 from src.services.calibration_prompt import MAX_INJECTED_NOTES, render_calibration_block
@@ -61,6 +62,11 @@ logger = logging.getLogger(__name__)
 class RunOutcome(NamedTuple):
     """What one `run` actually did, in terms the admin UI can report honestly.
 
+    `proposed + skipped + deferred` always equals the number of selected lessons
+    that were still queued — there is deliberately no "did not get to it"
+    bucket, because the drafts run concurrently and every selection is
+    attempted.
+
     `skipped` and `deferred` are both failures, and keeping them apart is the
     difference between "go dismiss some cards" and "wait a minute and click
     again": a skipped lesson has a `failed` proposal on the Failed tab and has
@@ -73,8 +79,6 @@ class RunOutcome(NamedTuple):
     """Terminal failures, each recorded as a `failed` proposal carrying why."""
     deferred: int
     """Transient provider failures. Still queued — running again retries them."""
-    remaining: int
-    """Selected lessons the run's time budget never reached."""
     not_queued: int
     """Requested ids that were no longer awaiting a draft (a concurrent run)."""
 
@@ -88,12 +92,16 @@ class RunOutcome(NamedTuple):
 # large lesson risks a truncated tool_use response.
 _MAX_TOKENS = 16_000
 _MAX_LESSON_CHARS = 24_000
-# A whole-lesson rewrite is a slow call, and one click can fan out to several.
-# Worst case for a run is _RUN_BUDGET + one _PER_LESSON timeout (the budget is
-# checked BEFORE a lesson, which may then take its full timeout) = 180s, which
-# stays under the container ingress timeout.
-_PER_LESSON_TIMEOUT_SECONDS = 90.0
-_RUN_BUDGET_SECONDS = 90.0
+# Sized against the container ingress timeout, which is the real ceiling on a
+# synchronous endpoint: nothing sets `ingress.requestTimeout`, so the app runs on
+# the Azure Container Apps default of 240s. Because the drafts are gathered
+# rather than looped, a run's worst case is ONE lesson's timeout plus the
+# sequential proposal writes (~185s), not the sum over the selection -- that is
+# what buys the headroom to raise this from the old 90s, which was marginal for a
+# _MAX_LESSON_CHARS-sized lesson (~8k output tokens). Raising it past ~200s
+# starts trading a clean "could not be drafted" for a 504 at the ingress while
+# the server is still working, which reads to the admin as a lost run.
+_PER_LESSON_TIMEOUT_SECONDS = 180.0
 _MAX_SUMMARY_CHARS = 600
 # A proposal an admin can still act on. Everything else is already decided.
 _REVIEWABLE_STATUSES = ("pending", "failed")
@@ -258,9 +266,9 @@ class ContentImprovementService:
         """
         wanted = set(lesson_ids)
         if not wanted:
-            return RunOutcome(0, 0, 0, 0, 0)
-        # Queue order, not request order: oldest feedback first is a meaningful
-        # tie-break when the time budget cuts a selection short.
+            return RunOutcome(0, 0, 0, 0)
+        # Queue order, not request order: oldest feedback first, which keeps the
+        # reported order stable and matches what the picker showed.
         selected = [
             entry for entry in await self._lessons_awaiting_draft() if entry[0].id in wanted
         ]
@@ -271,39 +279,45 @@ class ContentImprovementService:
         calibration_notes = await self._calibration_notes.list_for_injection(
             limit=MAX_INJECTED_NOTES
         )
-        deadline = monotonic() + _RUN_BUDGET_SECONDS
+
+        # Every selected lesson is launched, so a run's wall clock is the slowest
+        # draft rather than the sum of them, and nothing can be left unattempted.
+        # `return_exceptions` stops one lesson's failure cancelling its siblings.
+        drafts = await asyncio.gather(
+            *(
+                self._draft_within_timeout(lesson, feedback_items, calibration_notes)
+                for lesson, feedback_items in selected
+            ),
+            return_exceptions=True,
+        )
+
+        # The writes below are SEQUENTIAL on purpose: `self._proposals` and
+        # `self._content` share one AsyncSession, which is not safe to use from
+        # concurrent tasks. Only the model calls above run in parallel.
         proposed = 0
         skipped = 0
         deferred = 0
-        attempted = 0
-        for lesson, feedback_items in selected:
-            if monotonic() >= deadline:
-                logger.warning(
-                    "content improvement hit its %ss budget; %d selected lesson(s) not reached",
-                    _RUN_BUDGET_SECONDS,
-                    len(selected) - attempted,
-                )
-                break
-            attempted += 1
-            try:
-                async with asyncio.timeout(_PER_LESSON_TIMEOUT_SECONDS):
-                    blocks, summary = await self._draft(lesson, feedback_items, calibration_notes)
-            except Exception as exc:
-                if is_transient_provider_error(exc):
+        for (lesson, feedback_items), draft in zip(selected, drafts, strict=True):
+            if isinstance(draft, BaseException):
+                if is_transient_provider_error(draft):
                     # No proposal row of any status: the source feedback stays
                     # uncovered, so this lesson is still in the queue and the
                     # admin re-runs instead of dismissing a card by hand.
                     logger.warning(
                         "content improvement deferred lesson %s, provider unavailable: %s",
                         lesson.id,
-                        exc,
+                        draft,
                     )
                     deferred += 1
                     continue
-                logger.exception("content improvement failed for lesson %s", lesson.id)
-                await self._record_failure(lesson, feedback_items, exc)
+                # exc_info=, not logger.exception(): gather hands the exception
+                # back as a value, so there is no active handler for
+                # `.exception()` to take a traceback from.
+                logger.error("content improvement failed for lesson %s", lesson.id, exc_info=draft)
+                await self._record_failure(lesson, feedback_items, draft)
                 skipped += 1
                 continue
+            blocks, summary = draft
             await self._proposals.create(
                 lesson_id=lesson.id,
                 proposed_blocks=blocks,
@@ -313,12 +327,22 @@ class ContentImprovementService:
             )
             proposed += 1
         return RunOutcome(
-            proposed=proposed,
-            skipped=skipped,
-            deferred=deferred,
-            remaining=len(selected) - attempted,
-            not_queued=not_queued,
+            proposed=proposed, skipped=skipped, deferred=deferred, not_queued=not_queued
         )
+
+    async def _draft_within_timeout(
+        self, lesson: Lesson, feedback_items: list[Feedback], calibration_notes: list[str]
+    ) -> tuple[list[Any], str]:
+        """One lesson's draft under its own clock, so a slow lesson bounds only
+        itself.
+
+        A timeout surfaces as `TimeoutError`, which the caller treats as terminal
+        (see `is_transient_provider_error`): a lesson that cannot be drafted
+        inside the budget gets a visible `failed` card the admin can dismiss and
+        retry, rather than silently rejoining the queue to time out forever.
+        """
+        async with asyncio.timeout(_PER_LESSON_TIMEOUT_SECONDS):
+            return await self._draft(lesson, feedback_items, calibration_notes)
 
     async def review(
         self,

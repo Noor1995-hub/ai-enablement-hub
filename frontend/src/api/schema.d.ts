@@ -1396,9 +1396,11 @@ export interface paths {
          * @description Draft revisions for the lessons the admin picked out of `GET /queue`.
          *
          *     Admin-triggered, bounded and synchronous: the request caps the selection at
-         *     MAX_LESSONS_PER_RUN and the service carries a per-lesson timeout plus an
-         *     overall budget, so one click can never hold the request past the ingress
-         *     timeout. Nothing here touches a live lesson — every draft lands as a
+         *     MAX_LESSONS_PER_RUN and the service drafts them concurrently under a
+         *     per-lesson timeout, so the call's wall clock is the slowest single draft
+         *     rather than the sum — that is what keeps one click inside the ingress
+         *     timeout. Every selected lesson is attempted, so the response accounts for
+         *     all of them. Nothing here touches a live lesson — every draft lands as a
          *     `pending` proposal.
          *
          *     A lesson id that is no longer queued is reported in `not_queued` rather than
@@ -2456,8 +2458,12 @@ export interface components {
          * @description `proposed` = drafts created; `skipped` = lessons the agent could not
          *     draft (each recorded as a `failed` proposal carrying the reason);
          *     `deferred` = lessons the AI provider was too busy for, still queued and
-         *     retried by the next run; `remaining` = selected lessons the bounded run did
-         *     not reach; `not_queued` = requested lessons that were already drafted.
+         *     retried by the next run; `not_queued` = requested lessons that were already
+         *     drafted by a concurrent run.
+         *
+         *     There is deliberately no "did not get to it" count: the drafts run
+         *     concurrently, so every selected lesson is always attempted and lands in
+         *     exactly one of the three buckets above.
          */
         ImprovementRunResponse: {
             /** Proposed */
@@ -2466,8 +2472,6 @@ export interface components {
             skipped: number;
             /** Deferred */
             deferred: number;
-            /** Remaining */
-            remaining: number;
             /** Not Queued */
             not_queued: number;
         };

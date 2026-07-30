@@ -110,13 +110,14 @@ export default function ContentImprovementPage() {
             ))}
           </div>
           <div className="adm-push-right">
+            {/* No "…" and no dialog: this toggles an inline panel open below. */}
             <button
               type="button"
-              className="adm-btn adm-btn-primary adm-btn-sm"
+              className={picking ? 'adm-btn adm-btn-ghost adm-btn-sm' : 'adm-btn adm-btn-primary adm-btn-sm'}
               disabled={run.isPending}
-              onClick={() => setPicking(true)}
+              onClick={() => setPicking(open => !open)}
             >
-              {run.isPending ? 'Drafting…' : 'Draft proposals…'}
+              {run.isPending ? 'Drafting…' : picking ? 'Close' : 'Draft proposals'}
             </button>
           </div>
         </div>
@@ -135,6 +136,16 @@ export default function ContentImprovementPage() {
           />
         )}
 
+        {/* The lessons are drafted in parallel, so this waits for the slowest
+            one rather than the sum — but a big lesson can still take a couple of
+            minutes, and an unexplained frozen button reads as a hang. */}
+        {run.isPending && (
+          <p className="adm-subtext">
+            Rewriting {run.variables?.length === 1 ? 'the lesson' : `${run.variables?.length} lessons`} in
+            parallel. This can take a couple of minutes — leaving the page will not stop it, but you
+            will not see the result.
+          </p>
+        )}
         {run.isSuccess && <RunOutcomeLine outcome={run.data} />}
         {run.isError && (
           <p className="adm-form-msg adm-form-msg-err">
@@ -161,7 +172,7 @@ export default function ContentImprovementPage() {
         {data.items.length === 0 ? (
           <EmptyState
             title="No proposals here."
-            hint="Accept some lesson feedback, then use “Draft proposals…” to pick which lessons to redraft."
+            hint="Accept some lesson feedback, then use “Draft proposals” to pick which lessons to redraft."
           />
         ) : (
           data.items.map(item => <ProposalRow key={item.id} item={item} learnCard={learnCard} />)
@@ -458,7 +469,7 @@ function ProposalRow({ item, learnCard }: ProposalRowProps) {
  * drafted" is what made this feature feel broken.
  */
 function RunOutcomeLine({ outcome }: { outcome: ImprovementRunResponse }) {
-  const { proposed, skipped, deferred, remaining, not_queued: notQueued } = outcome
+  const { proposed, skipped, deferred, not_queued: notQueued } = outcome
   const parts: string[] = []
   if (proposed > 0) parts.push(`Drafted ${proposed} proposal${proposed === 1 ? '' : 's'}`)
   if (skipped > 0) {
@@ -470,9 +481,6 @@ function RunOutcomeLine({ outcome }: { outcome: ImprovementRunResponse }) {
     parts.push(
       `the AI provider was busy for ${deferred} lesson${deferred === 1 ? '' : 's'} — still queued, try again in a minute`,
     )
-  }
-  if (remaining > 0) {
-    parts.push(`${remaining} selected lesson${remaining === 1 ? '' : 's'} ran out of time`)
   }
   if (notQueued > 0) {
     parts.push(`${notQueued} lesson${notQueued === 1 ? '' : 's'} had already been drafted`)

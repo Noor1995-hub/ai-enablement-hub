@@ -736,23 +736,40 @@ button.adm-loc-chip:hover .adm-loc-label { color: var(--adm-red-deep); }
 .adm-ci-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
 .adm-ci-when { margin-left: auto; font-size: 12px; color: var(--adm-faint); }
 .adm-ci-loc { display: flex; align-items: center; gap: 5px; margin: 0 0 10px; flex-wrap: wrap; }
-/* Draft-proposals picker (DraftQueuePicker) — the lessons awaiting a draft, one
-   tickable row each. Rows carry the same .adm-ci-loc chip strip as a proposal
-   card so the picker and the review queue read as one screen. */
-.adm-ci-picklist { list-style: none; margin: 12px 0 0; padding: 0; }
-.adm-ci-pickrow { border: 1px solid var(--adm-border); border-radius: var(--adm-radius); margin-bottom: 8px; }
-.adm-ci-pickrow:hover { border-color: var(--adm-info-border); }
+/* Draft-proposals picker (DraftQueuePicker) — an INLINE panel, not a dialog.
+   The queue is as long as the catalogue has un-drafted feedback, so a modal
+   sized to it covered the whole screen including the proposals being picked
+   against. This reuses .adm-check-list / .adm-check-row (the assign-content
+   scrollable checkbox list) so the two pickers behave identically; only the
+   two-line row content and the disabled-at-cap state are new here. */
+.adm-ci-pickpanel {
+  background: var(--adm-white); border: 1px solid var(--adm-border);
+  border-radius: var(--adm-radius); padding: 14px 16px; margin: 0 0 14px;
+}
+.adm-ci-pickhead { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
+.adm-ci-pickhead .adm-subtext { margin-left: auto; }
+/* .adm-check-list is the scroll box (max-height + overflow); it carries a <ul>
+   here rather than a <div>, so only the list semantics need resetting. */
+.adm-ci-picklist { list-style: none; margin: 0 0 10px; }
 /* At the selection cap, unticked rows go quiet but ticked ones stay live — the
    admin still needs to be able to swap one choice for another. */
-.adm-ci-pickrow-off { opacity: 0.5; }
-.adm-ci-pickrow-off:hover { border-color: var(--adm-border); }
-.adm-ci-picklabel { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; cursor: pointer; }
-.adm-ci-pickrow-off .adm-ci-picklabel { cursor: default; }
-.adm-ci-pickmain { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-/* The picker's chip strip sits inside a row, so it drops the card-level margin. */
-.adm-ci-pickmain .adm-ci-loc { margin: 0; }
-/* Pushes the modal's buttons away from the footer's status text. */
-.adm-modal-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.adm-ci-pickrow-off { opacity: 0.45; }
+.adm-ci-pickrow-off .adm-check-row:hover { background: transparent; }
+.adm-ci-pickrow-off .adm-check-row { cursor: default; }
+/* min-width:0 is what lets the meta line truncate instead of widening the row. */
+.adm-ci-pickmain { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.adm-ci-picktitle { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Track / module / feedback count on one truncating line: all the information
+   the old wrapping chip strip carried, at a fraction of the height and with
+   every row the same height, so the scroll box holds a predictable count. */
+.adm-ci-pickmeta {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 12px; color: var(--adm-muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.adm-ci-picksep { color: var(--adm-faint); }
+.adm-ci-pickfoot { display: flex; align-items: center; gap: 12px; }
+.adm-ci-pickactions { display: flex; align-items: center; gap: 8px; margin-left: auto; flex: none; }
 .adm-ci-summary { font-size: 14.5px; color: var(--adm-ink); margin: 0 0 12px; padding-left: 12px; border-left: 3px solid var(--adm-info-border); }
 /* Calibration-note text only. A note is stored verbatim, so a newline in it has
    to be visible to the admin deciding whether to approve it. Deliberately a

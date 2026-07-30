@@ -111,9 +111,10 @@ class ProposalReviewResponse(BaseModel):
 
 
 # One click fans out to this many whole-lesson rewrites at most. The ceiling is
-# the run's time budget, not the model: see _RUN_BUDGET_SECONDS in
-# services/content_improvement_service.py, which must stay under the container
-# ingress timeout.
+# concurrency against the container ingress timeout, not the model: the drafts
+# run in parallel, so raising this raises the peak load on the Anthropic key (and
+# the burn rate) rather than the wall clock. See _PER_LESSON_TIMEOUT_SECONDS in
+# services/content_improvement_service.py.
 MAX_LESSONS_PER_RUN = 3
 
 
@@ -128,13 +129,16 @@ class ImprovementRunResponse(BaseModel):
     """`proposed` = drafts created; `skipped` = lessons the agent could not
     draft (each recorded as a `failed` proposal carrying the reason);
     `deferred` = lessons the AI provider was too busy for, still queued and
-    retried by the next run; `remaining` = selected lessons the bounded run did
-    not reach; `not_queued` = requested lessons that were already drafted."""
+    retried by the next run; `not_queued` = requested lessons that were already
+    drafted by a concurrent run.
+
+    There is deliberately no "did not get to it" count: the drafts run
+    concurrently, so every selected lesson is always attempted and lands in
+    exactly one of the three buckets above."""
 
     proposed: int
     skipped: int
     deferred: int
-    remaining: int
     not_queued: int
 
 
