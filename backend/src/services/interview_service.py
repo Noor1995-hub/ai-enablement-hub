@@ -41,6 +41,24 @@ def _strip_ready_marker(text: str) -> str:
     return text.replace(_READY_MARKER, "").rstrip() if _READY_MARKER in text else text
 
 
+# Belt-and-suspenders to the prompt's no-dash rule: the model still occasionally
+# emits em/en dashes. Normalise them to a plain hyphen in generated playbook
+# content (both boxes) before persisting/returning. Recurses str/list/dict.
+_DASH_CHARS = ("—", "–", "―")  # em dash, en dash, horizontal bar
+
+
+def _sanitize_dashes(value: object) -> object:
+    if isinstance(value, str):
+        for ch in _DASH_CHARS:
+            value = value.replace(ch, "-")
+        return value
+    if isinstance(value, list):
+        return [_sanitize_dashes(v) for v in value]
+    if isinstance(value, dict):
+        return {k: _sanitize_dashes(v) for k, v in value.items()}
+    return value
+
+
 class InterviewService:
     """Owns the interviewer's wrap-up generation (retry-once structured LLM
     call against the two-box T2 schema), the caller's own interview state,
@@ -93,9 +111,9 @@ class InterviewService:
         )
 
         extraction = await self._generate(system)
-        summary = extraction.model_dump(mode="json")
+        summary = _sanitize_dashes(extraction.model_dump(mode="json"))
         await self._conversations.update_summary(conversation.id, summary)
-        return extraction.shared
+        return PlaybookShared.model_validate(summary["shared"])
 
     async def _generate(self, system: str) -> PlaybookExtraction:
         last_error: Exception | None = None

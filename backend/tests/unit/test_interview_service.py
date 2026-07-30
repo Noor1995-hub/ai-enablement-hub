@@ -4,6 +4,7 @@ repositories/services (AAA, no DB)."""
 
 from __future__ import annotations
 
+import json
 import uuid
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
@@ -355,3 +356,26 @@ async def test_get_admin_view_strips_ready_marker_from_transcript() -> None:
     result = await service.get_admin_view(user_id=uuid.uuid4())
 
     assert result.transcript[0].content == "Ready when you are."
+
+
+async def test_build_playbook_strips_em_and_en_dashes() -> None:
+    import copy
+
+    dirty = copy.deepcopy(_EXTRACTION)
+    dirty["shared"]["where_you_are_today"] = "You save time — a lot of it."
+    dirty["internal"]["company_context"] = "Finance team – mid-size, inferred."
+    llm = FakeLlmClient(chunks=[], structured=dirty)
+    service, conversations, messages, _context = _service(llm)
+    conversation = _conversation(summary=None)
+    conversations.list_for_user.return_value = [conversation]
+    messages.list_for_conversation.return_value = []
+    user = _user()
+
+    result = await service.build_playbook(user=user)  # ty: ignore[invalid-argument-type]
+
+    assert "—" not in result.where_you_are_today
+    assert "–" not in result.where_you_are_today
+    assert "-" in result.where_you_are_today
+    persisted = conversations.update_summary.await_args.args[1]
+    blob = json.dumps(persisted, ensure_ascii=False)
+    assert "—" not in blob and "–" not in blob
