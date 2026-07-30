@@ -5,7 +5,7 @@
 // `path` is relative to the /admin index (mirrors the nested routes added in
 // App.tsx) so NavLink can build the actual href by prefixing '/admin'.
 
-export type NavIconKey = 'home' | 'users' | 'grid' | 'inbox' | 'edit' | 'folder' | 'mail' | 'settings'
+export type NavIconKey = 'home' | 'users' | 'grid' | 'inbox' | 'edit' | 'folder' | 'mail' | 'terminal' | 'settings'
 
 export interface NavItem {
   key: string
@@ -22,5 +22,6 @@ export const NAV_ITEMS: NavItem[] = [
   { key: 'content-ai',  label: 'Content AI',      icon: 'edit',     path: 'content-improvement' },
   { key: 'projects',    label: 'Projects',        icon: 'folder',   path: 'projects' },
   { key: 'templates',   label: 'Email templates', icon: 'mail',     path: 'templates' },
+  { key: 'prompts',     label: 'System prompts',  icon: 'terminal', path: 'prompts' },
   { key: 'setup',       label: 'Setup',           icon: 'settings', path: 'setup' },
 ]

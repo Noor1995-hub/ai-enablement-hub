@@ -774,3 +774,34 @@ button.adm-loc-chip:hover .adm-loc-label { color: var(--adm-red-deep); }
 .adm-ci-editor { border: 1px solid var(--adm-border); border-radius: var(--adm-radius); margin: 12px 0; padding: 10px; }
 .adm-ci-editor .adm-subtext { margin-bottom: 8px; }
 .adm-ci-learn { margin: 12px 0; padding: 10px 12px; border: 1px solid var(--adm-info-border); background: var(--adm-info-bg); border-radius: var(--adm-radius); }
+
+/* ── System prompts (DB-backed, admin editor) ─────────────────────────────
+   Backs frontend/src/pages/admin2/PromptsPage.tsx. Not project-scoped (same
+   family as Content AI/calibration notes) — one page, local selection state,
+   no child route. Rows reuse .adm-comp-name/.adm-subtext/.adm-push-right
+   (Projects) and the editor's action row reuses the kit-wide .adm-btn and
+   .adm-form-msg families; only the row/textarea/token chip below are new. */
+.adm-prompt-row {
+  display: flex; align-items: center; gap: 14px; width: 100%;
+  padding: 12px 10px; border: none; border-bottom: 1px solid #EEEEEC; border-radius: var(--adm-radius-sm);
+  background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; flex-wrap: wrap;
+}
+.adm-prompt-row:last-child { border-bottom: none; }
+.adm-prompt-row:hover, .adm-prompt-row.selected { background: var(--adm-surface); }
+.adm-prompt-row.selected .adm-comp-name { color: var(--adm-red-deep); }
+
+.adm-prompt-textarea {
+  width: 100%; min-height: 320px; padding: 12px 14px; box-sizing: border-box;
+  font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px; line-height: 1.6;
+  color: var(--adm-ink); border: 1px solid var(--adm-border); border-radius: var(--adm-radius-sm);
+  outline: none; resize: vertical; margin-bottom: 12px;
+}
+.adm-prompt-textarea:focus { border-color: var(--adm-faint); }
+
+.adm-prompt-token {
+  display: inline-block; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11.5px;
+  padding: 2px 6px; margin: 0 4px 4px 0; border-radius: var(--adm-radius-sm);
+  background: var(--adm-surface); color: var(--adm-text); border: 1px solid var(--adm-border);
+}
+
+.adm-form-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }

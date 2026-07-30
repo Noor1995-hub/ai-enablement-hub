@@ -9,6 +9,7 @@ import DashboardPage from './pages/admin2/DashboardPage'
 import FeedbackPage from './pages/admin2/FeedbackPage'
 import PeoplePage from './pages/admin2/PeoplePage'
 import ProjectsPage from './pages/admin2/ProjectsPage'
+import PromptsPage from './pages/admin2/PromptsPage'
 import SetupPage from './pages/admin2/SetupPage'
 import TemplatesPage from './pages/admin2/TemplatesPage'
 import UserDetailPage from './pages/admin2/UserDetailPage'
@@ -66,6 +67,7 @@ function AppRoutes() {
         <Route path="content-improvement" element={<ContentImprovementPage />} />
         <Route path="projects" element={<ProjectsPage />} />
         <Route path="templates" element={<TemplatesPage />} />
+        <Route path="prompts" element={<PromptsPage />} />
         <Route path="setup" element={<SetupPage />} />
       </Route>
       <Route path="/assessment" element={session ? <Assessment /> : <Navigate to="/login" replace />} />
