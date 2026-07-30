@@ -55,7 +55,6 @@ def missing_tokens(kind: str, content: str) -> list[str]:
     return [t for t in REQUIRED_TOKENS.get(kind, ()) if t not in content]
 
 
-_KNOWN_KINDS: set[str] = {p.kind for p in KNOWN_PROMPTS}
 _META_BY_KIND: dict[str, PromptMeta] = {p.kind: p for p in KNOWN_PROMPTS}
 
 
@@ -100,7 +99,7 @@ class PromptService:
         )
 
     async def update(self, kind: str, content: str, user_id: uuid.UUID | None) -> None:
-        if kind not in _KNOWN_KINDS:
+        if kind not in _META_BY_KIND:
             raise NotFoundError("Prompt")
         missing = missing_tokens(kind, content)
         if missing:
@@ -109,7 +108,7 @@ class PromptService:
         P.set_cache(kind, content)
 
     async def reset(self, kind: str) -> None:
-        if kind not in _KNOWN_KINDS:
+        if kind not in _META_BY_KIND:
             raise NotFoundError("Prompt")
         await self._repo.delete(kind)
         P.reset_cache(kind)

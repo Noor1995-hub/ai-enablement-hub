@@ -69,6 +69,13 @@ async def test_unknown_kind_404s():
         await svc.get(kind="does_not_exist")
 
 
+async def test_reset_unknown_kind_404s():
+    svc, repo = _svc()
+    with pytest.raises(NotFoundError):
+        await svc.reset(kind="does_not_exist")
+    repo.delete.assert_not_awaited()
+
+
 def test_missing_tokens_flags_dropped_playbook_slot():
     body = "no slots here"
     assert set(missing_tokens("interview_playbook", body)) == {
