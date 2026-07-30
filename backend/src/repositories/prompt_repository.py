@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 import uuid
-from typing import Any
 
 from sqlalchemy import delete as sa_delete
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -25,10 +24,14 @@ class PromptRepository:
         return await self._session.get(Prompt, kind)
 
     async def upsert(self, kind: str, content: str, updated_by: uuid.UUID | None) -> None:
-        values: dict[str, Any] = {"kind": kind, "content": content, "updated_by": updated_by}
-        stmt = pg_insert(Prompt).values(**values).on_conflict_do_update(
+        stmt = pg_insert(Prompt).values(kind=kind, content=content, updated_by=updated_by)
+        stmt = stmt.on_conflict_do_update(
             index_elements=[Prompt.kind],
-            set_={"content": content, "updated_by": updated_by},
+            set_={
+                "content": stmt.excluded.content,
+                "updated_by": stmt.excluded.updated_by,
+                "updated_at": func.now(),
+            },
         )
         await self._session.execute(stmt)
         await self._session.commit()
