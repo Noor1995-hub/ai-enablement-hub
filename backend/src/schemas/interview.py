@@ -12,6 +12,7 @@ __all__ = [
     "DoThisToday",
     "EngagementNotes",
     "InputQuality",
+    "InterviewOpenerResponse",
     "InterviewStateResponse",
     "Maturity",
     "NextMove",
@@ -161,6 +162,11 @@ class InterviewStateResponse(BaseModel):
     status: Literal["not_started", "in_progress", "complete"]
     conversation_id: uuid.UUID | None = None
     playbook: PlaybookShared | None = None
+
+
+class InterviewOpenerResponse(BaseModel):
+    conversation_id: uuid.UUID
+    greeting: str
 
 
 class PlaybookResponse(BaseModel):

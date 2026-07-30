@@ -12,12 +12,12 @@ from unittest.mock import AsyncMock
 import pytest
 
 from src.repositories.base import AbstractConversationRepository, AbstractMessageRepository
-from src.schemas.interview import PlaybookInternal, PlaybookShared
+from src.schemas.interview import InterviewOpenerResponse, PlaybookInternal, PlaybookShared
 from src.services.exceptions import DomainError
 from src.services.interview_context import InterviewContextService
 from src.services.interview_service import InterviewService
 from src.services.llm_service import LlmError, LlmUsage
-from tests.fixtures.llm import FakeLlmClient
+from tests.fixtures.llm import FakeLlmClient, RaisingLlmClient
 
 # One fully-populated extraction: both boxes complete, one use_case
 # (difficulty "Quick Win"), tier "RICH".
@@ -379,3 +379,60 @@ async def test_build_playbook_strips_em_and_en_dashes() -> None:
     persisted = conversations.update_summary.await_args.args[1]
     blob = json.dumps(persisted, ensure_ascii=False)
     assert "—" not in blob and "–" not in blob
+
+
+async def test_open_interview_fresh_generates_persists_and_returns_greeting() -> None:
+    llm = FakeLlmClient(chunks=["Hi Aaron, ", "shall we begin?"])
+    service, conversations, messages, context = _service(llm)
+    context.build_briefing.return_value = "BRIEFING"
+    conversations.list_for_user.return_value = []
+    new_conv = _conversation(summary=None)
+    conversations.create.return_value = new_conv
+    user = _user()
+
+    result = await service.open_interview(user=user)  # ty: ignore[invalid-argument-type]
+
+    assert isinstance(result, InterviewOpenerResponse)
+    assert result.conversation_id == new_conv.id
+    assert result.greeting == "Hi Aaron, shall we begin?"
+    # only the assistant greeting is persisted (no user turn)
+    messages.create.assert_awaited_once()
+    _pos, kw = messages.create.await_args.args, messages.create.await_args.kwargs
+    assert kw["role"] == "assistant"
+    assert kw["content"] == "Hi Aaron, shall we begin?"
+    # the model saw a synthetic user kickoff and the briefing-grounded system prompt
+    call = llm.calls[0]
+    assert call["messages"][0]["role"] == "user"
+    assert "BRIEFING" in call["system"]
+
+
+async def test_open_interview_idempotent_returns_existing_greeting() -> None:
+    llm = FakeLlmClient(chunks=["should not stream"])
+    service, conversations, messages, _context = _service(llm)
+    existing = _conversation(summary=None)
+    conversations.list_for_user.return_value = [existing]
+    messages.list_for_conversation.return_value = [
+        SimpleNamespace(role="assistant", content="Hi Aaron, welcome back."),
+    ]
+    user = _user()
+
+    result = await service.open_interview(user=user)  # ty: ignore[invalid-argument-type]
+
+    assert result.conversation_id == existing.id
+    assert result.greeting == "Hi Aaron, welcome back."
+    assert llm.calls == []
+    conversations.create.assert_not_awaited()
+    messages.create.assert_not_awaited()
+
+
+async def test_open_interview_llm_failure_creates_no_conversation() -> None:
+    service, conversations, messages, context = _service(RaisingLlmClient())
+    context.build_briefing.return_value = "BRIEFING"
+    conversations.list_for_user.return_value = []
+    user = _user()
+
+    with pytest.raises(DomainError):
+        await service.open_interview(user=user)  # ty: ignore[invalid-argument-type]
+
+    conversations.create.assert_not_awaited()
+    messages.create.assert_not_awaited()

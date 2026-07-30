@@ -6,6 +6,7 @@ from pydantic import ValidationError
 
 from src.schemas.interview import (
     AdminInterviewResponse,
+    InterviewOpenerResponse,
     InterviewStateResponse,
     PlaybookExtraction,
     PlaybookInternal,
@@ -30,6 +31,8 @@ __all__ = ["InterviewService"]
 _KIND = "interview"
 _MAX_TOKENS = 8192
 _GENERATE_PROMPT = "Produce the playbook now by calling the record_playbook tool."
+_OPENER_MAX_TOKENS = 1024
+_KICKOFF = "[Begin the interview now: greet me and ask your first question.]"
 
 # The interviewer appends this marker to the turn where it offers to build the playbook
 # (prompts/interview.md) — a UI signal the frontend detects to reveal the build button.
@@ -91,6 +94,41 @@ class InterviewService:
             conversation_id=conversation.id,
             playbook=PlaybookShared.model_validate(conversation.summary["shared"]),
         )
+
+    async def open_interview(self, *, user: User) -> InterviewOpenerResponse:
+        """Generate the AI's opening greeting for a fresh interview. Idempotent:
+        if a conversation already exists, return its first assistant message
+        (no LLM call, no new conversation). Otherwise generate the greeting from
+        a synthetic, non-persisted kickoff user turn and persist only the
+        assistant turn, so the stored transcript starts with the assistant."""
+        existing = await self._interview_conversation(user.id)
+        if existing is not None:
+            rows = await self._messages.list_for_conversation(existing.id)
+            greeting = next((m.content for m in rows if m.role == "assistant"), "")
+            return InterviewOpenerResponse(conversation_id=existing.id, greeting=greeting)
+
+        system = f"{load_prompt(_KIND)}\n\n{await self._context.build_briefing(user)}"
+        try:
+            chunks: list[str] = []
+            async with self._llm.stream_reply(
+                system=system,
+                messages=[{"role": "user", "content": _KICKOFF}],
+                max_tokens=_OPENER_MAX_TOKENS,
+            ) as reply:
+                async for text in reply:
+                    chunks.append(text)
+            greeting = "".join(chunks).strip()
+        except Exception as exc:  # noqa: BLE001 - best-effort opener; the UI offers retry
+            raise DomainError("Could not start the interview - please try again.") from exc
+        if not greeting:
+            raise DomainError("Could not start the interview - please try again.")
+
+        conversation = await self._conversations.create(user_id=user.id, kind=_KIND)
+        await self._messages.create(
+            conversation.id, role="assistant", content=greeting, metadata=None
+        )
+        await self._conversations.touch(conversation.id)
+        return InterviewOpenerResponse(conversation_id=conversation.id, greeting=greeting)
 
     async def build_playbook(self, *, user: User) -> PlaybookShared:
         conversation = await self._interview_conversation(user.id)
