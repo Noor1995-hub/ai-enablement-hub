@@ -117,6 +117,11 @@ const s = {
 
   privacyNotice: { fontSize: 11.5, fontWeight: 300, color: 'var(--dlw-muted)', textAlign: 'center', padding: '8px 18px 0', margin: 0 },
 
+  buildBar: {
+    display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12,
+    padding: '10px 18px 0',
+  },
+
   chatForm: { display: 'flex', gap: 10, alignItems: 'flex-end', padding: '14px 18px', borderTop: '1px solid var(--dlw-border)' },
   chatInput: {
     flex: 1, padding: '11px 16px', borderRadius: 16,
@@ -259,16 +264,6 @@ function ChatScreen({ chat, buildError, onBuildPlaybook }: ChatScreenProps) {
                   ? 'Say hello to get started.'
                   : 'Keep going — the more you share, the better your playbook.'}
           </p>
-          {canBuild && (
-            <button
-              type="button"
-              className="btn-red"
-              style={{ ...s.btnPrimary, ...s.btnSmall }}
-              onClick={onBuildPlaybook}
-            >
-              Build my playbook
-            </button>
-          )}
         </div>
 
         <div style={s.messages} ref={messagesRef}>
@@ -290,6 +285,19 @@ function ChatScreen({ chat, buildError, onBuildPlaybook }: ChatScreenProps) {
         <p style={s.privacyNotice}>
           Conversations are stored and may be reviewed by hub admins to improve the hub.
         </p>
+
+        {canBuild && (
+          <div style={s.buildBar}>
+            <button
+              type="button"
+              className="btn-red"
+              style={{ ...s.btnPrimary, ...s.btnSmall }}
+              onClick={onBuildPlaybook}
+            >
+              Build my playbook
+            </button>
+          </div>
+        )}
 
         <form onSubmit={onSubmit} style={s.chatForm}>
           <textarea
