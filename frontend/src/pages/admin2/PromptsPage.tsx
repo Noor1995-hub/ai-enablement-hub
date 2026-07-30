@@ -11,9 +11,14 @@ import type { ChipTone } from './kit'
  * saves an override here. Not project-scoped — one page, local selection
  * state, no child route, same family as Content AI/calibration notes rather
  * than TemplatesPage's project-scoped shape (there is nothing here to scope
- * a prompt by). Row click selects a `kind`; the editor below is keyed by
- * that kind so switching prompts (or a successful save/reset) always shows
- * the right content — see PromptEditor's doc comment. */
+ * a prompt by). Master–detail layout: the grouped list on the left, the
+ * editor for the selected `kind` in the right pane beside it (2026-07-30 —
+ * previously the editor sat in a single column below all the group Cards,
+ * which put it off-screen on a tall page). Row click selects a `kind`; until
+ * then (or if the selection somehow doesn't match a loaded prompt) it falls
+ * back to the first group's first row, so the right pane is never empty. The
+ * editor is keyed by kind so switching prompts (or a successful save/reset)
+ * always shows the right content — see PromptEditor's doc comment. */
 export default function PromptsPage() {
   const promptsQuery = usePrompts()
   const [selectedKind, setSelectedKind] = useState<string | null>(null)
@@ -36,7 +41,10 @@ export default function PromptsPage() {
   }
 
   const groups = groupByGroup(promptsQuery.data)
-  const selected = promptsQuery.data.find(p => p.kind === selectedKind) ?? null
+  // Auto-select the first group's first row until the admin picks one.
+  const firstKind = groups[0]?.[1]?.[0]?.kind ?? null
+  const effectiveKind = selectedKind ?? firstKind
+  const selected = promptsQuery.data.find(p => p.kind === effectiveKind) ?? null
 
   return (
     <div>
@@ -49,25 +57,32 @@ export default function PromptsPage() {
       {promptsQuery.data.length === 0 ? (
         <EmptyState title="No prompts configured." />
       ) : (
-        groups.map(([groupName, items]) => (
-          <Card key={groupName} title={groupName}>
-            <div className="adm-comp-list">
-              {items.map(item => (
-                <PromptRow
-                  key={item.kind}
-                  item={item}
-                  selected={item.kind === selectedKind}
-                  onSelect={() => setSelectedKind(item.kind)}
-                />
-              ))}
-            </div>
-          </Card>
-        ))
-      )}
+        <div className="adm-prompts-layout">
+          <div className="adm-prompts-list">
+            {groups.map(([groupName, items]) => (
+              <Card key={groupName} title={groupName}>
+                <div className="adm-comp-list">
+                  {items.map(item => (
+                    <PromptRow
+                      key={item.kind}
+                      item={item}
+                      selected={item.kind === effectiveKind}
+                      onSelect={() => setSelectedKind(item.kind)}
+                    />
+                  ))}
+                </div>
+              </Card>
+            ))}
+          </div>
 
-      {/* Keyed by kind: switching prompts remounts the editor so its local
-          `content` state starts fresh rather than patching a stale value. */}
-      {selected && <PromptEditor key={selected.kind} kind={selected.kind} label={selected.label} />}
+          <div className="adm-prompts-detail">
+            {/* Keyed by kind: switching prompts remounts the editor so its
+                local `content` state starts fresh rather than patching a
+                stale value. */}
+            {selected && <PromptEditor key={selected.kind} kind={selected.kind} label={selected.label} />}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

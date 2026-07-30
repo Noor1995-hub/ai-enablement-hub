@@ -798,6 +798,22 @@ button.adm-loc-chip:hover .adm-loc-label { color: var(--adm-red-deep); }
    no child route. Rows reuse .adm-comp-name/.adm-subtext/.adm-push-right
    (Projects) and the editor's action row reuses the kit-wide .adm-btn and
    .adm-form-msg families; only the row/textarea/token chip below are new. */
+/* Master–detail layout (2026-07-30): fixed-width list column (left) + the
+   editor's remaining space (right), same fixed+flexible convention as
+   .adm-assign-layout's tree+matrix rather than .adm-grid-31's fluid ratio —
+   the list's rows are short (label + chip + last-edited), so a fixed track
+   avoids the editor and list fighting for space as the viewport grows.
+   min-width: 0 on both tracks guards against the textarea/row content
+   overflowing its grid track. Collapses to a single column (list above,
+   editor below) under 900px — admin is desktop-first, matching the
+   740/980px breakpoints already used for marketing-page type scale in
+   index.css; this is a graceful fallback, not the primary target. */
+.adm-prompts-layout { display: grid; grid-template-columns: 340px 1fr; gap: 20px; align-items: start; }
+.adm-prompts-list, .adm-prompts-detail { min-width: 0; }
+@media (max-width: 900px) {
+  .adm-prompts-layout { grid-template-columns: 1fr; }
+}
+
 .adm-prompt-row {
   display: flex; align-items: center; gap: 14px; width: 100%;
   padding: 12px 10px; border: none; border-bottom: 1px solid #EEEEEC; border-radius: var(--adm-radius-sm);
