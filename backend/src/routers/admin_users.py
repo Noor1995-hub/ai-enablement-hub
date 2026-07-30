@@ -37,6 +37,7 @@ from src.schemas.admin_users import (
     LinkResponse,
     MaturityOverrideRequest,
     ReminderResponse,
+    ResetLinkRequest,
     RoleUpdateRequest,
     SurveyLevelsResponse,
     UserSurveyResponse,
@@ -274,25 +275,33 @@ async def create_reset_link(
     limiter: RateLimiterDep,
     email_service: EmailServiceDep,
     email_template_service: EmailTemplateServiceDep,
+    body: ResetLinkRequest | None = None,
 ) -> LinkResponse:
     """Issue a password-reset link (emailed to the user when EMAIL__* is
-    configured, always returned); prior unused reset tokens are revoked."""
+    configured and body.send_email is true, always returned); prior unused
+    reset tokens are revoked either way. An absent body means send_email=True,
+    so bodyless callers keep the pre-flag behavior."""
     user = await admin_user_service.get_user(user_id)
     if limiter.is_limited(f"reset:{user.email}"):
         raise _RATE_LIMITED
     raw_token = await token_service.issue_action_token(user, "reset")
     link = _invite_link(settings, raw_token)
-    email_status = await _email_the_link(
-        email_service,
-        email_template_service,
-        purpose="reset",
-        project_id=user.project_id,
-        to=user.email,
-        first_name=user.first_name,
-        last_name=user.last_name,
-        link=link,
-        ttl_days=settings.auth.reset_ttl_days,
-        login_url=None,
+    send_email = body is None or body.send_email
+    email_status: EmailStatus = (
+        await _email_the_link(
+            email_service,
+            email_template_service,
+            purpose="reset",
+            project_id=user.project_id,
+            to=user.email,
+            first_name=user.first_name,
+            last_name=user.last_name,
+            link=link,
+            ttl_days=settings.auth.reset_ttl_days,
+            login_url=None,
+        )
+        if send_email
+        else "skipped"
     )
     return LinkResponse(link=link, email_status=email_status)
 

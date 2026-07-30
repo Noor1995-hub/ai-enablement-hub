@@ -600,9 +600,16 @@ export function useSetMaturity() {
   })
 }
 
-async function resetLink(userId: string): Promise<LinkResponse> {
+export interface ResetLinkInput {
+  userId: string
+  /** false = the "Create reset link" action: mint the link, never email it. */
+  sendEmail: boolean
+}
+
+async function resetLink({ userId, sendEmail }: ResetLinkInput): Promise<LinkResponse> {
   const { data, error } = await client.POST('/api/admin/users/{user_id}/reset-link', {
     params: { path: { user_id: userId } },
+    body: { send_email: sendEmail },
   })
   if (!data) throw new Error(errorMessage(error, 'Failed to generate a reset link.'))
   return data

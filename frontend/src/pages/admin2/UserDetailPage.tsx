@@ -235,10 +235,10 @@ function AccountCard({ user, survey, onDeleted }: AccountCardProps) {
   const [copied, setCopied] = useState(false)
   const [resetDismissed, setResetDismissed] = useState(false)
 
-  function handleGenerateReset() {
+  function handleGenerateReset(sendEmail: boolean) {
     setResetDismissed(false)
     setCopied(false)
-    resetLink.mutate(user.id)
+    resetLink.mutate({ userId: user.id, sendEmail })
   }
 
   function copyResetLink() {
@@ -308,15 +308,28 @@ function AccountCard({ user, survey, onDeleted }: AccountCardProps) {
         </p>
       )}
 
+      {/* Two actions over one endpoint, mirroring InviteModal's send/link-only
+          split: the spinner tracks `resetLink.variables` so it lands on the
+          button that was actually clicked, not on both. */}
       <div className="adm-acct-row">
         <span className="adm-acct-label">Password</span>
         <button
           type="button"
           className="adm-btn adm-btn-ghost adm-btn-sm"
           disabled={resetLink.isPending}
-          onClick={handleGenerateReset}
+          onClick={() => handleGenerateReset(true)}
         >
-          {resetLink.isPending ? <Spinner size="sm" /> : <MailIcon />} Send reset link
+          {resetLink.isPending && resetLink.variables?.sendEmail ? <Spinner size="sm" /> : <MailIcon />} Send
+          reset link
+        </button>
+        <button
+          type="button"
+          className="adm-btn adm-btn-ghost adm-btn-sm"
+          disabled={resetLink.isPending}
+          onClick={() => handleGenerateReset(false)}
+        >
+          {resetLink.isPending && resetLink.variables?.sendEmail === false && <Spinner size="sm" />} Create
+          reset link
         </button>
       </div>
       {resetLink.isError && (
@@ -336,6 +349,12 @@ function AccountCard({ user, survey, onDeleted }: AccountCardProps) {
               : resetLink.data.email_status === 'failed'
                 ? 'Email failed — send this link to the participant'
                 : 'Password reset link — send this to the participant'}
+          </p>
+          {/* Issuing a reset token revokes the user's prior unused ones, so any
+              link handed out earlier (emailed or copied) is now dead. True of
+              both actions, hence unconditional. */}
+          <p className="adm-hint">
+            This replaces any earlier reset link for this participant — older links stop working.
           </p>
           <div className="adm-link-row">
             <input className="adm-link-input" readOnly value={resetLink.data.link} onFocus={e => e.target.select()} />

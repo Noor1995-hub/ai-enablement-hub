@@ -230,3 +230,44 @@ class TestResetEmails:
         info = await client.get(f"/api/auth/invite/{_extract_token(data['link'])}")
         assert info.status_code == 200
         assert info.json()["purpose"] == "reset"
+
+    async def test_send_email_false_skips_the_send_entirely(
+        self,
+        make_client: Callable[[EmailSender], Awaitable[AsyncClient]],
+        db_session: AsyncSession,
+        headers: dict[str, str],
+    ) -> None:
+        """The "Create reset link" admin action: even with EMAIL__* configured,
+        no send is attempted and the link is still returned + redeemable."""
+        user = await create_user(db_session, email="link-only-reset@example.com")
+        sender = RecordingSender()
+        client = await make_client(sender)
+        response = await client.post(
+            f"/api/admin/users/{user.id}/reset-link",
+            json={"send_email": False},
+            headers=headers,
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["email_status"] == "skipped"
+        assert sender.messages == []
+        info = await client.get(f"/api/auth/invite/{_extract_token(data['link'])}")
+        assert info.status_code == 200
+        assert info.json()["purpose"] == "reset"
+
+    async def test_absent_body_still_emails(
+        self,
+        make_client: Callable[[EmailSender], Awaitable[AsyncClient]],
+        db_session: AsyncSession,
+        headers: dict[str, str],
+    ) -> None:
+        """The send_email flag arrived after this endpoint shipped, so the body
+        stays OPTIONAL: a bodyless POST (the authz matrix, older callers) must
+        keep emailing rather than 422."""
+        user = await create_user(db_session, email="bodyless-reset@example.com")
+        sender = RecordingSender()
+        client = await make_client(sender)
+        response = await client.post(f"/api/admin/users/{user.id}/reset-link", headers=headers)
+        assert response.status_code == 200
+        assert response.json()["email_status"] == "sent"
+        assert len(sender.messages) == 1

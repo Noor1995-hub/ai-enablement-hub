@@ -27,6 +27,7 @@ __all__ = [
     "LinkResponse",
     "MaturityOverrideRequest",
     "ReminderResponse",
+    "ResetLinkRequest",
     "RoleUpdateRequest",
     "SurveyLevelsResponse",
     "UserSurveyResponse",
@@ -99,6 +100,13 @@ class InviteRequest(BaseModel):
 # link manually); "disabled" = EMAIL__* unconfigured; "skipped" = the admin
 # chose the link-only path (send_email=False) — email was never attempted.
 EmailStatus = Literal["sent", "failed", "disabled", "skipped"]
+
+
+class ResetLinkRequest(BaseModel):
+    # The reset-link endpoint predates this flag and is still called without a
+    # body (authz matrix, older callers), so the router keeps the whole body
+    # optional and treats "absent" as send_email=True.
+    send_email: bool = True
 
 
 class LinkResponse(BaseModel):

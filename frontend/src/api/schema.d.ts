@@ -555,7 +555,9 @@ export interface paths {
         /**
          * Create Reset Link
          * @description Issue a password-reset link (emailed to the user when EMAIL__* is
-         *     configured, always returned); prior unused reset tokens are revoked.
+         *     configured and body.send_email is true, always returned); prior unused
+         *     reset tokens are revoked either way. An absent body means send_email=True,
+         *     so bodyless callers keep the pre-flag behavior.
          */
         post: operations["create_reset_link_api_admin_users__user_id__reset_link_post"];
         delete?: never;
@@ -2864,6 +2866,14 @@ export interface components {
              */
             email_status: "sent" | "failed" | "disabled" | "skipped";
         };
+        /** ResetLinkRequest */
+        ResetLinkRequest: {
+            /**
+             * Send Email
+             * @default true
+             */
+            send_email: boolean;
+        };
         /** RoleUpdateRequest */
         RoleUpdateRequest: {
             /**
@@ -4005,7 +4015,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ResetLinkRequest"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
