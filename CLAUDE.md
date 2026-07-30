@@ -180,6 +180,21 @@ real server-side gate 2026-07-23)
   `jwt-secret`, `acr-password`). The prod `AUTH__JWT_SECRET` is NOT the dev one (rotating
   it just logs everyone out). `APP__URL` env var = the public URL (CORS + invite/reset
   link base) — must change with a custom domain.
+- **Backups (2026-07-30) — LIVE.** The prod DB is dumped nightly at **02:30 UTC** by the
+  Container Apps Job `ai-enablement-hub-db-backup` (image built from `infra/backup/`,
+  deliberately **separate from the app image** — `deploy.ps1` does not touch it) into the
+  private `db-backups` container on `aienablementhubmedia`; 30-day retention pruned by the
+  job itself, name-based, so it can never touch `lesson-media`. Blob auth is the job's
+  managed identity scoped to that one container — no storage keys in the job. Verified
+  live: 775,806-byte dump over 25 tables; a forced failure uploads nothing and fires the
+  Sev1 log alert `ai-hub-db-backup-failed` → matthias within a minute; a second rule
+  `ai-hub-db-backup-missing` catches the job not running for 48 h. Alerting is **log-based
+  on purpose** — the `Executions` metric reads 0 even for executions that ran. Restores run
+  via the manual job `ai-enablement-hub-db-restore`; **there are no Postgres client tools on
+  the dev machine**, so never write a procedure that assumes a local `pg_restore`. Runbook,
+  incl. the passed restore drill and the gotchas:
+  [`docs/db-backup-restore.md`](docs/db-backup-restore.md). Azure PITR on the shared server
+  stays at its default 7 days and is deliberately untouched (it is server-wide).
 - **Gotchas:** `az acr build` uploads git-ignored files → `.dockerignore` excludes
   `**/.env` (load-bearing). **The old az CLI's .dockerignore matcher ignores `dir/`
   trailing-slash patterns when packing the upload** (found 2026-07-03: `db/` and
