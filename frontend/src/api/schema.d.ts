@@ -1155,6 +1155,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/interview/opener": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Open My Interview */
+        post: operations["open_my_interview_api_interview_opener_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/interview/playbook": {
         parameters: {
             query?: never;
@@ -2365,6 +2382,16 @@ export interface components {
             /** What To Probe Next */
             what_to_probe_next: string[];
         };
+        /** InterviewOpenerResponse */
+        InterviewOpenerResponse: {
+            /**
+             * Conversation Id
+             * Format: uuid
+             */
+            conversation_id: string;
+            /** Greeting */
+            greeting: string;
+        };
         /** InterviewStateResponse */
         InterviewStateResponse: {
             /**
@@ -2426,6 +2453,11 @@ export interface components {
              * @enum {string}
              */
             learning_status: "not_started" | "in_progress" | "complete";
+            /**
+             * Interview Status
+             * @enum {string}
+             */
+            interview_status: "not_started" | "in_progress" | "complete";
         };
         /**
          * LearnCardOut
@@ -5219,6 +5251,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InterviewStateResponse"];
+                };
+            };
+        };
+    };
+    open_my_interview_api_interview_opener_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InterviewOpenerResponse"];
                 };
             };
         };
