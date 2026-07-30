@@ -591,10 +591,10 @@ def _system_prompt(calibration_notes: list[str]) -> str:
     With no approved notes the block renders as "" and is skipped, so the
     composed prompt is byte-identical to what it was before injection existed.
 
-    NOT cached, and `load_prompt` must not be made dynamic to do it:
-    `load_prompt` is `@lru_cache`d by filename because it reads static files,
-    whereas this value depends on whatever is currently approved in the
-    database.
+    NOT cached: `load_prompt` is now DB-overridable (admin System-Prompts
+    editor) behind an in-process cache, but this composed value still has to
+    be built at call-time regardless, since it depends on which calibration
+    notes are currently approved in the database.
     """
     parts = [load_prompt("house_style")]
     block = render_calibration_block(calibration_notes)
