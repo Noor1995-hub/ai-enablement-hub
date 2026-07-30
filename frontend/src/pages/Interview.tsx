@@ -220,6 +220,12 @@ function ChatScreen({ chat, buildError, onBuildPlaybook }: ChatScreenProps) {
     el.style.height = `${el.scrollHeight}px`
   }, [input])
 
+  // Keep the input focused across turns: the textarea stays enabled (so it never
+  // loses focus on send), and we re-assert focus when a streamed reply finishes.
+  useEffect(() => {
+    if (!chat.loading) inputRef.current?.focus()
+  }, [chat.loading])
+
   function submit() {
     const trimmed = input.trim()
     if (!trimmed || chat.loading) return
@@ -295,7 +301,6 @@ function ChatScreen({ chat, buildError, onBuildPlaybook }: ChatScreenProps) {
             style={s.chatInput}
             rows={1}
             maxLength={MAX_INPUT}
-            disabled={chat.loading}
           />
           <button
             type="submit"
