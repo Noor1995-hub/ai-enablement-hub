@@ -889,6 +889,59 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/prompts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Prompts
+         * @description All known prompt kinds, each labelled with whether it's the shipped
+         *     file default or an admin-saved DB override.
+         */
+        get: operations["list_prompts_api_admin_prompts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/prompts/{kind}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Prompt
+         * @description Unknown kind -> global 404 handler (NotFoundError).
+         */
+        get: operations["get_prompt_api_admin_prompts__kind__get"];
+        /**
+         * Put Prompt
+         * @description Unknown kind -> global 404. A save that drops a required token raises
+         *     the base DomainError, which we map to 422 here (not the global 400) since
+         *     this is a validation failure on the submitted content, not a generic
+         *     domain error.
+         */
+        put: operations["put_prompt_api_admin_prompts__kind__put"];
+        post?: never;
+        /**
+         * Delete Prompt
+         * @description Drop the DB override so the prompt falls back to the shipped file.
+         *     Unknown kind -> global 404 handler (NotFoundError).
+         */
+        delete: operations["delete_prompt_api_admin_prompts__kind__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/tracks": {
         parameters: {
             query?: never;
@@ -2844,6 +2897,44 @@ export interface components {
              */
             created_at: string;
         };
+        /** PromptDetail */
+        PromptDetail: {
+            /** Kind */
+            kind: string;
+            /** Label */
+            label: string;
+            /** Content */
+            content: string;
+            /** Source */
+            source: string;
+            /** Required Tokens */
+            required_tokens: string[];
+            /** Updated At */
+            updated_at?: string | null;
+        };
+        /** PromptListResponse */
+        PromptListResponse: {
+            /** Prompts */
+            prompts: components["schemas"]["PromptSummary"][];
+        };
+        /** PromptSummary */
+        PromptSummary: {
+            /** Kind */
+            kind: string;
+            /** Label */
+            label: string;
+            /** Group */
+            group: string;
+            /** Source */
+            source: string;
+            /** Updated At */
+            updated_at?: string | null;
+        };
+        /** PromptUpdateRequest */
+        PromptUpdateRequest: {
+            /** Content */
+            content: string;
+        };
         /**
          * ProposalDetailOut
          * @description Everything the diff view needs. `base_blocks`/`proposed_blocks` are the
@@ -4798,6 +4889,121 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["EmailTemplatePreviewResponse"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_prompts_api_admin_prompts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromptListResponse"];
+                };
+            };
+        };
+    };
+    get_prompt_api_admin_prompts__kind__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromptDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_prompt_api_admin_prompts__kind__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PromptUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromptDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_prompt_api_admin_prompts__kind__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

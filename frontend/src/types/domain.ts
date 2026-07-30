@@ -120,3 +120,8 @@ export type PlaybookInternal = components['schemas']['PlaybookInternal']
 export type InterviewState = components['schemas']['InterviewStateResponse']
 export type AdminInterview = components['schemas']['AdminInterviewResponse']
 // --- end interview types ---
+
+// DB-backed system prompts + admin editor
+export type PromptSummary = components['schemas']['PromptSummary']
+export type PromptDetail = components['schemas']['PromptDetail']
+export type PromptListResponse = components['schemas']['PromptListResponse']
