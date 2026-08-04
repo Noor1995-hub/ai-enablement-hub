@@ -104,7 +104,7 @@ const subtitle = introBlocked
 locked lane no longer wears a level colour it hasn't earned.
 
 **Why "Take the assessment to unlock" replaces the level name on every locked
-lane, rather than appending to it:** the group header directly above each lane
+lane, rather than appending to it:** the group header above each run of lanes
 already names the level (Explorer / Practitioner / Integrator / Multiplier), so
 no information is lost; and "Unlocks at Explorer" is actively wrong-footing for
 someone who has not been placed on the ladder at all. `"Unlocks at Integrator ·

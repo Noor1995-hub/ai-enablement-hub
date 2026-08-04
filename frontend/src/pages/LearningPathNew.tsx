@@ -398,9 +398,15 @@ export default function LearningPathNew() {
   // levelIdx clamps a missing level to Explorer(0) for layout maths and for the
   // below-level review rule in isUnlocked. `notAssessed` is what the DISPLAY
   // branches on, so an un-placed learner is never rendered as an Explorer.
-  const levelIdx = Math.max(0, LEVELS.findIndex(l => l.code === levelCode))
+  const resolvedLevelIdx = LEVELS.findIndex(l => l.code === levelCode)
+  const levelIdx = Math.max(0, resolvedLevelIdx)
   const level = LEVELS[levelIdx]
-  const notAssessed = levelCode === null
+  // Gated on `loaded` because levelCode starts null and the page header renders
+  // BEFORE the graph arrives: an un-gated flag briefly told every assessed
+  // learner to go take the assessment they had already done. Keyed on
+  // resolvedLevelIdx rather than `levelCode === null` so a level code outside
+  // LEVELS cannot clamp to Explorer(0) and resurface the same bug.
+  const notAssessed = loaded && resolvedLevelIdx === -1
 
   // Progress is aggregated PER maturity level. A module's level is its track's
   // required_level, so each level-group header (and the current-level term of
@@ -800,7 +806,7 @@ export default function LearningPathNew() {
                                 : done === mods.length && mods.length > 0 ? ' · track complete' : ' · locked')
                       const lockColor = introBlocked
                         ? INTRODUCTION_LEVEL.color
-                        : notAssessed
+                        : notAssessed && maturityLocked
                           ? NEUTRAL_LOCK_COLOR
                           : (requiredLevel?.color ?? '#8A8A8A')
                       const ringColor = maturityLocked ? '#C4C4C4' : color
