@@ -13,8 +13,8 @@ authoritative for anything; see `db/README.md` for why its migration scripts mus
 
 - **Live in prod** on Azure Container Apps:
   https://ai-enablement-hub.kindcoast-3b1fe056.swedencentral.azurecontainerapps.io — current image
-  `ai-enablement-hub:20260804-130116`, revision `--0000034`, built from `main` @ `8e8f582`
-  (the un-assessed learning-path signpost). The deploy log below can lag reality;
+  `ai-enablement-hub:20260804-145027`, revision `--0000035`, built from `main` @ `8da7f12`
+  (Copilot Studio downloadable policy PDFs). The deploy log below can lag reality;
   trust the running tag: `az containerapp show -n ai-enablement-hub -g imaginemore-playground
   --query properties.template.containers[0].image -o tsv`.
 - **DB:** Azure Postgres `ai-enablement-hub`; alembic head **`1cd2cc2d05a9`** (the prompts table).
@@ -339,6 +339,19 @@ real server-side gate 2026-07-23)
     LOAD WINDOW (`waitUntil: 'commit'` + a delayed response) — waiting for `networkidle` hides
     first-paint bugs, which is precisely how a real regression survived this feature's first
     verification pass.
+- **Redeployed 2026-08-04** (`ai-enablement-hub:20260804-145027`, revision `--0000035`,
+  user-approved): hosts the **Copilot Studio mock policy PDFs** as downloadable static assets
+  (`frontend/public/assets/downloads/{expense,travel}-policy.pdf`, served at
+  `/assets/downloads/*.pdf`) for the Lesson 2 try-it-yourself build-along. **Frontend static
+  assets only — no code, no migration** (alembic head unchanged at `1cd2cc2d05a9`). Committed
+  `8da7f12` (two binary PDFs only), pushed `feature/cs-download-assets`, fast-forwarded `main`
+  (`a53abb0..8da7f12`) and pushed before the build; built from a fresh `git worktree` of the
+  pushed commit per the discipline below. Post-deploy verified live on the **served** app:
+  `/api/health` 200; both PDFs return **200 `application/pdf`** at their exact byte sizes
+  (168215 / 175355); running image + ready revision `--0000035` confirmed via
+  `az containerapp show`. The Lesson 2 `<TryItYourself>` block that links these PDFs lives in
+  the lesson DB content (added separately via the admin lesson editor), not in the image.
+
 - **Source control / branching (documented 2026-07-22).** Work happens on feature branches
   (`feature/*`) and on the longer-lived `introduction-level` branch; `main` is the integration
   line. **`.\deploy.ps1` builds the image from the working directory, NOT from git** — so prod
