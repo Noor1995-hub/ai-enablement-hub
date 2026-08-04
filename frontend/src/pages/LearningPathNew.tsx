@@ -123,6 +123,42 @@ function checkpointState(
   return { passed, current: !passed && i === levelIdx }
 }
 
+/** Level-group header state (dot fill, tick, weight).
+    - Introduction keys off its own completion; it is not a maturity level and
+      is unaffected by whether the learner has been assessed.
+    - Maturity groups go fully inert when un-assessed: no group may read as
+      "current" or "passed" when the learner has no level at all. */
+function groupHeaderState(args: {
+  isIntroGroup: boolean
+  introComplete: boolean
+  groupIdx: number
+  levelIdx: number
+  fraction: number
+  modulesTotal: number
+  notAssessed: boolean
+}): { isCurrent: boolean; contentComplete: boolean; showOpenDot: boolean } {
+  const { isIntroGroup, introComplete, groupIdx, levelIdx, fraction, modulesTotal, notAssessed } = args
+  if (isIntroGroup) {
+    return {
+      isCurrent: !introComplete,
+      contentComplete: introComplete,
+      showOpenDot: !introComplete && groupIdx <= levelIdx,
+    }
+  }
+  if (notAssessed) {
+    return { isCurrent: false, contentComplete: false, showOpenDot: false }
+  }
+  // `passed` stays local: it only ever fed isCurrent, never the JSX.
+  const passed =
+    groupIdx !== -1 && (groupIdx < levelIdx || (groupIdx === levelIdx && fraction >= 1))
+  const contentComplete = groupIdx !== -1 && modulesTotal > 0 && fraction >= 1
+  return {
+    isCurrent: !passed && groupIdx === levelIdx,
+    contentComplete,
+    showOpenDot: !contentComplete && groupIdx <= levelIdx,
+  }
+}
+
 function lighten(hex: string, amt: number): string {
   const n = parseInt(hex.slice(1), 16)
   const r = Math.min(255, (n >> 16) + amt)
@@ -692,22 +728,21 @@ export default function LearningPathNew() {
                 const groupColor = groupLevel?.color ?? FALLBACK_TRACK_COLOR
                 const stats = levelStats.get(group.levelCode) ?? EMPTY_LEVEL_STATS
                 const groupPct = Math.round(lessonFraction(stats) * 100)
-                const passed = isIntroGroup
-                  ? introComplete
-                  : (groupIdx !== -1 &&
-                    (groupIdx < levelIdx || (groupIdx === levelIdx && lessonFraction(stats) >= 1)))
-                const isCurrent = isIntroGroup
-                  ? !introComplete
-                  : (!passed && groupIdx === levelIdx)
                 // The header tick means the level's CONTENT is actually finished.
                 // A level the learner is past by maturity but hasn't worked
                 // through yet (0% with locked lanes) reads as an open ring + dot,
                 // like the Introduction and the current level, rather than a tick
-                // that wrongly implies it is done.
-                const contentComplete = isIntroGroup
-                  ? introComplete
-                  : (groupIdx !== -1 && stats.modulesTotal > 0 && lessonFraction(stats) >= 1)
-                const showOpenDot = !contentComplete && groupIdx <= levelIdx
+                // that wrongly implies it is done. An un-assessed learner has no
+                // level, so no maturity group reads as current or passed.
+                const { isCurrent, contentComplete, showOpenDot } = groupHeaderState({
+                  isIntroGroup,
+                  introComplete,
+                  groupIdx,
+                  levelIdx,
+                  fraction: lessonFraction(stats),
+                  modulesTotal: stats.modulesTotal,
+                  notAssessed,
+                })
                 return (
                   <div key={`${group.levelCode}:${gIdx}`} style={{ ...s.laneList, marginTop: gIdx > 0 ? 14 : 0 }}>
                     <div>
