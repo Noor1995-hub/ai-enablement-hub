@@ -9,14 +9,19 @@ learners use. Content edits via the admin UI (`PATCH /api/admin/lessons/{id}`) w
 this Azure DB with no separate export/sync step. The old Supabase project is no longer
 authoritative for anything; see `db/README.md` for why its migration scripts must not be re-run.
 
-## Current state (2026-07-22)
+## Current state (2026-08-04)
 
 - **Live in prod** on Azure Container Apps:
   https://ai-enablement-hub.kindcoast-3b1fe056.swedencentral.azurecontainerapps.io — current image
-  `ai-enablement-hub:20260722-111250` (the `user+` role). The deploy log below can lag reality;
+  `ai-enablement-hub:20260804-130116`, revision `--0000034`, built from `main` @ `8e8f582`
+  (the un-assessed learning-path signpost). The deploy log below can lag reality;
   trust the running tag: `az containerapp show -n ai-enablement-hub -g imaginemore-playground
   --query properties.template.containers[0].image -o tsv`.
-- **DB:** Azure Postgres `ai-enablement-hub`; alembic head **`e2f3a4b5c6d7`** (dev + prod).
+- **DB:** Azure Postgres `ai-enablement-hub`; alembic head **`1cd2cc2d05a9`** (the prompts table).
+  **Dev and prod share this one database** — there is no separate dev DB (only the
+  `ai-enablement-hub-test` database used by the integration suite). So a local
+  `alembic upgrade`, or any script writing "test" rows, edits live learner data. Verify
+  learner-facing changes without touching it (see the 2026-08-04 deploy entry).
 - **Scale:** ~54 API endpoints across 12 routers (`backend/src/routers/`); feature-complete and in
   active content iteration.
 - **Auth:** password (JWT) + Entra ID OIDC side-by-side — Entra is deployed **dark** (no `ENTRA__*`
@@ -297,6 +302,43 @@ real server-side gate 2026-07-23)
   tables ahead of his own ai-chat deploy — his eventual deploy finds `12bf5f54a1e4` already applied
   (no-op); his pending AI-settings UI must target `admin2/ProjectsPage.tsx`, not the deleted
   `ProjectDetailView.tsx`.
+- **DEPLOY LOG GAP (2026-07-27 → 2026-08-04).** Between the entry above and the one below the app
+  was redeployed several times without log entries (the AI interviewer and its round-2 items, the
+  DB-backed prompts + admin System Prompts page, content-AI concurrent drafting). Evidence, if the
+  provenance of those matters: the image live before 2026-08-04 was `20260730-144052`, built
+  ~2 min after `main` @ `91c1ac7` (2026-07-30 14:39), so `main` @ `91c1ac7` == that deployed code.
+  Comparing an image tag's timestamp against `git log --format=%ci` is the general trick for
+  recovering which commit a past deploy shipped.
+- **Redeployed 2026-08-04** (`ai-enablement-hub:20260804-130116`, revision `--0000034`,
+  user-approved): the **un-assessed learning-path signpost** — a learner with no completed maturity
+  assessment was rendered as a full Explorer while every Explorer track sat padlocked reading
+  "Unlocks at Explorer", with no link to the assessment anywhere (51 of 104 users had no effective
+  maturity; one had already hit the wall after finishing the Introduction). Frontend-only, one file
+  (`LearningPathNew.tsx`): a `notAssessed` display flag over seven render sites plus a CTA to
+  `/assessment`. **No migration** — alembic head unchanged at `1cd2cc2d05a9`. Spec/plan
+  `docs/superpowers/{specs,plans}/2026-08-04-unassessed-path-signpost*`; browser evidence in
+  `…-verification.md`. Built from a fresh `git worktree` of the pushed commit per the discipline
+  below; `main` fast-forwarded `91c1ac7..8e8f582` and pushed before the build. Post-deploy verified:
+  `/api/health` ok, `/api/auth/methods` `{"password":true,"entra":false}`, `latestReadyRevision ==
+  latestRevision`, and all five new copy strings confirmed present in the **served** SPA bundle
+  (`/assets/index-*.js`) — i.e. the frontend change is provably live, not just built.
+  - **`deploy.ps1` gotcha, cost one failed run:** do NOT pipe the script through
+    `Tee-Object`/`2>&1`. `az acr build` writes "WARNING: Packing source code…" to stderr, and under
+    PowerShell 5.1 + the script's `$ErrorActionPreference = "Stop"` a redirected native stderr line
+    becomes a terminating `NativeCommandError` — the script dies at the queue step *after* the ACR
+    build has already been queued. Recovery: `az acr task list-runs --registry ca530fc7463eacr
+    --top 3`, wait for that run, then `az containerapp update --image …:<tag>` by hand. The script's
+    own comment at line 22 says this; heed it.
+  - **Verifying learner-facing changes without touching live data:** dev and prod share one DB, so
+    do not create or edit users/surveys/progress to set up a test case. What worked instead: call
+    the real `LearningService.graph()` read-only to dump production-shaped fixtures, serve them from
+    a temporary `frontend/public/__verify/` (Vite's `fs.allow` will not reach outside the frontend
+    project), and stub `window.fetch` in a Playwright `addInitScript` so no backend runs at all.
+    Note the Playwright MCP host scope has no `fs`, `require`, or `fetch` — the stub must live in
+    page context. Also: assert on `getComputedStyle` values, not only screenshots, and exercise the
+    LOAD WINDOW (`waitUntil: 'commit'` + a delayed response) — waiting for `networkidle` hides
+    first-paint bugs, which is precisely how a real regression survived this feature's first
+    verification pass.
 - **Source control / branching (documented 2026-07-22).** Work happens on feature branches
   (`feature/*`) and on the longer-lived `introduction-level` branch; `main` is the integration
   line. **`.\deploy.ps1` builds the image from the working directory, NOT from git** — so prod
