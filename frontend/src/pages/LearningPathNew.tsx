@@ -106,9 +106,9 @@ const ASSESSED_SUBTITLE =
   'are today. Work through them at your own pace each module builds on the last.'
 /** Locked-lane subtitle while the learner has no level at all. Wins over
     "Unlocks at {Level}", which wrong-foots someone who was never placed. */
-export const LOCKED_UNTIL_ASSESSED = 'Take the assessment to unlock'
+const LOCKED_UNTIL_ASSESSED = 'Take the assessment to unlock'
 /** Locked-lane accent while un-assessed: no level colour has been earned. */
-export const NEUTRAL_LOCK_COLOR = '#8A8A8A'
+const NEUTRAL_LOCK_COLOR = '#8A8A8A'
 
 /** Overall-journey checkpoint state for level `i`. Un-assessed learners have
     nothing passed and nothing current — the bar reads empty, not "Explorer". */
@@ -783,16 +783,26 @@ export default function LearningPathNew() {
                       const done = mods.filter(m => isDone(m.id)).length
                       const next = maturityLocked ? null : firstCurrent(mods)
                       const open = openTrackId === track.id
+                      // Precedence: the Introduction is the one thing an
+                      // un-assessed learner can act on, so it still wins. Once it
+                      // is done, the real blocker is the assessment — naming a
+                      // level ("Unlocks at Explorer") wrong-foots a learner who
+                      // was never placed on the ladder. The group header above the
+                      // lane still shows which level it belongs to.
                       const subtitle = introBlocked
                         ? 'Complete the Introduction first'
-                        : maturityLocked
-                          ? `Unlocks at ${requiredLevel?.name ?? track.required_level}`
-                          : `${done} of ${mods.length} modules` +
-                            (next ? ` · next: ${next.title}`
-                              : done === mods.length && mods.length > 0 ? ' · track complete' : ' · locked')
+                        : notAssessed && maturityLocked
+                          ? LOCKED_UNTIL_ASSESSED
+                          : maturityLocked
+                            ? `Unlocks at ${requiredLevel?.name ?? track.required_level}`
+                            : `${done} of ${mods.length} modules` +
+                              (next ? ` · next: ${next.title}`
+                                : done === mods.length && mods.length > 0 ? ' · track complete' : ' · locked')
                       const lockColor = introBlocked
                         ? INTRODUCTION_LEVEL.color
-                        : (requiredLevel?.color ?? '#8A8A8A')
+                        : notAssessed
+                          ? NEUTRAL_LOCK_COLOR
+                          : (requiredLevel?.color ?? '#8A8A8A')
                       const ringColor = maturityLocked ? '#C4C4C4' : color
 
                       return (
