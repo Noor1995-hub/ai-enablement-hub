@@ -83,6 +83,46 @@ function trackRank(track: TrackNode): number {
   return i === -1 ? LEVELS.length : i
 }
 
+/* ── Un-assessed display state ──
+   A learner with no completed survey and no admin maturity_override gets
+   maturity_level: null from the graph. `levelIdx` deliberately clamps that to
+   Explorer (0) because it also drives layout maths and the below-level review
+   rule in isUnlocked — so every LEVEL-DERIVED DISPLAY value has to be
+   suppressed explicitly instead of being read off levelIdx. Without that, the
+   page tells an un-placed learner they are Explorer while padlocking Explorer
+   content ("Unlocks at Explorer"). Spec:
+   docs/superpowers/specs/2026-08-04-unassessed-path-signpost-design.md */
+const NOT_ASSESSED_NAME = 'Not assessed yet'
+const NOT_ASSESSED_TAGLINE = 'The assessment sets your level'
+const NOT_ASSESSED_PROGRESS = 'not started yet'
+const NOT_ASSESSED_SUBTITLE =
+  'Your maturity assessment decides which tracks open up and how far along the ' +
+  'path you start. Take it first. It takes about 10 minutes.'
+/** Unchanged copy, moved from JSX to a constant so the two variants sit side by
+    side. JSX was collapsing its whitespace, so it is written pre-collapsed here
+    and renders character-for-character as it does today. */
+const ASSESSED_SUBTITLE =
+  'Based on your maturity assessment, these tracks are tailored to where you ' +
+  'are today. Work through them at your own pace each module builds on the last.'
+/** Locked-lane subtitle while the learner has no level at all. Wins over
+    "Unlocks at {Level}", which wrong-foots someone who was never placed. */
+export const LOCKED_UNTIL_ASSESSED = 'Take the assessment to unlock'
+/** Locked-lane accent while un-assessed: no level colour has been earned. */
+export const NEUTRAL_LOCK_COLOR = '#8A8A8A'
+
+/** Overall-journey checkpoint state for level `i`. Un-assessed learners have
+    nothing passed and nothing current — the bar reads empty, not "Explorer". */
+function checkpointState(
+  i: number,
+  levelIdx: number,
+  levelFraction: number,
+  notAssessed: boolean,
+): { passed: boolean; current: boolean } {
+  if (notAssessed) return { passed: false, current: false }
+  const passed = i < levelIdx || (i === levelIdx && levelFraction >= 1)
+  return { passed, current: !passed && i === levelIdx }
+}
+
 function lighten(hex: string, amt: number): string {
   const n = parseInt(hex.slice(1), 16)
   const r = Math.min(255, (n >> 16) + amt)
@@ -319,9 +359,12 @@ export default function LearningPathNew() {
   }
 
   /* ── Level + header math ── */
-  // Fallback to Explorer when no completed assessment exposes a level yet.
+  // levelIdx clamps a missing level to Explorer(0) for layout maths and for the
+  // below-level review rule in isUnlocked. `notAssessed` is what the DISPLAY
+  // branches on, so an un-placed learner is never rendered as an Explorer.
   const levelIdx = Math.max(0, LEVELS.findIndex(l => l.code === levelCode))
   const level = LEVELS[levelIdx]
+  const notAssessed = levelCode === null
 
   // Progress is aggregated PER maturity level. A module's level is its track's
   // required_level, so each level-group header (and the current-level term of
@@ -522,9 +565,7 @@ export default function LearningPathNew() {
             <p style={s.eyebrow}>your enablement journey</p>
             <h1 style={s.heading}>Your learning path{firstName ? `, ${firstName}` : ''}.</h1>
             <p style={s.subtitle}>
-              Based on your maturity assessment, these tracks are tailored to where
-              you are today. Work through them at your own pace each module
-              builds on the last.
+              {notAssessed ? NOT_ASSESSED_SUBTITLE : ASSESSED_SUBTITLE}
             </p>
           </>
         )}
@@ -550,18 +591,40 @@ export default function LearningPathNew() {
             <div style={s.panel}>
               <div style={s.levelCard}>
                 <p style={s.smallLabel}>current level</p>
-                <p style={{ ...s.levelName, color: level.color }}>{level.name}</p>
-                <p style={{ ...s.levelTagline, color: level.color }}>{level.tagline}</p>
+                {notAssessed ? (
+                  <>
+                    <p style={{ ...s.levelName, color: '#101820', fontSize: 24 }}>
+                      {NOT_ASSESSED_NAME}
+                    </p>
+                    <p style={{ ...s.levelTagline, color: '#8A8A8A' }}>
+                      {NOT_ASSESSED_TAGLINE}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => navigate('/assessment')}
+                      style={s.assessCta}
+                    >
+                      Take the assessment →
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <p style={{ ...s.levelName, color: level.color }}>{level.name}</p>
+                    <p style={{ ...s.levelTagline, color: level.color }}>{level.tagline}</p>
+                  </>
+                )}
               </div>
 
               <div style={s.barsCol}>
                 {/* Overall journey bar */}
                 <div style={s.barHeader}>
                   <span style={s.smallLabel}>overall journey</span>
-                  <span style={{ ...s.barValue, color: level.color }}>{overallPct}% of the full path</span>
+                  <span style={{ ...s.barValue, color: notAssessed ? '#8A8A8A' : level.color }}>
+                    {notAssessed ? NOT_ASSESSED_PROGRESS : `${overallPct}% of the full path`}
+                  </span>
                 </div>
                 <div style={s.overallTrack}>
-                  {overallPct > 0 && (
+                  {!notAssessed && overallPct > 0 && (
                     <div style={{
                       ...s.overallFill,
                       width: `${overallPct}%`,
@@ -569,8 +632,7 @@ export default function LearningPathNew() {
                     }} />
                   )}
                   {LEVELS.map((l, i) => {
-                    const passed = i < levelIdx || (i === levelIdx && levelFraction >= 1)
-                    const current = !passed && i === levelIdx
+                    const { passed, current } = checkpointState(i, levelIdx, levelFraction, notAssessed)
                     return (
                       <div key={l.code} title={l.name} style={{
                         ...s.checkpoint,
@@ -586,13 +648,13 @@ export default function LearningPathNew() {
                 </div>
                 <div style={s.segmentLabels}>
                   {LEVELS.map((l, i) => {
-                    const reached = i <= levelIdx
+                    const reached = !notAssessed && i <= levelIdx
                     return (
                       <span key={l.code} style={{
                         ...s.segmentLabel,
                         left: `${12.5 + i * 25}%`,
                         color: reached ? l.color : '#B6B6B6',
-                        fontWeight: i === levelIdx ? 800 : 600,
+                        fontWeight: !notAssessed && i === levelIdx ? 800 : 600,
                       }}>
                         {l.name}
                       </span>
@@ -998,6 +1060,14 @@ const s = {
   levelTagline: {
     fontFamily: 'var(--dlw-font-ui)', fontWeight: 600,
     fontSize: 12.5, margin: 0, opacity: 0.85,
+  },
+  /* Un-assessed CTA in the level card. Same treatment as the module popover's
+     popCta so the page keeps one button language. */
+  assessCta: {
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+    marginTop: 14, padding: '9px 15px', border: 'none', borderRadius: 8,
+    background: '#C42828', color: '#fff', cursor: 'pointer',
+    fontFamily: 'var(--dlw-font-ui)', fontSize: 12.5, fontWeight: 700,
   },
   barsCol: { flex: '1 1 420px', minWidth: 340, paddingTop: 2 },
   barHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 },
