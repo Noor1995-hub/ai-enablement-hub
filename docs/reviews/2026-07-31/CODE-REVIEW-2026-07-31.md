@@ -8,7 +8,7 @@
 **Baseline:** `main` @ `91c1ac7`; prod image `20260730-144052`, revision `--0000033`, alembic head
 `1cd2cc2d05a9`.
 **Method:** five parallel read-only reviews (security · database · backend architecture · frontend ·
-cohesion/delivery), each also re-verifying every finding of the 2026-07-09 audit (`CODE-REVIEW.md`)
+cohesion/delivery), each also re-verifying every finding of the 2026-07-09 audit (`../2026-07-09-code-review.md`)
 against current code. Headline claims were spot-checked independently. No files were modified.
 
 ---

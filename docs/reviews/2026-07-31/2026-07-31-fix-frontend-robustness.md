@@ -1,6 +1,6 @@
 # Plan — Frontend robustness & cleanup (review batches 8, 2.7/2.9 frontend, 9.1)
 
-**Source review:** `CODE-REVIEW-2026-07-31.md` (repo root). Item numbers below are that document's.
+**Source review:** `CODE-REVIEW-2026-07-31.md` (this folder). Item numbers below are that document's.
 **Written:** 2026-07-31. **Baseline:** `main`, frontend at 109 TS/TSX files.
 **Scope:** `frontend/` only. Nothing under `backend/` is touched by any task here (a separate backend
 plan covers the server-side half of 2.7).
@@ -78,7 +78,7 @@ React 18.3.1 · react-router-dom 6.30.4 (installed; `^6.26.1` in `package.json`)
 
 ## How to run the app for the manual checks
 
-Two terminals, from the repo root (`AI ENABLEMENT HUB REBUILD/`):
+Two terminals, from the repo root:
 
 ```bash
 # terminal 1 — backend on :8000

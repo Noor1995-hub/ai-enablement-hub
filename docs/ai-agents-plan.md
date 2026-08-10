@@ -378,7 +378,7 @@ async with client.messages.stream(
 Tool use works via `tool_use` content blocks when the tool-call loop lands (deferred out of
 Batch A) — the token-scoped-tools rule from §5 is provider-independent.
 
-## 9. Suggested batch plan (in the style of `rebuild-plan.md`)
+## 9. Suggested batch plan (in the style of `docs/history/rebuild-plan.md`)
 - **Batch A — Foundation:** `LlmService` + config/DI seam (**provider-agnostic:** `LlmClient`
   Protocol + `LLM__PROVIDER`-selected adapter — `AnthropicLlmClient` is the only adapter built for
   v1 per §7, Foundry stays swappable via the seam if ever revisited), `conversations`/`messages` tables +

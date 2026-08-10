@@ -3,7 +3,7 @@
 **Date:** 2026-07-30
 **Branch:** `feature/interviewer-feedback-r2` (off `main` @ `96fc198`)
 **Status:** design approved; part of the round-2 Group A build (items 1–5). See
-`docs/superpowers/ai-interviewer-followups.md` and the round-2 triage.
+`docs/history/ai-interviewer-followups.md` and the round-2 triage.
 
 ## Problem
 

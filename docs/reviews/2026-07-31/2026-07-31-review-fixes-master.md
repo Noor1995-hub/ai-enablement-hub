@@ -5,7 +5,7 @@
 > syntax for tracking. **Do not execute this master file** — it is an index and an ordering contract.
 > Execute the five phase plans in the order given in §4.
 
-**Goal:** close every **code** and **database** finding of `CODE-REVIEW-2026-07-31.md` (repo root) in five
+**Goal:** close every **code** and **database** finding of `CODE-REVIEW-2026-07-31.md` (this folder) in five
 independently shippable phases, without changing any user-visible feature except the two deliberate
 access-control tightenings called out in §6.
 

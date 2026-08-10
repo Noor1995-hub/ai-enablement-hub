@@ -259,9 +259,10 @@ worktree of the pushed commit, never the live working dir).
 
 - Mockups (visual contract): `docs/design-prototypes/admin-redesign/` (promoted from
   the untracked `scratch_review/admin_redesign_prototypes/` iteration space).
-- Backend alignment note (decision history): `backend-changes-for-matthias.md` in the
-  prototype folder.
-- Current-state audit that motivated the foundation work: `CODE-REVIEW.md` (2026-07-09).
+- Backend alignment note (decision history): `backend-changes-for-matthias.md`, formerly in
+  the prototype folder — removed 2026-08-10 as superseded by this spec (recoverable from git
+  history).
+- Current-state audit that motivated the foundation work: `docs/reviews/2026-07-09-code-review.md`.
 - **Parallel work discovered at spec time** (branch
   `worktree-cascading-track-module-assignment`, Matthias, same day):
   - *Cascading track/module assignment* (spec + plan + implementation): aligned —
