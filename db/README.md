@@ -5,8 +5,11 @@ database. The pre-cutover Supabase migration scripts (`export_supabase_snapshot.
 `migrate_supabase_to_azure.py`, `sync_content_from_supabase.py`, `backfill_user_lessons.py`)
 were **removed 2026-08-10** — they TRUNCATE-and-reload live tables from a stale snapshot and
 had no remaining legitimate use. Recover them from git history if ever needed
-(last present at commit `b9eac6d`). The `baseline/data/*.json` snapshot is a frozen historical
+(last present at commit `c408463`). The `baseline/data/*.json` snapshot is a frozen historical
 record of the Supabase state at migration time, not a live mirror — never treat it as current.
+The five user-data files (`users`, `survey_responses`, `lesson_progress`, `user_tracks`,
+`user_modules`) were **purged from the entire git history on 2026-08-10** (review finding 5.1)
+before the repo's move to the org; only content/org-structure tables remain in the snapshot.
 
 State after Batch 1 (2026-07-03): the Azure database has the full 15-table schema
 (Alembic-managed) and all Supabase data loaded and verified. Users are reset for

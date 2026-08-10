@@ -19,9 +19,12 @@ untouched at `../app/`, historical only. The pre-cutover migration scripts were 
 ## Current state (2026-08-10)
 
 - **Live:** https://ai-enablement-hub.kindcoast-3b1fe056.swedencentral.azurecontainerapps.io —
-  image `ai-enablement-hub:20260804-145027`, revision `--0000035`, built from `main` @ `8da7f12`.
-  `main` has moved since (docs/cleanup commits, plus one **behavior-affecting undeployed
-  change**: `88c2d90` corrects `backend/prompts/house_style.md` — a cloud Code session survives
+  image `ai-enablement-hub:20260804-145027`, revision `--0000035`, built from `main` @ `1b7546a`
+  (pre-rewrite SHA `8da7f12` — **git history was rewritten 2026-08-10 to purge learner PII**, so
+  SHAs in older notes/transcripts don't resolve; the pre-rewrite mirror lives in
+  `..\_archive\ai-hub-pre-purge-mirror-2026-08-10.git`). `main` has moved since (docs/cleanup
+  commits, plus one **behavior-affecting undeployed
+  change**: `d8fce39` corrects `backend/prompts/house_style.md` — a cloud Code session survives
   a closed laptop. Prompts are baked into the image AND DB-overridable via the admin System
   Prompts page, so a redeploy ships it unless a DB override already covers it).
 - **This file lags reality by design.** Trust the live system, not this log:
@@ -255,7 +258,7 @@ git log + the specs themselves.
   consent and an ACS custom email domain are all bundled in one ticket (Matthias's name).
   Until it lands, the playground deployment is the live one. Custom-domain recipe (DNS CNAME +
   TXT `asuid` record, `az containerapp hostname add`/`bind`, `APP__URL` update): git history
-  of this file @ `b85fdba`, "Open for cutover".
+  of this file @ `516e40c`, "Open for cutover".
 - **LLM spend:** prod carries `llm-api-key` and admin-reachable AI spend is live; whether the
   key is a capped workspace key is **unverified — ask Matthias** (docs/ai-agents-plan.md §8b).
 - **Emails:** ACS `imaginemore-playground-acs`, sender `hub@…azurecomm.net`. Local dev `.env`
