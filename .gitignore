@@ -2,19 +2,16 @@
 .env
 *.env
 !.env.local.example
-!.env.prod.example
-
-# Live Supabase invite links (potentially still redeemable) — keep local only
-db/baseline/data/invite_tokens.json
 
 # Python
 __pycache__/
 .venv/
 .pytest_cache/
+.ruff_cache/
 .coverage
 *.pyc
 
-# Node (frontend, from Batch 4)
+# Node (frontend)
 node_modules/
 dist/
 
@@ -26,6 +23,7 @@ scratch_review/
 backend/scripts/*_DBBACKUP.json
 backend/scripts/*_LIVE.json
 
-# Stale repo-root copy of Claude tool state (real memory lives under ~/.claude/)
+# Local agent-session state (never commit)
 memory/
 .claude/
+.superpowers/
