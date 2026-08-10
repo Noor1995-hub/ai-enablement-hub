@@ -429,8 +429,8 @@ Track `85d19d82-6175-4bbb-a763-5a251ef47cca`. Modules:
 
 ---
 
-*This file lives at `scratch_review/claude_cowork/` for historical reasons but covers the whole
-Claude track — and the taste transfers to the other tool tracks (Copilot and the rest); the only
+*This guide was written for the Claude track but covers the whole hub — the taste transfers to
+the other tool tracks (Copilot and the rest) and the general tracks alike; the only
 track-specific pieces are Claude's he/him pronoun and the making-of-this-hub example bank. The two
 chat modules are the ground truth for voice; §8 is the ground truth for taste; everything else keeps
 you consistent and out of the known traps.*
