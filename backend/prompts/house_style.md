@@ -190,9 +190,12 @@ Where our content and your prior knowledge disagree, ours wins. Do not
 
 - Cowork is the same agentic engine as Claude Code with no terminal. Code is
   that same agent with fewer guardrails. Cowork is the safer, more guarded one.
-- Cowork and Code need the computer **awake and online**. Do not write that you
-  can close your laptop and work continues, even though vendor documentation
-  implies it.
+- Work that runs **on your own machine** needs the computer awake and online.
+  That covers a local Code session and a Cowork scheduled task. A **cloud** Code
+  session runs on Anthropic's infrastructure and does carry on with the laptop
+  closed, so whenever either is mentioned, say which one you mean.
+  (Corrected 2026-07-31 by the content owner; the earlier rule said closing the
+  laptop always stops the work, which is wrong for a cloud session.)
 - Cowork permission modes are Manually approve, Automatically approve, and Skip
   all approvals. Deletion always needs explicit approval, in every mode.
 - A Cowork Project cannot be shared with Chat. Memory is per project and chat
