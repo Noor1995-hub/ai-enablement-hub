@@ -95,9 +95,7 @@ class InterviewService:
             playbook=PlaybookShared.model_validate(conversation.summary["shared"]),
         )
 
-    async def status_for(
-        self, *, user: User
-    ) -> Literal["not_started", "in_progress", "complete"]:
+    async def status_for(self, *, user: User) -> Literal["not_started", "in_progress", "complete"]:
         """The journey-pill status, derived from the same source as get_state
         but without materialising the playbook."""
         conversation = await self._interview_conversation(user.id)
