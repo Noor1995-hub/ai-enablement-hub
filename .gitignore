@@ -28,3 +28,4 @@ backend/scripts/*_LIVE.json
 
 # Stale repo-root copy of Claude tool state (real memory lives under ~/.claude/)
 memory/
+.claude/
