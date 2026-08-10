@@ -9,6 +9,10 @@ how it's gated, and the editorial reference used when reviewing it.
 
 ## Files here
 
+- **[authoring-guide.md](authoring-guide.md)** — the complete lesson-authoring brief (house
+  voice, structure rules, the before→after edits that teach the taste). **Read this first when
+  writing or rewriting lessons.** Gate every draft with
+  `backend/scripts/content_qa/check_draft.py` before applying it to the DB.
 - **[content-review-lens.md](content-review-lens.md)** — the reusable content-quality checklist
   (voice/tone tells, structural patterns, factual-accuracy traps). Apply to any track.
 - **[general-i-ii-style-guide.md](general-i-ii-style-guide.md)** — the General I/II-specific

@@ -37,7 +37,7 @@ blind-edit live content).
 ## The standard
 
 The target standard is the existing house authoring guide
-(`scratch_review/claude_cowork/authoring_guide.md`), applied **hub-wide** — older tool tracks
+(`docs/content/authoring-guide.md`), applied **hub-wide** — older tool tracks
 likely predate it, and measuring them against it is exactly what defines "uniform." The
 relevant, checkable conventions:
 

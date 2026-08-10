@@ -325,7 +325,7 @@ conflict (they close with "What you can now do"), house style wins.
 7. No stray double periods (`..`). Fourteen were removed from the integrator tracks on
    2026-07-31; do not reintroduce them.
 
-Run `scratch_review/general_iii/check_draft.py` over every drafted lesson before applying it. It
+Run `backend/scripts/content_qa/check_draft.py` over every drafted lesson before applying it. It
 covers rules 1 to 6 plus schema validation, and reports empty-`blob_path` errors separately as
 expected rather than as failures.
 

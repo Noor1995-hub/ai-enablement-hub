@@ -149,7 +149,7 @@ WINDOW = 3  # blocks before a quiz counted as the quiz's "close" group
 def check_quiz_conformance(blocks: list[dict]) -> list[dict]:
     """Check the house convention around quizzes and whitespace separators.
 
-    The convention (authoring_guide.md) is a `whitespace(md)` separator and a
+    The convention (docs/content/authoring-guide.md) is a `whitespace(md)` separator and a
     heading 'Check your understanding' shortly before the closing quiz. In real
     content the whitespace sits either just before or just after that heading,
     so we look for both anywhere in the WINDOW blocks immediately preceding the

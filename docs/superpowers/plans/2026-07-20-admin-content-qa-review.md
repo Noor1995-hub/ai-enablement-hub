@@ -20,7 +20,7 @@ inspecting output.
 
 ## Global Constraints
 
-- **Standard = `scratch_review/claude_cowork/authoring_guide.md`, applied hub-wide.** Deviations become findings.
+- **Standard = `docs/content/authoring-guide.md`, applied hub-wide.** Deviations become findings.
 - **Report-only. Never edit live DB content in this work.** Applying fixes is a separate, later, separately-approved phase.
 - **Scope = exactly 91 lessons / 26 modules / 9 tracks** = the intersection of `user_tracks ∧ user_modules ∧ user_lessons` for user `587f5667-2ddc-4b95-827c-09bcb92c5b7c`. Tracks: General I, General II, Copilot, Claude, Obsidian, General III, Copilot II, Claude II, For Developers. Excluded: Introduction, Power Automate/Apps, Lovable, Confluence, and the 2 "use case build" capstone lessons (module not module-assigned).
 - **British/EU spelling** is the target: colour, organisation, summarise, behaviour, **Artefact** (not Artifact). The Americanism scan flags American forms ONLY — correct en-GB forms must never fire.
@@ -885,7 +885,7 @@ def main() -> None:
 
     # ---- Copy/layout report, grouped track > module > lesson ----
     cl = ["# Copy & layout review — admin-assigned content (2026-07-20)", "",
-          "Report-only. Standard: `scratch_review/claude_cowork/authoring_guide.md`.",
+          "Report-only. Standard: `docs/content/authoring-guide.md`.",
           "Deterministic findings are exhaustive for their patterns; editorial findings are judgement.", ""]
     cur_t = cur_m = None
     for les in snapshot:
@@ -914,7 +914,7 @@ def main() -> None:
 
     # ---- Quiz report ----
     qz = ["# Quiz review — admin-assigned content (2026-07-20)", "",
-          "Report-only. Standard: `scratch_review/claude_cowork/authoring_guide.md`.",
+          "Report-only. Standard: `docs/content/authoring-guide.md`.",
           "Answer-length bias is already fixed and not reported.", ""]
     verdicts = Counter()
     for mod in phase2:

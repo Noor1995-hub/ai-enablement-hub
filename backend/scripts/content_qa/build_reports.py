@@ -50,7 +50,7 @@ def main() -> None:
     cl = [
         "# Copy & layout review - admin-assigned content (2026-07-20)",
         "",
-        "Report-only. Standard: `scratch_review/claude_cowork/authoring_guide.md`.",
+        "Report-only. Standard: `docs/content/authoring-guide.md`.",
         "Deterministic findings (punctuation, en-GB, spacing) are exhaustive for their patterns; "
         "editorial findings are judgement.",
         "",
@@ -94,7 +94,7 @@ def main() -> None:
     qz = [
         "# Quiz review - admin-assigned content (2026-07-20)",
         "",
-        "Report-only. Standard: `scratch_review/claude_cowork/authoring_guide.md`.",
+        "Report-only. Standard: `docs/content/authoring-guide.md`.",
         "Answer-length bias is already fixed and not reported.",
         "",
     ]
