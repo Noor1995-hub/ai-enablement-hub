@@ -1,5 +1,9 @@
 # FastAPI Backend Design — AI Enablement Hub Rebuild
 
+> **Point-in-time rebuild contract (2026-07-03).** Superseded wherever it conflicts with the
+> code or the root `CLAUDE.md` (e.g. the "29 endpoints" count and admin endpoint shapes are
+> stale). Kept at this path because source comments cite it by basename — do not rename.
+
 Target location: `c:\Users\danneelm\projects\AI enablement hub\AI ENABLEMENT HUB REBUILD\backend\`
 Reference code inspected: `app/api/_lib/*` (auth.js, handlers.js, scoring.js, rateLimit.js, cors.js, constants.js), `app/src/**` per inventory, `context.md`.
 

@@ -1,5 +1,10 @@
 # Frontend Rebuild Design — AI Enablement Hub (React 18 + TypeScript + Vite)
 
+> **Point-in-time rebuild contract (2026-07-03).** Superseded wherever it conflicts with the
+> code or the root `CLAUDE.md` (the admin panel section is explicitly superseded by the
+> 2026-07-27 `admin2` redesign). Kept at this path because source comments cite it by
+> basename — do not rename.
+
 Perspective: Frontend Architect. Target: `c:\Users\danneelm\projects\AI enablement hub\AI ENABLEMENT HUB REBUILD\frontend\`. Old app stays untouched at `app/` for side-by-side parity checks. Current frontend is 49 source files, ~7,000 LOC, all JSX + inline style objects.
 
 ---

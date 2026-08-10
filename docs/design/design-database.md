@@ -1,8 +1,14 @@
-I have everything I need — live schema, constraints, indexes, triggers, and row counts verified directly against the Supabase project. Notable live-schema facts that correct the docs: `modules` has **no `col_offset`** column (context.md is stale) but has `description`; `survey_responses` has a **unique index** (not constraint) on `user_id`; the `set_updated_at` trigger exists **only on `users`**; `users.company_id` FK has **no ON DELETE action**; `curricula` exists (7 rows) referencing `tracks` but nothing references it.
-
----
-
 # Database, Data-Migration & Dev-Environment Design — AI Enablement Hub Rebuild
+
+> **Point-in-time rebuild contract (2026-07-03).** Superseded wherever it conflicts with the
+> code, the Alembic migrations, or the root `CLAUDE.md`. Kept at this path because source
+> comments cite it by basename — do not rename.
+>
+> Live-schema facts verified against Supabase at design time that corrected older docs:
+> `modules` has **no `col_offset`** column (context.md was stale) but has `description`;
+> `survey_responses` has a **unique index** (not constraint) on `user_id`; the
+> `set_updated_at` trigger exists **only on `users`**; `users.company_id` FK has **no
+> ON DELETE action**; `curricula` exists (7 rows) referencing `tracks` but nothing references it.
 
 Verified live source: Supabase project `tbeogvbjbaxgfwaoebfj` (PG 17.6, eu-west-1). Row counts (2026-07-03): companies 4, projects 5, project_component_settings 8, users 6, invite_tokens 13, survey_responses 2, tracks 7, curricula 7, modules 27, module_prerequisites 23, lessons 25, user_tracks 18, user_modules 53, lesson_progress 4. Total ≈ 202 rows (189 migrated; invite_tokens dropped).
 

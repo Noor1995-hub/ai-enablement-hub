@@ -1,6 +1,8 @@
 # Embedded Images & Videos in Lessons — Implementation Plan
 
-Status: PLANNED (approved plan, not started) — 2026-07-10
+Status: SHIPPED — deployed live 2026-07-13 (`media_service.py`, `media_blocks.py`,
+`routers/admin_media.py`, blob storage on `aienablementhubmedia`). This doc is the design
+record; trust the code where they differ. (Original status 2026-07-10: planned, not started.)
 
 ## Context
 

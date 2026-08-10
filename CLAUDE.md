@@ -1,871 +1,266 @@
-# AI Enablement Hub — Azure Rebuild
+# AI Enablement Hub
 
-Greenfield rebuild of the hub (old app lives untouched in `../app/` on Supabase+Vercel — frozen,
-historical only). Stack: **FastAPI** (Python 3.13, uv) + **React 18 + TypeScript** (Vite) +
-**Azure Database for PostgreSQL** (playground server, database `ai-enablement-hub`).
+**FastAPI** (Python 3.13, uv) + **React 18 + TypeScript** (Vite) + **Azure Database for
+PostgreSQL**, shipped as ONE Azure Container App that serves the API and the built SPA.
+This is production — the app real learners use. Content is edited through the admin UI
+(`PATCH /api/admin/lessons/{id}`) and written straight to the live DB.
 
-**Cutover is complete (confirmed 2026-07-08).** This rebuild is production — the app real
-learners use. Content edits via the admin UI (`PATCH /api/admin/lessons/{id}`) write directly to
-this Azure DB with no separate export/sync step. The old Supabase project is no longer
-authoritative for anything; see `db/README.md` for why its migration scripts must not be re-run.
+> **THE ONE-DATABASE RULE — read this before anything else.** Dev and prod share the single
+> Azure PG database `ai-enablement-hub` (only the integration suite uses
+> `ai-enablement-hub-test`). A local `alembic upgrade`, a "test" user, or any script writing
+> rows edits **live learner data**. Verify learner-facing changes with production-shaped
+> fixtures and a stubbed `fetch`, never by creating users/surveys/progress — see
+> "Verifying without touching live data" below.
 
-## Current state (2026-08-04)
+The old Supabase app is permanently retired (cutover complete 2026-07-08); its repo sits
+untouched at `../app/`, historical only. The pre-cutover migration scripts were removed
+2026-08-10 (git history has them).
 
-- **Live in prod** on Azure Container Apps:
-  https://ai-enablement-hub.kindcoast-3b1fe056.swedencentral.azurecontainerapps.io — current image
-  `ai-enablement-hub:20260804-145027`, revision `--0000035`, built from `main` @ `8da7f12`
-  (Copilot Studio downloadable policy PDFs). The deploy log below can lag reality;
-  trust the running tag: `az containerapp show -n ai-enablement-hub -g imaginemore-playground
-  --query properties.template.containers[0].image -o tsv`.
-- **DB:** Azure Postgres `ai-enablement-hub`; alembic head **`1cd2cc2d05a9`** (the prompts table).
-  **Dev and prod share this one database** — there is no separate dev DB (only the
-  `ai-enablement-hub-test` database used by the integration suite). So a local
-  `alembic upgrade`, or any script writing "test" rows, edits live learner data. Verify
-  learner-facing changes without touching it (see the 2026-08-04 deploy entry).
-- **Scale:** ~86 API endpoints across 19 routers (`backend/src/routers/`, counted 2026-07-31);
-  feature-complete and in active content + AI-feature iteration.
-- **Auth:** password (JWT) + Entra ID OIDC side-by-side — Entra is deployed **dark** (no `ENTRA__*`
-  env on prod, blocked on IT admin consent).
+## Current state (2026-08-10)
+
+- **Live:** https://ai-enablement-hub.kindcoast-3b1fe056.swedencentral.azurecontainerapps.io —
+  image `ai-enablement-hub:20260804-145027`, revision `--0000035`, built from `main` @ `8da7f12`.
+  `main` has moved since (docs/cleanup commits, plus one **behavior-affecting undeployed
+  change**: `88c2d90` corrects `backend/prompts/house_style.md` — a cloud Code session survives
+  a closed laptop. Prompts are baked into the image AND DB-overridable via the admin System
+  Prompts page, so a redeploy ships it unless a DB override already covers it).
+- **This file lags reality by design.** Trust the live system, not this log:
+  `az containerapp show -n ai-enablement-hub -g imaginemore-playground --query
+  properties.template.containers[0].image -o tsv` and `cd backend && uv run alembic current`.
+  Recovering what a past deploy shipped: compare the image tag's timestamp with
+  `git log --format=%ci`.
+- **DB:** alembic head **`1cd2cc2d05a9`** (prompts table) == code head, single linear chain.
+- **Scale:** ~84 endpoints across 19 routers (`backend/src/routers/`); feature-complete, in
+  active content + AI-feature iteration. ~104 users as of 2026-08-04.
+- **Auth:** password (JWT) live; Entra ID OIDC code-complete but deployed **dark** (no
+  `ENTRA__*` env on prod; blocked on one-time IT admin consent).
 - **Roles:** `admin`, `user+` (bypasses learning-path locks, no admin powers), `user`.
-- **Maturity ladder:** `explore → practitioner → integrator → multiplier` (`core/constants.py`).
-  The multiplier level now holds **4 tracks** (For Developers was split 2026-07-20 into General III /
-  Copilot II / Claude II, leaving a Capstone-only For Developers) — `docs/content/README.md` has the
-  current content model. Older "For Developers is the multiplier track" notes below are point-in-time.
-- **Git:** work on `introduction-level` / `feature/*`, integrate into `main`; `main` == deployed code
-  as of 2026-07-22. Deploys build from the working dir, so **push after deploying** (see Deployment).
+- **Maturity ladder:** `explore → practitioner → integrator → multiplier`
+  (`core/constants.py::LEVEL_ORDER`). The multiplier level holds 4 tracks (General III,
+  Copilot II, Claude II, Capstone-only For Developers). Content model:
+  `docs/content/README.md`; active content specs: `2026-07-29-general-iii-track-design.md`,
+  `2026-07-31-multiplier-level-rewrite-design.md`.
+- **Git:** `main` is the only long-lived branch; use `feature/*` for work and fast-forward
+  `main`. `deploy.ps1` builds the **working directory, not git** — push after every deploy.
+- **Pending work queue:** `docs/reviews/2026-07-31/` — independent code+DB review + 5 fix-phase
+  plans (A→B→C→D, E parallel; **phase C owns all new migrations**, chained off `1cd2cc2d05a9`).
+  Unexecuted as of 2026-08-10.
 
 ## How to run & verify
 
-- **Backend** (run inside `backend/`): checks = `uv run poe format && uv run poe lint && uv run poe test`
+- **Backend** (inside `backend/`): checks = `uv run poe format && uv run poe lint && uv run poe test`
   (integration tests hit the `ai-enablement-hub-test` Azure PG DB). Dev server: `uv run poe dev`
   (→ :8000, Swagger at `/docs`). Migrations: `uv run poe upgrade`.
-- **Frontend** (run inside `frontend/`): checks = `npm run typecheck && npm run lint && npm run build`.
-  Dev: `npm run dev` (→ :5173, proxies `/api` → :8000). After a backend contract change, regenerate
-  the committed API types with `npm run gen:api` (backend must be running).
-- **Deploy:** `.\deploy.ps1` at repo root (cloud build via `az acr build`, then container update).
-- **Secrets:** `backend/.env` + `db/.env` (git-ignored; keys documented in `backend/.env.local.example`).
+- **Frontend** (inside `frontend/`): checks = `npm run typecheck && npm run lint && npm run build`.
+  Dev: `npm run dev` (→ :5173, proxies `/api` → :8000). After a backend contract change,
+  regenerate the committed API types: `npm run gen:api` (backend must be running).
+- **Deploy:** `.\deploy.ps1` at repo root — see "Deployment & operations". **Ask before any
+  Azure-mutating command**; read-only `az` queries are fine.
+- **Secrets:** `backend/.env` + `db/.env` (git-ignored; keys documented in
+  `backend/.env.local.example`). Rotate DB role passwords with
+  `db/provision_roles.py --rotate-passwords`.
 
-## Where things live (repo map)
+## Repo map
 
 - `backend/src/` — FastAPI app in delaware layering: `routers/ → services/ → repositories/` +
-  `schemas/`, `db/models/`, `core/{configs,dependencies}`. `backend/tests/` splits into
-  `unit / integration / golden / fixtures`.
-- `backend/alembic/versions/` — migrations. `backend/scripts/` — ops/one-off tooling
-  (`content_qa/` = the content-review toolkit; `issue_invite.py`; `rescore_parity.py`).
-- `frontend/src/` — React app (`pages/`, `components/`, `api/`, `lib/`, `types/contentBlocks.ts`).
-- `docs/` — `design/` (backend/frontend/database contracts), `superpowers/{specs,plans}` (one per
-  feature), `content/` (content model + editorial reference), `rebuild-plan.md`, plan docs.
-- `infra/` — one-time create (`containerapp.yaml`, `deploy-initial.ps1`). Repo root: `Dockerfile`,
-  `deploy.ps1`, `CLAUDE.md`, `python-be-architecture.md`, `CODE-REVIEW.md` (a 2026-07-09 full audit).
+  `schemas/`, `db/models/`, `core/{configs,dependencies}`. Tests in `backend/tests/`
+  (`unit / integration / golden / fixtures`).
+- `backend/prompts/` — **runtime assets, not docs**: the AI system prompts, COPY'd into the
+  Docker image and loaded by `services/prompts.py`; DB-overridable per prompt via the admin
+  System Prompts page. Treat edits as production changes. Never move/rename.
+- `backend/alembic/versions/` — migrations. `backend/scripts/` — ops tooling: `content_qa/`
+  (content-review toolkit incl. `check_draft.py`, the pre-write drafting gate),
+  `issue_invite.py` (bootstrap invite links), `rescore_parity.py`, `read_goldstandard.py`.
+- `frontend/src/` — React app: `pages/` (+ `pages/admin2/` = the admin panel), `components/`,
+  `api/`, `lib/`, `contexts/`, `styles/`, `types/contentBlocks.ts` (the lesson block union).
+- `db/` — `README.md` (roles, credentials, procedures — read before DB work),
+  `provision_roles.py`, `content_tools/` (live lesson-edit passes), `baseline/` (frozen
+  pre-cutover snapshot, historical only).
+- `docs/` — see `docs/README.md` for the map: `superpowers/{specs,plans}` (one per feature),
+  `reviews/` (audits + the pending fix programme), `content/`, `design/` + `design-prototypes/`
+  (point-in-time/pinned — do not move), `history/`, `db-backup-restore.md` (backup runbook).
+- `infra/` — one-time create (`containerapp.yaml`, `deploy-initial.ps1`) + `backup/` (the
+  nightly-dump job image). Repo root: `Dockerfile`, `deploy.ps1`, `python-be-architecture.md`.
+- Gitignored local dirs you may see: `scratch_review/` (content-authoring workbench),
+  `.claude/`, `.superpowers/`, `memory/`.
+
+## Conventions & process
+
+1. `python-be-architecture.md` — **MANDATORY** backend conventions (delaware template):
+   router → service → repository → model layering, abstract repositories, DI in
+   `core/dependencies/`, poe tasks, ruff/ty clean, ≥80% coverage. Two approved deviations:
+   asyncpg is a main dependency, and integration tests run against the Azure PG test DB
+   (schema needs text[]/JSONB/ON CONFLICT), not in-memory SQLite.
+2. Feature work = design spec in `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md`, then an
+   implementation plan in `docs/superpowers/plans/`, then execution (usually subagent-driven,
+   task-by-task with review). Batch-by-batch rebuild process is over; don't follow
+   `docs/history/rebuild-plan.md`.
+3. **Authorization iron rule (tests must enforce):** no endpoint outside `/admin/*` accepts a
+   user identifier from the request — ownership comes from the token only.
+4. **FastAPI signature gotcha:** any type in a *parameter* annotation FastAPI inspects
+   (routers, DI providers) must be imported at runtime, not under `TYPE_CHECKING` — an
+   unresolvable name silently degrades the param to a required query param (uniform 422s).
+5. Integration tests derive their DSN from `ALEMBIC_DATABASE_URL` with the database swapped to
+   `ai-enablement-hub-test`; per-test savepoint rollback. Flaky `-n auto` runs against the
+   shared remote DB happen — rerun before panicking.
+6. Frontend renders at CSS zoom 1.25 on `:root`; rect-based positioning must compensate via
+   `getRectZoomFactor` (`lib/uiZoom.ts`).
+7. Content authoring: read `docs/content/authoring-guide.md` first, gate every draft with
+   `backend/scripts/content_qa/check_draft.py` before writing to the DB.
 
 ## Feature index → specs
 
-Most features have a design spec under `docs/superpowers/specs/` (and often a plan under `…/plans/`);
-the full dated build story for each is in the **Appendix** at the bottom of this file.
+Specs live in `docs/superpowers/specs/` (same-date plans in `…/plans/`). Full build history:
+git log + the specs themselves.
 
-- **Auth** (password + invite/reset + Entra OIDC) — Appendix (Batch 2 + the Entra entry).
-- **Learning path, locks & maturity gating** — "Locking, prerequisites & preview" below;
-  specs `2026-07-14-learning-path-level-headers-design.md`, `2026-07-20-below-level-free-review-design.md`.
-- **Cascading track/module assignment** — assigning a track/module now auto-assigns
-  everything under it (full resync, both ways) —
-  `specs/2026-07-23-cascading-track-module-assignment-design.md`; `services/admin_user_service.py`.
-- **Admin panel redesign** — function-first routed shell under `/admin/*` (Dashboard · People ·
-  user detail · Assignments matrix · Feedback · Projects · Email templates · Setup;
-  `frontend/src/pages/admin2/`) replacing the old single-page MVP panel; adds project default
-  assignments + `assigned_via` provenance, multi-user bulk assignment, feedback triage, reminder
-  email, payload enrichment (status/progress/attention), pagination/filters, and a dashboard
-  aggregates endpoint. **Code-complete + review-approved on `feature/admin-panel-redesign`,
-  dev DB migrated — NOT browser-verified, NOT merged to `main`, NOT deployed.**
-  Spec `specs/2026-07-23-admin-panel-redesign-design.md`; plan
-  `plans/2026-07-23-admin-panel-redesign.md`; Appendix below for the full build story.
-- **Introduction level** — `specs/2026-07-17-introduction-level-design.md` (+ plan).
-- **`user+` role** — `specs/2026-07-22-user-plus-role-design.md`.
-- **Lesson feedback** — `specs/2026-07-14-lesson-feedback-design.md`; `routers/feedback.py`.
-- **Bulk CSV invite** — `specs/2026-07-14-bulk-csv-invite-design.md`; `services/invite_csv.py`.
-- **Quiz = completion-gated (not score-gated)** — `specs/2026-07-17-quiz-completion-not-score-gated-design.md`.
+- **Auth** — password JWT (30-min access + rotating 14-day refresh in `auth_sessions`),
+  SHA-256-hashed single-use invite/reset tokens, ACS invite/reset emails; Entra ID OIDC
+  side-by-side (server-side auth-code+PKCE issuing the same native token pair;
+  `users.external_id` = Entra OID; invite-gated, never provisions). `routers/auth.py`,
+  `auth_entra.py`.
+- **Learning path, locks & maturity gating** — see "Locking" below;
+  `2026-07-14-learning-path-level-headers-design.md`, `2026-07-20-below-level-free-review-design.md`.
+- **Introduction level** — `2026-07-17-introduction-level-design.md`.
+- **`user+` role** — `2026-07-22-user-plus-role-design.md`.
+- **Cascading track/module assignment** (full resync both ways) —
+  `2026-07-23-cascading-track-module-assignment-design.md`; `services/admin_user_service.py`.
+- **Admin panel** (`/admin/*` routed shell, `frontend/src/pages/admin2/`) — SHIPPED 2026-07-27:
+  Dashboard, People, user detail, Assignments matrix + project defaults + `assigned_via`
+  provenance, Feedback triage, Projects, Email templates, Setup, System Prompts —
+  `2026-07-23-admin-panel-redesign-design.md`.
+- **Lesson feedback** — `2026-07-14-lesson-feedback-design.md`; `routers/feedback.py`.
+- **Feedback-driven content improvement** — accepted feedback → AI-proposed content_blocks
+  diffs, admin-approved; + calibration notes queue —
+  `2026-07-27-feedback-driven-content-improvement-design.md` (plans a–e);
+  `routers/admin_content_improvement.py`, `admin_calibration_notes.py`.
+- **AI chat foundation** — `conversations`/`messages`/`project_ai_settings`, provider =
+  Anthropic API direct — `2026-07-23-ai-chat-foundation-design.md`; `services/llm_service.py`,
+  `docs/ai-agents-plan.md` (§7 provider seam, §8b key/spend — spend cap on the prod key is
+  **unverified; ask Matthias**).
+- **AI interviewer** — `2026-07-28-ai-interviewer-design.md` (+ round 2:
+  `2026-07-30-interviewer-opener-design.md`); `routers/interview.py`, gated by
+  `require_interview_surface`.
+- **Project AI surface toggles** (per-project, default OFF, 403 until toggled) —
+  `2026-07-27-project-ai-surface-toggles-design.md`; `core/dependencies` `require_ai_surface`.
+- **System prompts, DB-overridable + admin-editable** —
+  `2026-07-30-prompts-page-master-detail-design.md`; `admin2/PromptsPage.tsx`,
+  `services/prompt_service.py` (bustable `load_prompt` cache), `prompts` table.
+- **Nightly DB backups** — `2026-07-29-database-backups-design.md`; runbook
+  `docs/db-backup-restore.md` (job `ai-enablement-hub-db-backup`, 02:30 UTC, 30-day retention,
+  log-based alerts; **no Postgres client tools on the dev machine** — restores run via the
+  manual restore job).
+- **Bulk CSV invite** — `2026-07-14-bulk-csv-invite-design.md`; `services/invite_csv.py`.
+- **Quiz = completion-gated, not score-gated** — `2026-07-17-quiz-completion-not-score-gated-design.md`.
 - **Lesson media / blob storage** — `docs/lesson-media-plan.md`; `services/media_service.py`,
-  `media_blocks.py`, `routers/admin_media.py`.
-- **Per-project email templates** — `routers/admin_email_templates.py`,
-  `services/email_template_service.py` (migration `a7b8c9d0e1f2`); ACS invite/reset emails in the Appendix.
+  `routers/admin_media.py`.
+- **Per-project email templates** — `routers/admin_email_templates.py`.
 - **Interactive lesson blocks** (`interactive`, `try_it_yourself`, `question`) —
   `frontend/src/types/contentBlocks.ts`.
-- **AI agents / assistant** — `docs/ai-agents-plan.md`.
-- **Content** (tracks/modules/lessons + editorial process) — `docs/content/README.md`.
+- **Un-assessed learning-path signpost** — `2026-08-04-unassessed-path-signpost-design.md`.
+- **Content QA review** — `2026-07-20-admin-assigned-content-qa-review-design.md`;
+  `backend/scripts/content_qa/`.
 
-## Read before working
-
-1. `docs/rebuild-plan.md` — the approved plan: decisions, endpoint contract summary, batch
-   sequence. Work is executed **batch by batch with user review between batches**.
-2. `python-be-architecture.md` — **MANDATORY** backend conventions (delaware template):
-   router → service → repository → model layering, `src/` layout, abstract repositories,
-   DI in `core/dependencies/`, poe tasks, bcrypt, ruff/ty clean, ≥80% coverage.
-   Two approved deviations: asyncpg is a main dependency (dev DB is Azure PG, not SQLite);
-   integration tests run against the `ai-enablement-hub-test` PG database, not in-memory
-   SQLite (schema uses text[]/JSONB/ON CONFLICT).
-3. `docs/design/design-backend.md` — full 29-endpoint contract, auth design, authz matrix,
-   scoring-port notes. `design-frontend.md` / `design-database.md` for Batches 4–6.
-4. `db/README.md` — database roles, credentials locations, migration/verification procedures.
-
-## Locking, prerequisites & preview (as-built; reviewed 2026-07-06; component lock became a
-real server-side gate 2026-07-23)
+## Locking, prerequisites & preview (as-built)
 
 - **Two independent lock systems that never interact:**
-  - **Component level** (`assessment`/`learning`/`interview` hub tiles): `project_component_settings`
-    over `DEFAULT_LOCKED = {assessment: false, learning: true, interview: true}`
-    (`core/constants.py`), resolved server-side (`org_service.resolve_components`), served by
-    `GET /api/me/journey`, rendered on JourneyHome. `hidden` = card filtered out entirely;
-    `locked` = greyed inert card (title/description still visible). Completing the assessment
-    does NOT unlock learning — despite the "Unlocks after assessment" copy and the
-    "Being built" badge, unlock is a manual admin component toggle. **Hard-gated server-side
-    since 2026-07-23:** `require_component_unlocked` (`core/dependencies/components.py`) is a
-    router-level dependency on `survey.py` (component="assessment") and `learning.py`
-    (component="learning") — a caller whose project has the component hidden or locked gets a
-    403 `ComponentLockedError`, not just a greyed-out tile. This is a project-level gate, not a
-    role check: admin and `user+` are NOT exempt (see the user+ role design doc — component
-    locks were explicitly called out as "not a learning-path requirement"), so an admin/user+
-    account with no project (or a project where learning hasn't been unlocked yet) is gated
-    too. `interview` has no live endpoint yet, so nothing to gate there.
-  - **Module level**: explicit `module_prerequisites` edge table (composite PK; only DB
-    constraint is `not_self` — nothing blocks cross-track or cyclic edges; the frontend drops
-    cross-track predecessors from layout and rank-guards cycles, but such rows would still
-    lock dependents invisibly). The unlock rule exists ONLY in
-    `LearningPath.tsx::isModuleUnlocked`: unlocked ⇔ admin OR no prereqs OR every prereq has
-    assigned-lesson `total > 0 && completed === total` (counts are the caller's ASSIGNED
-    lessons since the lesson-assignment feature). Graph layout ranks by prerequisite depth;
-    `sort_order` is only a tie-breaker + the "next module in track" hop. **Still frontend-only**
-    (see below) — the 2026-07-23 hard gate covers component-level locks only.
-- **No prerequisites between tracks** (the dotted general→tool graph edge is decorative,
-  `trackId: null`) and **none between lessons** (`sort_order` only; the sidebar allows
-  skipping ahead; the quiz gate blocks "Mark as complete", not navigation).
-- **Maturity gating, assignment, and module prerequisites remain visibility filters, NOT
-  access control** (component-level locks are the one exception since 2026-07-23 — see
-  above): `GET /api/lessons/{id}` still serves `content_blocks` for any lesson to any
-  authenticated user regardless of maturity/assignment/prerequisites (as long as their
-  project's `learning` component is unlocked), `PUT …/progress` still accepts
-  unassigned/not-yet-unlocked-by-prerequisite lessons, and route guards check session only. A
-  logged-in user whose project has `learning` unlocked can still fetch/complete any lesson by
-  UUID regardless of maturity, module prerequisites, or whether it's assigned to them at all —
-  closing that remaining gap would need a server-side port of `LearningPath.tsx`'s
-  prerequisite-DAG check (it doesn't exist on the backend today) plus wiring maturity +
-  assignment checks (already computed server-side for display) into `learning_service.py`'s
-  `lesson_detail`/`module_lessons`/`save_progress` and `feedback_service.py`'s `submit`.
-- **Lock display:** graph node at 45% opacity + padlock badge; ModulePopup swaps to
-  "Complete the required modules first…" with a disabled grey "Locked" button (the `disabled`
-  attribute is the only guard — `handleStart` has no lock check); JourneyHome greyed card +
-  LockIcon note. There is NO admin "view as learner" mode: admins bypass module locks but
-  still see only their own assigned tracks.
-- **Known quirks (accepted as-is 2026-07-06):** a prereq module with 0 assigned lessons locks
-  its dependents forever (0/0 also disables the popup start button, so it's admin-visible);
-  an UNASSIGNED prerequisite locks dependents with no edge drawn to explain why;
-  `?edit=true` shows the lesson editor UI to non-admins (saves 403 via the admin-only PATCH,
-  but loading the lesson for preview now also needs the admin's own project's `learning`
-  component unlocked, per the 2026-07-23 gate above); `GET /api/learning/graph` returns ALL
-  track/module titles with `assigned` flags.
+  - **Component level** (`assessment`/`learning`/`interview` hub tiles):
+    `project_component_settings` over `DEFAULT_LOCKED` (`core/constants.py`), resolved
+    server-side, served by `GET /api/me/journey`. `hidden` = card filtered out; `locked` =
+    greyed inert card. Unlock is a manual admin toggle (completing the assessment does NOT
+    unlock learning, despite the copy). **Hard server-side gate since 2026-07-23:**
+    `require_component_unlocked` (`core/dependencies/components.py`) is router-level on
+    `survey.py` and `learning.py` — hidden/locked ⇒ 403 `ComponentLockedError`. Project-level
+    gate, not a role check: admin and `user+` are NOT exempt.
+  - **Module level:** `module_prerequisites` edge table (only DB constraint is `not_self`;
+    nothing blocks cross-track or cyclic edges). The unlock rule exists ONLY in
+    `frontend/src/pages/LearningPathNew.tsx::isUnlocked`: unlocked ⇔ admin OR user+ OR no
+    prereqs OR every prereq module has assigned-lesson `total > 0 && completed === total`.
+    Tracks strictly below the learner's effective level are freely reviewable (2026-07-20).
+    **Still frontend-only** — no server-side prerequisite check exists.
+- **Admin maturity pin** (`users.maturity_override`, `PUT /api/admin/users/{id}/maturity`) is
+  **visibility-only**: it sets the base of `effective_level` (the whole-track "Unlocks at
+  {Level}" lane lock) and deliberately does NOT assign content (assignment is seeded only on
+  survey completion or by an admin — decision 2026-07-17) and does NOT bypass module
+  prerequisites. Cross-track gotcha: tool-track first modules have prereqs on the last
+  General II module; `predSatisfied()` in `LearningPathNew.tsx` treats a prerequisite pointing
+  into a strictly-lower maturity level than the dependent's track as satisfied by maturity
+  alone. Same-track/same-level prereqs still gate.
+- **Maturity gating, assignment and module prerequisites are visibility filters, NOT access
+  control** (component locks are the one exception): `GET /api/lessons/{id}` serves any lesson
+  to any authenticated user whose project has `learning` unlocked, and `PUT …/progress`
+  accepts unassigned/locked lessons. Closing this needs a server-side port of the
+  prerequisite-DAG check plus wiring maturity/assignment into `learning_service.py` — tracked
+  in the 2026-07-31 review.
+- **No prerequisites between tracks** (the dotted general→tool graph edge is decorative) and
+  **none between lessons** (`sort_order` only; the quiz gate blocks "Mark as complete", not
+  navigation).
+- **Known quirks (accepted 2026-07-06):** a prereq module with 0 assigned lessons locks its
+  dependents forever (0/0 also disables the popup start button); an UNASSIGNED prerequisite
+  locks dependents with no visible edge; `?edit=true` shows the editor UI to non-admins (saves
+  403 server-side); `GET /api/learning/graph` returns ALL track/module titles with `assigned`
+  flags. No admin "view as learner" mode.
 
-## Deployment (2026-07-03) — LIVE on Azure Container Apps
+## Deployment & operations
 
-- **URL:** https://ai-enablement-hub.kindcoast-3b1fe056.swedencentral.azurecontainerapps.io
-  (default domain; custom domain `ai-enablement-hub.delaware.pro` planned — DNS request to
-  delaware IT is the blocker, full recipe under "Open for cutover").
-- **Shape:** ONE container app (`ai-enablement-hub`, RG `imaginemore-playground`, env
-  `imaginemore-playground-cae`, same pattern as siblings bta-portal/dellie: ACR admin auth,
-  external ingress :8000, 0.5 CPU/1Gi, min=max=1 replica — single replica is a design
-  constraint: rate limiter + daily cleanup are in-process). Image = multi-stage `Dockerfile`
-  at repo root: node builds `frontend/` → uv installs backend deps → `python:3.13-slim`
-  runs `startup.py` (alembic upgrade + uvicorn) and serves the SPA from `/app/static`.
-- **main.py serves the frontend in prod:** SPA catch-all + `/assets` mount activate only
-  when `backend/static/index.html` exists (never in dev). Security headers ported from the
-  old vercel.json; CSP is skipped for `/docs`/`/redoc` (Swagger loads from jsdelivr);
-  top-level `/assets/*` files get `immutable` caching (Vite hashes), subdirs (public/) 1 h.
-- **Redeploy:** `.\deploy.ps1` at repo root (cloud build via `az acr build` — no local
-  Docker — then `az containerapp update`). One-time create was `infra\deploy-initial.ps1`
-  + `infra\containerapp.yaml` (only needed again if the app is deleted; health probes on
-  `/api/health`, Startup probe budgets ~240 s because migrations run before the port binds).
+- **Shape:** ONE container app `ai-enablement-hub` (RG `imaginemore-playground`, env
+  `imaginemore-playground-cae`): ACR admin auth, external ingress :8000, 0.5 CPU/1Gi,
+  **min=max=1 replica — a design constraint** (rate limiter + daily cleanup are in-process).
+  Multi-stage `Dockerfile`: node builds `frontend/` → uv installs backend → `python:3.13-slim`
+  runs `startup.py` (**alembic upgrade, then uvicorn** — migrations apply on container start;
+  startup probe budgets ~240 s for them) and serves the SPA from `/app/static`.
+- **Deploy procedure (the discipline is hard-won):** commit only the specific change (never a
+  blanket `git add -A`), push, then build from a **fresh `git worktree` of the pushed commit**
+  (short path near the drive root, `-c core.longpaths=true`), because `az acr build` uploads
+  the working directory as-is. Run `.\deploy.ps1` from that worktree. After deploying:
+  fast-forward `main` and push. Post-deploy checks: `/api/health`, `/api/auth/methods`,
+  `latestReadyRevision == latestRevision`, and for frontend changes grep the served
+  `/assets/index-*.js` for a new copy string.
+- **Gotchas:**
+  - **Never pipe `deploy.ps1` through `Tee-Object`/`2>&1`** — `az acr build` writes progress
+    to stderr and under PS 5.1 + `$ErrorActionPreference=Stop` the script dies *after* queuing
+    the build. Recovery: `az acr task list-runs`, wait, then `az containerapp update --image`.
+  - The az CLI on this machine is old and off PATH
+    (`C:\Program Files\Microsoft SDKs\Azure\CLI2\wbin\az.cmd`); set `PYTHONIOENCODING=utf-8`
+    or its log streaming crashes on Vite's unicode; `infra/containerapp.yaml` must stay pure
+    ASCII.
+  - **The old az CLI's .dockerignore matcher ignores `dir/` trailing-slash patterns** — every
+    ignored dir is listed bare AND with `/**`. Verify any .dockerignore change by re-packing
+    with az's own `_pack_source_code` and inspecting the tar. `**/.env` exclusion is
+    load-bearing.
 - **Secrets** live as Container App secrets (`database-password`, `alembic-database-url`,
-  `jwt-secret`, `acr-password`). The prod `AUTH__JWT_SECRET` is NOT the dev one (rotating
-  it just logs everyone out). `APP__URL` env var = the public URL (CORS + invite/reset
-  link base) — must change with a custom domain.
-- **Backups (2026-07-30) — LIVE.** The prod DB is dumped nightly at **02:30 UTC** by the
-  Container Apps Job `ai-enablement-hub-db-backup` (image built from `infra/backup/`,
-  deliberately **separate from the app image** — `deploy.ps1` does not touch it) into the
-  private `db-backups` container on `aienablementhubmedia`; 30-day retention pruned by the
-  job itself, name-based, so it can never touch `lesson-media`. Blob auth is the job's
-  managed identity scoped to that one container — no storage keys in the job. Verified
-  live: 775,806-byte dump over 25 tables; a forced failure uploads nothing and fires the
-  Sev1 log alert `ai-hub-db-backup-failed` → matthias within a minute; a second rule
-  `ai-hub-db-backup-missing` catches the job not running for 48 h. Alerting is **log-based
-  on purpose** — the `Executions` metric reads 0 even for executions that ran. Restores run
-  via the manual job `ai-enablement-hub-db-restore`; **there are no Postgres client tools on
-  the dev machine**, so never write a procedure that assumes a local `pg_restore`. Runbook,
-  incl. the passed restore drill and the gotchas:
-  [`docs/db-backup-restore.md`](docs/db-backup-restore.md). Azure PITR on the shared server
-  stays at its default 7 days and is deliberately untouched (it is server-wide).
-- **Gotchas:** `az acr build` uploads git-ignored files → `.dockerignore` excludes
-  `**/.env` (load-bearing). **The old az CLI's .dockerignore matcher ignores `dir/`
-  trailing-slash patterns when packing the upload** (found 2026-07-03: `db/` and
-  `frontend/node_modules/` went up in the v1 build — no .env/secrets, but the baseline
-  data export incl. invite_tokens.json landed in ACR's internal task storage; `**/.env`
-  patterns DID work). Every dir in .dockerignore is now listed bare AND with `/**`.
-  Verify any .dockerignore change by re-packing with az's own code and inspecting the
-  tar: `_pack_source_code` from `azure.cli.command_modules.acr._archive_utils` (run with
-  `C:\Program Files\Microsoft SDKs\Azure\CLI2\python.exe`). The az CLI on this machine is old
-  (`C:\Program Files\Microsoft SDKs\Azure\CLI2\wbin\az.cmd`, not on PATH); set
-  `PYTHONIOENCODING=utf-8` or its log streaming crashes on Vite's unicode output, and
-  `infra/containerapp.yaml` must stay pure ASCII (az parses it with the system codepage).
-- Verified live 2026-07-03: health, SPA deep links, headers/CSP, JSON 404 shape, hashed-asset
-  caching, wrong-password login 401 (proves container→PG chain), full page load in browser.
-- **Redeployed 2026-07-07** (`ai-enablement-hub:20260707-131607`, revision `--0000004`,
-  user-approved): shipped everything committed since the 2026-07-03 deploy in one go — the
-  lesson-assignment feature (prod DB migrated automatically via `startup.py`'s
-  `alembic upgrade` on container start, now at `c7d2e9f0a1b3`), ACS invite/reset emails,
-  dormant Entra ID login code (still dark — no `ENTRA__*` env vars set on the Container App),
-  module delete, and the invite link/email split (see that feature entry). HEAD support on
-  SPA routes rode along too. Health check green post-deploy; not further browser-verified
-  this session (no browser automation tool available).
-- **NOTE — this section lagged reality:** between 2026-07-07 and 2026-07-15 the app was
-  redeployed several times (undocumented here), so maturity-gated learning, the learning-path
-  redesign + level headers, lesson media/blob storage, feedback, bulk invite, email templates
-  and interactive lesson blocks were all already live before the deploy below. When in doubt
-  about what prod is running, query the live image tag, don't trust this log:
-  `az containerapp show -n ai-enablement-hub -g imaginemore-playground
-  --query properties.template.containers[0].image -o tsv`.
-- **Redeployed 2026-07-15** (`ai-enablement-hub:20260715-131259`, revision `--0000012`,
-  user-approved): "For Developers" track moved to the **multiplier** level (commit `1128515`).
-  Prod was already at `20260715-094341` (built that morning), so the only delta was migration
-  `d8e9f0a1b2c3` — widens the `tracks.required_level` CHECK to allow `'multiplier'` and flips
-  the For Developers tool track `integrator → multiplier` (applied automatically on container
-  start; prod alembic head now `d8e9f0a1b2c3`). Also `SurveyService._seed_assignments` extends
-  the auto-assign ceiling to the top of the ladder for integrator scorers, so For Developers
-  still auto-assigns on survey completion like the other tool tracks (maturity now gates its
-  visibility until a learner closes out integrator). Health + `/api/auth/methods` green on
-  `--0000012` (healthy startup ⇒ migration applied cleanly); the under-Multiplier rendering is
-  not browser-verified this session (no browser automation + no prod login) — spot-check
-  `/learning` as an integrator-level learner/admin.
-- **Redeployed 2026-07-16** (`ai-enablement-hub:20260716-215603`, revision `--0000015`,
-  user-approved with full deploy authority): invite/reset link expiry extended from 7 → 14 days
-  (commit `0ffde5a` — both `invite_ttl_days` and `reset_ttl_days` defaults in
-  `core/configs/auth.py`; the invite/reset emails render `{{ttl_days}}` from these settings so
-  their copy updates automatically). Code-only change, no migration (alembic head unchanged at
-  `d8e9f0a1b2c3`). 1069 backend tests green + ruff format/lint clean before deploy. Post-deploy
-  `/api/health` `{"status":"ok"}` and `/api/auth/methods` `{"password":true,"entra":false}`
-  green on `--0000015`; new revision confirmed as the running/ready revision on the new image.
-  Only newly-minted links get 14 days — already-issued links keep their original expiry.
-- **Redeployed 2026-07-20** (`ai-enablement-hub:20260720-100825`, revision `--0000019`,
-  user-approved): below-level tracks are now freely reviewable on the learning path (commit
-  `e821297` — `LearningPathNew.tsx::isUnlocked` fully unlocks any module whose track sits at a
-  maturity level strictly below the learner's effective level, so e.g. a pinned/earned
-  Practitioner can review every Explorer module without walking the prerequisite path;
-  current-level prerequisites, higher-level maturity locks, the Introduction gate and
-  un-assessed learners are all unaffected). Frontend-only, no migration (alembic head unchanged
-  at `d8e9f0a1b2c3`). typecheck/lint/build clean before deploy. Post-deploy `/api/health`
-  `{"status":"ok"}` + `/api/auth/methods` `{"password":true,"entra":false}` green on the new
-  image. NOT browser-verified (no browser automation this session) — spot-check `/learning` as a
-  Practitioner-pinned learner. Spec: `docs/superpowers/specs/2026-07-20-below-level-free-review-design.md`.
-- **Redeployed 2026-07-22** (`ai-enablement-hub:20260722-111250`, revision `--0000023` region,
-  user-approved): the new **`user+` role** (learning-path lock bypass, no admin powers — commit
-  `c3dd4cb`; spec `docs/superpowers/specs/2026-07-22-user-plus-role-design.md`). Migration
-  `e2f3a4b5c6d7` widens the `users.role` CHECK to `('admin','user+','user')`; it was the ONLY
-  new migration this deploy and chains off the introduction-track migration `f3a4b5c6d7e8`
-  (that one shipped in an **undocumented deploy between 2026-07-20 and 2026-07-22** — the deploy
-  log gap this entry closes). Applied to the dev Azure DB (`alembic upgrade head`) and to prod
-  via `startup.py`; **prod alembic head is now `e2f3a4b5c6d7`** (progression since the 07-20 log:
-  `d8e9f0a1b2c3` → `f3a4b5c6d7e8` → `e2f3a4b5c6d7`). This deploy shipped the whole
-  `introduction-level` branch tip (user+, below-level ring headers, interactive-trim, content-QA
-  tooling), so **prod runs `introduction-level`'s code, not `main`'s**. Post-deploy `/api/health`
-  + `/api/auth/methods` green. NOT browser-verified (no browser automation) — spot-check: set a
-  learner to user+ via the admin User/User+/Admin dropdown, confirm `/learning` shows everything
-  unlocked and `/admin` still redirects them away.
-- **Redeployed 2026-07-27** (`ai-enablement-hub:20260727-133456`, revision `--0000022`,
-  user-approved): the **admin panel redesign** — a function-first routed shell under `/admin/*`
-  (Dashboard · People · user detail · Assignments matrix · Feedback · Projects · Email templates ·
-  Setup; `frontend/src/pages/admin2/`) replacing the old single-page `Admin.tsx` panel, plus the
-  backend that feeds it (project default assignments + `assigned_via` provenance, multi-user bulk
-  assignment, feedback triage, reminder email, status/progress/attention enrichment,
-  pagination/filters, dashboard aggregates). Spec/plan `2026-07-23-admin-panel-redesign-*`; built
-  subagent-driven (ledger `.superpowers/sdd/progress.md`). Shipped from `main`:
-  `feature/admin-panel-redesign` fast-forward-merged into `main` (`7f5e35e..3eec8a9`) and pushed to
-  `origin`; deployed from a **fresh `git worktree` of the pushed commit** per the deploy discipline
-  below (so the working dir's staged/untracked files stayed out of the build context). Migrations
-  applied to prod via `startup.py`: this branch's two migrations were **re-parented onto Matthias's
-  chat-foundation migration `12bf5f54a1e4`** (both originally chained off `e2f3a4b5c6d7`), so this
-  deploy applied `12bf5f54a1e4` (his chat tables `conversations`/`messages`/`project_ai_settings` —
-  **empty and unused until his ai-chat app code ships**) + `b5c6d7e8f9a0` (project_track_defaults +
-  `assigned_via`) + `c6d7e8f9a0b1` (feedback status columns). **Prod alembic head is now
-  `c6d7e8f9a0b1`** (progression: `e2f3a4b5c6d7` → `12bf5f54a1e4` → `b5c6d7e8f9a0` → `c6d7e8f9a0b1`).
-  Post-deploy `/api/health` `{"status":"ok"}` + `/api/auth/methods` `{"password":true,"entra":false}`
-  green on revision `--0000022` (`latestReadyRevision == latestRevision`, `runningStatus: Running`);
-  healthy startup ⇒ the migrations applied cleanly (they run before the port binds). **NOT fully
-  browser-verified on prod** — the People table-overflow and Projects-scope-filter fixes were
-  verified live against the local dev stack, but the full spec §7 five-flow walk was not completed;
-  spot-check `/admin` on prod (log in, scan Dashboard, People search/filter/pager, Assignments
-  matrix + defaults, Feedback triage). **Cross-team:** prod now carries Matthias's (empty) chat
-  tables ahead of his own ai-chat deploy — his eventual deploy finds `12bf5f54a1e4` already applied
-  (no-op); his pending AI-settings UI must target `admin2/ProjectsPage.tsx`, not the deleted
-  `ProjectDetailView.tsx`.
-- **Redeployed 2026-07-30 — SIX times (log reconstructed + verified 2026-07-31, not written by the
-  deploying session).** ACR tags that day, all runs Succeeded: `20260730-120259`, `-131650`,
-  `-133150`, `-134946`, `-140441`, `-144052`. **Prod ran the last one**, revision `--0000033`
-  (`RunningAtMaxScale`, `latestReady == latestRevision`). The `144052` build started one minute after
-  commit `91c1ac7` landed (14:39 local), so **prod == `main`** — modulo anything uncommitted in the
-  deploying working dir, since `deploy.ps1` builds the working directory, not git. What this made
-  live: the **AI interviewer** (`routers/interview.py` — `GET /api/interview/me`, `POST /opener`,
-  `POST /playbook`, whole router gated by `require_interview_surface`; journey Interview pill reads
-  real `interview_status`; round-2 tuning for probing/topic-progression, dash sanitizing, focus
-  retention, button placement), the **admin System Prompts page** (`admin2/PromptsPage.tsx`
-  master-detail + `PromptService` + bustable `load_prompt` cache → prompts are now DB-overridable and
-  admin-editable), **nightly DB backups** (see the Backups bullet above), **content-ai lesson
-  redrafting** (pick lessons, concurrent drafting, 529 handling), and **create-a-reset-link-without-
-  emailing-it**. Migrations applied via `startup.py`: `d7e8f9a0b1c2` (feedback AI triage),
-  `e8f9a0b1c2d3` (lesson content proposals), `f9a0b1c2d3e4` (inline edits + learn cards),
-  `1cd2cc2d05a9` (prompts table). **Prod alembic head is now `1cd2cc2d05a9`** and equals the code
-  head. Post-hoc verification 2026-07-31: `/api/health` `{"status":"ok"}`, `/api/auth/methods`
-  `{"password":true,"entra":false}`, `uv run alembic current` → `1cd2cc2d05a9 (head)`. **Not
-  browser-verified** — spot-check `/interview` as a learner in a project with the interview component
-  unlocked AND its AI toggle on, and `/admin` → System Prompts. **Spend caveat:** prod carries
-  `LLM__API_KEY` (secret `llm-api-key`) and admin-reachable AI spend (prompt editing, content
-  redrafting) is live; per `docs/ai-agents-plan.md` §8b the key should be a dedicated workspace key
-  with a monthly cap — whether that swap happened is unverified, ask Matthias.
-- **Branch cleanup 2026-07-31 (user-approved).** `main` was reduced to the **only** branch, local and
-  remote (`main == origin/main == 91c1ac7`). Deleted from origin after verifying each was fully
-  contained in `main` (0 commits not in main): `feature/admin-panel-redesign` (tip `3eec8a9`),
-  `feature/ai-chat-foundation` (tip `12213a6`), `feature/ai-interviewer` (tip `af38563`) — push the
-  SHA back to a ref to restore if ever needed. Five other remote branches
-  (`feature/prompt-editor`, `feature/interviewer-feedback-r2`, `feature/interviewer-prompt-tuning`,
-  `fix/interview-build-button-center`, `feature/prompts-page-redesign`) had already been deleted on
-  origin. The stale `C:/tmp/hub-sonnet` worktree (detached at `04ca8da`, clean, contained in main)
-  was removed with `git worktree remove`. Note `91c1ac7`'s commit message reads
-  `Merge origin/main into feature/prompts-page-redesign` — an artifact of merging main *into* the
-  feature branch and then pushing that to main; the history reads a little backwards as a result.
-- **DEPLOY LOG GAP (2026-07-27 → 2026-08-04).** Between the entry above and the one below the app
-  was redeployed several times without log entries (the AI interviewer and its round-2 items, the
-  DB-backed prompts + admin System Prompts page, content-AI concurrent drafting). Evidence, if the
-  provenance of those matters: the image live before 2026-08-04 was `20260730-144052`, built
-  ~2 min after `main` @ `91c1ac7` (2026-07-30 14:39), so `main` @ `91c1ac7` == that deployed code.
-  Comparing an image tag's timestamp against `git log --format=%ci` is the general trick for
-  recovering which commit a past deploy shipped.
-- **Redeployed 2026-08-04** (`ai-enablement-hub:20260804-130116`, revision `--0000034`,
-  user-approved): the **un-assessed learning-path signpost** — a learner with no completed maturity
-  assessment was rendered as a full Explorer while every Explorer track sat padlocked reading
-  "Unlocks at Explorer", with no link to the assessment anywhere (51 of 104 users had no effective
-  maturity; one had already hit the wall after finishing the Introduction). Frontend-only, one file
-  (`LearningPathNew.tsx`): a `notAssessed` display flag over seven render sites plus a CTA to
-  `/assessment`. **No migration** — alembic head unchanged at `1cd2cc2d05a9`. Spec/plan
-  `docs/superpowers/{specs,plans}/2026-08-04-unassessed-path-signpost*`; browser evidence in
-  `…-verification.md`. Built from a fresh `git worktree` of the pushed commit per the discipline
-  below; `main` fast-forwarded `91c1ac7..8e8f582` and pushed before the build. Post-deploy verified:
-  `/api/health` ok, `/api/auth/methods` `{"password":true,"entra":false}`, `latestReadyRevision ==
-  latestRevision`, and all five new copy strings confirmed present in the **served** SPA bundle
-  (`/assets/index-*.js`) — i.e. the frontend change is provably live, not just built.
-  - **`deploy.ps1` gotcha, cost one failed run:** do NOT pipe the script through
-    `Tee-Object`/`2>&1`. `az acr build` writes "WARNING: Packing source code…" to stderr, and under
-    PowerShell 5.1 + the script's `$ErrorActionPreference = "Stop"` a redirected native stderr line
-    becomes a terminating `NativeCommandError` — the script dies at the queue step *after* the ACR
-    build has already been queued. Recovery: `az acr task list-runs --registry ca530fc7463eacr
-    --top 3`, wait for that run, then `az containerapp update --image …:<tag>` by hand. The script's
-    own comment at line 22 says this; heed it.
-  - **Verifying learner-facing changes without touching live data:** dev and prod share one DB, so
-    do not create or edit users/surveys/progress to set up a test case. What worked instead: call
-    the real `LearningService.graph()` read-only to dump production-shaped fixtures, serve them from
-    a temporary `frontend/public/__verify/` (Vite's `fs.allow` will not reach outside the frontend
-    project), and stub `window.fetch` in a Playwright `addInitScript` so no backend runs at all.
-    Note the Playwright MCP host scope has no `fs`, `require`, or `fetch` — the stub must live in
-    page context. Also: assert on `getComputedStyle` values, not only screenshots, and exercise the
-    LOAD WINDOW (`waitUntil: 'commit'` + a delayed response) — waiting for `networkidle` hides
-    first-paint bugs, which is precisely how a real regression survived this feature's first
-    verification pass.
-- **Redeployed 2026-08-04** (`ai-enablement-hub:20260804-145027`, revision `--0000035`,
-  user-approved): hosts the **Copilot Studio mock policy PDFs** as downloadable static assets
-  (`frontend/public/assets/downloads/{expense,travel}-policy.pdf`, served at
-  `/assets/downloads/*.pdf`) for the Lesson 2 try-it-yourself build-along. **Frontend static
-  assets only — no code, no migration** (alembic head unchanged at `1cd2cc2d05a9`). Committed
-  `8da7f12` (two binary PDFs only), pushed `feature/cs-download-assets`, fast-forwarded `main`
-  (`a53abb0..8da7f12`) and pushed before the build; built from a fresh `git worktree` of the
-  pushed commit per the discipline below. Post-deploy verified live on the **served** app:
-  `/api/health` 200; both PDFs return **200 `application/pdf`** at their exact byte sizes
-  (168215 / 175355); running image + ready revision `--0000035` confirmed via
-  `az containerapp show`. The Lesson 2 `<TryItYourself>` block that links these PDFs lives in
-  the lesson DB content (added separately via the admin lesson editor), not in the image.
+  `jwt-secret`, `acr-password`, `acs-connection-string`, `llm-api-key`). Prod
+  `AUTH__JWT_SECRET` ≠ dev. `APP__URL` env = public URL (CORS + invite/reset link base).
+- **Backups:** nightly logical dump 02:30 UTC via Container Apps Job (separate image from the
+  app — `deploy.ps1` never touches it) into the private `db-backups` container; 30-day
+  retention; log-based Sev1 alerts (`ai-hub-db-backup-failed`, `-missing`). Restores via the
+  manual restore job — **never write a procedure assuming local `pg_restore`**. Runbook:
+  `docs/db-backup-restore.md`. Azure PITR stays at the server default 7 days, untouched.
+- **Verifying without touching live data:** dump production-shaped fixtures via read-only
+  service calls, serve from a temporary `frontend/public/__verify/`, stub `window.fetch` in a
+  Playwright `addInitScript` (page context — the MCP host has no `fs`/`fetch`). Assert on
+  `getComputedStyle`, not just screenshots, and exercise the load window
+  (`waitUntil: 'commit'` + delayed response) — `networkidle` hides first-paint bugs.
 
-- **Source control / branching (documented 2026-07-22).** Work happens on feature branches
-  (`feature/*`) and on the longer-lived `introduction-level` branch; `main` is the integration
-  line. **`.\deploy.ps1` builds the image from the working directory, NOT from git** — so prod
-  can (and on 2026-07-22 did) run un-pushed local commits. To keep prod reproducible from the
-  remote: after a deploy, push the deployed branch to `origin` and fast-forward `main` to it.
-  On **2026-07-22** `introduction-level` (23 commits ahead of a then-stale `main`, 21 of them
-  un-pushed) was pushed to `origin` and merged into `main` (fast-forward), and the four
-  fully-merged stale branches (`feature/bulk-csv-invite`, `feature/lesson-feedback`,
-  `feature/per-project-email-templates`, `review-lens-update`) were deleted. As of that cleanup,
-  `main` == the deployed code.
-- **Deploy discipline (hard-won, not yet baked into `deploy.ps1`):** because the build uploads the
-  working directory as-is, deploying during active content/review work can ship other people's
-  uncommitted or untracked files. Safer: commit only the specific fix (`git commit <path>`, never a
-  blanket `git add -A`), push, then build from a **fresh `git worktree` of the pushed commit** — not
-  the directory you're actively editing. On Windows use a short worktree path near the drive root
-  (`C:\tmp\…`) with `-c core.longpaths=true`. See `docs/content/review-process-technical-notes.md`.
+## Key facts & open items
 
-## Open for cutover
-
-- **HOSTING MOVE (IT meeting 2026-07-06) — changes the cutover picture:** delaware IT deems
-  the Imagine More playground not secure enough for a client-facing app; the hub must move to
-  a secured environment ("behind a firewall" — but public reachability for external client
-  users is a stated requirement, likely WAF-fronted). Matthias is logging the IT ticket
-  (drafted 2026-07-06) covering: new hosting location, custom domain
-  `ai-enablement-hub.delaware.pro`, the Entra admin-consent grant, Entra for internal +
-  external users (B2B guests vs invite flow = IT's call), and an ACS custom email domain
-  (SPF/DKIM). Consequences when it lands: redeploy target changes (deploy.ps1 registry/RG/app
-  names), app registration redirect URIs + `APP__URL` must be updated, and the playground
-  custom-domain recipe below may be superseded. Until the ticket resolves, the playground
-  deployment stays the live one.
-- **Entra ID login (2026-07-06):** code-complete + dev-configured, BLOCKED on the one-time IT
-  admin consent (see feature entry). After the grant: Matthias tests the full sign-in on
-  :5173, then prod wiring (`az containerapp secret set` + `--set-env-vars ENTRA__…`, ask
-  first) + redeploy — or fold prod wiring into the hosting move.
-- **Custom domain `ai-enablement-hub.delaware.pro` (investigated 2026-07-06, not started —
-  likely superseded by the hosting move above; recipe kept for the playground fallback):**
-  delaware.pro DNS is hosted externally at NSclusters (`ns.nscluster.*`) — NOT Azure DNS, and
-  no zone exists in any of our 3 subscriptions — so step 1 is a delaware IT/domain-team request
-  for two records (bundle with the ACS custom email domain, see Invite/reset emails feature
-  entry): CNAME `ai-enablement-hub.delaware.pro` →
-  `ai-enablement-hub.kindcoast-3b1fe056.swedencentral.azurecontainerapps.io` and TXT
-  `asuid.ai-enablement-hub.delaware.pro` =
-  `0C86501110614A7AC723F46FFA0117AA481151D5B52994A21A2C9E18AFD4CE0C` (the app's
-  customDomainVerificationId, subscription-level constant). No CAA records on delaware.pro
-  (checked 2026-07-06) → managed-cert issuance unblocked. Once both records resolve
-  (`Resolve-DnsName`): `az containerapp hostname add -n ai-enablement-hub -g
-  imaginemore-playground --hostname ai-enablement-hub.delaware.pro`, then `... hostname bind`
-  (same args + `--environment imaginemore-playground-cae --validation-method CNAME`; provisions
-  the free managed cert, takes minutes), then `az containerapp update --set-env-vars
-  APP__URL=https://ai-enablement-hub.delaware.pro` (new revision; CORS + invite/reset link base
-  follow automatically — the only load-bearing runtime setting) — all Azure mutations, ask
-  first. Afterwards update repo refs: `infra/containerapp.yaml` (APP__URL value), `deploy.ps1`
-  + `infra/deploy-initial.ps1` (cosmetic printed URL), this file. The default
-  azurecontainerapps.io URL keeps working alongside (rollback). Sequence BEFORE re-inviting
-  users so invite links carry the final URL.
-- ~~Invite/reset emails (2026-07-06): code-complete + tested, Container App secret/env vars
-  ALREADY SET — only `.\deploy.ps1` remains, ON HOLD pending Matthias's localhost email
-  check.~~ **DONE 2026-07-07** — deployed live (see the Deployment section's 2026-07-07 entry).
-- ~~Lesson-assignment feature (2026-07-06) is code-complete + tested but NOT live in prod~~
-  **DONE 2026-07-07** — prod DB migrated automatically on deploy, redeployed live (see the
-  Deployment section).
-- **DONE (2026-07-03):** side-by-side check old app vs new — Matthias reviewed the running
-  app on :5173 and signed off.
-- **DONE (2026-07-03):** Azure test-artifact cleanup (Batch 5 survey + lesson_progress rows,
-  Batch 6 ZZ-B6 leftovers) — marked done by Matthias.
-- Real migrated users still have `password_set=false` (all but matthias) — re-invite via the
-  admin UI once cutover is scheduled.
-- ~~`question` content block: typed + rendered + editable, but exists in no real lesson — never
-  browser-exercised end to end.~~ **RESOLVED 2026-07-08** — first real use landed in the General
-  track capstone (7.1, "Work through a real recurring task with AI") as a closing reflection
-  prompt, alongside two new non-interactive/interactive block types added the same session
-  (`interactive`: sort/predict/spot-the-flaw; `try_it_yourself`: card-style hands-on exercise
-  box). See `frontend/src/types/contentBlocks.ts`.
-- ~~Deployment (Azure hosting, CSP incl. `style-src 'unsafe-inline'`, env wiring) was never in
-  batch scope.~~ **DONE 2026-07-03** — see the Deployment section above.
-
-## Key facts
-
-- Secrets: `db/.env` and `backend/.env` (both git-ignored). `backend/.env.local.example`
-  documents keys. Rotate with `db/provision_roles.py --rotate-passwords`. The dev
-  `AUTH__JWT_SECRET` surfaced in a tool transcript 2026-07-06 (dev-only blast radius) —
-  rotate when convenient; prod uses a different secret.
-- Auth model: FastAPI-native JWT (PyJWT HS256, 30-min access + rotating 14-day refresh in
-  `auth_sessions`), invite/reset via SHA-256-hashed single-use tokens in `auth_tokens`.
-  **Entra ID sign-in now exists SIDE-BY-SIDE** (server-side OIDC issuing the same native
-  pair — see the feature entry; `users.external_id` = the Entra OID, linked on first
-  Microsoft sign-in). The old "later Entra swap" design note is superseded: coexistence was
-  chosen deliberately so externals keep the invite/password path.
-- Authorization iron rule (tests must enforce): **no endpoint outside `/admin/*` accepts a
-  user identifier from the request** — ownership comes from the token only.
-- Backend checks after changes: `uv run poe format && uv run poe lint && uv run poe test`
-  (run inside `backend/`).
-- **FastAPI signature gotcha:** any type used in a *parameter* annotation that FastAPI
-  inspects (routers, DI providers in `core/dependencies/`) must be imported at runtime,
-  not under `TYPE_CHECKING` — with deferred annotations an unresolvable name silently
-  degrades the param to a required query param (uniform 422s). Return-type-only imports
-  may stay type-only.
-- Integration tests derive their DSN from `ALEMBIC_DATABASE_URL` with the database swapped
-  to `ai-enablement-hub-test`; schema is created per session from `Base.metadata`, isolation
-  is per-test savepoint rollback (`join_transaction_mode="create_savepoint"`).
-- The old Supabase project stays live until cutover; refresh + reload data via
-  `db/export_supabase_snapshot.py` then `db/migrate_supabase_to_azure.py` (destructive on
-  Azure — see db/README.md).
-
-## Appendix — build history & feature log (chronological)
-
-The detailed, dated record of how the app was built and every feature since. Start with
-**Current state** / **How to run** / **Where things live** / **Feature index** at the top of
-this file; drop into this appendix for the full backstory of any one feature.
-
-- **Batch 1 DONE (2026-07-03):** schema (15 tables, Alembic `5cd94241caf6`) + all data on
-  Azure, verified. Roles `ai_hub_owner` (DDL) / `ai_hub_app` (app DML) with default
-  privileges configured. Users migrated with `password_set=false` — re-invite manually once
-  auth exists.
-- **Batch 2 DONE (2026-07-03):** auth core — `core/security.py` (bcrypt + HS256 JWT +
-  opaque-token helpers), `services/token_service.py` + `user_service.py`, repositories
-  (user / auth_token / auth_session), `routers/auth.py` (login / refresh / logout /
-  set-password / invite-info), `core/dependencies/auth.py` (`get_current_user`,
-  `require_admin`), error-shape handlers (`{"error":{code,message[,fields]}}`).
-  73 tests green (unit + integration on the PG test DB), coverage 97%.
-  `AUTH__JWT_SECRET` now required in `backend/.env`.
-  Deferred to Batch 3 per design build order: rate limiting, CORS, daily token-cleanup task.
-- **Batch 3 DONE (2026-07-03):** all remaining routers — `me`, `survey`, `learning` (incl.
-  `/learning/graph` aggregate), `admin_org`, `admin_users` (invites/reset wired to the Batch 2
-  token service), `admin_content` (module-insert shifting, batch lesson reorder). 37 API
-  endpoints + `/api/health` live at `/docs` (design §3 fully covered; its "29 total" line was
-  a miscount of its own table). `services/scoring.py` is a pure port of `scoring.js` proven by
-  `tests/golden/scoring_golden.json` (582 cases generated from the REAL legacy scorer by
-  `tests/golden/generate_scoring_golden.mjs`; re-run only if scoring.js changes). Deferred
-  cross-cutting landed: `core/ratelimit.py` (fixed-window port of rateLimit.js; login/set-password/
-  invite/reset-link), CORS (`APP__URL`/`APP__ENV` settings), daily auth-cleanup lifespan task.
-  Domain errors: services raise `NotFoundError`/`ConflictError`/`DomainError`/`ScoringError`;
-  main.py exception handlers map them to 404/409/400/422 in the standard error shape — routers
-  stay try/except-free. Re-score parity vs the real Azure data: every legacy-scored row matches
-  exactly (`scripts/rescore_parity.py`); one migrated row (16797147…) was `complete` but
-  never scored by the old app (completed 2026-06-25 09:42 UTC, hours before scoring shipped
-  in old-app commit ae0d2da) — **backfilled on Azure 2026-07-03** (user-approved) via
-  `rescore_parity.py --backfill-unscored` → integrator/embedded; parity now compares 2/2 clean.
-  The flag only touches rows where every scored column is NULL. The live Supabase DB still
-  has the blank (untouched by design — it stays authoritative until cutover), so a re-run of
-  the Supabase→Azure migration resurrects the NULLs: re-run the backfill afterwards.
-  **Deviation:** `col_offset` (graph nodes + POST /admin/modules in design-backend §3) is
-  omitted — the live DB has no such column and the old frontend never reads it
-  (design-database.md documents the stale-doc history).
-  781 tests green (584 golden/scoring + authz matrix over every endpoint × 3 auth levels +
-  flow suites), coverage 98%. The `/api/_test/*` conftest endpoints from Batch 2 are gone —
-  authz tests now run against the real routes.
-- **Batch 4 DONE (2026-07-03):** frontend foundation + auth spine. `frontend/` scaffolded
-  by hand (Vite 6, React **18.3.1 pinned**, react-router-dom **v6**, framer-motion 12,
-  openapi-fetch; tsconfig strict with `noUncheckedIndexedAccess` OFF for the port; ESLint 9
-  flat config). Vite proxy `/api → :8000` is load-bearing (one origin in dev, no CORS on the
-  happy path; old app on 3000, new on 5173 side-by-side). API layer: `npm run gen:api`
-  regenerates the **committed** `src/api/schema.d.ts` (backend must be running); `api/tokens.ts`
-  is the localStorage pair + `subscribe()` logout broadcast (the MSAL/Entra swap seam);
-  `api/client.ts` attaches Bearer and on 401 runs a **single-flight refresh** then one retry
-  (refresh tokens rotate on every use — two parallel refreshes would revoke each other into a
-  logout loop; browser-proven: 3 concurrent 401s → exactly 1 refresh POST). Everything under
-  `/api/auth/*` is middleware-exempt (its 401s are answers, not expiry). lib/ ports done
-  (constants, surveyOptions + derived code unions, contentBlocks factories, mdxParser,
-  blocksToMdx) over the hand-written `types/contentBlocks.ts` 7-type union. AuthContext keeps
-  the old provider shape minus `isRecovery`; login = POST /auth/login → pair + `GET /api/me`
-  (contract deviation from design-frontend §2: login returns only the token pair, no user
-  object); session restore = stored token + `GET /api/me`. Invite flow: the **URL token is
-  the credential** — `InviteRedirect` peeks `GET /api/auth/invite/{token}` (410=expired,
-  404=invalid) → `/set-password?token=…` → one atomic `POST /api/auth/set-password` sets the
-  password AND returns login tokens. Login page: 401 → old error text; **429 is shown, never
-  auto-retried** (5/min/email limit). `JourneyHome` and /admin,/assessment,/learning,
-  /interview are placeholders (ComingSoon) until Batches 5–6 — guard semantics are final.
-  Bootstrap tool: `uv run python scripts/issue_invite.py <email>` (backend/) mints an invite
-  link directly through TokenService — solves the migration chicken-and-egg (all users
-  `password_set=false`, but POST /api/admin/invites needs an admin token). All flows verified
-  in real Chromium against the live backend (invite→set-password→auto-login, reload restore,
-  refresh rotation ×2, single-flight, consumed-link reuse, logout, wrong password, admin
-  guard). Frontend checks after changes: `npm run typecheck && npm run lint && npm run build`
-  (run inside `frontend/`).
-- **Batch 5 DONE (2026-07-03):** learner pages — JourneyHome (one `GET /api/me/journey`;
-  survey_status is `'not_started'|'in_progress'|'complete'`, NOT the design doc's `'none'`),
-  Assessment (967-line port; `GET/PUT /api/survey/me` + `POST /api/survey/complete`; answers
-  typed via the surveyOptions-derived unions, `c5_codes: C5Code[]`), ModulePopup + LearningPath
-  (one `GET /api/learning/graph` — the design doc's `/api/learning/path` name is stale; backend
-  returns ALL tracks/modules with per-caller `assigned` flags, frontend filters to assigned
-  tracks → assigned modules, same joins as the old 7-query chain; `col_offset` never existed in
-  this page — nothing to drop), lesson `blocks/*` (7 renderers + renderInline) + LessonView
-  (`RENDERERS` map exhaustively keyed on `ContentBlock['type']`) + LessonPage VIEW+PROGRESS
-  (one `GET /api/lessons/{id}` aggregate — `next_lesson_id` already resolves the cross-module
-  hop server-side; complete = `PUT /api/lessons/{id}/progress {answers}`, NOT `/complete`;
-  sidebar = `GET /api/modules/{id}/lessons`). content_blocks crosses the JSONB boundary with
-  ONE cast in LessonPage; CardsBlock tolerates the legacy what/useCase/tools card shape found
-  in real data. Dead nav style blocks (D2) dropped in JourneyHome AND Assessment (same dead
-  class); `let cancelled = false` in every fetch effect (A5). **Deliberate behavior fix over
-  the old app:** LessonPage never remounts between lessons, so the old app leaked
-  quizDone/completing across navigations (next lesson's quiz gate silently open); the port
-  resets per-lesson UI state on lessonId change and memoizes `onQuizComplete` with useCallback
-  — the stable identity is load-bearing (an inline arrow makes the still-mounted previous
-  quiz's completion effect refire and undo the reset). NOT ported (Batch 6): LearningPath edit
-  mode (ModulePanel/AddTrackModal/AddModuleModal), LessonPage edit+MDX modes, `editors/*`.
-  tsc gotcha: `current?.type === x` on a loop-carried `let current: T | null` resolves to
-  `never` under tsc 5.6 — use `current && current.type === x` (ParagraphBlock). Verified in
-  Chromium against the live backend + real Azure data: all three survey states on JourneyHome
-  (hidden interview filtered, locked learning, Being-built badge), assessment full flow +
-  mid-step reload-resume + c5 multi-select + read-only revisit, graph (19 nodes/20 edges for
-  the real dataset), popup continue→first-uncompleted, quiz all-correct gate, complete→next
-  lesson, cross-module hop, empty-module popup disabled, reload on every route; completion
-  scored practitioner/regular via the admin API. Outstanding: pixel side-by-side vs the old
-  app on :3000 needs Matthias's live Supabase login (Azure password ≠ Supabase password);
-  `question` blocks exist in no real lesson, so that renderer is type-checked but not
-  browser-exercised. Test artifacts left on Azure (flagged to Matthias): matthias's completed
-  survey row + 4 lesson_progress rows (What-AI-is ×3, Beyond-chat) — his 2 pre-existing Intro
-  rows are untouched.
-- **Batch 6 DONE (2026-07-03) — the rebuild is FEATURE-COMPLETE.** Admin pages + edit modes:
-  adminStyles.ts (`satisfies Record<string, CSSProperties>`; D3 dead nav/avatar/dropdown styles
-  dropped, navBadge/navDivider/navTabs* kept for the AppNav leftExtra tab strip) + adminHelpers.tsx
-  (LevelBadge/BandBadge/RungPill typed; unknown level/band strings render nothing, as before);
-  Admin.tsx shell (God component kept per A1; both hand-rolled `authH` patterns replaced by the
-  typed client — A2 fixed; the old `loadingLearning` state was dead even in the old app — dropped);
-  ProjectsView/SetupView/ProjectDetailView/UserPanel/SurveyResults (typed from AdminSurveyOut;
-  COMPETENCY_QA key/field narrowed to literal unions so rung/code lookups need no casts);
-  AddTrackModal (tracks prop dropped — server assigns sort_order) / AddModuleModal / ModulePanel
-  (reorder = ONE batch PUT, fixes B5); LearningPath edit mode restored (banner, +Add Track/Module,
-  per-node edit targets, floating toggle; track-zoom + popup targets disabled in edit mode);
-  editors/* (7, each typed to its union member, `onChange: (b: XBlock) => void`) + LessonEditor
-  (EDITORS map exhaustively keyed like LessonView's RENDERERS; saves via
-  `PATCH /api/admin/lessons/{id}`) + LessonPage edit+MDX modes. Batch 5's per-lesson state reset
-  and useCallback'd onQuizComplete are untouched; **LessonPage passes a useCallback'd onLiveChange
-  to LessonEditor for the same reason** — an inline arrow refires the editor's live-change effect
-  every render (each firing setLesson's a fresh object) = infinite loop; the old app passed the
-  bare `setLesson`.
-  **Admin endpoint drift (design-frontend §3 admin rows are stale, same class as Batch 5's):**
-  real contract per schema.d.ts — projects are `POST /api/admin/projects` (NOT a `type:'project'`
-  variant of /admin/companies; both creates return the bare row, no `{company}`/`{project}`
-  wrapper); components `GET /api/admin/projects/{id}/components` +
-  `PUT …/components/{component} {hidden?,locked?}`; invites `POST /api/admin/invites`; reset
-  `POST /api/admin/users/{id}/reset-link` (no email body); role `PATCH /api/admin/users/{id}`;
-  delete `DELETE /api/admin/users/{id}`; assignment `PUT /api/admin/users/{id}/tracks/{tid}` and
-  `…/modules/{mid}` with `{assigned}`; surveys `GET /api/admin/surveys?user_ids=csv` +
-  `GET /api/admin/surveys/{user_id}`; content `POST /api/admin/tracks`, `POST /api/admin/modules`
-  (NO col_offset — never existed; omitted after_module_id = append, matching the old modal),
-  `POST /api/admin/lessons`, `PATCH|DELETE /api/admin/lessons/{id}`,
-  `PUT /api/admin/modules/{id}/lessons/order {lesson_ids}`.
-  Parity findings: freshly invited users show the **active** badge — `is_active` defaults true in
-  BOTH schemas and the old invite handler never set it false, so the `invited` state is unreachable
-  via UI in the old app too. Editor **Save exits edit mode** to the learner view (old handleSave
-  behavior). Browser-verified in Chromium against live backend + real Azure data using disposable
-  ZZ-B6-prefixed entities: setup create company/project; invite → copy link → fresh-context
-  redemption → auto-login; consumed-link reuse rejected; maturity badges (real Delaware users,
-  read-only) + UserPanel survey results; component toggles persist across reload AND reflect on
-  the learner's JourneyHome (learning unlocked, interview hidden); role toggle user↔admin
-  (disposable user only); add track via modal (server sort_order=max+1) + 3 modules incl. a
-  modal-set prerequisite; **module-insert shifting** verified via API `after_module_id`
-  (A,A2,B,C = 0,1,2,3 after inserting A2 after A — no UI control for it, same as old app);
-  track/module assignment reflected on the learner's graph (unassigned module filtered, prereq
-  edge drawn); ModulePanel add/reorder/delete lessons, reorder survives reload; editor live
-  preview + save persistence; MDX round-trip (prefill via blocksToMdx → paste → 5 blocks parsed →
-  save as blocks → learner-view render with quiz gate); reset-link generate/copy → fresh-context
-  redemption → old password 401; token-expiry spot check (corrupted access token → transparent
-  single-flight refresh); reload on every route incl. /admin; logout. Cleanup: disposable user
-  (UI confirm flow, cascade) + 2 lessons (`DELETE /api/admin/lessons`) removed — 6 real users
-  intact. **Leftovers needing Matthias's DB-level cleanup approval (no DELETE endpoints exist for
-  these):** company 'ZZ-B6 Test Co', project 'ZZ-B6 Project' (+3 component-settings rows), track
-  'ZZ-B6 Track' (sort_order 7), modules 'ZZ-B6 Mod A/A2/B/C' (+1 prerequisite row A→B).
-
-- **Lesson assignment (2026-07-06, post-Batch 6):** per-lesson assignment via new
-  `user_lessons` table (mirrors user_modules; migration `a3f8c1d2e4b7` backfills all lessons
-  of every existing user↔module assignment, so current learners keep what they see today).
-  Semantics (as of 2026-07-06; **superseded 2026-07-23, see the Cascading
-  track/module assignment entry below**): assigning a module does NOT auto-assign its lessons —
-  the admin picks lessons in the UserPanel (module row expands to a lesson list) or clicks
-  "+ add all lessons"; tracks got "+ add all modules". Every level (tracks section header /
-  track's module list / module's lesson list) has BOTH "+ add all" and "− unassign all" buttons
-  (shown only when applicable).
-  Bulk = ONE call: `PUT /api/admin/users/{id}/tracks` / `…/modules` /
-  `…/lessons` `{track_ids|module_ids|lesson_ids, assigned}` (404 if any id unknown, 422 on
-  empty list);
-  single lesson toggle = `PUT …/lessons/{lesson_id} {assigned}`. ~~Unassigning a module/track
-  KEEPS the child assignment rows (same keep-rows semantics the old track→module pair already
-  had — reassigning restores the previous selection).~~ **Superseded 2026-07-23:** unassigning
-  now cascades to child rows too, and reassigning is a full resync (see below). Learner side:
-  graph `lesson_count`/
-  `completed_lesson_count` now count ONLY the caller's assigned lessons (one SQL in
-  AssignmentRepository.assigned_lesson_counts_by_module); `GET /api/modules/{id}/lessons`
-  returns ALL lessons with per-caller `assigned` flags (admin ModulePanel needs all — learner
-  sidebar + ModulePopup filter client-side, graph pattern) and `next_lesson_id` = first
-  uncompleted ASSIGNED lesson; lesson_detail's next-hop skips unassigned lessons (repo methods
-  next_lesson_in_module/first_lesson/lesson_counts_by_module/completed_counts_by_module were
-  removed — filtering happens over list_lessons). Assignment stays a visibility filter, not
-  access control (direct lesson URLs still render — parity with module semantics).
-  `GET /api/admin/learning` gained `lessons[]` + per-user `assigned_lesson_ids`;
-  AdminUserOut too. LearningPath's prerequisite unlock (`completed === total`) now means
-  "all assigned lessons completed"; a prereq module with 0 assigned lessons keeps its
-  dependents locked (0/0 also disables the popup start button, so it's admin-visible).
-  794 backend tests green (13 new: authz matrix ×3 new endpoints, bulk/single assignment
-  flows, filtered counts/next). **Migration NOT yet applied to the dev Azure DB** (needs
-  approval; prod applies it automatically on next deploy via startup.py's alembic upgrade).
-
-- **Invite/reset emails (2026-07-06, post-Batch 6):** POST /api/admin/invites and
-  POST /api/admin/users/{id}/reset-link now auto-email the link to the user via **Azure
-  Communication Services** (`azure-communication-email`, sync EmailClient in
-  `run_in_threadpool`, retry_total=0 + bounded timeouts, LRO poller deliberately not awaited
-  — "sent" = ACS 202). Feature-flagged like Entra: `Settings.email: EmailSettings | None`
-  (`EMAIL__CONNECTION_STRING` + `EMAIL__SENDER_ADDRESS`, both-or-neither); None = exactly the
-  old copy-the-link behavior. `LinkResponse` gained REQUIRED `email_status:
-  "sent"|"failed"|"disabled"`; a failed send never fails the endpoint (log + fallback link).
-  Invite email offers BOTH sign-in paths — "Sign in with your Microsoft account" →
-  `{APP__URL}/login` (rendered only when `settings.entra` is configured) + the set-password
-  link; reset email = link + TTL + "current password keeps working". Templates =
-  `services/email_templates.py` pure functions (f-strings + html.escape, no engine); service
-  seam = `EmailSender` Protocol (stubbed in tests, `tests/fixtures/email.py`); DI
-  `get_email_service` returns None (NOT 404 — endpoints exist regardless) when unconfigured.
-  conftest `test_settings` pins `email=None` for hermeticity. Frontend: invite card + reset
-  row show emailed/failed indicators, link box + copy button stay in all cases
-  (`inviteEmailStatus` in ProjectDetailView, `ResetLinkEntry.emailStatus` in Admin.tsx).
-  861 backend tests green. Azure infra ALREADY EXISTS (nothing to provision):
-  `imaginemore-playground-acs` + `imaginemore-playground-email`/AzureManagedDomain (verified,
-  linked); sender `hub@c07b8f9c-80df-4e8a-9fb1-5671cfd049a5.azurecomm.net` (sender username
-  `hub`, display name "AI Enablement Hub", created 2026-07-06; the default `DoNotReply`
-  username also still exists). Domain part is fixed until a custom email domain is verified
-  (delaware DNS — bundle with the cutover custom-domain ticket).
-  **Azure config DONE 2026-07-06 (user-approved):** Container App secret
-  `acs-connection-string` + `EMAIL__CONNECTION_STRING` (secretref) + `EMAIL__SENDER_ADDRESS`
-  are set on the live app — the deployed OLD image ignores them (its Settings has no `email`
-  field, `extra="ignore"`), so prod behavior is unchanged until the next `.\deploy.ps1`.
-  deploy-initial.ps1 fills the yaml placeholder via `az rest` listKeys for DR parity.
-  **Local dev .env now carries EMAIL__* too → local invites/resets send REAL email** via the
-  shared playground ACS (remove/comment the two lines to go back to copy-link-only).
-  `scripts/issue_invite.py` intentionally does not send email.
-
-- **Entra ID login (2026-07-06, post-Batch 6) — code-complete, BLOCKED on one-time IT admin
-  consent.** Runs SIDE-BY-SIDE with password auth (approved plan
-  `C:\Users\danneelm\.claude\plans\could-you-create-a-hazy-canyon.md`) — this supersedes the
-  design docs' full-MSAL-swap sketch: instead, a **server-side confidential-client OIDC
-  authorization-code flow (+ PKCE)** whose end product is the app's EXISTING native token
-  pair, so refresh rotation / middleware / `get_current_user` / all prior tests are untouched
-  and password login keeps working (externals rely on it — the single-tenant registration
-  blocks non-delaware accounts at Microsoft with AADSTS50020 before our code runs).
-  Endpoints (`routers/auth_entra.py`): `GET /api/auth/entra/login` → 302 to the tenant
-  authorize URL (`prompt=select_account`, scope `openid profile email`, S256 challenge) +
-  signed state cookie `entra_oidc` (HS256 JWT `typ:"entra_state"` via the existing
-  AUTH__JWT_SECRET, carries state/nonce/code_verifier, 10-min, HttpOnly SameSite=Lax
-  `Path=/api/auth/entra`, Secure only when `app.env=prod`); `GET /api/auth/entra/callback` →
-  state check → httpx code exchange (`EntraService`, client secret + verifier) → RS256
-  id_token validation (`@lru_cache` PyJWKClient run in threadpool — sync urllib, never on the
-  loop; iss/aud/exp/nonce, leeway 60 s, identity claim = **`oid`**, never `sub`) →
-  invite-gated `resolve_user` → one-time redeem code → 302 `{APP__URL}/auth/callback#code=…`
-  (fragment = never in server logs; ALL failures → 302 `/login?error=invalid_state|
-  not_invited|entra_denied|entra_failed|rate_limited`, never JSON on a top-level navigation);
-  `POST /api/auth/entra/redeem {code}` → `TokenPairResponse` (404 used/unknown, 410 expired,
-  429); public `GET /api/auth/methods` `{password, entra}` drives the Login button.
-  Feature-flagged like email: `Settings.entra: EntraSettings | None` (`ENTRA__TENANT_ID/
-  CLIENT_ID/CLIENT_SECRET`, all-or-nothing → partial config fails startup), `get_entra_service`
-  dep 404s when unset. Redeem codes reuse auth_tokens (purpose `entra_login`, 60 s TTL,
-  migration `c7d2e9f0a1b3` extends the CHECK); **security-critical:**
-  `peek/consume_action_token` are now purpose-filtered (default `("invite","reset")`) so a
-  leaked login code can never reach set-password/invite-peek and vice versa — regression
-  tests pin this. `resolve_user`: linked oid first (email drift logged, oid wins) → else
-  email match (`email` claim FIRST, `preferred_username` fallback — delaware UPN
-  `danneelm@delawareconsulting.com` ≠ hub email `matthias.danneel@delaware.pro`) → one-time
-  `link_external_id` backfill; same-email-different-oid → reject loudly; NEVER provisions
-  (invite-gating preserved — invited users can skip the invite link entirely and onboard via
-  the Microsoft button). `/api/me` gained `external_login` (User property on `external_id`);
-  frontend gate is now `needsPassword = session && !passwordSet && !externalLogin`.
-  Frontend: Login.tsx fetches /methods, shows the Microsoft pill button + "or" divider, maps
-  `?error=` codes to friendly text then scrubs the param; new `pages/AuthCallback.tsx` parses
-  the fragment code → redeem → `setTokens`+`refreshProfile` (a `useRef` fired-guard is
-  load-bearing — StrictMode's dev double-effect would burn the single-use code); public route
-  `/auth/callback`. Deps: `httpx` + `cryptography` promoted to main (PyJWT RS256 hard-requires
-  cryptography). Tests: `tests/fixtures/entra.py` (module-scope RSA keypair, RS256 id_token
-  mint, StubJWKS, FakeTokenEndpoint via httpx.MockTransport) + unit matrix (authorize-URL,
-  exchange, id_token incl. HS256 alg-confusion, resolve_user incl. conflict edges) +
-  integration flows (full happy path with PKCE round-trip assert, state/cookie failures,
-  not-invited leaves no row, rate limits, purpose confusion) — 849 green at feature
-  completion (the email entry's 861 is the later combined total). **Azure (all
-  user-approved 2026-07-06):** app registration **"AI Enablement Hub"** appId
-  `ad61703c-684f-4392-b786-8926ba2ab69d` (SP `f2d141e6-3f33-470a-9456-a123adef4cda`),
-  single-tenant, web redirect URIs = prod CA URL + `http://localhost:5173`, each +
-  `/api/auth/entra/callback`; client secret **'hub-oidc' expires July 2028** (rotate:
-  `az ad app credential reset --append` → CA secret update → revision restart);
-  requiredResourceAccess declares delegated openid/profile/email so IT's consent is one
-  click. Dev `backend/.env` carries real ENTRA__* values; **prod CA env NOT wired** (needs
-  `az containerapp secret set entra-client-secret=…` + `--set-env-vars ENTRA__…` — ask
-  first; until then the feature deploys dark). **BLOCKER:** the tenant's
-  `microsoft-user-default-low` self-consent policy covers only permissions classified low
-  and delaware classified ONLY `profile` → sign-in hits "Beheerdersgoedkeuring vereist";
-  fix = one-time tenant-wide admin consent (portal → App registrations → AI Enablement Hub →
-  API permissions → Grant admin consent), requested via IT (in the 2026-07-06 hosting
-  ticket). Local e2e verified up to Microsoft's consent wall (302 + params + cookie correct
-  through the Vite proxy); full flow untested pending the grant. B2B guest sign-in for
-  externals would work with this code as-is IF IT allows it (invite policy says members may
-  invite guests, but cross-tenant access / domain restrictions / Conditional Access are
-  unreadable to members — IT to confirm). Later removal of password auth = delete
-  login/set-password/invite-peek + Login form/SetPassword/InviteRedirect; the token-pair
-  stack stays.
-
-- **Module delete (2026-07-07):** `DELETE /api/admin/modules/{module_id}` (admin-only, 204;
-  404 if unknown) — `ContentService.delete_module` fetches then hands the ORM row to
-  `ContentRepository.delete_module`, a plain `session.delete()` + commit; FK `ondelete="CASCADE"`
-  on lessons/module_prerequisites(both columns)/user_modules/user_lessons(via lessons)/
-  lesson_progress(via lessons) does the rest — no manual cleanup code needed. ModulePanel
-  (edit-mode lesson popup) gained a "Delete module" danger-zone button below the lesson list;
-  confirmation is an in-panel two-step swap (button → warning text + Cancel/"Yes, delete",
-  lesson count in the warning), NOT `window.confirm` — the native browser dialog reads as an
-  out-of-app interruption (feedback from browser-testing this feature 2026-07-07). On success
-  calls the new `onDeleted` prop, which LearningPath wires to close the panel + `reload()` the
-  graph. Backend tests: cascade assertions across all four child tables + 404 + authz-matrix
-  entry (`module-delete`), 68 tests green in `test_admin_content.py`/`test_authz.py`. Frontend
-  typecheck/lint/build clean; `schema.d.ts` regenerated. Not browser-verified this session (no
-  browser automation tool available) — spot-check locally before relying on it.
-
-- **Invite link/email split (2026-07-07):** the single "create invite link →" button on
-  ProjectDetailView's add-participant form (which always both created the user AND attempted
-  an email when EMAIL__* was configured, despite its label) is now two buttons: "create invite
-  link →" (link-only, never emails) and "send email with invite →" (unchanged prior behavior).
-  `InviteRequest` gained `send_email: bool = True` (backend default keeps any other caller's
-  behavior unchanged); `POST /api/admin/invites` skips `_email_the_link` entirely when
-  `send_email` is false and returns the new `EmailStatus` value `"skipped"` — distinct from
-  `"disabled"` (EMAIL__* unconfigured) so the two "no email was attempted" reasons stay
-  distinguishable in data, though the frontend already defaults both to the same "share the
-  link below" copy (no branch change needed). `schema.d.ts` regenerated for real via
-  `npm run gen:api` against a locally-launched dev backend (user-approved — its startup
-  auth-cleanup DELETE against the real Azure dev DB ran once); the real generated
-  `send_email` came out as a **required** field (matching how other defaulted fields like
-  `token_type` are already typed in this schema), not optional as a first hand-patch attempt
-  guessed. 865 backend tests green (1 new, in `test_admin_email.py::TestInviteEmails`,
-  asserting the ACS sender is never invoked). Frontend typecheck/lint/build clean. Deployed
-  live 2026-07-07 (see the Deployment section). Not browser-verified this session (no browser
-  automation tool available) — spot-check the two buttons on ProjectDetailView before relying
-  on it.
-
-- **Cascading track/module assignment (2026-07-23):** assigning a track or module to a user
-  now auto-assigns every module/lesson underneath it; unassigning cascades the same way.
-  Full resync semantics — reassigning a track/module always sets *all* its descendants back
-  to assigned, even ones an admin had previously hand-unassigned (there is no stable
-  "assign track, then hand-curate one lesson off" customization across a toggle of the
-  ancestor). `AdminUserService.set_track_assignment(s)`/`set_module_assignment(s)`
-  (`backend/src/services/admin_user_service.py`) compute the descendant module/lesson ids via
-  two new private helpers (`_cascade_module_and_lesson_ids`, `_cascade_lesson_ids`) built on
-  the existing `ContentRepository.list_modules()`/`list_lesson_summaries()` reads, then bulk-write
-  `user_modules`/`user_lessons` alongside the target level. No schema change, no new endpoints,
-  no repository interface change. Lesson-level assignment is unchanged (lessons have no
-  children). `Admin.tsx`'s track/module toggle handlers (`toggleLearningItem`,
-  `bulkAssignLearningItems`) now refetch `GET /api/admin/learning` on success instead of
-  optimistically patching one assignment array, since a single toggle can change three arrays
-  at once; lesson toggles keep the prior optimistic patch (no cascade there). Spec:
-  `docs/superpowers/specs/2026-07-23-cascading-track-module-assignment-design.md`.
-
-- **Admin panel redesign (2026-07-27) — code-complete + review-approved on branch
-  `feature/admin-panel-redesign`; dev DB migrated; NOT browser-verified end-to-end, NOT merged
-  to `main`, NOT deployed.** Replaces the MVP admin panel with a function-first routed shell
-  under `/admin/*`. Spec `docs/superpowers/specs/2026-07-23-admin-panel-redesign-design.md`,
-  plan `docs/superpowers/plans/2026-07-23-admin-panel-redesign.md` (executed subagent-driven,
-  task-by-task with a reviewer after each; ledger `.superpowers/sdd/progress.md`).
-  - **Frontend** (`frontend/src/pages/admin2/`): routed shell `AdminShell.tsx` (sidebar + topbar +
-    `?project=` scope switcher: all-projects vs one project), a `kit/` component library
-    (Tile/Card/Chip/Table/BulkBar/Modal/Toolbar/ProgressBar/ConfirmButton/EmptyState/ErrorState/
-    Spinner), TanStack Query hooks in `api.ts` (new dep `@tanstack/react-query`), and one
-    `*Page.tsx` per section: Dashboard, People (+ InviteModal), User detail, Assignments (the
-    matrix with a project-defaults row + optimistic cell toggles), Feedback triage queue,
-    Projects, Email templates, Setup. Styles in `frontend/src/styles/admin.css` on `--dlw-*`/
-    `--adm-*` tokens.
-  - **Backend** (all additive under `/api/admin/*`): `project_track_defaults` table +
-    `assigned_via` provenance on `user_tracks`/`user_modules`/`user_lessons` (migration
-    `b5c6d7e8f9a0`); GET/PUT + `defaults/apply` project-defaults endpoints, defaults materialized
-    on invite; multi-user `POST /api/admin/assignments/bulk`; feedback triage status columns +
-    admin queue (migration `c6d7e8f9a0b1`); reminder email endpoint; admin user/learning payload
-    enrichment (status/progress/attention/provenance) with the per-user N+1 full-table scans
-    replaced by batched `*_for_users` reads; pagination + `q`/`status` filters on `/admin/users`
-    and `/admin/learning` (back-compatible — omitted params reproduce the old full-list response
-    plus an additive `total`); dashboard aggregates `GET /api/admin/dashboard`. The attention
-    rules (stalled > 14d, active ≤ 7d — spec §4.4) live in the pure `backend/src/core/attention.py`
-    shared by the People and Dashboard services (services never call services).
-  - **Migration chain:** this branch's two migrations were re-parented onto Matthias's
-    chat-foundation migration `12bf5f54a1e4` (both originally chained off `e2f3a4b5c6d7`) so the
-    shared dev DB — already at his revision — could apply them; single head `c6d7e8f9a0b1`. When
-    ai-chat-foundation and this branch both reach `main`, that re-parent is the reconciliation.
-  - **Retired at cutover** (commit deleting the old panel): `frontend/src/pages/Admin.tsx`,
-    `admin/ProjectsView.tsx`, `admin/ProjectDetailView.tsx`, `admin/ParticipantDetail.tsx`, and the
-    `/admin-old` route. Kept and reused by the new panel: `SurveyResults`, `BulkInviteModal`,
-    `EmailTemplatesCard`, `adminHelpers.tsx`, and the ported Setup forms. Follow-up cleanup:
-    `admin/SetupView.tsx` and the `ResetLinkEntry` type are now orphaned (reimplemented/relocated).
-  - **Before relying on it:** run the dev stack and browser-verify the core flows (dashboard scan,
-    project funnel + attention, People bulk-assign, matrix defaults + apply, feedback accept/
-    dismiss/undo, user-detail assessed vs not-assessed, invite defaults banner); coordinate the
-    deploy with Matthias's migration reaching prod; and note Matthias's pending AI-settings UI must
-    target `admin2/ProjectsPage.tsx`, not the deleted `ProjectDetailView`.
+- **Re-invite pending:** migrated users still have `password_set=false` (all but matthias) —
+  re-invite via the admin UI; sequence AFTER any custom-domain change so links carry the final
+  URL.
+- **Entra ID:** blocked on one-time tenant admin consent (in the IT ticket). App registration
+  "AI Enablement Hub" `ad61703c-684f-4392-b786-8926ba2ab69d`; client secret 'hub-oidc' expires
+  July 2028. After the grant: test on :5173, then wire prod env (`az containerapp secret set`
+  + `ENTRA__*` — ask first).
+- **Hosting move (IT ticket, 2026-07-06):** delaware IT deems the playground not secure enough
+  for a client-facing app — new hosting, custom domain `ai-enablement-hub.delaware.pro`, Entra
+  consent and an ACS custom email domain are all bundled in one ticket (Matthias's name).
+  Until it lands, the playground deployment is the live one. Custom-domain recipe (DNS CNAME +
+  TXT `asuid` record, `az containerapp hostname add`/`bind`, `APP__URL` update): git history
+  of this file @ `b85fdba`, "Open for cutover".
+- **LLM spend:** prod carries `llm-api-key` and admin-reachable AI spend is live; whether the
+  key is a capped workspace key is **unverified — ask Matthias** (docs/ai-agents-plan.md §8b).
+- **Emails:** ACS `imaginemore-playground-acs`, sender `hub@…azurecomm.net`. Local dev `.env`
+  carries `EMAIL__*` too → local invites/resets send REAL email (comment out to disable).
+- Rate limiting is an in-process fixed window (`core/ratelimit.py`) — another reason for the
+  single-replica constraint.
+- The dev `AUTH__JWT_SECRET` leaked into a tool transcript 2026-07-06 (dev-only blast radius) —
+  rotate when convenient. A storage-account key leaked 2026-07-30 — rotation still owed.

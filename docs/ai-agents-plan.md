@@ -1,9 +1,13 @@
 # AI Agents in the Hub — feasibility, design & provider setup (Foundry / Anthropic API)
 
-> **Status:** planning / not started (as of 2026-07-23). This is the doc to point a fresh session
-> at. It captures the feasibility discussion, the agreed design, the isolation/performance answers,
-> and the concrete setup for the chosen provider (§8b Anthropic API), plus the Foundry alternative
-> kept as reference (§8). Nothing here is built yet.
+> **Status (2026-08-10): largely SHIPPED.** The chat foundation, AI interviewer, DB-overridable
+> prompts + admin System Prompts page, and feedback-driven content improvement are all live in
+> prod (see the root `CLAUDE.md` feature index). This doc remains the authoritative reference
+> for the provider seam (§7) and the Anthropic API key / spend-cap setup (§8b); the Foundry
+> alternative (§8) is kept as reference. Design details elsewhere in the doc are the original
+> plan and may differ from what shipped — trust the code and the per-feature specs.
+>
+> Original status line (2026-07-23): planning / not started.
 >
 > **Amended 2026-07-10** after a design challenge — see the "Resolved" list at the end of §10.
 >
