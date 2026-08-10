@@ -1,16 +1,12 @@
-# Database — Azure PostgreSQL setup & Supabase migration
+# Database — Azure PostgreSQL
 
-**Cutover is complete (confirmed 2026-07-08).** Azure is now the sole authoritative database —
-the "Refresh data from Supabase" section below and the scripts it points to
-(`export_supabase_snapshot.py`, `migrate_supabase_to_azure.py`, `sync_content_from_supabase.py`)
-describe the **pre-cutover migration process only**. Do not run them. `migrate_supabase_to_azure.py`
-TRUNCATEs and reloads from the Supabase snapshot; `sync_content_from_supabase.py --apply` overwrites
-`tracks`/`modules`/`lessons`/`curricula` rows to match that same stale snapshot. Either one would
-silently erase any content edited directly on Azure since cutover (e.g. the 2026-07-08 interactivity
-pass — new `interactive`/`try_it_yourself` blocks, the General-track capstone rewrite). The
-`baseline/data/*.json` snapshot itself is a frozen historical record of the Supabase state at
-migration time, not a live mirror — it is not kept in sync with Azure and should not be treated as
-current.
+**Cutover is complete and permanent (confirmed 2026-07-08).** Azure is the sole authoritative
+database. The pre-cutover Supabase migration scripts (`export_supabase_snapshot.py`,
+`migrate_supabase_to_azure.py`, `sync_content_from_supabase.py`, `backfill_user_lessons.py`)
+were **removed 2026-08-10** — they TRUNCATE-and-reload live tables from a stale snapshot and
+had no remaining legitimate use. Recover them from git history if ever needed
+(last present at commit `b9eac6d`). The `baseline/data/*.json` snapshot is a frozen historical
+record of the Supabase state at migration time, not a live mirror — never treat it as current.
 
 State after Batch 1 (2026-07-03): the Azure database has the full 15-table schema
 (Alembic-managed) and all Supabase data loaded and verified. Users are reset for
@@ -50,10 +46,8 @@ Secrets live in `db/.env` and `backend/.env` — both git-ignored. Never commit 
 | File | Purpose |
 |---|---|
 | `provision_roles.py` | One-time (idempotent) role + test-DB + default-privileges setup. Requires az CLI login as the Entra admin. `--rotate-passwords` resets role passwords. |
-| `export_supabase_snapshot.py` | Pulls all 14 tables from Supabase via PostgREST (service-role key from `app/.env.local`) into `baseline/data/*.json` + `_manifest.json`. Re-run any time to refresh the snapshot (e.g. right before final cutover). |
-| `migrate_supabase_to_azure.py` | Loads the snapshot into Azure: TRUNCATE-and-reload in one transaction, FK-safe order, users transformed (no auth_id, `password_set=false`, `password_hash=NULL`, lowercased email), `invite_tokens` skipped. Ends with verification gates (row counts, PK-set hashes, content_blocks element count, users/survey spot-checks); non-zero exit on any failure. `--check-only` for a dry run. |
 | `baseline/supabase_schema_record.md` | Frozen record of the live Supabase schema (columns, constraints, indexes, FK actions, RLS policies, functions) as of 2026-07-03. |
-| `baseline/data/*.json` | The data snapshot (202 rows incl. 13 non-migrated invite_tokens). `invite_tokens.json` is git-ignored — it contains Supabase action links that may still be redeemable; it stays local-only. |
+| `baseline/data/*.json` | The frozen pre-cutover data snapshot (historical only). The git-ignored `invite_tokens.json` was deleted 2026-08-10 (contained real emails + possibly-redeemable recovery links). |
 | `content_tools/` | Reusable scripts for live lesson-content edit passes (fetch, quiz-bias check, locator-based edit/apply, baseline re-sync). Built for the General I/II content review round (2026-07-15/16); see that folder's own docstrings for usage. Safe-write pattern: fetch fresh → dry-run → `apply_content_edits.py --apply` → verify → `sync_baseline.py`. |
 
 Run scripts with [uv](https://docs.astral.sh/uv/) — dependencies are inline (PEP 723):
@@ -74,20 +68,7 @@ uv run alembic revision --autogenerate -m "message"   # new migration — always
 Autogenerate is known to miss CHECK-constraint *changes* — review every generated
 revision against the models before applying.
 
-## Refresh data from Supabase (e.g. cutover day)
-
-```powershell
-cd db
-uv run export_supabase_snapshot.py     # refresh baseline/data/ from live Supabase
-uv run migrate_supabase_to_azure.py    # wipe + reload Azure, verify
-```
-
-The reload TRUNCATEs all app tables (including `auth_tokens`/`auth_sessions`) — any
-passwords set on Azure since the previous load are wiped and users must be
-re-invited. That is the intended cutover behavior; don't run it casually once real
-usage starts on Azure.
-
-## Verification results (2026-07-03, run twice — idempotent)
+## Migration verification results (2026-07-03, historical — run twice, idempotent)
 
 - 13/13 tables: row counts match manifest (189 rows migrated; invite_tokens excluded)
 - 13/13 tables: primary-key-set MD5 hashes equal
