@@ -22,8 +22,8 @@ authoritative for anything; see `db/README.md` for why its migration scripts mus
   `ai-enablement-hub-test` database used by the integration suite). So a local
   `alembic upgrade`, or any script writing "test" rows, edits live learner data. Verify
   learner-facing changes without touching it (see the 2026-08-04 deploy entry).
-- **Scale:** ~54 API endpoints across 12 routers (`backend/src/routers/`); feature-complete and in
-  active content iteration.
+- **Scale:** ~86 API endpoints across 19 routers (`backend/src/routers/`, counted 2026-07-31);
+  feature-complete and in active content + AI-feature iteration.
 - **Auth:** password (JWT) + Entra ID OIDC side-by-side — Entra is deployed **dark** (no `ENTRA__*`
   env on prod, blocked on IT admin consent).
 - **Roles:** `admin`, `user+` (bypasses learning-path locks, no admin powers), `user`.
@@ -302,6 +302,40 @@ real server-side gate 2026-07-23)
   tables ahead of his own ai-chat deploy — his eventual deploy finds `12bf5f54a1e4` already applied
   (no-op); his pending AI-settings UI must target `admin2/ProjectsPage.tsx`, not the deleted
   `ProjectDetailView.tsx`.
+- **Redeployed 2026-07-30 — SIX times (log reconstructed + verified 2026-07-31, not written by the
+  deploying session).** ACR tags that day, all runs Succeeded: `20260730-120259`, `-131650`,
+  `-133150`, `-134946`, `-140441`, `-144052`. **Prod ran the last one**, revision `--0000033`
+  (`RunningAtMaxScale`, `latestReady == latestRevision`). The `144052` build started one minute after
+  commit `91c1ac7` landed (14:39 local), so **prod == `main`** — modulo anything uncommitted in the
+  deploying working dir, since `deploy.ps1` builds the working directory, not git. What this made
+  live: the **AI interviewer** (`routers/interview.py` — `GET /api/interview/me`, `POST /opener`,
+  `POST /playbook`, whole router gated by `require_interview_surface`; journey Interview pill reads
+  real `interview_status`; round-2 tuning for probing/topic-progression, dash sanitizing, focus
+  retention, button placement), the **admin System Prompts page** (`admin2/PromptsPage.tsx`
+  master-detail + `PromptService` + bustable `load_prompt` cache → prompts are now DB-overridable and
+  admin-editable), **nightly DB backups** (see the Backups bullet above), **content-ai lesson
+  redrafting** (pick lessons, concurrent drafting, 529 handling), and **create-a-reset-link-without-
+  emailing-it**. Migrations applied via `startup.py`: `d7e8f9a0b1c2` (feedback AI triage),
+  `e8f9a0b1c2d3` (lesson content proposals), `f9a0b1c2d3e4` (inline edits + learn cards),
+  `1cd2cc2d05a9` (prompts table). **Prod alembic head is now `1cd2cc2d05a9`** and equals the code
+  head. Post-hoc verification 2026-07-31: `/api/health` `{"status":"ok"}`, `/api/auth/methods`
+  `{"password":true,"entra":false}`, `uv run alembic current` → `1cd2cc2d05a9 (head)`. **Not
+  browser-verified** — spot-check `/interview` as a learner in a project with the interview component
+  unlocked AND its AI toggle on, and `/admin` → System Prompts. **Spend caveat:** prod carries
+  `LLM__API_KEY` (secret `llm-api-key`) and admin-reachable AI spend (prompt editing, content
+  redrafting) is live; per `docs/ai-agents-plan.md` §8b the key should be a dedicated workspace key
+  with a monthly cap — whether that swap happened is unverified, ask Matthias.
+- **Branch cleanup 2026-07-31 (user-approved).** `main` was reduced to the **only** branch, local and
+  remote (`main == origin/main == 91c1ac7`). Deleted from origin after verifying each was fully
+  contained in `main` (0 commits not in main): `feature/admin-panel-redesign` (tip `3eec8a9`),
+  `feature/ai-chat-foundation` (tip `12213a6`), `feature/ai-interviewer` (tip `af38563`) — push the
+  SHA back to a ref to restore if ever needed. Five other remote branches
+  (`feature/prompt-editor`, `feature/interviewer-feedback-r2`, `feature/interviewer-prompt-tuning`,
+  `fix/interview-build-button-center`, `feature/prompts-page-redesign`) had already been deleted on
+  origin. The stale `C:/tmp/hub-sonnet` worktree (detached at `04ca8da`, clean, contained in main)
+  was removed with `git worktree remove`. Note `91c1ac7`'s commit message reads
+  `Merge origin/main into feature/prompts-page-redesign` — an artifact of merging main *into* the
+  feature branch and then pushing that to main; the history reads a little backwards as a result.
 - **DEPLOY LOG GAP (2026-07-27 → 2026-08-04).** Between the entry above and the one below the app
   was redeployed several times without log entries (the AI interviewer and its round-2 items, the
   DB-backed prompts + admin System Prompts page, content-AI concurrent drafting). Evidence, if the
