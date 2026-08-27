@@ -67,6 +67,35 @@ __all__ = ["app"]
 
 logger = logging.getLogger(__name__)
 
+_LOG_FORMAT = "%(levelname)-5.5s [%(name)s] %(message)s"
+
+
+def _configure_logging() -> None:
+    """Make the app's own INFO logs reachable (audit lines like bulk-invite outcomes).
+
+    In the container, `startup.py` runs Alembic before uvicorn *in the same
+    process*, and Alembic's `fileConfig()` applies `alembic.ini`'s logging block
+    — which pins the ROOT logger at WARNING. That silently swallowed every
+    `logger.info()` under `src/`, including the bulk-invite audit line, while
+    letting ERROR through: an invite batch could half-fail with no trace of the
+    summary. Found 2026-08-17 while reconstructing one such batch from logs.
+
+    Set the level on our own package logger rather than root, so library loggers
+    (sqlalchemy, asyncpg, azure.*) keep their WARNING floor instead of flooding
+    Log Analytics. Records still reach root's handler by propagation — handler
+    levels are NOTSET, and an ancestor logger's level does not gate propagated
+    records. The handler is only added when nothing else installed one (dev,
+    where uvicorn runs without the Alembic step).
+    """
+    logging.getLogger("src").setLevel(logging.INFO)
+    if not logging.getLogger().handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter(_LOG_FORMAT))
+        logging.getLogger("src").addHandler(handler)
+
+
+_configure_logging()
+
 _CLEANUP_INTERVAL_SECONDS = 24 * 60 * 60
 
 # Vite build output; only exists in the container image (the Dockerfile copies
