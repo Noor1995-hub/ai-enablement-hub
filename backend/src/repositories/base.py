@@ -89,6 +89,14 @@ class AbstractUserRepository(ABC):
         last_name, email (q)."""
 
     @abstractmethod
+    async def get_with_org_names(
+        self, user_id: uuid.UUID
+    ) -> tuple[User, str | None, str | None] | None:
+        """One (user, company_name, project_name) row, or None. Same shape
+        `list_with_org_names` yields, so a single user can be enriched by the
+        same code path without paging the whole directory."""
+
+    @abstractmethod
     async def list_for_learning(self) -> list[tuple[User, str | None, str | None]]:
         """(user, project_name, company_name) ordered by first name (admin panel)."""
 

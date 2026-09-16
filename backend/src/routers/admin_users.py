@@ -138,6 +138,17 @@ async def list_users(
     )
 
 
+@router.get("/users/{user_id}", response_model=AdminUserOut)
+async def get_user(
+    user_id: uuid.UUID,
+    admin_user_service: AdminUserServiceDep,
+) -> AdminUserOut:
+    """One user in the same shape `GET /users` returns (404 for unknown ids) —
+    the People detail screen reads this instead of searching a cached page of
+    the directory, which silently lost anyone past the first page."""
+    return AdminUserOut.model_validate(await admin_user_service.get_user_enriched(user_id))
+
+
 @router.post("/invites", response_model=LinkResponse, status_code=status.HTTP_201_CREATED)
 async def create_invite(
     body: InviteRequest,

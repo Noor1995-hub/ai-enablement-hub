@@ -10,6 +10,7 @@ import type {
   AdminLearningResponseEnriched,
   AdminLearningUserEnriched,
   AdminSurvey,
+  AdminUserEnriched,
   AdminUsersResponseEnriched,
   AiSurfaceState,
   ApplyDefaultsResponse,
@@ -102,6 +103,28 @@ export function useAdminUsers(params: AdminUsersParams) {
       { project: params.project, q: params.q, status: params.status, page: params.page },
     ] as const,
     queryFn: () => fetchAdminUsers(params),
+  })
+}
+
+async function fetchAdminUser(userId: string): Promise<AdminUserEnriched | null> {
+  const { data, error, response } = await client.GET('/api/admin/users/{user_id}', {
+    params: { path: { user_id: userId } },
+  })
+  // A deleted or typo'd id is a "not found" screen, not a load failure — keep
+  // the two apart so a real outage doesn't read as "this person doesn't exist".
+  if (response.status === 404) return null
+  if (!data) throw new Error(errorMessage(error, 'Failed to load this participant.'))
+  return data
+}
+
+/** One participant by id, for the detail screen. Keyed UNDER ['admin','users'] on
+ * purpose: every mutation that already invalidates the directory prefix refreshes
+ * this too, so the detail page can't drift from the list it was opened from. */
+export function useAdminUser(userId: string | null) {
+  return useQuery({
+    queryKey: ['admin', 'users', 'detail', userId] as const,
+    queryFn: () => fetchAdminUser(userId as string),
+    enabled: userId !== null,
   })
 }
 

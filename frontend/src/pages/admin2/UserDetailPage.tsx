@@ -7,7 +7,7 @@ import { LEVELS, levelByCode } from '../../lib/levels'
 import type { AdminSurvey, AdminUserEnriched } from '../../types/domain'
 import InterviewCard from './InterviewCard'
 import {
-  useAdminUsers,
+  useAdminUser,
   useDeleteUser,
   useResetLink,
   useSendReminder,
@@ -40,10 +40,10 @@ export default function UserDetailPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
-  // Per the brief: the user row comes from the same useAdminUsers cache
-  // PeoplePage populates (or a refetch under this scope) — no dedicated
-  // "get one user" endpoint exists yet.
-  const usersQuery = useAdminUsers({ project: scope.projectId })
+  // Fetched by id. This used to search page 1 of the useAdminUsers directory
+  // cache, which silently lost every participant past the first page of a
+  // project (50) — they rendered as "could not be found".
+  const userQuery = useAdminUser(userId ?? null)
   const surveyQuery = useSurvey(userId ?? null)
 
   const peopleSearch = scope.projectId ? `?project=${scope.projectId}` : ''
@@ -52,7 +52,7 @@ export default function UserDetailPage() {
     return <ErrorState message="Missing participant id." />
   }
 
-  if (usersQuery.isLoading) {
+  if (userQuery.isLoading) {
     return (
       <div className="adm-loading">
         <Spinner />
@@ -60,19 +60,18 @@ export default function UserDetailPage() {
     )
   }
 
-  if (usersQuery.error || !usersQuery.data) {
+  if (userQuery.error) {
     return (
       <ErrorState
-        message={usersQuery.error?.message ?? 'Failed to load participants.'}
-        onRetry={() => void usersQuery.refetch()}
+        message={userQuery.error.message}
+        onRetry={() => void userQuery.refetch()}
       />
     )
   }
 
-  const user = usersQuery.data.users.find(u => u.id === userId)
+  const user = userQuery.data
 
-  // Bad/stale URL (deleted user, wrong project scope, typo'd id) — never a
-  // blank screen.
+  // Bad/stale URL (deleted user, typo'd id) — never a blank screen.
   if (!user) {
     return (
       <div>

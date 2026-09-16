@@ -59,6 +59,41 @@ class AdminUserService:
         offset: int = 0,
     ) -> tuple[list[dict[str, Any]], int]:
         rows = await self._users.list_with_org_names(project_id, q)
+        result = await self._enrich_rows(rows)
+
+        # Task 9: status is computed (not a column), so it's filtered here in
+        # Python after the enrichment, rather than pushed into SQL — at our
+        # scale (tens to low hundreds of users per project) this is a
+        # deliberate, documented tradeoff over adding a second query shape.
+        if status is not None:
+            if status == "active":
+                result = [u for u in result if u["activated"]]
+            elif status == "invited":
+                result = [u for u in result if not u["activated"]]
+            else:  # "attention"
+                result = [u for u in result if u["needs_attention"]]
+
+        total = len(result)
+        page = result[offset : offset + limit] if limit is not None else result[offset:]
+        return page, total
+
+    async def get_user_enriched(self, user_id: uuid.UUID) -> dict[str, Any]:
+        """One user in the same enriched shape `list_users` yields — the People
+        detail screen's read. Before this existed the frontend dug its user out
+        of a cached page of the list, so anyone past the first page of a project
+        was unreachable; going by id keeps it correct at any project size."""
+        row = await self._users.get_with_org_names(user_id)
+        if row is None:
+            raise NotFoundError("User")
+        return (await self._enrich_rows([row]))[0]
+
+    async def _enrich_rows(
+        self, rows: list[tuple[User, str | None, str | None]]
+    ) -> list[dict[str, Any]]:
+        """Directory-grade enrichment (assignments, progress, attention,
+        effective maturity) for a set of (user, company_name, project_name)
+        rows. Every read below is batched over the row set, so it costs the
+        same handful of queries whether `rows` holds one user or all of them."""
         users = [user for user, _, _ in rows]
         user_ids = [user.id for user in users]
         (
@@ -161,21 +196,7 @@ class AdminUserService:
                 }
             )
 
-        # Task 9: status is computed (not a column), so it's filtered here in
-        # Python after the enrichment above, rather than pushed into SQL — at
-        # our scale (tens to low hundreds of users per project) this is a
-        # deliberate, documented tradeoff over adding a second query shape.
-        if status is not None:
-            if status == "active":
-                result = [u for u in result if u["activated"]]
-            elif status == "invited":
-                result = [u for u in result if not u["activated"]]
-            else:  # "attention"
-                result = [u for u in result if u["needs_attention"]]
-
-        total = len(result)
-        page = result[offset : offset + limit] if limit is not None else result[offset:]
-        return page, total
+        return result
 
     async def _effective_maturity_map(
         self,

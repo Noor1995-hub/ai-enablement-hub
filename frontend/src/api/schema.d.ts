@@ -496,6 +496,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/users/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get User
+         * @description One user in the same shape `GET /users` returns (404 for unknown ids) —
+         *     the People detail screen reads this instead of searching a cached page of
+         *     the directory, which silently lost anyone past the first page.
+         */
+        get: operations["get_user_api_admin_users__user_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete User
+         * @description Single DELETE; FK cascades wipe tokens/sessions/survey/progress (fixes
+         *     the legacy two-system atomicity problem B2 by construction).
+         */
+        delete: operations["delete_user_api_admin_users__user_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update User Role */
+        patch: operations["update_user_role_api_admin_users__user_id__patch"];
+        trace?: never;
+    };
     "/api/admin/invites": {
         parameters: {
             query?: never;
@@ -586,28 +614,6 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
-        trace?: never;
-    };
-    "/api/admin/users/{user_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Delete User
-         * @description Single DELETE; FK cascades wipe tokens/sessions/survey/progress (fixes
-         *     the legacy two-system atomicity problem B2 by construction).
-         */
-        delete: operations["delete_user_api_admin_users__user_id__delete"];
-        options?: never;
-        head?: never;
-        /** Update User Role */
-        patch: operations["update_user_role_api_admin_users__user_id__patch"];
         trace?: never;
     };
     "/api/admin/users/{user_id}/maturity": {
@@ -4343,6 +4349,99 @@ export interface operations {
             };
         };
     };
+    get_user_api_admin_users__user_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminUserOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_user_api_admin_users__user_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_user_role_api_admin_users__user_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     create_invite_api_admin_invites_post: {
         parameters: {
             query?: never;
@@ -4463,68 +4562,6 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ReminderResponse"];
                 };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_user_api_admin_users__user_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                user_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_user_role_api_admin_users__user_id__patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                user_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RoleUpdateRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
             /** @description Validation Error */
             422: {

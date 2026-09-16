@@ -64,6 +64,18 @@ class UserRepository(AbstractUserRepository):
         result = await self._session.execute(stmt)
         return [(user, company, project) for user, company, project in result.all()]
 
+    async def get_with_org_names(
+        self, user_id: uuid.UUID
+    ) -> tuple[User, str | None, str | None] | None:
+        stmt = (
+            select(User, Company.name, Project.name)
+            .outerjoin(Company, Company.id == User.company_id)
+            .outerjoin(Project, Project.id == User.project_id)
+            .where(User.id == user_id)
+        )
+        row = (await self._session.execute(stmt)).first()
+        return (row[0], row[1], row[2]) if row is not None else None
+
     async def list_for_learning(self) -> list[tuple[User, str | None, str | None]]:
         # Company resolved through the user's project (legacy handleGetLearning shape).
         project_company = aliased(Company)

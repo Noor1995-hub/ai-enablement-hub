@@ -1186,3 +1186,58 @@ class TestAdminUsersPagination:
         assert body["total"] == 3
         assert len(body["modules"]) == 2
         assert len(body["lessons"]) == 2
+
+
+class TestAdminUserDetail:
+    """GET /admin/users/{user_id} — the single-user read the People detail
+    screen needs. Before this endpoint existed the frontend found its user by
+    scanning page 1 of the paginated list, so anyone outside the newest 50 in
+    a project rendered "This participant could not be found"."""
+
+    async def test_returns_enriched_user_outside_the_first_list_page(
+        self, client: AsyncClient, db_session: AsyncSession, org: Org
+    ) -> None:
+        """The record comes back by id with its list-grade enrichment even when
+        limit/offset pagination would exclude the user from the first page."""
+        target = await create_user(
+            db_session, email="page-two@example.com", project_id=org.project.id
+        )
+        # Three newer users push `target` off a first page of that size (the
+        # list orders by created_at DESC). The timestamp is set explicitly:
+        # created_at defaults to Postgres now(), which is TRANSACTION start
+        # time, so rows created together tie and order arbitrarily.
+        for email in ("newer-1@example.com", "newer-2@example.com", "newer-3@example.com"):
+            await create_user(db_session, email=email, project_id=org.project.id)
+        target.created_at = datetime.now(UTC) - timedelta(days=1)
+        await db_session.commit()
+
+        track = await create_track(db_session, "Detail Track")
+        module = await create_module(db_session, track, "Detail Module")
+        lesson = await create_lesson(db_session, module, "D1", sort_order=0)
+        await assign_track(db_session, target, track)
+        await assign_lesson(db_session, target, lesson)
+        await complete_lesson(db_session, target, lesson)
+
+        first_page = await client.get(
+            f"/api/admin/users?project_id={org.project.id}&limit=3&offset=0",
+            headers=org.headers,
+        )
+        assert first_page.status_code == 200
+        assert all(u["id"] != str(target.id) for u in first_page.json()["users"]), (
+            "precondition: target must be off the first page"
+        )
+
+        response = await client.get(f"/api/admin/users/{target.id}", headers=org.headers)
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["id"] == str(target.id)
+        assert body["email"] == "page-two@example.com"
+        assert body["project_name"] == org.project.name
+        assert body["assigned_lesson_count"] == 1
+        assert body["completed_lesson_count"] == 1
+        assert body["track_progress"][str(track.id)] == {"assigned": 1, "completed": 1}
+
+    async def test_unknown_user_id_returns_404(self, client: AsyncClient, org: Org) -> None:
+        response = await client.get(f"/api/admin/users/{uuid.uuid4()}", headers=org.headers)
+        assert response.status_code == 404
