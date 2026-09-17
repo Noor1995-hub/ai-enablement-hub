@@ -7,7 +7,7 @@
  * and adminHelpers.tsx's badge/field components. */
 import type { CSSProperties } from 'react'
 import type { ComponentKey } from '../../lib/constants'
-import { levelByCode, type AssignableLevel } from '../../lib/levels'
+import { levelByCode, type AssignableLevel, type LevelDef } from '../../lib/levels'
 
 export const COMPONENT_KEYS: ComponentKey[] = ['assessment', 'learning', 'interview']
 export const COMPONENT_LABELS: Record<ComponentKey, string> = {
@@ -31,12 +31,18 @@ interface BadgeStyle {
 
 // Badge bg/text are the admin status palette (same scheme as BAND_STYLE and
 // RUNG_COLORS below); the display names come from the canonical level table.
-const levelName = (code: ScoreLevel): string => levelByCode(code)!.name
+// Keyed on every LEVELS code, not just ScoreLevel/AssignableLevel: the scoring
+// engine only ever assigns the first three, but effective_maturity can still
+// come back 'multiplier' (survey_service bumps integrator-and-above scorers
+// straight to it for multiplier-gated tracks) — a badge lookup keyed on the
+// narrower type silently rendered nothing for those users.
+const levelName = (code: LevelDef['code']): string => levelByCode(code)!.name
 
-export const LEVEL_STYLE: Record<ScoreLevel, BadgeStyle> = {
+export const LEVEL_STYLE: Record<LevelDef['code'], BadgeStyle> = {
   explore:      { bg: '#F5F5F5',  text: '#8A8A8A',  label: levelName('explore') },
   practitioner: { bg: '#FFF8EC',  text: '#B45309',  label: levelName('practitioner') },
   integrator:   { bg: '#EDFAF4',  text: '#1D7A52',  label: levelName('integrator') },
+  multiplier:   { bg: '#EEF2FF',  text: '#4B5CC4',  label: levelName('multiplier') },
 }
 
 export const BAND_STYLE: Record<UsageBand, BadgeStyle> = {
