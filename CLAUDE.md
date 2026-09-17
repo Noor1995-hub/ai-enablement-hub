@@ -16,24 +16,29 @@ The old Supabase app is permanently retired (cutover complete 2026-07-08); its r
 untouched at `../app/`, historical only. The pre-cutover migration scripts were removed
 2026-08-10 (git history has them).
 
-## Current state (2026-08-10)
+## Current state (2026-09-17)
 
 - **Live:** https://ai-enablement-hub.kindcoast-3b1fe056.swedencentral.azurecontainerapps.io —
-  image `ai-enablement-hub:20260804-145027`, revision `--0000035`, built from `main` @ `1b7546a`
-  (pre-rewrite SHA `8da7f12` — **git history was rewritten 2026-08-10 to purge learner PII**, so
-  SHAs in older notes/transcripts don't resolve; the pre-rewrite mirror lives in
-  `..\_archive\ai-hub-pre-purge-mirror-2026-08-10.git`). `main` has moved since (docs/cleanup
-  commits, plus one **behavior-affecting undeployed
-  change**: `d8fce39` corrects `backend/prompts/house_style.md` — a cloud Code session survives
-  a closed laptop. Prompts are baked into the image AND DB-overridable via the admin System
-  Prompts page, so a redeploy ships it unless a DB override already covers it).
+  image `ai-enablement-hub:20260917-085533`, revision `--0000038`, built from `main` @ `87a81a7`
+  (pre-rewrite SHA `8da7f12` for the `1b7546a`-era note this superseded — **git history was
+  rewritten 2026-08-10 to purge learner PII**, so SHAs in older notes/transcripts don't resolve;
+  the pre-rewrite mirror lives in `..\_archive\ai-hub-pre-purge-mirror-2026-08-10.git`). `main` ==
+  deployed as of this note, no known undeployed behavior changes. The two most recent deploys
+  both fix admin-panel bugs found while trying to delete a user through the People screen:
+  `1ea39a3` adds `GET /admin/users/{user_id}` — the People detail page used to resolve its
+  participant by scanning page 1 (50 users, unfiltered) of the same paginated list PeoplePage
+  shows, so anyone past the first page 404'd as "could not be found" and was unreachable for
+  edit/delete/role changes (SAP SCM alone had ~68 unreachable users); `87a81a7` adds the missing
+  `multiplier` entry to the admin Maturity badge palette, which was keyed on only the 3
+  scoring-engine-assignable levels and silently rendered a blank cell for anyone whose
+  `effective_maturity` resolved to `multiplier`.
 - **This file lags reality by design.** Trust the live system, not this log:
   `az containerapp show -n ai-enablement-hub -g imaginemore-playground --query
   properties.template.containers[0].image -o tsv` and `cd backend && uv run alembic current`.
   Recovering what a past deploy shipped: compare the image tag's timestamp with
   `git log --format=%ci`.
 - **DB:** alembic head **`1cd2cc2d05a9`** (prompts table) == code head, single linear chain.
-- **Scale:** ~84 endpoints across 19 routers (`backend/src/routers/`); feature-complete, in
+- **Scale:** ~85 endpoints across 19 routers (`backend/src/routers/`); feature-complete, in
   active content + AI-feature iteration. ~104 users as of 2026-08-04.
 - **Auth:** password (JWT) live; Entra ID OIDC code-complete but deployed **dark** (no
   `ENTRA__*` env on prod; blocked on one-time IT admin consent).
