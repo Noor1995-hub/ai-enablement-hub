@@ -56,9 +56,12 @@ untouched at `../app/`, historical only. The pre-cutover migration scripts were 
 - **Pending work queue:** `docs/reviews/2026-07-31/` — independent code+DB review + 5 fix-phase
   plans (A→B→C→D, E parallel; **phase C owns all new migrations**, chained off `1cd2cc2d05a9`).
   Unexecuted as of 2026-08-10.
-- **Way of working (2026-09-22):** Tier 0 guardrails shipped as PR #1 — protected `main`,
-  `CI` workflow, PR template, `CONTRIBUTING.md`, committed `.claude/settings.json` hooks,
-  `deploy.ps1` guard. Roadmap and open decisions: `docs/reviews/2026-09-17/`.
+- **Way of working (2026-09-22):** Tier 0 guardrails shipped as PR #1 (squash `dfa936f`) —
+  protected `main` (rulesets `main-ci` 23822345 + `main-review` 23822348 applied 2026-09-22),
+  `CI` workflow (backend job ≈ 2.5 min on a `postgres:18` service container, frontend ≈ 40 s),
+  PR template, `CONTRIBUTING.md`, committed `.claude/settings.json` hooks, `deploy.ps1` guard.
+  Direct pushes to `main` are rejected for everyone (probe-verified). Roadmap and open
+  decisions: `docs/reviews/2026-09-17/`.
 
 ## How to run & verify
 
