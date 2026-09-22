@@ -7,7 +7,7 @@ Orientation for this folder. The repo-wide entrypoint is the root `CLAUDE.md` (a
 |---|---|---|
 | `superpowers/specs/` | One design spec per feature (`YYYY-MM-DD-<topic>-design.md`). The convention for all feature work. | Living |
 | `superpowers/plans/` | The implementation plan for each spec (checkbox tasks, executed by agents). | Living |
-| `reviews/` | Code/DB audits and their remediation programmes. `2026-07-31/` holds the current **pending work queue**: the independent review + master plan + 5 phase plans (A–E, unexecuted). | Living |
+| `reviews/` | Code/DB audits and their remediation programmes. `2026-07-31/` holds the current **pending code/DB work queue**: the independent review + master plan + 5 phase plans (A–E, unexecuted). `2026-09-17/` holds the **way-of-working comparison** against the delaware house pattern (`bta-agents-portal`, `sb-accelerator`) with prioritised process recommendations + the two reference studies. | Living |
 | `content/` | Content model, authoring guide (**read before writing lessons**), review lens, process notes. The content itself lives in the DB, not the repo. | Living |
 | `db-backup-restore.md` | Operator runbook for the nightly DB backups + restore drills. | Living |
 | `ai-agents-plan.md` | AI features design (provider seam §7, key/spend §8b still authoritative). Much of it has shipped — see the status note in its header. | Partly historical |

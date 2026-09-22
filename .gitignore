@@ -9,6 +9,7 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .coverage
+coverage.xml
 *.pyc
 
 # Node (frontend)
@@ -25,5 +26,8 @@ backend/scripts/*_LIVE.json
 
 # Local agent-session state (never commit)
 memory/
-.claude/
+.claude/*
+!.claude/settings.json
+!.claude/hooks/
+.claude/hooks/__pycache__/
 .superpowers/

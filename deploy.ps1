@@ -8,6 +8,33 @@ param(
     [switch]$BuildOnly
 )
 $ErrorActionPreference = "Stop"
+# --- Interim guard (Tier 0, 2026-09-22): ship only the pushed origin/main. -------------------
+# `az acr build` uploads this directory as-is, so an uncommitted edit or an un-pushed commit
+# would go live untraceably (it has happened: 2026-07-22). Refuse both. Retired when the
+# CI-driven deploy lands (Tier 1); no -Force switch on purpose.
+$env:GIT_TERMINAL_PROMPT = "0"
+& git -C $PSScriptRoot fetch origin --quiet
+if ($LASTEXITCODE -ne 0) { throw "deploy guard: 'git fetch origin' failed - are you online and authenticated?" }
+$dirty = & git -C $PSScriptRoot status --porcelain
+if ($dirty) {
+    throw "deploy guard: working tree is dirty - commit or stash first. deploy.ps1 ships the directory as-is.`n$($dirty -join "`n")"
+}
+$head = & git -C $PSScriptRoot rev-parse HEAD
+if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($head)) {
+    throw "deploy guard: could not resolve HEAD - is $PSScriptRoot a git repository?"
+}
+$originMain = & git -C $PSScriptRoot rev-parse origin/main
+if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($originMain)) {
+    throw "deploy guard: could not resolve origin/main - does this clone have a full refspec for origin (not a single-branch/narrow clone)?"
+}
+$head = $head.Trim()
+$originMain = $originMain.Trim()
+if ($head -ne $originMain) {
+    throw "deploy guard: HEAD ($($head.Substring(0,7))) is not origin/main ($($originMain.Substring(0,7))). Merge the PR, then: git switch main; git pull; and deploy from there."
+}
+$subject = (& git -C $PSScriptRoot log -1 --format=%s).Trim()
+Write-Host "deploy guard: shipping $($head.Substring(0,7)) - $subject" -ForegroundColor Green
+# ------------------------------------------------------------------------------------------
 $env:PYTHONIOENCODING = "utf-8"
 $az = "C:\Program Files\Microsoft SDKs\Azure\CLI2\wbin\az.cmd"
 $registry = "ca530fc7463eacr"

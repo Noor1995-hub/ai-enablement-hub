@@ -1,0 +1,122 @@
+# CI for the AI Enablement Hub — runs on every pull request and every push to main.
+#
+# JOB NAMES ARE LOAD-BEARING. The `main-ci` ruleset (.github/rulesets/main-ci.json) requires
+# the `name:` of the backend and frontend jobs as status-check contexts. Renaming a job here
+# without updating the ruleset blocks every merge. The `staged` job is deliberately NOT required
+# (continue-on-error) — promote it in the ruleset once it has been green for a while.
+#
+# The backend job runs the real pytest suite against a throwaway Postgres 18 service container
+# (not the shared Azure test DB): tests/conftest.py derives its DSN from ALEMBIC_DATABASE_URL,
+# swaps the database name to ai-enablement-hub-test, creates the schema from Base.metadata and
+# forces email/storage/llm settings to None — so no *real* secrets are needed here. AUTH__JWT_SECRET
+# below is a required-but-not-secret placeholder (Settings.auth has no default; see its env block).
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # Superseded PR runs are cancelled; pushes to main never are.
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  backend:
+    name: backend (format + lint + tests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: hub
+          POSTGRES_PASSWORD: hub
+          POSTGRES_DB: ai-enablement-hub-test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U hub -d ai-enablement-hub-test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # conftest asserts the database name ends in "-test" before it drops/creates the schema.
+      ALEMBIC_DATABASE_URL: postgresql+asyncpg://hub:hub@localhost:5432/ai-enablement-hub-test
+      # Settings.auth has no default (core/configs/auth.py) so the app refuses to start
+      # without it — conftest imports src.main at collection time, before any test can
+      # monkeypatch it. Not a real secret; only needs >=32 chars of entropy to pass
+      # AuthSettings' validator. No email/storage/llm secrets are needed (all default to None).
+      AUTH__JWT_SECRET: ci-only-placeholder-jwt-secret-not-a-real-value
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - name: Install (locked, all extras — llm_service imports anthropic at module level)
+        run: uv sync --frozen --all-extras
+      - name: Format check
+        run: uv run poe format-check
+      - name: Lint (src, tests, alembic)
+        run: uv run poe lint-src
+      - name: Tests with coverage
+        # -n 4 rather than -n auto: the runner has 4 vCPUs and conftest's auto rule would leave
+        # only 2 workers. Coverage is measured and uploaded; no threshold yet (Tier 2).
+        run: uv run pytest tests -n 4 --cov=src --cov-report=xml --cov-report=term
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-coverage
+          path: backend/coverage.xml
+          retention-days: 14
+
+  frontend:
+    name: frontend (typecheck + lint + build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run build
+
+  staged:
+    # Not required by the ruleset. Runs the checks that are not clean yet (30 ruff findings in
+    # backend/scripts, ~25 ty diagnostics) so the debt is visible on every PR without blocking.
+    name: staged (scripts lint + ty) — not required
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    continue-on-error: true
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - run: uv sync --frozen --all-extras
+      - name: Lint scripts
+        run: uv run ruff check scripts
+      - name: Type check
+        run: uv run poe ty

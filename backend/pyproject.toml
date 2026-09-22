@@ -54,7 +54,12 @@ dev = "python -m src.main"
 startup = "python startup.py"
 test = "pytest tests -v -n auto"
 format = "ruff format ."
+# CI-facing variants: format-check never writes; lint-src scopes to the app, tests and
+# migrations (backend/scripts carries pre-existing findings owned by the 2026-07-31 fix
+# programme and is linted by the non-required "staged" CI job instead).
+format-check = "ruff format --check ."
 lint = "ruff check ."
+lint-src = "ruff check src tests alembic"
 ty = "uvx ty check ."
 migrate = "alembic revision --autogenerate -m"
 upgrade = "alembic upgrade head"

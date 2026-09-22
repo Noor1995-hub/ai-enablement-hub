@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python .claude/hooks/git_freshness.py",
+            "timeout": 30,
+            "statusMessage": "Checking how far behind origin/main this checkout is..."
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python .claude/hooks/prod_asset_nudge.py",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash(uv run poe test:*)",
+      "Bash(uv run poe format:*)",
+      "Bash(uv run poe format-check:*)",
+      "Bash(uv run poe lint:*)",
+      "Bash(uv run poe lint-src:*)",
+      "Bash(uv run poe ty:*)",
+      "Bash(uv run pytest:*)",
+      "Bash(uv run ruff:*)",
+      "Bash(npm run:*)",
+      "Bash(gh pr view:*)",
+      "Bash(gh pr list:*)",
+      "Bash(gh pr checks:*)",
+      "Bash(gh issue view:*)",
+      "Bash(gh issue list:*)",
+      "Bash(gh run list:*)",
+      "Bash(gh run view:*)"
+    ],
+    "ask": [
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git push * main)",
+      "Bash(git push *:main)",
+      "Bash(*deploy.ps1*)",
+      "Bash(*az containerapp*)",
+      "Bash(*alembic upgrade*)",
+      "Bash(uv run poe upgrade:*)",
+      "Bash(uv run poe downgrade:*)",
+      "Bash(uv run poe migrate:*)",
+      "Bash(uv run poe startup:*)",
+      "Bash(*alembic downgrade*)",
+      "Bash(git push --force-with-lease:*)",
+      "Bash(git push origin +*)",
+      "PowerShell(*deploy.ps1*)",
+      "PowerShell(*az containerapp*)",
+      "PowerShell(*alembic upgrade*)",
+      "PowerShell(*alembic downgrade*)",
+      "PowerShell(*poe upgrade*)",
+      "PowerShell(*poe downgrade*)",
+      "PowerShell(git push --force*)",
+      "PowerShell(git push * main)",
+      "PowerShell(git push *:main)"
+    ]
+  }
+}

@@ -31,6 +31,8 @@ discipline in [CLAUDE.md](CLAUDE.md) first.
 
 ## Where to look
 
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** — how to make a change: branch → PR → green CI → squash
+  merge. `main` is protected. **Humans: read this first.**
 - **[CLAUDE.md](CLAUDE.md)** — the operational guide (current state, conventions, feature
   index, locking semantics, deploy/ops). **AI agents: read this first.**
 - **[python-be-architecture.md](python-be-architecture.md)** — mandatory backend conventions.

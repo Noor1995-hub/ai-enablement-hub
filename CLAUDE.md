@@ -48,16 +48,25 @@ untouched at `../app/`, historical only. The pre-cutover migration scripts were 
   Copilot II, Claude II, Capstone-only For Developers). Content model:
   `docs/content/README.md`; active content specs: `2026-07-29-general-iii-track-design.md`,
   `2026-07-31-multiplier-level-rewrite-design.md`.
-- **Git:** `main` is the only long-lived branch; use `feature/*` for work and fast-forward
-  `main`. `deploy.ps1` builds the **working directory, not git** — push after every deploy.
+- **Git:** `main` is the only long-lived branch and is **protected** (rulesets in
+  `.github/rulesets/`): every change is a `<type>/<topic>` branch → pull request → both `CI`
+  checks green → **squash merge**. No direct pushes, no force-pushes, admins included. Flow and
+  policy: `CONTRIBUTING.md`. `deploy.ps1` builds the **working directory, not git**, and since
+  2026-09-22 refuses to run unless the tree is clean and `HEAD == origin/main`.
 - **Pending work queue:** `docs/reviews/2026-07-31/` — independent code+DB review + 5 fix-phase
   plans (A→B→C→D, E parallel; **phase C owns all new migrations**, chained off `1cd2cc2d05a9`).
   Unexecuted as of 2026-08-10.
+- **Way of working (2026-09-22):** Tier 0 guardrails shipped as PR #1 — protected `main`,
+  `CI` workflow, PR template, `CONTRIBUTING.md`, committed `.claude/settings.json` hooks,
+  `deploy.ps1` guard. Roadmap and open decisions: `docs/reviews/2026-09-17/`.
 
 ## How to run & verify
 
-- **Backend** (inside `backend/`): checks = `uv run poe format && uv run poe lint && uv run poe test`
-  (integration tests hit the `ai-enablement-hub-test` Azure PG DB). Dev server: `uv run poe dev`
+- **Backend** (inside `backend/`): checks = `uv run poe format-check && uv run poe lint-src &&
+  uv run poe test` — the same three CI runs (`poe format` rewrites, `poe lint` also covers
+  `scripts/`, which carries known findings and is linted by the non-required `staged` CI job).
+  Locally the integration tests hit the `ai-enablement-hub-test` Azure PG DB; in CI they run
+  against a throwaway `postgres:18` service container. Dev server: `uv run poe dev`
   (→ :8000, Swagger at `/docs`). Migrations: `uv run poe upgrade`.
 - **Frontend** (inside `frontend/`): checks = `npm run typecheck && npm run lint && npm run build`.
   Dev: `npm run dev` (→ :5173, proxies `/api` → :8000). After a backend contract change,
@@ -216,13 +225,14 @@ git log + the specs themselves.
   Multi-stage `Dockerfile`: node builds `frontend/` → uv installs backend → `python:3.13-slim`
   runs `startup.py` (**alembic upgrade, then uvicorn** — migrations apply on container start;
   startup probe budgets ~240 s for them) and serves the SPA from `/app/static`.
-- **Deploy procedure (the discipline is hard-won):** commit only the specific change (never a
-  blanket `git add -A`), push, then build from a **fresh `git worktree` of the pushed commit**
-  (short path near the drive root, `-c core.longpaths=true`), because `az acr build` uploads
-  the working directory as-is. Run `.\deploy.ps1` from that worktree. After deploying:
-  fast-forward `main` and push. Post-deploy checks: `/api/health`, `/api/auth/methods`,
-  `latestReadyRevision == latestRevision`, and for frontend changes grep the served
-  `/assets/index-*.js` for a new copy string.
+- **Deploy procedure (the discipline is hard-won):** merge the PR (squash), then
+  `git switch main && git pull`, then run `.\deploy.ps1`. The script's guard (2026-09-22)
+  refuses a dirty tree or any `HEAD` other than `origin/main`, because `az acr build` uploads
+  the working directory as-is. Building from a **fresh `git worktree` of `origin/main`** (short
+  path near the drive root, `-c core.longpaths=true`) remains the safest way to satisfy it.
+  Post-deploy checks: `/api/health`, `/api/auth/methods`, `latestReadyRevision ==
+  latestRevision`, and for frontend changes grep the served `/assets/index-*.js` for a new copy
+  string. CI-driven deploy is Tier 1 of `docs/reviews/2026-09-17/`.
 - **Gotchas:**
   - **Never pipe `deploy.ps1` through `Tee-Object`/`2>&1`** — `az acr build` writes progress
     to stderr and under PS 5.1 + `$ErrorActionPreference=Stop` the script dies *after* queuing
