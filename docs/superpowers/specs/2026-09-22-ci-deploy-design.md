@@ -206,3 +206,33 @@ Steps (all shell, inputs only via `env:`, `set -euo pipefail`):
 - Shrinking the live startup probe `failureThreshold` (template updated, live untouched).
 - `:latest` tag deliberately not pushed; the backup job's "roll both jobs together" note is unrelated.
 - Whether to add a Teams/email notification on deploy (later, with alerting in Tier 2.9).
+
+---
+
+## 8. Amendments after the first run (2026-09-23)
+
+Reality corrected five things in this spec. The workflow, script and docs on `main` are the
+authority; these notes exist so the spec is not read as current where it is wrong.
+
+1. **Rollback skips the migration step** (§3.4 step 5, §5 rollback drill). The spec said the job
+   "runs (no-op)" on rollback. It must not run: an older image's `versions/` cannot contain a
+   newer DB revision, so `alembic upgrade head` would fail and block the very rollback you need.
+   The step now carries `if: steps.resolve.outputs.build == 'true'`. Migrations are expand-first
+   and one-directional, so the older code runs on the newer schema.
+2. **A failed migration untags its image** (new). The image is pushed before the migration runs,
+   so a failed migration would otherwise leave a SHA tag that a later rollback would trust and
+   deploy against an unapplied schema. The failure path now calls `az acr repository untag`,
+   which is why the identity also holds **`AcrDelete`** on the registry (§3.1 role list).
+3. **The migration poll budget is ~11 min, not 5** (§3.4 step 5 vs §3.1). Five minutes was
+   shorter than the job's own `replicaTimeout` of 600 s, so the workflow could report failure
+   while the job was still applying DDL. The poll now outlives the job and says so if it times out.
+4. **The identity needs BOTH OIDC subject forms** (§3.1 step 2). GitHub presented the immutable
+   subject `repo:DLW-INT-BTA-BELUX@298414563/ai-enablement-hub@1329831650:ref:refs/heads/main`
+   and Azure rejected the plain-form credential with `AADSTS700213`. `infra/50-cicd.ps1` now
+   creates `github-ai-hub-main` and `github-ai-hub-main-immutable`.
+5. **§3.5's claim that the existing `*deploy.ps1*` ask-pattern covers the renamed script is
+   wrong** — `*deploy.ps1*` does not match `deploy-legacy.ps1`. Explicit entries were added, as
+   were entries for `migrate.py`, `containerapp job start` and `gh workflow run`.
+
+Also worth knowing: PowerShell variable names are case-insensitive, so a probe assigned to
+`$job` silently destroyed the `$JOB` name constant. Never name a probe after a constant.

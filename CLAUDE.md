@@ -19,7 +19,9 @@ untouched at `../app/`, historical only. The pre-cutover migration scripts were 
 ## Current state (2026-09-17)
 
 - **Live:** https://ai-enablement-hub.kindcoast-3b1fe056.swedencentral.azurecontainerapps.io —
-  **ask the app**: `/api/health` returns `build_sha`/`build_time` from the first CI deploy onward. Before that:
+  **ask the app, never this file**: `curl .../api/health` returns `build_sha` (the deployed
+  commit) and `build_time`; the admin Setup page shows the same as a Deployment card. Images are
+  tagged with the commit SHA since the first CI deploy (2026-09-23). Historical only:
   image `ai-enablement-hub:20260917-085533`, revision `--0000038`, `main` @ `87a81a7`
   (pre-rewrite SHA `8da7f12` for the `1b7546a`-era note this superseded — **git history was
   rewritten 2026-08-10 to purge learner PII**, so SHAs in older notes/transcripts don't resolve;
@@ -64,8 +66,17 @@ untouched at `../app/`, historical only. The pre-cutover migration scripts were 
   `CI` workflow (backend job ≈ 2.5 min on a `postgres:18` service container, frontend ≈ 40 s),
   PR template, `CONTRIBUTING.md`, committed `.claude/settings.json` hooks, the interim deploy
   guard (script since retired to `infra/deploy-legacy.ps1` by the Tier 1 CI deploy, 2026-09-22).
-  Direct pushes to `main` are rejected for everyone (probe-verified). Roadmap and open
-  decisions: `docs/reviews/2026-09-17/`.
+  Direct pushes to `main` are rejected for everyone (probe-verified).
+- **Way of working (2026-09-23):** Tier 1 CI deploy live (PR #4 `a0b35d8`, fixes #5/#6). **First CI
+  deploy 2026-09-23, run `35854398270`, sha `7cd9cab`, revision `--0000039`** — build 58 s,
+  migration job 88 s (`Succeeded` at 11:27:49, before the revision at 11:28:05), roll 16 s, health
+  poll 39 s; container log shows uvicorn only, no Alembic. Rollback drill (run `35855219249`)
+  skipped build **and** migration, rolled to `--0000040`, same `build_sha`, fresh `build_time`.
+  Two traps found by running it, both fixed: a PowerShell case-insensitive `$job`/`$JOB` collision
+  blanked the job name, and GitHub now presents the **immutable** OIDC subject
+  (`repo:<org>@<orgId>/<repo>@<repoId>:ref:...`) so the identity carries both subject forms —
+  **`bta-portal-cicd` has only the plain form and will hit the same failure; tell Michael.**
+  Roadmap and open decisions: `docs/reviews/2026-09-17/`.
 
 ## How to run & verify
 
