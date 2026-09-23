@@ -20,6 +20,9 @@ $RG       = 'imaginemore-playground'
 $CAE      = 'imaginemore-playground-cae'
 $IDENTITY = 'ai-hub-cicd'
 $FIC      = 'github-ai-hub-main'
+# GitHub's immutable subject claim embeds the numeric org and repo ids; both are stable.
+$FIC_IMMUTABLE  = 'github-ai-hub-main-immutable'
+$REPO_IMMUTABLE = 'DLW-INT-BTA-BELUX@298414563/ai-enablement-hub@1329831650'
 $REPO     = 'DLW-INT-BTA-BELUX/ai-enablement-hub'
 $ACR      = 'ca530fc7463eacr'
 $APP      = 'ai-enablement-hub'
@@ -62,15 +65,24 @@ if (-not $id) { $id = Invoke-Az @('identity','create','-g',$RG,'-n',$IDENTITY,'-
 $CLIENT_ID = $id.clientId; $PRINCIPAL_ID = $id.principalId; $TENANT_ID = $id.tenantId
 
 Write-Host '== 2/5 federated credential ==' -ForegroundColor Cyan
+# TWO credentials, because GitHub may present either subject form:
+#   plain      repo:<org>/<repo>:ref:refs/heads/main
+#   immutable  repo:<org>@<orgId>/<repo>@<repoId>:ref:refs/heads/main
+# The immutable form is what this org's runners actually presented on 2026-09-23
+# (AADSTS700213 on the first Deploy run, before the plain one was supplemented).
+# Keeping both means a GitHub-side toggle in either direction cannot break the deploy.
 $fics = & $az identity federated-credential list -g $RG --identity-name $IDENTITY -o json | ConvertFrom-Json
 if ($LASTEXITCODE -ne 0) { throw 'federated-credential list failed' }
-if (-not ($fics | Where-Object { $_.name -eq $FIC })) {
-    Invoke-Az @('identity','federated-credential','create','--name',$FIC,'--identity-name',$IDENTITY,'-g',$RG,
-        '--issuer','https://token.actions.githubusercontent.com',
-        '--subject',"repo:$REPO`:ref:refs/heads/main",
-        '--audiences','api://AzureADTokenExchange') | Out-Null
-    Write-Host 'created'
-} else { Write-Host 'exists' }
+$subjects = @{ $FIC = "repo:$REPO`:ref:refs/heads/main"; $FIC_IMMUTABLE = "repo:$REPO_IMMUTABLE`:ref:refs/heads/main" }
+foreach ($ficName in @($FIC, $FIC_IMMUTABLE)) {
+    if (-not ($fics | Where-Object { $_.name -eq $ficName })) {
+        Invoke-Az @('identity','federated-credential','create','--name',$ficName,'--identity-name',$IDENTITY,'-g',$RG,
+            '--issuer','https://token.actions.githubusercontent.com',
+            '--subject',$subjects[$ficName],
+            '--audiences','api://AzureADTokenExchange') | Out-Null
+        Write-Host "  $ficName : created"
+    } else { Write-Host "  $ficName : exists" }
+}
 
 Write-Host '== 3/5 roles ==' -ForegroundColor Cyan
 $acrId = & $az acr show -n $ACR --query id -o tsv
