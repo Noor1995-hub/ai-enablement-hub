@@ -48,7 +48,7 @@ Secrets live in `db/.env` and `backend/.env` — both git-ignored. Never commit 
 
 | File | Purpose |
 |---|---|
-| `provision_roles.py` | One-time (idempotent) role + test-DB + default-privileges setup. Requires az CLI login as the Entra admin. `--rotate-passwords` resets role passwords. |
+| `provision_roles.py` | One-time (idempotent) role + test-DB + default-privileges setup. Requires az CLI login as the Entra admin. `--rotate-passwords` resets role passwords. After a rotation also update the migrate job's secret: `az containerapp job secret set -g imaginemore-playground -n ai-enablement-hub-migrate --secrets alembic-database-url=<new url>` (and the app's `alembic-database-url` / `database-password` secrets as before). |
 | `baseline/supabase_schema_record.md` | Frozen record of the live Supabase schema (columns, constraints, indexes, FK actions, RLS policies, functions) as of 2026-07-03. |
 | `baseline/data/*.json` | The frozen pre-cutover data snapshot (historical only). The git-ignored `invite_tokens.json` was deleted 2026-08-10 (contained real emails + possibly-redeemable recovery links). |
 | `content_tools/` | Reusable scripts for live lesson-content edit passes (fetch, quiz-bias check, locator-based edit/apply, baseline re-sync). Built for the General I/II content review round (2026-07-15/16); see that folder's own docstrings for usage. Safe-write pattern: fetch fresh → dry-run → `apply_content_edits.py --apply` → verify → `sync_baseline.py`. |

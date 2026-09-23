@@ -4,9 +4,9 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager, suppress
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
 
-from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
@@ -16,6 +16,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import RequestResponseEndpoint
 
 from src.core.configs.database import DatabaseProtocol
+from src.core.configs.settings import Settings
 from src.core.dependencies.settings import get_settings
 from src.repositories.auth_session_repository import AuthSessionRepository
 from src.repositories.auth_token_repository import AuthTokenRepository
@@ -42,6 +43,7 @@ from src.routers import (
     me,
     survey,
 )
+from src.schemas.health import HealthOut
 from src.services.exceptions import (
     AiGenerationError,
     ComponentLockedError,
@@ -335,9 +337,11 @@ async def validation_exception_handler(
     )
 
 
-@app.get("/api/health")
-async def health() -> dict[str, str]:
-    return {"status": "ok"}
+@app.get("/api/health", response_model=HealthOut)
+async def health(settings: Annotated[Settings, Depends(get_settings)]) -> HealthOut:
+    return HealthOut(
+        status="ok", build_sha=settings.app.build_sha, build_time=settings.app.build_time
+    )
 
 
 # --- SPA serving (container only) -------------------------------------------

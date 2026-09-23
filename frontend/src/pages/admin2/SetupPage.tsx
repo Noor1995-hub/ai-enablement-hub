@@ -1,10 +1,20 @@
 import { useState, type FormEvent } from 'react'
-import { useCompanies, useCreateCompany, useCreateProject } from './api'
+import { useCompanies, useCreateCompany, useCreateProject, useHealth } from './api'
 import { Card, ErrorState, Spinner } from './kit'
 
 interface FormMsg {
   ok: boolean
   text: string
+}
+
+/** "22 Sep 2026, 14:05 UTC" — absolute, because "3 hours ago" goes stale on a page left open. */
+function formatDeployedAt(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso
+  return (
+    d.toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) +
+    ' UTC'
+  )
 }
 
 /** Setup screen (spec §3.6, `/admin/setup`) — ports the old panel's
@@ -18,6 +28,7 @@ interface FormMsg {
  * it has no counterpart in the real component this task lifts from. */
 export default function SetupPage() {
   const companiesQuery = useCompanies()
+  const healthQuery = useHealth()
   const createCompany = useCreateCompany()
   const createProject = useCreateProject()
 
@@ -186,6 +197,30 @@ export default function SetupPage() {
           </form>
         </Card>
       </div>
+
+      <Card title="Deployment">
+        {healthQuery.data ? (
+          healthQuery.data.build_sha === 'dev' ? (
+            <p className="adm-subtext">Development build (no BUILD_SHA stamped).</p>
+          ) : (
+            <p>
+              Build{' '}
+              <a
+                href={`https://github.com/DLW-INT-BTA-BELUX/ai-enablement-hub/commit/${healthQuery.data.build_sha}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <code>{healthQuery.data.build_sha.slice(0, 7)}</code>
+              </a>
+              {healthQuery.data.build_time && (
+                <span className="adm-subtext"> — deployed {formatDeployedAt(healthQuery.data.build_time)}</span>
+              )}
+            </p>
+          )
+        ) : (
+          <p className="adm-subtext">{healthQuery.isError ? 'Deployment info unavailable.' : 'Loading…'}</p>
+        )}
+      </Card>
     </div>
   )
 }

@@ -15,6 +15,7 @@ from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.pool import NullPool
 from sqlalchemy.schema import DropTable
 
+from src.core.configs.app import AppSettings
 from src.core.configs.auth import AuthSettings
 from src.core.configs.settings import Settings
 from src.core.dependencies.database import get_session
@@ -97,6 +98,7 @@ def test_settings() -> Settings:
     # carries EMAIL__*/STORAGE__*/LLM__* values.
     return Settings(
         auth=AuthSettings(jwt_secret=SecretStr("integration-test-jwt-secret-0123456789")),
+        app=AppSettings(build_sha="test-sha", build_time="2026-01-01T00:00:00Z"),
         email=None,
         storage=None,
         llm=None,

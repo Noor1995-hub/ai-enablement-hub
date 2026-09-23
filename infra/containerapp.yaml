@@ -64,8 +64,9 @@ properties:
           - name: STORAGE__CONNECTION_STRING
             secretRef: storage-connection-string
         probes:
-          # startup.py runs `alembic upgrade head` BEFORE uvicorn binds :8000,
-          # so nothing answers until migrations finish - budget ~240s.
+          # Migrations run in the ai-enablement-hub-migrate job before each deploy (since
+          # 2026-09-22); the container only starts uvicorn, so ~60s is ample. Template only:
+          # the live app keeps its earlier 240s budget until someone re-applies the YAML.
           - type: Startup
             httpGet:
               path: /api/health
@@ -73,7 +74,7 @@ properties:
             initialDelaySeconds: 5
             periodSeconds: 5
             timeoutSeconds: 3
-            failureThreshold: 48
+            failureThreshold: 12
           - type: Readiness
             httpGet:
               path: /api/health

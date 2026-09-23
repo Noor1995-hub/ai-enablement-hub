@@ -1,7 +1,9 @@
 # One-time creation of the ai-enablement-hub Container App.
-# Prereqs: image already pushed (deploy.ps1 or `az acr build`), backend\.env present.
-# Redeploys afterwards use ..\deploy.ps1 - never this script (it would need the
-# secrets again; `az containerapp update` preserves them).
+# Prereqs: image already pushed (the Deploy workflow, infra/deploy-legacy.ps1, or `az acr
+# build` directly), backend\.env present.
+# Redeploys afterwards use the GitHub Actions Deploy workflow (break-glass: .\deploy-legacy.ps1
+# in this folder) - never this script (it would need the secrets again; `az containerapp
+# update` preserves them).
 param(
     [Parameter(Mandatory = $true)][string]$Tag
 )

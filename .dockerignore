@@ -1,13 +1,14 @@
-# `az acr build` tars and uploads the ENTIRE folder (git-ignored files included)
-# before building. The .env exclusions below keep live credentials off the build
-# agents; the rest just shrinks the upload.
+# `az acr build` (used by the Deploy workflow, or break-glass by infra/deploy-legacy.ps1)
+# tars and uploads the ENTIRE folder (git-ignored files included) before building. The
+# .env exclusions below keep live credentials off the build agents; the rest just shrinks
+# the upload.
 
 # secrets — never upload
 **/.env
 **/.env.*
 !backend/.env.local.example
 
-# NOTE: the old az CLI on this machine (used by deploy.ps1) has a buggy
+# NOTE: the old az CLI on this machine (used by infra/deploy-legacy.ps1) has a buggy
 # .dockerignore matcher: `dir/` trailing-slash patterns are NOT honored when it
 # packs the upload tar (verified 2026-07-03 — db/ and node_modules went up).
 # Every directory is therefore listed BOTH bare and with /** so both the local
@@ -58,4 +59,13 @@ CLAUDE.md
 .claude
 .claude/**
 .gitignore
-deploy.ps1
+.github
+.github/**
+.git
+.git/**
+.superpowers
+.superpowers/**
+memory
+memory/**
+scratch_review
+scratch_review/**

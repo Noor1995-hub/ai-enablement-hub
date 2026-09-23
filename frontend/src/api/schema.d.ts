@@ -2451,6 +2451,21 @@ export interface components {
             detail?: components["schemas"]["ValidationError"][];
         };
         /**
+         * HealthOut
+         * @description Liveness + build identity. `build_sha` is the deploy workflow's read-back target.
+         */
+        HealthOut: {
+            /**
+             * Status
+             * @constant
+             */
+            status: "ok";
+            /** Build Sha */
+            build_sha: string;
+            /** Build Time */
+            build_time: string;
+        };
+        /**
          * ImprovementRunRequest
          * @description The lessons the admin picked out of the queue. Explicit on purpose — a
          *     run that chose for itself would spend money on lessons nobody asked about.
@@ -6250,9 +6265,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: string;
-                    };
+                    "application/json": components["schemas"]["HealthOut"];
                 };
             };
         };

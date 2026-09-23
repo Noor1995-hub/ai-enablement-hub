@@ -76,17 +76,22 @@ Definitions live in `.github/rulesets/`; apply/verify instructions are in that f
 
 ## Deploying
 
-Deploying is still a manual step (`.\deploy.ps1`, see `CLAUDE.md` → "Deployment & operations").
-The script refuses to run unless your working tree is clean **and** your `HEAD` is exactly the
-pushed `origin/main` — so: merge the PR, `git switch main && git pull`, then deploy. Moving the
-deploy into CI is the next step of the roadmap (`docs/reviews/2026-09-17/`, Tier 1).
+Deploying is a button, not a script: GitHub → **Actions** → **Deploy** → **Run workflow** (on
+`main`). It builds exactly what the last merged PR put on `main`, runs the database migration
+first and stops if that fails, rolls the app, and checks `/api/health` reports the new build.
+Takes about 6–8 minutes; watch the run's summary. Deploy only merged work — if something must go
+live urgently, merge it first. To roll back, run Deploy again and paste a previous commit SHA
+into `image_sha` (works from the second CI deploy onward — see CLAUDE.md for the one-off revert
+before that). What is live right now: `/api/health` or the Deployment card on the admin
+Setup page. The old laptop script is break-glass only (`infra/deploy-legacy.ps1`).
 
 ## Working with Claude Code in this repo
 
 `.claude/settings.json` is committed. On session start it tells you if your `main` is behind
 `origin/main`; when a file under `frontend/src/`, `backend/prompts/` or `backend/alembic/versions/`
 is edited it reminds you what that file needs before it is done; and it asks before force-pushing,
-pushing to `main`, running `deploy.ps1`, `az containerapp …` or `alembic upgrade`. Your personal
+pushing to `main`, running `infra/deploy-legacy.ps1`, starting the migrate job, running
+`gh workflow run`, `az containerapp …` or `alembic upgrade`. Your personal
 overrides go in the git-ignored `.claude/settings.local.json`.
 
 ## Where the deeper docs are

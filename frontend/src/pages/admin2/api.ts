@@ -4,6 +4,7 @@
 // optimistic updates are a later (Phase C) concern, not this task's.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { client, errorMessage } from '../../api/client'
+import type { components } from '../../api/schema'
 import type {
   AdminFeedbackListResponse,
   AdminInterview,
@@ -41,6 +42,10 @@ import type {
   SuggestTriageResponse,
   Track,
 } from '../../types/domain'
+
+// `HealthOut` has no `types/domain.ts` alias yet (Task 2 only regenerated the schema) — pull it
+// straight off the generated `components['schemas']` map, same aliasing pattern domain.ts uses.
+type HealthOut = components['schemas']['HealthOut']
 
 // ── Interim raw-fetch escape hatch ─────────────────────────────────────────────────────────
 // openapi-fetch's client.GET/PUT/POST/PATCH are typed strictly against the generated `paths`
@@ -156,6 +161,21 @@ export function useCompanies() {
   return useQuery({
     queryKey: ['admin', 'companies'] as const,
     queryFn: fetchCompanies,
+  })
+}
+
+async function fetchHealth(): Promise<HealthOut> {
+  const { data, error } = await client.GET('/api/health')
+  if (!data) throw new Error(errorMessage(error, 'Failed to load deployment info.'))
+  return data
+}
+
+/** Build identity of the running backend (stamped by the Deploy workflow). */
+export function useHealth() {
+  return useQuery({
+    queryKey: ['admin', 'health'] as const,
+    queryFn: fetchHealth,
+    staleTime: 60_000,
   })
 }
 

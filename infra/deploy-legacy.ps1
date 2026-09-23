@@ -1,29 +1,39 @@
-# Build the image in ACR (no local Docker needed) and roll the container app to it.
-# Usage: .\deploy.ps1            (tag = timestamp)
-#        .\deploy.ps1 -Tag v2   (explicit tag)
-#        .\deploy.ps1 -BuildOnly (push the image but don't touch the app — used
-#                                 before the one-time infra\deploy-initial.ps1)
+# infra/deploy-legacy.ps1 - BREAK-GLASS ONLY. The normal deploy is the GitHub Actions "Deploy"
+# button (.github/workflows/deploy.yml). Use this only if GitHub Actions is unavailable.
+#
+# It builds the WORKING DIRECTORY in ACR and rolls the app. The guard below still requires a
+# clean tree at origin/main.
+# It does NOT run migrations by itself. Break-glass sequence (PowerShell, repo root, tree clean at origin/main):
+#   1. $t = Get-Date -Format yyyyMMdd-HHmmss;  .\infra\deploy-legacy.ps1 -BuildOnly -Tag $t      # build+push only
+#   2. & 'C:\Program Files\Microsoft SDKs\Azure\CLI2\wbin\az.cmd' containerapp job update -g imaginemore-playground -n ai-enablement-hub-migrate --image ca530fc7463eacr.azurecr.io/ai-enablement-hub:$t --command python --args migrate.py
+#      & 'C:\Program Files\Microsoft SDKs\Azure\CLI2\wbin\az.cmd' containerapp job start  -g imaginemore-playground -n ai-enablement-hub-migrate     # wait until the execution shows Succeeded
+#   3. .\infra\deploy-legacy.ps1 -Tag $t                                                    # same tag: rolls the app (rebuilds the identical tree)
+# It does NOT stamp APP__BUILD_SHA/TIME: /api/health keeps reporting the previous button deploy until the next one.
+# Usage: .\infra\deploy-legacy.ps1            (tag = timestamp)
+#        .\infra\deploy-legacy.ps1 -BuildOnly (push the image but don't touch the app)
 param(
     [string]$Tag = (Get-Date -Format "yyyyMMdd-HHmmss"),
     [switch]$BuildOnly
 )
 $ErrorActionPreference = "Stop"
+# Repo root: this script lives in infra/, the guard and the ACR build context need the parent.
+$repoRoot = Split-Path $PSScriptRoot -Parent
 # --- Interim guard (Tier 0, 2026-09-22): ship only the pushed origin/main. -------------------
 # `az acr build` uploads this directory as-is, so an uncommitted edit or an un-pushed commit
 # would go live untraceably (it has happened: 2026-07-22). Refuse both. Retired when the
 # CI-driven deploy lands (Tier 1); no -Force switch on purpose.
 $env:GIT_TERMINAL_PROMPT = "0"
-& git -C $PSScriptRoot fetch origin --quiet
+& git -C $repoRoot fetch origin --quiet
 if ($LASTEXITCODE -ne 0) { throw "deploy guard: 'git fetch origin' failed - are you online and authenticated?" }
-$dirty = & git -C $PSScriptRoot status --porcelain
+$dirty = & git -C $repoRoot status --porcelain
 if ($dirty) {
-    throw "deploy guard: working tree is dirty - commit or stash first. deploy.ps1 ships the directory as-is.`n$($dirty -join "`n")"
+    throw "deploy guard: working tree is dirty - commit or stash first. deploy-legacy.ps1 ships the directory as-is.`n$($dirty -join "`n")"
 }
-$head = & git -C $PSScriptRoot rev-parse HEAD
+$head = & git -C $repoRoot rev-parse HEAD
 if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($head)) {
-    throw "deploy guard: could not resolve HEAD - is $PSScriptRoot a git repository?"
+    throw "deploy guard: could not resolve HEAD - is $repoRoot a git repository?"
 }
-$originMain = & git -C $PSScriptRoot rev-parse origin/main
+$originMain = & git -C $repoRoot rev-parse origin/main
 if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($originMain)) {
     throw "deploy guard: could not resolve origin/main - does this clone have a full refspec for origin (not a single-branch/narrow clone)?"
 }
@@ -32,7 +42,7 @@ $originMain = $originMain.Trim()
 if ($head -ne $originMain) {
     throw "deploy guard: HEAD ($($head.Substring(0,7))) is not origin/main ($($originMain.Substring(0,7))). Merge the PR, then: git switch main; git pull; and deploy from there."
 }
-$subject = (& git -C $PSScriptRoot log -1 --format=%s).Trim()
+$subject = (& git -C $repoRoot log -1 --format=%s).Trim()
 Write-Host "deploy guard: shipping $($head.Substring(0,7)) - $subject" -ForegroundColor Green
 # ------------------------------------------------------------------------------------------
 $env:PYTHONIOENCODING = "utf-8"
@@ -49,7 +59,7 @@ $image = "ai-enablement-hub:$Tag"
 # only the local log display was crashing). Don't redirect its stderr (no 2>&1):
 # under PowerShell 5.1 + $ErrorActionPreference=Stop that turns az's harmless
 # stderr WARNING lines into terminating NativeCommandErrors, even on exit 0.
-& $az acr build --no-wait --registry $registry --image $image --platform linux/amd64 --file (Join-Path $PSScriptRoot "Dockerfile") $PSScriptRoot | Out-Null
+& $az acr build --no-wait --registry $registry --image $image --platform linux/amd64 --file (Join-Path $repoRoot "Dockerfile") $repoRoot | Out-Null
 if ($LASTEXITCODE -ne 0) { throw "acr build queue failed" }
 
 $run = & $az acr task list-runs --registry $registry --top 1 -o json | ConvertFrom-Json

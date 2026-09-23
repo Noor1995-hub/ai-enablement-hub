@@ -19,6 +19,11 @@ class AppSettings(BaseModel):
     url: str = "http://localhost:5173"
     env: Literal["dev", "prod"] = "dev"
 
+    # Stamped by .github/workflows/deploy.yml at roll time (APP__BUILD_SHA = full commit SHA,
+    # APP__BUILD_TIME = ISO-8601 UTC). Defaults mark a local/dev process. Surfaced by /api/health.
+    build_sha: str = "dev"
+    build_time: str = ""
+
     @property
     def cors_origins(self) -> list[str]:
         origins = [self.url.rstrip("/")]

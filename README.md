@@ -26,8 +26,7 @@ npm run dev           # http://localhost:5173, proxies /api -> :8000
 npm run typecheck; npm run lint; npm run build        # checks
 ```
 
-Deploy: `.\deploy.ps1` (cloud build via ACR, then container update) — read the deploy
-discipline in [CLAUDE.md](CLAUDE.md) first.
+Deploy: GitHub → Actions → **Deploy** → Run workflow (on `main`). See [CONTRIBUTING.md](CONTRIBUTING.md) → Deploying.
 
 ## Where to look
 

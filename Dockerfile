@@ -1,6 +1,7 @@
 # Single-container image: FastAPI serves the API under /api/* and the built
 # React SPA for everything else (see the SPA block in backend/src/main.py).
-# Built in the cloud with `az acr build` (see deploy.ps1) — classic syntax only,
+# Built by the Deploy workflow (.github/workflows/deploy.yml, docker build on the runner) or,
+# break-glass, by infra/deploy-legacy.ps1 via az acr build — classic syntax only,
 # no BuildKit-specific features.
 
 # ---------- Stage 1: frontend build ----------
@@ -37,9 +38,9 @@ COPY --chown=appuser:appuser backend/src ./src
 # Also un-ignored in .dockerignore, which otherwise drops all *.md from the context.
 COPY --chown=appuser:appuser backend/prompts ./prompts
 COPY --chown=appuser:appuser backend/alembic ./alembic
-COPY --chown=appuser:appuser backend/alembic.ini backend/startup.py ./
+COPY --chown=appuser:appuser backend/alembic.ini backend/startup.py backend/migrate.py ./
 COPY --from=frontend-build --chown=appuser:appuser /fe/dist ./static
 USER appuser
 EXPOSE 8000
-# Runs `alembic upgrade head`, then uvicorn on 0.0.0.0:8000 (backend/startup.py).
+# uvicorn on 0.0.0.0:8000 (backend/startup.py). Migrations run in the migrate job (backend/migrate.py).
 CMD ["python", "startup.py"]

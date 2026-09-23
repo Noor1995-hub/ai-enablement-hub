@@ -1,22 +1,18 @@
-"""Production entrypoint: run migrations, then start uvicorn.
+"""Production entrypoint: start uvicorn. Nothing else.
 
-Uses the Alembic Python API (a distroless container has no shell).
+Migrations run in the `ai-enablement-hub-migrate` Container Apps Job before each deploy rolls
+the app (see .github/workflows/deploy.yml and backend/migrate.py); the container never migrates,
+so a restart can never change the schema and the startup probe only waits for uvicorn to bind.
 """
 
 from __future__ import annotations
 
 import uvicorn
-from alembic.config import Config
-
-from alembic import command
 
 __all__ = ["main"]
 
 
 def main() -> None:
-    cfg = Config("alembic.ini")
-    command.upgrade(cfg, "head")
-
     uvicorn.run(
         "src.main:app",
         host="0.0.0.0",

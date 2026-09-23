@@ -19,7 +19,8 @@ untouched at `../app/`, historical only. The pre-cutover migration scripts were 
 ## Current state (2026-09-17)
 
 - **Live:** https://ai-enablement-hub.kindcoast-3b1fe056.swedencentral.azurecontainerapps.io —
-  image `ai-enablement-hub:20260917-085533`, revision `--0000038`, built from `main` @ `87a81a7`
+  **ask the app**: `/api/health` returns `build_sha`/`build_time` from the first CI deploy onward. Before that:
+  image `ai-enablement-hub:20260917-085533`, revision `--0000038`, `main` @ `87a81a7`
   (pre-rewrite SHA `8da7f12` for the `1b7546a`-era note this superseded — **git history was
   rewritten 2026-08-10 to purge learner PII**, so SHAs in older notes/transcripts don't resolve;
   the pre-rewrite mirror lives in `..\_archive\ai-hub-pre-purge-mirror-2026-08-10.git`). `main` ==
@@ -51,15 +52,18 @@ untouched at `../app/`, historical only. The pre-cutover migration scripts were 
 - **Git:** `main` is the only long-lived branch and is **protected** (rulesets in
   `.github/rulesets/`): every change is a `<type>/<topic>` branch → pull request → both `CI`
   checks green → **squash merge**. No direct pushes, no force-pushes, admins included. Flow and
-  policy: `CONTRIBUTING.md`. `deploy.ps1` builds the **working directory, not git**, and since
-  2026-09-22 refuses to run unless the tree is clean and `HEAD == origin/main`.
+  policy: `CONTRIBUTING.md`. The break-glass `infra/deploy-legacy.ps1` builds the **working
+  directory, not git**, and since 2026-09-22 refuses to run unless the tree is clean and
+  `HEAD == origin/main`; the normal path is the Actions **Deploy** button (see below), which
+  always builds the merged commit.
 - **Pending work queue:** `docs/reviews/2026-07-31/` — independent code+DB review + 5 fix-phase
   plans (A→B→C→D, E parallel; **phase C owns all new migrations**, chained off `1cd2cc2d05a9`).
   Unexecuted as of 2026-08-10.
 - **Way of working (2026-09-22):** Tier 0 guardrails shipped as PR #1 (squash `dfa936f`) —
   protected `main` (rulesets `main-ci` 23822345 + `main-review` 23822348 applied 2026-09-22),
   `CI` workflow (backend job ≈ 2.5 min on a `postgres:18` service container, frontend ≈ 40 s),
-  PR template, `CONTRIBUTING.md`, committed `.claude/settings.json` hooks, `deploy.ps1` guard.
+  PR template, `CONTRIBUTING.md`, committed `.claude/settings.json` hooks, the interim deploy
+  guard (script since retired to `infra/deploy-legacy.ps1` by the Tier 1 CI deploy, 2026-09-22).
   Direct pushes to `main` are rejected for everyone (probe-verified). Roadmap and open
   decisions: `docs/reviews/2026-09-17/`.
 
@@ -74,8 +78,8 @@ untouched at `../app/`, historical only. The pre-cutover migration scripts were 
 - **Frontend** (inside `frontend/`): checks = `npm run typecheck && npm run lint && npm run build`.
   Dev: `npm run dev` (→ :5173, proxies `/api` → :8000). After a backend contract change,
   regenerate the committed API types: `npm run gen:api` (backend must be running).
-- **Deploy:** `.\deploy.ps1` at repo root — see "Deployment & operations". **Ask before any
-  Azure-mutating command**; read-only `az` queries are fine.
+- **Deploy:** GitHub → Actions → **Deploy** → Run workflow (on `main`) — see "Deployment &
+  operations". **Ask before any Azure-mutating command**; read-only `az` queries are fine.
 - **Secrets:** `backend/.env` + `db/.env` (git-ignored; keys documented in
   `backend/.env.local.example`). Rotate DB role passwords with
   `db/provision_roles.py --rotate-passwords`.
@@ -99,8 +103,9 @@ untouched at `../app/`, historical only. The pre-cutover migration scripts were 
 - `docs/` — see `docs/README.md` for the map: `superpowers/{specs,plans}` (one per feature),
   `reviews/` (audits + the pending fix programme), `content/`, `design/` + `design-prototypes/`
   (point-in-time/pinned — do not move), `history/`, `db-backup-restore.md` (backup runbook).
-- `infra/` — one-time create (`containerapp.yaml`, `deploy-initial.ps1`) + `backup/` (the
-  nightly-dump job image). Repo root: `Dockerfile`, `deploy.ps1`, `python-be-architecture.md`.
+- `infra/` — one-time create (`containerapp.yaml`, `deploy-initial.ps1`, `50-cicd.ps1`) +
+  `deploy-legacy.ps1` (break-glass) + `backup/` (the nightly-dump job image). Repo root:
+  `Dockerfile`, `python-be-architecture.md`.
 - Gitignored local dirs you may see: `scratch_review/` (content-authoring workbench),
   `.claude/`, `.superpowers/`, `memory/`.
 
@@ -226,18 +231,24 @@ git log + the specs themselves.
   `imaginemore-playground-cae`): ACR admin auth, external ingress :8000, 0.5 CPU/1Gi,
   **min=max=1 replica — a design constraint** (rate limiter + daily cleanup are in-process).
   Multi-stage `Dockerfile`: node builds `frontend/` → uv installs backend → `python:3.13-slim`
-  runs `startup.py` (**alembic upgrade, then uvicorn** — migrations apply on container start;
-  startup probe budgets ~240 s for them) and serves the SPA from `/app/static`.
-- **Deploy procedure (the discipline is hard-won):** merge the PR (squash), then
-  `git switch main && git pull`, then run `.\deploy.ps1`. The script's guard (2026-09-22)
-  refuses a dirty tree or any `HEAD` other than `origin/main`, because `az acr build` uploads
-  the working directory as-is. Building from a **fresh `git worktree` of `origin/main`** (short
-  path near the drive root, `-c core.longpaths=true`) remains the safest way to satisfy it.
-  Post-deploy checks: `/api/health`, `/api/auth/methods`, `latestReadyRevision ==
-  latestRevision`, and for frontend changes grep the served `/assets/index-*.js` for a new copy
-  string. CI-driven deploy is Tier 1 of `docs/reviews/2026-09-17/`.
-- **Gotchas:**
-  - **Never pipe `deploy.ps1` through `Tee-Object`/`2>&1`** — `az acr build` writes progress
+  runs `startup.py` (**uvicorn only** — migrations run in the `ai-enablement-hub-migrate`
+  job before each deploy, never in the container) and serves the SPA from `/app/static`.
+- **Deploy procedure:** GitHub → Actions → **Deploy** → "Run workflow" on `main` (admins). The
+  workflow (`.github/workflows/deploy.yml`) builds the merged commit, pushes
+  `ai-enablement-hub:<sha>`, runs `alembic upgrade head` in the `ai-enablement-hub-migrate` job
+  and **stops if it fails**, rolls the app with `APP__BUILD_SHA`/`APP__BUILD_TIME`, polls until
+  the revision is `Running`, and asserts `/api/health` reports the SHA. **Rollback:** run it
+  again with `image_sha` = a previous commit on `main` (no rebuild; migrations are expand-first
+  so the old image works on the new schema). Rollback by SHA works from the second CI deploy
+  onward (only CI-built images carry SHA tags); before that the only revert is
+  `az containerapp update -n ai-enablement-hub -g imaginemore-playground --image
+  ca530fc7463eacr.azurecr.io/ai-enablement-hub:<previous timestamp tag>`. **What is live:**
+  `/api/health` → `build_sha`, or
+  the Deployment card on the admin Setup page — do not keep a deploy log in this file. Azure
+  side: identity `ai-hub-cicd` (OIDC, no stored secret), created by `infra/50-cicd.ps1`.
+  **Break-glass** (Actions unavailable): `infra/deploy-legacy.ps1` — read its header first.
+- **Gotchas (legacy script / old az CLI):**
+  - **Never pipe `infra/deploy-legacy.ps1` through `Tee-Object`/`2>&1`** — `az acr build` writes progress
     to stderr and under PS 5.1 + `$ErrorActionPreference=Stop` the script dies *after* queuing
     the build. Recovery: `az acr task list-runs`, wait, then `az containerapp update --image`.
   - The az CLI on this machine is old and off PATH
@@ -252,7 +263,8 @@ git log + the specs themselves.
   `jwt-secret`, `acr-password`, `acs-connection-string`, `llm-api-key`). Prod
   `AUTH__JWT_SECRET` ≠ dev. `APP__URL` env = public URL (CORS + invite/reset link base).
 - **Backups:** nightly logical dump 02:30 UTC via Container Apps Job (separate image from the
-  app — `deploy.ps1` never touches it) into the private `db-backups` container; 30-day
+  app — neither the Deploy workflow nor `infra/deploy-legacy.ps1` touches it) into the private
+  `db-backups` container; 30-day
   retention; log-based Sev1 alerts (`ai-hub-db-backup-failed`, `-missing`). Restores via the
   manual restore job — **never write a procedure assuming local `pg_restore`**. Runbook:
   `docs/db-backup-restore.md`. Azure PITR stays at the server default 7 days, untouched.

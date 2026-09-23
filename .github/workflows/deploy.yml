@@ -1,0 +1,209 @@
+# Deploy — manual button (Actions tab -> Deploy -> Run workflow), main only.
+#
+# What it does, in order, and stops at the first failure:
+#   1. resolve the commit (main HEAD, or an existing image by SHA for rollback)
+#   2. OIDC login to Azure as the user-assigned identity ai-hub-cicd (no stored secret)
+#   3. docker build + push  ca530fc7463eacr.azurecr.io/ai-enablement-hub:<sha>   (skipped on rollback)
+#   4. run the DB migration in the Container Apps Job ai-enablement-hub-migrate and WAIT — fail-closed
+#   5. roll the app to the image, stamping APP__BUILD_SHA / APP__BUILD_TIME
+#   6. poll until the new revision reports that image and Running
+#   7. read /api/health back and assert build_sha == sha
+#
+# Never runs on merge: Matthias decided deploys stay a deliberate act (spec 2026-09-22 §0).
+# The federated credential's subject is bound to refs/heads/main, so a dispatch from any other
+# ref would fail at login; the `if:` below makes that explicit and early.
+# All inputs reach scripts via env:, never via ${{ }} inside run: (script-injection hygiene).
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_sha:
+        description: "Rollback: full 40-char commit SHA of an image that already exists in ACR. Leave empty to build and deploy main HEAD."
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  RESOURCE_GROUP: imaginemore-playground
+  APP_NAME: ai-enablement-hub
+  JOB_NAME: ai-enablement-hub-migrate
+  ACR_NAME: ca530fc7463eacr
+  ACR_LOGIN_SERVER: ca530fc7463eacr.azurecr.io
+  IMAGE_REPO: ai-enablement-hub
+  IMAGE_SHA_INPUT: ${{ inputs.image_sha }}
+
+jobs:
+  deploy:
+    name: build, migrate, roll, verify
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # merge-base check for rollback SHAs
+
+      - name: Resolve target SHA
+        id: resolve
+        run: |
+          set -euo pipefail
+          if [ -n "$IMAGE_SHA_INPUT" ]; then
+            if ! printf '%s' "$IMAGE_SHA_INPUT" | grep -Eq '^[0-9a-f]{40}$'; then
+              echo "::error::image_sha must be a full 40-char lowercase SHA"; exit 1
+            fi
+            if ! git merge-base --is-ancestor "$IMAGE_SHA_INPUT" HEAD; then
+              echo "::error::$IMAGE_SHA_INPUT is not an ancestor of main — refusing to deploy a side-branch image"; exit 1
+            fi
+            echo "sha=$IMAGE_SHA_INPUT" >> "$GITHUB_OUTPUT"
+            echo "build=false" >> "$GITHUB_OUTPUT"
+            echo "Rollback/redeploy of existing image $IMAGE_SHA_INPUT"
+          else
+            echo "sha=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+            echo "build=true" >> "$GITHUB_OUTPUT"
+            echo "Build and deploy main HEAD $GITHUB_SHA"
+          fi
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: ACR login
+        run: az acr login --name "$ACR_NAME"
+
+      - name: Install containerapp extension
+        # Unpinned by choice for now: we want the latest `containerapp job`/revision surface
+        # rather than freezing to a version that may predate a flag this workflow relies on.
+        run: az extension add --name containerapp --upgrade --only-show-errors
+
+      - name: Assert image exists (rollback only)
+        if: steps.resolve.outputs.build == 'false'
+        env:
+          SHA: ${{ steps.resolve.outputs.sha }}
+        run: |
+          set -euo pipefail
+          tags=$(az acr repository show-tags --name "$ACR_NAME" --repository "$IMAGE_REPO" -o tsv)
+          grep -qx "$SHA" <<<"$tags" || {
+            echo "::error::no image tagged $SHA in $ACR_LOGIN_SERVER/$IMAGE_REPO"; exit 1
+          }
+
+      - name: Build and push image
+        if: steps.resolve.outputs.build == 'true'
+        env:
+          SHA: ${{ steps.resolve.outputs.sha }}
+        run: |
+          set -euo pipefail
+          IMAGE="$ACR_LOGIN_SERVER/$IMAGE_REPO:$SHA"
+          docker build --platform linux/amd64 -t "$IMAGE" .
+          docker push "$IMAGE"
+          echo "Pushed $IMAGE"
+
+      - name: Run DB migration job (fail-closed)
+        id: migrate
+        # Rollback re-points the image only; migrations are expand-first and one-directional,
+        # so older code runs on the newer schema.
+        if: steps.resolve.outputs.build == 'true'
+        env:
+          SHA: ${{ steps.resolve.outputs.sha }}
+        run: |
+          set -euo pipefail
+          IMAGE="$ACR_LOGIN_SERVER/$IMAGE_REPO:$SHA"
+          # --command/--args are nargs='+' for `containerapp job update`; each list is closed
+          # by the next recognized flag, not a fixed arg count. The entry point is
+          # backend/migrate.py, declared here from git on every run.
+          az containerapp job update -g "$RESOURCE_GROUP" -n "$JOB_NAME" --image "$IMAGE" \
+            --command python --args migrate.py --only-show-errors >/dev/null
+          exec_name=$(az containerapp job start -g "$RESOURCE_GROUP" -n "$JOB_NAME" --query name -o tsv)
+          [ -n "$exec_name" ] || { echo "::error::job start returned no execution name"; exit 1; }
+          echo "Started migration execution $exec_name"
+          for i in $(seq 1 45); do
+            status=$(az containerapp job execution show -g "$RESOURCE_GROUP" -n "$JOB_NAME" \
+              --job-execution-name "$exec_name" --query properties.status -o tsv || echo Unknown)
+            echo "  [$i] $status"
+            case "$status" in
+              Succeeded) echo "Migration succeeded"; echo "exec=$exec_name" >> "$GITHUB_OUTPUT"; exit 0 ;;
+              Failed|Degraded|Stopped)
+                echo "::error::Migration execution $exec_name ended with $status — app NOT rolled"
+                az containerapp job logs show -g "$RESOURCE_GROUP" -n "$JOB_NAME" --execution "$exec_name" \
+                  --container "$JOB_NAME" --tail 100 --only-show-errors || true
+                # A failed migration must not leave a deployable-looking tag behind: rollback skips the migration.
+                az acr repository untag --name "$ACR_NAME" --image "$IMAGE_REPO:$SHA" --only-show-errors || true
+                exit 1 ;;
+            esac
+            sleep 15
+          done
+          echo "::error::Migration execution $exec_name did not reach a terminal state within 11 min — the job may STILL be running DDL; check 'az containerapp job execution show' before retrying. App NOT rolled."
+          # A failed migration must not leave a deployable-looking tag behind: rollback skips the migration.
+          az acr repository untag --name "$ACR_NAME" --image "$IMAGE_REPO:$SHA" --only-show-errors || true
+          exit 1
+
+      - name: Roll the app
+        env:
+          SHA: ${{ steps.resolve.outputs.sha }}
+        run: |
+          set -euo pipefail
+          IMAGE="$ACR_LOGIN_SERVER/$IMAGE_REPO:$SHA"
+          BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          # --set-env-vars is additive: every other env var and secret ref is preserved.
+          az containerapp update -g "$RESOURCE_GROUP" -n "$APP_NAME" --image "$IMAGE" \
+            --set-env-vars "APP__BUILD_SHA=$SHA" "APP__BUILD_TIME=$BUILD_TIME" --only-show-errors >/dev/null
+          echo "BUILD_TIME=$BUILD_TIME" >> "$GITHUB_ENV"
+          echo "Update issued for $IMAGE at $BUILD_TIME"
+
+      - name: Wait for the new revision to be healthy
+        env:
+          SHA: ${{ steps.resolve.outputs.sha }}
+        run: |
+          set -euo pipefail
+          expected="$ACR_LOGIN_SERVER/$IMAGE_REPO:$SHA"
+          for i in $(seq 1 40); do
+            latest=$(az containerapp show -g "$RESOURCE_GROUP" -n "$APP_NAME" --query properties.latestRevisionName -o tsv || true)
+            [ -n "$latest" ] || { echo "  [$i] could not read latestRevisionName - retrying"; sleep 15; continue; }
+            rev=$(az containerapp revision show -g "$RESOURCE_GROUP" -n "$APP_NAME" --revision "$latest" -o json || true)
+            [ -n "$rev" ] || { echo "  [$i] could not read revision - retrying"; sleep 15; continue; }
+            image=$(printf '%s' "$rev" | jq -r '.properties.template.containers[0].image')
+            running=$(printf '%s' "$rev" | jq -r '.properties.runningState')
+            prov=$(printf '%s' "$rev" | jq -r '.properties.provisioningState')
+            echo "  [$i] $latest image=$image running=$running prov=$prov"
+            if [ "$image" = "$expected" ] && { [ "$running" = "Running" ] || [ "$running" = "RunningAtMaxScale" ]; } && [ "$prov" = "Provisioned" ]; then
+              echo "REVISION=$latest" >> "$GITHUB_ENV"; exit 0
+            fi
+            sleep 15
+          done
+          echo "::error::New revision did not become healthy within 10 min (previous revision keeps serving)"; exit 1
+
+      - name: Read back /api/health
+        env:
+          SHA: ${{ steps.resolve.outputs.sha }}
+          MIGRATE_EXEC: ${{ steps.migrate.outputs.exec }}
+        run: |
+          set -euo pipefail
+          fqdn=$(az containerapp show -g "$RESOURCE_GROUP" -n "$APP_NAME" --query properties.configuration.ingress.fqdn -o tsv)
+          for i in $(seq 1 10); do
+            body=$(curl -fsS "https://$fqdn/api/health" || true)
+            live=$(printf '%s' "$body" | jq -r '.build_sha // empty' || true)
+            if [ "$live" = "$SHA" ]; then
+              {
+                echo "## Deployed $SHA"
+                echo ""
+                echo "- image: \`$ACR_LOGIN_SERVER/$IMAGE_REPO:$SHA\`"
+                echo "- revision: \`$REVISION\`"
+                echo "- build time: \`$BUILD_TIME\`"
+                echo "- health: \`$body\`"
+                echo "- migration execution: \`${MIGRATE_EXEC:-skipped (rollback)}\`"
+                echo "- deployed by: \`repo:DLW-INT-BTA-BELUX/ai-enablement-hub:ref:refs/heads/main\` (workflow_dispatch)"
+              } >> "$GITHUB_STEP_SUMMARY"
+              echo "Health reports $live — done"; exit 0
+            fi
+            echo "  [$i] health build_sha=$live (want $SHA)"; sleep 6
+          done
+          echo "::error::/api/health does not report $SHA after the roll"; exit 1
