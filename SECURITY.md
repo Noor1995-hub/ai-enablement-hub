@@ -46,7 +46,7 @@ Inventory verified against Azure and GitHub on 2026-09-23 (names only; values we
 | Name | Kind | Notes |
 |---|---|---|
 | `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` | Actions **variables**, not secrets | Identifiers for the OIDC login of identity `ai-hub-cicd`. Knowing them grants nothing: the federated credential only accepts tokens GitHub issues to this repo's `main`. |
-| — | Actions secrets | **None.** The deploy uses OIDC, no stored cloud credential. The Claude PR review (Tier 1.4) will add the first one, `ANTHROPIC_API_KEY`. |
+| `ANTHROPIC_API_KEY` | Actions **repository secret** (added 2026-09-23) | Used only by `claude-code-review.yml`. Bills to **delaware's** Anthropic workspace; **not spend-capped** (believed) — a monthly limit on the key in the Anthropic Console is the cheap fix. Nobody can read it back from GitHub; admins can overwrite it. Anyone with write access (the repo admins) could add a workflow that prints it, which is one reason write access stays admin-only. The deploy itself stores no secret (OIDC). |
 
 ### Not secrets, but credentials all the same
 
@@ -67,8 +67,10 @@ Inventory verified against Azure and GitHub on 2026-09-23 (names only; values we
 - **`backend/.env` / `db/.env`:** whoever has the file on their machine (today: Matthias).
 - **The Deploy button:** repo admins (write access is required for `workflow_dispatch`). Seven
   admins on 2026-09-23, most inherited from the org; `gh api repos/DLW-INT-BTA-BELUX/ai-enablement-hub/collaborators`.
-- **The Anthropic key:** anyone with access to the Anthropic Console workspace that issued it
-  (Matthias, Aaron), plus everyone who can read Container App secrets.
+- **The Anthropic keys:** the app's `llm-api-key` — anyone with access to the Anthropic Console
+  workspace that issued it (Matthias, Aaron), plus everyone who can read Container App secrets.
+  The review key `ANTHROPIC_API_KEY` — delaware's Anthropic workspace admins; on GitHub it is
+  write-only.
 
 ## Rotations owed
 

@@ -78,6 +78,27 @@ Definitions live in `.github/rulesets/`; apply/verify instructions are in that f
   force-push; `main` cannot be deleted. **No bypass for anyone, admins included.**
 - **`main-review`** — one approving review; repo admins may bypass (see the policy in step 6).
 
+## Claude review
+
+Every pull request that changes anything besides docs gets an automatic review by Claude
+(`.github/workflows/claude-code-review.yml`) when it is opened, reopened or marked ready for
+review. Findings arrive as inline comments on the lines concerned, or as one "No issues found"
+comment. They are **advice, not a gate** — the review is not a required check. Docs-only PRs
+are skipped; prompt changes under `backend/prompts/` are reviewed.
+
+- **Re-review on demand:** comment `/review` on the PR. Each run costs real money (typically
+  $2–5, occasionally $10+, on a key that is not spend-capped), so do it only after a
+  **substantive** change — new logic, or a fix that changed behaviour — never after a typo or
+  formatting push. A `/review` run is not in the PR's checks list: GitHub attaches
+  comment-triggered runs to `main`'s latest commit. Its result is the new `claude[bot]`
+  comment on the PR, or the run under **Actions → Claude Code Review**.
+- **A red `claude-review` check** means the review posted nothing: the PR is **unreviewed**.
+  Comment `/review` to retry. (One legitimate red: the reviewer judged the PR too trivial.) A
+  red `claude-review` on `main`'s latest commit is a failed `/review` on some PR, not a broken
+  `main`.
+- **A PR that edits the review workflow itself** is not reviewed — GitHub-side guard, by
+  design. The change takes effect on the next PR opened after merge.
+
 ## Deploying
 
 Deploying is a button, not a script: GitHub → **Actions** → **Deploy** → **Run workflow** (on

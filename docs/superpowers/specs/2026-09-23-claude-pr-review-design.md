@@ -205,3 +205,17 @@ from same-repo branches, so that restriction never bites.
 - Promoting `claude-review` to a required check — not recommended; revisit only if the delivery
   step has been reliably green for a long run of PRs.
 - SHA-pinning `claude-code-action` together with the other actions — Tier 2.8.
+
+## 8. Amendments after review (2026-09-23)
+
+1. **`checks: read` belongs on the action, not the job** (§3.3, §6 "Reviewer reviews a red PR as
+   green"). `claude-code-action` gives the reviewing agent its own Claude GitHub App token, scoped
+   by the action's `additional_permissions` input; the job's `permissions:` block only governs
+   `GITHUB_TOKEN`, which the agent never uses. The workflow therefore sets
+   `additional_permissions: checks: read` and the job block carries no `checks:` scope. Source:
+   `sb-accelerator` `docs/superpowers/lessons.md`, 2026-08-23.
+2. **`/review` runs do not appear in the PR's checks list** (§3.6). `issue_comment` runs attach to
+   the default branch's latest commit; CONTRIBUTING says where to look instead.
+3. **Prerequisite not named in §3:** the Claude GitHub App must be installed on the repo (the
+   action exchanges its OIDC token for an App token; comments are authored by `claude[bot]`).
+   The org has an installation; whether it covers this repo is proven by the first run.

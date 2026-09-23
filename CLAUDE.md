@@ -77,6 +77,10 @@ untouched at `../app/`, historical only. The pre-cutover migration scripts were 
   (`repo:<org>@<orgId>/<repo>@<repoId>:ref:...`) so the identity carries both subject forms —
   **`bta-portal-cicd` has only the plain form and will hit the same failure; tell Michael.**
   Roadmap and open decisions: `docs/reviews/2026-09-17/`.
+- **Claude PR review (2026-09-23):** `.github/workflows/claude-code-review.yml` reviews every
+  non-docs PR on open/ready/reopen, `/review` re-runs it; advice, not a required check; a red
+  `claude-review` = nothing was posted. Rationing rule and meaning: `CONTRIBUTING.md` → Claude
+  review. Spec `docs/superpowers/specs/2026-09-23-claude-pr-review-design.md`.
 
 ## How to run & verify
 
