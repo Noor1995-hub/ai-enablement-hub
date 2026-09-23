@@ -92,7 +92,8 @@ untouched at `../app/`, historical only. The pre-cutover migration scripts were 
 - **Deploy:** GitHub → Actions → **Deploy** → Run workflow (on `main`) — see "Deployment &
   operations". **Ask before any Azure-mutating command**; read-only `az` queries are fine.
 - **Secrets:** `backend/.env` + `db/.env` (git-ignored; keys documented in
-  `backend/.env.local.example`). Rotate DB role passwords with
+  `backend/.env.local.example`). Full inventory (Container App + job secrets, who can read
+  them, rotation recipes): `SECURITY.md`. Rotate DB role passwords with
   `db/provision_roles.py --rotate-passwords`.
 
 ## Repo map
@@ -306,5 +307,5 @@ git log + the specs themselves.
   carries `EMAIL__*` too → local invites/resets send REAL email (comment out to disable).
 - Rate limiting is an in-process fixed window (`core/ratelimit.py`) — another reason for the
   single-replica constraint.
-- The dev `AUTH__JWT_SECRET` leaked into a tool transcript 2026-07-06 (dev-only blast radius) —
-  rotate when convenient. A storage-account key leaked 2026-07-30 — rotation still owed.
+- Two rotations are owed (dev `AUTH__JWT_SECRET`, leaked 2026-07-06; the `aienablementhubmedia`
+  storage key, leaked 2026-07-30) — deliberately unscheduled; see `SECURITY.md` → Rotations owed.

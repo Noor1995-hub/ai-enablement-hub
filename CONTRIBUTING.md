@@ -98,6 +98,7 @@ overrides go in the git-ignored `.claude/settings.local.json`.
 
 - `CLAUDE.md` — the operational guide for agents and operators (current state, conventions,
   locking semantics, deploy/ops).
+- `SECURITY.md` — the secrets inventory and the no-secret-in-the-repo rule.
 - `python-be-architecture.md` — mandatory backend conventions.
 - `docs/README.md` — map of the docs tree; `db/README.md` — database roles and procedures.
 - `docs/reviews/2026-09-17/` — why this workflow exists and what comes next.

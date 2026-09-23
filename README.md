@@ -34,6 +34,8 @@ Deploy: GitHub → Actions → **Deploy** → Run workflow (on `main`). See [CON
   merge. `main` is protected. **Humans: read this first.**
 - **[CLAUDE.md](CLAUDE.md)** — the operational guide (current state, conventions, feature
   index, locking semantics, deploy/ops). **AI agents: read this first.**
+- **[SECURITY.md](SECURITY.md)** — every secret, where it lives, who can read it, rotations
+  owed, rotate-on-handover.
 - **[python-be-architecture.md](python-be-architecture.md)** — mandatory backend conventions.
 - **[docs/README.md](docs/README.md)** — map of the docs tree (feature specs/plans, reviews,
   content model, runbooks).
