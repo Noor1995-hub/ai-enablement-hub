@@ -90,9 +90,13 @@ Ensure-Role 'Contributor' $appId
 Write-Host '== 4/5 migration job ==' -ForegroundColor Cyan
 # Same non-erroring list-and-filter probe as section 1/5 (`job show` on a missing job would
 # otherwise risk throwing after the identity, credential and two roles above already exist).
-$job = & $az containerapp job list -g $RG --query "[?name=='$JOB'] | [0]" -o json | ConvertFrom-Json
+# NB: the probe variable must NOT be called $job - PowerShell variable names are
+# case-insensitive, so $job and $JOB are the SAME variable and an absent job would blank
+# the job NAME, making the create below run with an empty -n (observed 2026-09-23).
+$existingJob = & $az containerapp job list -g $RG --query "[?name=='$JOB'] | [0]" -o json | ConvertFrom-Json
 if ($LASTEXITCODE -ne 0) { throw 'containerapp job list probe failed' }
-if (-not $job) {
+if (-not $JOB) { throw 'internal: the job name variable was clobbered' }
+if (-not $existingJob) {
     if (-not $Image) {
         $Image = & $az containerapp show -g $RG -n $APP --query 'properties.template.containers[0].image' -o tsv
         if ($LASTEXITCODE -ne 0 -or -not $Image) { throw 'could not read the app image for the job' }
