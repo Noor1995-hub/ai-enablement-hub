@@ -27,8 +27,10 @@ RULES: tuple[tuple[str, str], ...] = (
     ),
     (
         "backend/alembic/versions/",
-        "is a migration that runs unattended on container start against the live database. It "
-        "must be additive / expand-first, fast on the live tables, and safe to run twice.",
+        "is a migration: the Deploy workflow runs it unattended in the ai-enablement-hub-migrate "
+        "job against the live database before the app rolls, and a rollback keeps the new "
+        "schema. It must be additive / expand-first, fast on the live tables, and safe to run "
+        "twice.",
     ),
 )
 

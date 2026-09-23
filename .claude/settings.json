@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python .claude/hooks/git_freshness.py",
+            "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/git_freshness.py\"",
             "timeout": 30,
             "statusMessage": "Checking how far behind origin/main this checkout is..."
           }
@@ -19,7 +19,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python .claude/hooks/prod_asset_nudge.py",
+            "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/prod_asset_nudge.py\"",
             "timeout": 10
           }
         ]

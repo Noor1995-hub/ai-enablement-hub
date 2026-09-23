@@ -107,3 +107,20 @@ a guarded file silently removes its guard.
 name and test it: check the literal string against the pattern, don't reason about it. The fix
 added explicit entries for `deploy-legacy.ps1`, `migrate.py`, `containerapp job start` and
 `gh workflow run`.
+
+## 2026-09-23 — a committed hook with a relative path blocked every edit after a `cd`
+
+**What went wrong.** `.claude/settings.json` ran its hooks as `python .claude/hooks/<hook>.py`.
+Claude Code runs a hook command in the session's current directory, so once a shell call had
+`cd`'ed into `backend/` (routine for `uv run …`), every Edit and Write reported
+`PostToolUse:Write hook blocking error … can't open file '…\backend\.claude\hooks\prod_asset_nudge.py'`.
+The edits themselves landed; the hook, meant to nudge and never block, turned every tool call
+into an error.
+
+**Why it bites here.** Half of this repo's commands run from `backend/` or `frontend/`, and the
+unit tests for the hooks ran them with `cwd=REPO_ROOT`, so they could never see it.
+
+**The rule.** Hook commands are anchored to the project dir and quoted, because the repo path
+contains spaces: `python "$CLAUDE_PROJECT_DIR/.claude/hooks/<hook>.py"`.
+`backend/tests/unit/test_claude_hooks.py::test_hook_commands_are_anchored_to_the_project_dir`
+enforces it.

@@ -39,7 +39,7 @@ def _run(script: Path, stdin: str, env_extra: dict[str, str] | None = None) -> t
     [
         ("C:/x/AI enablement hub/frontend/src/pages/LessonPage.tsx", "production-shaped fixtures"),
         ("/repo/backend/prompts/house_style.md", "production asset"),
-        ("/repo/backend/alembic/versions/abc123_add_table.py", "container start"),
+        ("/repo/backend/alembic/versions/abc123_add_table.py", "ai-enablement-hub-migrate"),
     ],
 )
 def test_nudge_flags_production_assets(path: str, fragment: str) -> None:
@@ -78,3 +78,25 @@ def test_freshness_reports_without_network() -> None:
     assert code == 0
     payload = json.loads(out)
     assert payload["systemMessage"].startswith("[git] ")
+
+
+def _hook_commands() -> list[str]:
+    settings = json.loads((REPO_ROOT / ".claude" / "settings.json").read_text(encoding="utf-8"))
+    return [
+        hook["command"]
+        for groups in settings["hooks"].values()
+        for group in groups
+        for hook in group["hooks"]
+        if hook.get("type") == "command"
+    ]
+
+
+def test_hook_commands_are_anchored_to_the_project_dir() -> None:
+    # A bare relative path ("python .claude/hooks/x.py") resolves against the session's current
+    # directory, so every Edit/Write fails with a blocking error once the shell has cd'ed into
+    # backend/ (hit 2026-09-23). The path must be quoted: the repo lives under a directory with
+    # spaces ("AI enablement hub").
+    commands = _hook_commands()
+    assert commands
+    for command in commands:
+        assert '"$CLAUDE_PROJECT_DIR/.claude/hooks/' in command, command
