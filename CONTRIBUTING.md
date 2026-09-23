@@ -45,6 +45,9 @@ git push -u origin HEAD
 gh pr create --fill
 ```
 Fill in the template: what & why, the checklist, and `Closes #<issue>` if there is one.
+`--fill` takes the title from the commit when there is one; with several commits it falls back
+to the branch name, which then becomes the commit message on `main`. Pass
+`--title "<type>(<area>): <summary>"` in that case (or `gh pr edit --title` before merging).
 
 **5. Wait for the checks.** The `CI` workflow (`.github/workflows/ci.yml`) posts two required
 checks on the PR: `backend (format + lint + tests)` and `frontend (typecheck + lint + build)`.

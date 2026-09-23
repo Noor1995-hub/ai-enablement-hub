@@ -124,3 +124,31 @@ unit tests for the hooks ran them with `cwd=REPO_ROOT`, so they could never see 
 contains spaces: `python "$CLAUDE_PROJECT_DIR/.claude/hooks/<hook>.py"`.
 `backend/tests/unit/test_claude_hooks.py::test_hook_commands_are_anchored_to_the_project_dir`
 enforces it.
+
+## 2026-09-23 — Git Bash turned `/review` into a Windows path
+
+**What went wrong.** `gh pr comment 14 --body "/review"` from the Bash tool posted
+`C:/Users/…/AppData/Local/…/review` instead. MSYS (Git Bash) converts any argument that looks
+like an absolute POSIX path into a Windows path before handing it to a native `.exe`, and
+`/review` looks like one. The Claude review workflow correctly ignored it — so it looked as
+though `/review` did nothing — and the comment leaked a local path onto the PR.
+
+**Why it bites here.** Claude Code on this machine drives `gh` through Git Bash, and this repo
+now has a slash command (`/review`) that people and agents type as a `gh` argument.
+
+**The rule.** Prefix `gh` calls whose arguments start with `/` with `MSYS_NO_PATHCONV=1`
+(`MSYS_NO_PATHCONV=1 gh pr comment <n> --body "/review"`), or post the comment in the browser.
+After posting, read the comment back before concluding the workflow ignored it.
+
+## 2026-09-23 — `gh pr create --fill` on a multi-commit branch titled the PR after the branch
+
+**What went wrong.** PR #13 had four commits; `--fill` took the title from the branch name, and
+the squash merge put `feat/claude pr review (#13)` on `main` for good — protected `main` cannot
+be rewritten. With one commit, `--fill` uses that commit's subject, which is why #1–#12 looked
+fine.
+
+**Why it bites here.** Squash-merge makes the PR title *the* commit message on `main`, and our
+flow uses `--fill` by default.
+
+**The rule.** For a branch with more than one commit, pass `--title "<type>(<area>): <summary>"`
+to `gh pr create`, or fix the title with `gh pr edit --title` before merging.

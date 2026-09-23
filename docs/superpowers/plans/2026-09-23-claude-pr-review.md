@@ -40,7 +40,7 @@
 **Interfaces:**
 - Produces: workflow name `Claude Code Review`, job id `claude-review`, step names `mark review start`, `Run Claude Code Review`, `assert the review was delivered`. Task 2's docs refer to the check as `claude-review` and the command as `/review`.
 
-- [ ] **Step 1: Write the structural check (the failing test)**
+- [x] **Step 1: Write the structural check (the failing test)**
 
 `$SCRATCH/structure_check.py`:
 
@@ -87,12 +87,12 @@ print("\n".join(fail) if fail else "structure OK")
 sys.exit(1 if fail else 0)
 ```
 
-- [ ] **Step 2: Run it to verify it fails**
+- [x] **Step 2: Run it to verify it fails**
 
 Run: `cd backend && uv run python "$SCRATCH/structure_check.py" ../.github/workflows/claude-code-review.yml`
 Expected: FAIL — `FileNotFoundError` (the workflow does not exist yet).
 
-- [ ] **Step 3: Write the delivery-assertion harness (second failing test)**
+- [x] **Step 3: Write the delivery-assertion harness (second failing test)**
 
 `$SCRATCH/assert_harness.sh` extracts the `assert the review was delivered` step's `run:` block with PyYAML and runs it under a stubbed `gh` and `git` in a temp dir. Stub behaviour is driven by env vars: `STUB_REMOTE_SHA` (empty = file absent on main), `STUB_LOCAL_SHA`, `STUB_NEW` (count of this run's comments), `STUB_PRIOR`.
 
@@ -148,12 +148,12 @@ run_case E_nothing       1 "unreviewed"           STUB_REMOTE_SHA=aaa  STUB_LOCA
 exit $rc_all
 ```
 
-- [ ] **Step 4: Run it to verify it fails**
+- [x] **Step 4: Run it to verify it fails**
 
 Run: `PYBIN="uv --directory backend run python" bash "$SCRATCH/assert_harness.sh" .github/workflows/claude-code-review.yml` (from repo root)
 Expected: FAIL — the workflow file does not exist.
 
-- [ ] **Step 5: Write the workflow**
+- [x] **Step 5: Write the workflow**
 
 Create `.github/workflows/claude-code-review.yml`:
 
@@ -340,22 +340,22 @@ jobs:
           exit 1
 ```
 
-- [ ] **Step 6: Run the structural check — expect PASS**
+- [x] **Step 6: Run the structural check — expect PASS**
 
 Run: `cd backend && uv run python "$SCRATCH/structure_check.py" ../.github/workflows/claude-code-review.yml`
 Expected: `structure OK`, exit 0.
 
-- [ ] **Step 7: Run the delivery harness — expect all five PASS**
+- [x] **Step 7: Run the delivery harness — expect all five PASS**
 
 Run (repo root): `PYBIN="uv --directory backend run python" bash "$SCRATCH/assert_harness.sh" .github/workflows/claude-code-review.yml`
 Expected: `PASS A_not_on_main`, `PASS B_edited`, `PASS C_prior_only`, `PASS D_delivered`, `PASS E_nothing`; exit 0.
 
-- [ ] **Step 8: actionlint**
+- [x] **Step 8: actionlint**
 
 Run: `gh release download -R rhysd/actionlint -p '*windows_amd64.zip' -D "$SCRATCH" --clobber && unzip -o "$SCRATCH"/actionlint_*_windows_amd64.zip actionlint.exe -d "$SCRATCH" && "$SCRATCH/actionlint.exe" .github/workflows/claude-code-review.yml .github/workflows/ci.yml .github/workflows/deploy.yml`
 Expected: no output for `claude-code-review.yml` (shellcheck is not installed locally, so actionlint's shell lint is skipped — the harness covers the script). Findings in the two existing files are out of scope; note them, don't fix them here.
 
-- [ ] **Step 9: Commit** (on branch `feat/claude-pr-review`)
+- [x] **Step 9: Commit** (on branch `feat/claude-pr-review`)
 
 ```bash
 git switch -c feat/claude-pr-review
@@ -373,7 +373,7 @@ git commit -m "feat(ci): Claude PR review workflow with delivery assertion"
 **Interfaces:**
 - Consumes: check name `claude-review`, command `/review`, workflow path from Task 1.
 
-- [ ] **Step 1: CONTRIBUTING.md — insert this section before "## Deploying"**
+- [x] **Step 1: CONTRIBUTING.md — insert this section before "## Deploying"**
 
 ```markdown
 ## Claude review
@@ -393,7 +393,7 @@ are skipped; prompt changes under `backend/prompts/` are reviewed.
   design. The change takes effect on the next PR opened after merge.
 ```
 
-- [ ] **Step 2: SECURITY.md — replace the GitHub "Actions secrets | None" row**
+- [x] **Step 2: SECURITY.md — replace the GitHub "Actions secrets | None" row**
 
 Old row:
 ```markdown
@@ -417,7 +417,7 @@ with:
   write-only.
 ```
 
-- [ ] **Step 3: CLAUDE.md — add one bullet after the "Way of working (2026-09-23)" bullet**
+- [x] **Step 3: CLAUDE.md — add one bullet after the "Way of working (2026-09-23)" bullet**
 
 ```markdown
 - **Claude PR review (2026-09-23):** `.github/workflows/claude-code-review.yml` reviews every
@@ -426,9 +426,9 @@ with:
   review. Spec `docs/superpowers/specs/2026-09-23-claude-pr-review-design.md`.
 ```
 
-- [ ] **Step 4: Verify** — `grep -n "Claude review" CONTRIBUTING.md`, `grep -n ANTHROPIC_API_KEY SECURITY.md CLAUDE.md`; each edit present once; `git diff --stat` shows only these three files plus Task 1's.
+- [x] **Step 4: Verify** — `grep -n "Claude review" CONTRIBUTING.md`, `grep -n ANTHROPIC_API_KEY SECURITY.md CLAUDE.md`; each edit present once; `git diff --stat` shows only these three files plus Task 1's.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add CONTRIBUTING.md SECURITY.md CLAUDE.md
@@ -440,18 +440,42 @@ git commit -m "docs: Claude review rationing rule, ANTHROPIC_API_KEY in SECURITY
 **Files:**
 - Modify (probe branch only, never merged): `backend/src/core/constants.py` or another small pure module — one planted bug.
 
-- [ ] **Step 1: Open the PR**, push, `gh pr create --fill`, append the attribution line to the body.
+- [x] **Step 1: Open the PR**, push, `gh pr create --fill`, append the attribution line to the body.
 
-- [ ] **Step 2: Watch its checks.** Expected: `backend` + `frontend` green; `staged` red (known); `claude-review` present and **green**, with the "not on main yet" message in its step summary (Review Focus 1, live). If it is red, stop and debug before merging.
+- [x] **Step 2: Watch its checks.** Expected: `backend` + `frontend` green; `staged` red (known); `claude-review` present and **green**, with the "not on main yet" message in its step summary (Review Focus 1, live). If it is red, stop and debug before merging.
 
-- [ ] **Step 3: Merge** with `gh pr merge --squash --delete-branch --admin`; `git fetch && git reset --hard origin/main`.
+- [x] **Step 3: Merge** with `gh pr merge --squash --delete-branch --admin`; `git fetch && git reset --hard origin/main`.
 
-- [ ] **Step 4: Probe PR.** Branch `test/claude-review-probe` from the new `main`. Plant one bug that clears the plugin's severity bar ("will definitely produce wrong results regardless of inputs") in a small pure module — e.g. swap two entries of `LEVEL_ORDER` in `backend/src/core/constants.py`. **Do not advertise it:** neutral title and body (e.g. `refactor(core): tidy level ordering constants`) — the orchestrator reads PR context and may treat an announced bug as intentional (accelerator lessons 2026-08-23). The probe's purpose is recorded in the ledger, not the PR. Do not touch the workflow file in it.
+- [x] **Step 4: Probe PR.** Branch `test/claude-review-probe` from the new `main`. Plant one bug that clears the plugin's severity bar ("will definitely produce wrong results regardless of inputs") in a small pure module — e.g. swap two entries of `LEVEL_ORDER` in `backend/src/core/constants.py`. **Do not advertise it:** neutral title and body (e.g. `refactor(core): tidy level ordering constants`) — the orchestrator reads PR context and may treat an announced bug as intentional (accelerator lessons 2026-08-23). The probe's purpose is recorded in the ledger, not the PR. Do not touch the workflow file in it.
 
-- [ ] **Step 5: Expected on the probe:** `claude-review` runs, an inline `claude[bot]` comment lands on (or names) the planted line, and `assert the review was delivered` is green with "Review delivered: N comment(s)". Record the run id and duration.
+- [x] **Step 5: Expected on the probe:** `claude-review` runs, an inline `claude[bot]` comment lands on (or names) the planted line, and `assert the review was delivered` is green with "Review delivered: N comment(s)". Record the run id and duration.
 
-- [ ] **Step 6: On-demand path + Review Focus 2 live.** Comment `/review` on the probe, and while that run is queued or running post a plain comment (`noted`). Expected: exactly one `/review` run, not cancelled by the plain comment's (skipped) run; it re-reviews or stops as already-reviewed — **record which**, from the step summary; its check lands on `main`'s latest commit, not the PR. Also confirm from the review step's log that the agent's `check-runs` call returned data, not a 403 (spec §8.1).
+- [x] **Step 6: On-demand path + Review Focus 2 live.** Comment `/review` on the probe, and while that run is queued or running post a plain comment (`noted`). Expected: exactly one `/review` run, not cancelled by the plain comment's (skipped) run; it re-reviews or stops as already-reviewed — **record which**, from the step summary; its check lands on `main`'s latest commit, not the PR. Also confirm from the review step's log that the agent's `check-runs` call returned data, not a 403 (spec §8.1).
 
-- [ ] **Step 7: Clean up.** `gh pr close <n> --delete-branch --comment "Probe complete; closing unmerged."` Local: `git switch main && git branch -D test/claude-review-probe`.
+- [x] **Step 7: Clean up.** `gh pr close <n> --delete-branch --comment "Probe complete; closing unmerged."` Local: `git switch main && git branch -D test/claude-review-probe`.
 
-- [ ] **Step 8: Record.** In a small docs PR: tick this plan's boxes, add an "Execution record" section with both run ids, durations, and what was posted; append a `docs/superpowers/lessons.md` entry only if something surprised us. That docs PR must show **no** Claude Code Review run (docs-only skip, verified live). Cost per run: read from the Anthropic Console cost page (Matthias) — not asserted here.
+- [x] **Step 8: Record.** In a small docs PR: tick this plan's boxes, add an "Execution record" section with both run ids, durations, and what was posted; append a `docs/superpowers/lessons.md` entry only if something surprised us. That docs PR must show **no** Claude Code Review run (docs-only skip, verified live). Cost per run: read from the Anthropic Console cost page (Matthias) — not asserted here.
+
+## Execution record (2026-09-23)
+
+Executed inline (superpowers:executing-plans) with one fresh whole-branch review (Opus) before
+merge: 0 Critical, 3 Important (all fixed), 8 Minor (deferred — listed below).
+
+| Step | Result |
+|---|---|
+| Hook fix found on the way | PR #12 `90dc9c3`: committed hooks used relative paths and blocked every edit after a `cd`; now anchored to `$CLAUDE_PROJECT_DIR` (lessons 2026-09-23). |
+| Task 1 local checks | structure check OK; delivery harness 5/5; a faithful mutation of the reference's `[ -n "$remote" ] &&` carve-out fails case A as predicted; actionlint 1.7.12 clean. |
+| Review Important 1 | `checks: read` moved to the action's `additional_permissions` — the agent runs on its own Claude App token (spec §8.1). |
+| Introducing PR #13 | `claude-review` green via the "not on main yet" carve-out (run 35874226032): the action logged "Skipping action due to workflow validation". Merged as `e547f33`. |
+| Probe PR #14 (neutral title, `LEVEL_ORDER` swap) | Run 35874708191: 16 turns, **$1.80**, 338.6 s agent / 6 m 24 s job, Sonnet 5 + Haiku 4.5 only, 1 permission denial. Inline `claude[bot]` comment on `constants.py:29`: "this isn't a cosmetic tidy — it inverts `practitioner` and `integrator`". Delivery green. |
+| `/review` + plain comment | Run 35875836117: 3 turns, **$0.30**, 83 s, 5 denials. Re-reviewed (not "already reviewed") and re-posted the same finding inline; delivery green. The plain comment's run 35875848164 was skipped and did **not** cancel it — Review Focus 2 confirmed live. The check attached to `main`'s tip as documented. |
+| Not verifiable | Whether the agent's check-runs call returned 200: agent tool calls appear only in the step summary (`display_report`), not the raw log. `additional_permissions: checks: read` is confirmed in the action inputs. |
+| Probe cleanup | PR #14 closed unmerged, branch deleted. |
+
+**Deferred minors** (from the review): the contents-API fallback fails open on any `gh` error,
+not only 404; a `/review` on a PR branched before `e547f33` hits the self-edit carve-out and
+passes without asserting delivery; the "already reviewed" green is ambiguous after an explicit
+`/review`; CONTRIBUTING calls the self-skip a "GitHub-side guard" (it is claude-code-action's);
+SECURITY's rotate-on-handover does not name `ANTHROPIC_API_KEY` explicitly; the harness models
+a 404 as stderr-only; comment counting uses `per_page=100` without `--paginate`.
+
