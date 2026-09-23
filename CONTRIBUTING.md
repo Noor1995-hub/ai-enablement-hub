@@ -16,9 +16,12 @@ changes go through:
 **1. Start from the latest `main`:**
 ```bash
 git switch main
-git pull
+git fetch
+git reset --hard origin/main
 git switch -c <type>/<short-description>
 ```
+Your local `main` is only ever a copy of `origin/main` — you never commit on it — so resetting
+it is safe, and unlike `git pull` it also works after a squash merge (see step 7).
 `<type>` is one of `feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `content`.
 Example: `git switch -c fix/people-detail-404`.
 
@@ -58,13 +61,14 @@ learner-facing flow waits for the other admin. Ask for a review in the PR with `
 ```bash
 gh pr merge --squash --delete-branch
 ```
-(or the green "Squash and merge" button). The PR title becomes the one commit on `main`; the
+(or the green "Squash and merge" button). An admin merging their own PR without a review — only
+within the step 6 policy — adds `--admin`; without it GitHub refuses because `main-review` wants
+an approval. The PR title becomes the one commit on `main`; the
 branch is deleted automatically.
 
 After the squash merge your branch is superseded — the auto-delete removes it on GitHub; delete
-it locally with `git branch -D <branch>`. If you ever had commits on your local `main` that went
-in through the PR, reset it with `git fetch && git branch -f main origin/main` rather than
-`git pull` (the squash commit replaces them, so a pull would not fast-forward).
+it locally with `git branch -D <branch>`, then bring `main` up to date the step 1 way
+(`git switch main; git fetch; git reset --hard origin/main`).
 
 ## What GitHub enforces (the two rulesets)
 
@@ -79,7 +83,7 @@ Definitions live in `.github/rulesets/`; apply/verify instructions are in that f
 Deploying is a button, not a script: GitHub → **Actions** → **Deploy** → **Run workflow** (on
 `main`). It builds exactly what the last merged PR put on `main`, runs the database migration
 first and stops if that fails, rolls the app, and checks `/api/health` reports the new build.
-Takes about 6–8 minutes; watch the run's summary. Deploy only merged work — if something must go
+Takes about 4 minutes (under 2 for a rollback); watch the run's summary. Deploy only merged work — if something must go
 live urgently, merge it first. To roll back, run Deploy again and paste a previous commit SHA
 into `image_sha` (works from the second CI deploy onward — see CLAUDE.md for the one-off revert
 before that). What is live right now: `/api/health` or the Deployment card on the admin

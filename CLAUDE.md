@@ -144,6 +144,8 @@ untouched at `../app/`, historical only. The pre-cutover migration scripts were 
    `getRectZoomFactor` (`lib/uiZoom.ts`).
 7. Content authoring: read `docs/content/authoring-guide.md` first, gate every draft with
    `backend/scripts/content_qa/check_draft.py` before writing to the DB.
+8. Traps already hit live in `docs/superpowers/lessons.md` (dated: what went wrong / why it
+   bites here / the rule). When you hit a new one, append an entry in the same PR as the fix.
 
 ## Feature index → specs
 
@@ -259,20 +261,12 @@ git log + the specs themselves.
   the Deployment card on the admin Setup page — do not keep a deploy log in this file. Azure
   side: identity `ai-hub-cicd` (OIDC, no stored secret), created by `infra/50-cicd.ps1`.
   **Break-glass** (Actions unavailable): `infra/deploy-legacy.ps1` — read its header first.
-- **Gotchas (legacy script / old az CLI):**
-  - **Never pipe `infra/deploy-legacy.ps1` through `Tee-Object`/`2>&1`** — `az acr build` writes progress
-    to stderr and under PS 5.1 + `$ErrorActionPreference=Stop` the script dies *after* queuing
-    the build. Recovery: `az acr task list-runs`, wait, then `az containerapp update --image`.
-  - The az CLI on this machine is old and off PATH
-    (`C:\Program Files\Microsoft SDKs\Azure\CLI2\wbin\az.cmd`); set `PYTHONIOENCODING=utf-8`
-    or its log streaming crashes on Vite's unicode; `infra/containerapp.yaml` must stay pure
-    ASCII.
-  - **The old az CLI's .dockerignore matcher ignores `dir/` trailing-slash patterns** — every
-    ignored dir is listed bare AND with `/**`. Verify any .dockerignore change by re-packing
-    with az's own `_pack_source_code` and inspecting the tar. `**/.env` exclusion is
-    load-bearing.
-- **Secrets** live as Container App secrets (`database-password`, `alembic-database-url`,
-  `jwt-secret`, `acr-password`, `acs-connection-string`, `llm-api-key`). Prod
+- **az CLI on this machine:** old and off PATH
+  (`C:\Program Files\Microsoft SDKs\Azure\CLI2\wbin\az.cmd`); set `PYTHONIOENCODING=utf-8`.
+  Its traps (codepage, `.dockerignore` matching, `2>&1`/`Tee-Object` under PS 5.1) and the
+  deploy-programme traps are dated entries in `docs/superpowers/lessons.md` — read it before
+  touching `infra/`, `.dockerignore` or `.claude/settings.json`.
+- **Secrets** live as Container App and job secrets — inventory in `SECURITY.md`. Prod
   `AUTH__JWT_SECRET` ≠ dev. `APP__URL` env = public URL (CORS + invite/reset link base).
 - **Backups:** nightly logical dump 02:30 UTC via Container Apps Job (separate image from the
   app — neither the Deploy workflow nor `infra/deploy-legacy.ps1` touches it) into the private
