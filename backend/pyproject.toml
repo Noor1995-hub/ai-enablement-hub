@@ -19,7 +19,7 @@ dependencies = [
     # Entra ID login: httpx does the server-side code exchange; cryptography is
     # required by PyJWT for RS256 id_token verification.
     "httpx~=0.28",
-    "cryptography~=45.0",
+    "cryptography>=45,<51",
     "azure-communication-email~=1.1",
     # Per-project email templates: admins author subject/body in Markdown; the
     # backend renders it to HTML (raw HTML disabled) at send time.
