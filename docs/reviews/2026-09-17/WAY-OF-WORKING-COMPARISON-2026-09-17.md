@@ -357,8 +357,15 @@ the way the portal's agents own `evals/`).
 > Tier 2 in progress: 2.4 Dependabot config + `npm audit fix` (7 of 9 advisories; the remaining
 > two are react-router 6.x, fixed only in 7.18+, a major bump tracked as its own PR — no route in
 > the SPA navigates to a user-supplied URL, so the open redirect is not reachable today).
-> 2.4 part 2 (#19, `anthropic~=1.8` in main deps) awaits Aaron's review. 2.2 coverage floor 90% in CI.
-> Decisions taken since this report: manual deploy button (not on-merge);
+> 2.4 part 2: `anthropic~=1.8` in main deps (#19); bcrypt 5 with explicit 72-byte truncation (#38).
+> 2.2: coverage floor 90% in CI (#20).
+> **Deferred frontend-tooling upgrade (decided 2026-09-24):** TypeScript 7, ESLint 10 (+ `@eslint/js` 10),
+> `@vitejs/plugin-react` 6 and react-router 7 are one planned upgrade (spec → plan → PR), not
+> Dependabot merges. Their PRs #27–#30 were closed with `@dependabot ignore this major version`;
+> to resume, comment `@dependabot unignore <dependency>` on a Dependabot PR or remove the ignore
+> under Insights → Dependency graph → Dependabot. react-router 7 also closes the last two npm advisories.
+> Decisions taken since this report: admins self-merge with `--admin` after green CI + the Claude
+> review, no @-mentions or review requests (2026-09-24, keeps `main-review` at 1 approval); manual deploy button (not on-merge);
 > review scope = every non-docs PR, no `@claude`; prompts edited only by Matthias and Aaron.
 
 Effort: **S** = under half a day, **M** = one to two days, **L** = three to five days. All

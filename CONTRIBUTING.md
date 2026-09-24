@@ -56,17 +56,18 @@ it does not block. The backend check also fails if test coverage of `backend/src
 90% — add tests with the code, don't lower the floor. If a required check is red: open the job log, fix, push again. **Never work
 around a red check** — there is no bypass, and that is the point.
 
-**6. Review.** Non-admin contributors need one approving review. Repo admins may merge their own
-PR without a review, **but the policy is:** admin self-merge is for docs, hotfixes and
-trivially-green changes only. Anything touching authentication, migrations, prompts or a
-learner-facing flow waits for the other admin. Ask for a review in the PR with `@<login>`.
+**6. Review.** The gate is green CI plus the Claude review (see below) — read its findings and
+fix what is real. Repo admins then merge their own PR (`--admin`, step 7); we do **not**
+@-mention each other or request reviewers — with a team this size that is overhead, not safety.
+Put the risk of a change (auth, migrations, prompts, an AI or learner-facing flow) in the PR
+description instead. Non-admin contributors still need one approving review (the `main-review`
+ruleset); an admin gives it.
 
 **7. Merge — squash only:**
 ```bash
 gh pr merge --squash --delete-branch
 ```
-(or the green "Squash and merge" button). An admin merging their own PR without a review — only
-within the step 6 policy — adds `--admin`; without it GitHub refuses because `main-review` wants
+(or the green "Squash and merge" button). An admin merging their own PR adds `--admin`; without it GitHub refuses because `main-review` wants
 an approval. The PR title becomes the one commit on `main`; the
 branch is deleted automatically.
 
