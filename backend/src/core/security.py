@@ -29,13 +29,24 @@ __all__ = [
 ENTRA_STATE_TTL_MINUTES = 10
 
 
+# bcrypt only ever reads the first 72 bytes. bcrypt < 5 truncated silently and every stored hash
+# was made that way; bcrypt >= 5 raises instead. SetPasswordRequest caps at 72 *characters*, which
+# can be up to 288 UTF-8 bytes, so truncate explicitly here — without it, users with a long
+# non-ASCII password could no longer log in.
+_BCRYPT_MAX_BYTES = 72
+
+
+def _password_bytes(password: str) -> bytes:
+    return password.encode("utf-8")[:_BCRYPT_MAX_BYTES]
+
+
 def hash_password(password: str) -> str:
-    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+    return bcrypt.hashpw(_password_bytes(password), bcrypt.gensalt()).decode("utf-8")
 
 
 def verify_password(password: str, password_hash: str) -> bool:
     try:
-        return bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
+        return bcrypt.checkpw(_password_bytes(password), password_hash.encode("utf-8"))
     except ValueError:
         return False
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime, timedelta
 
+import bcrypt
 import jwt
 import pytest
 from pydantic import SecretStr
@@ -34,6 +35,23 @@ class TestPasswordHashing:
 
     def test_malformed_hash_returns_false(self) -> None:
         assert not verify_password("anything", "not-a-bcrypt-hash")
+
+    # SetPasswordRequest caps at 72 *characters*; bcrypt's limit is 72 *bytes*. bcrypt < 5
+    # truncated silently, bcrypt >= 5 raises — these pin the truncating behaviour every
+    # existing hash was made with.
+    LONG = "é" * 72  # 72 chars, 144 UTF-8 bytes
+
+    def test_password_over_72_bytes_can_be_set_and_verified(self) -> None:
+        assert verify_password(self.LONG, hash_password(self.LONG))
+
+    def test_hash_made_by_truncating_bcrypt_still_verifies(self) -> None:
+        # What bcrypt 4 stored for LONG: the hash of its first 72 bytes.
+        legacy = bcrypt.hashpw(self.LONG.encode("utf-8")[:72], bcrypt.gensalt()).decode("utf-8")
+        assert verify_password(self.LONG, legacy)
+
+    def test_only_the_first_72_bytes_count(self) -> None:
+        base = "a" * 72
+        assert verify_password(base + "anything-after", hash_password(base))
 
 
 class TestAccessToken:

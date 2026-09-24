@@ -180,3 +180,20 @@ locally by default.
 **The rule.** A test that exercises environment-dependent behaviour sets or clears every variable it
 depends on (`monkeypatch.delenv("CI", raising=False)`), and a change touching such code is also run
 once with `CI=true` before the PR.
+
+## 2026-09-24 — a green Dependabot major (bcrypt 5) would have locked users out
+
+**What went wrong.** Nothing shipped — caught while triaging Dependabot's first batch. PR #35
+(bcrypt 4.3 → 5.0) had both CI checks green. bcrypt 5 raises `ValueError` for passwords over 72
+bytes where 4.x truncated silently; `verify_password` swallows `ValueError` as "wrong password".
+`SetPasswordRequest` caps at 72 *characters*, so any user whose password is over 72 UTF-8 bytes
+(long, non-ASCII) would have been refused at login with the correct password, and setting such a
+password would have 500'd. No test used a password over 72 bytes, so CI could not see it.
+
+**Why it bites here.** Dependabot opens majors as ordinary PRs, CI turns them green, and the
+admin self-merge flow makes merging one a single command. A green check on a major proves the
+suite still passes, not that the library behaves the same on inputs the suite never uses.
+
+**The rule.** Before merging a Dependabot **major**, read the changelog's breaking-changes
+section and grep our call sites for each item; if one applies, fix it in our own PR with a test
+that fails on the new version (this one: `tests/unit/test_security.py`, the 72-byte cases).

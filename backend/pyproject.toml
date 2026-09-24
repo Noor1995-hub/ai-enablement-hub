@@ -14,7 +14,7 @@ dependencies = [
     "pydantic~=2.9",
     "pydantic-settings~=2.6",
     "email-validator~=2.2",
-    "bcrypt~=4.2",
+    "bcrypt~=5.0",
     "pyjwt~=2.10",
     # Entra ID login: httpx does the server-side code exchange; cryptography is
     # required by PyJWT for RS256 id_token verification.
