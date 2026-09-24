@@ -2,8 +2,8 @@
 #
 # JOB NAMES ARE LOAD-BEARING. The `main-ci` ruleset (.github/rulesets/main-ci.json) requires
 # the `name:` of the backend and frontend jobs as status-check contexts. Renaming a job here
-# without updating the ruleset blocks every merge. The `staged` job is deliberately NOT required
-# (continue-on-error) — promote it in the ruleset once it has been green for a while.
+# without updating the ruleset blocks every merge. The `staged` job is deliberately NOT required:
+# it is a ratchet on known debt (see the job) and goes red only when a change adds findings.
 #
 # The backend job runs the real pytest suite against a throwaway Postgres 18 service container
 # (not the shared Azure test DB): tests/conftest.py derives its DSN from ALEMBIC_DATABASE_URL,
@@ -103,13 +103,17 @@ jobs:
       - run: npm run build
 
   staged:
-    # Not required by the ruleset. Runs the checks that are not clean yet (ruff on backend/scripts,
-    # ty on the whole backend — src/ itself is clean and type-checked by the backend job) so the
-    # debt is visible on every PR without blocking.
+    # Not required by the ruleset. A ratchet on the known debt: ruff on backend/scripts and ty on
+    # the whole backend (src/ itself is clean and type-checked by the backend job). Green while the
+    # count is at or below the baseline, red only when a change ADDS findings. The counts land in
+    # the run summary and as a warning annotation. When a PR fixes debt, lower the baseline in the
+    # same PR so the ratchet tightens; never raise it.
     name: staged (scripts lint + ty) — not required
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    continue-on-error: true
+    env:
+      RUFF_SCRIPTS_BASELINE: 30
+      TY_BASELINE: 21
     defaults:
       run:
         working-directory: backend
@@ -120,7 +124,38 @@ jobs:
           enable-cache: true
           cache-dependency-glob: backend/uv.lock
       - run: uv sync --frozen --all-extras
-      - name: Lint scripts
-        run: uv run ruff check scripts
-      - name: Type check
-        run: uv run poe ty
+      - name: Count debt and compare with the baseline
+        run: |
+          ruff_n=$(uv run ruff check scripts --output-format json --exit-zero | python -c "import json,sys; print(len(json.load(sys.stdin)))")
+          # ty exits 0 (clean) or 1 (diagnostics found); anything else means it did not run, and
+          # a count of 0 from a crashed ty must not pass as "no debt".
+          set +e
+          ty_out=$(uv run ty check . --output-format concise)
+          ty_rc=$?
+          set -e
+          if [ "$ty_rc" -gt 1 ]; then
+            echo "$ty_out"
+            echo "::error::ty exited with $ty_rc - it did not run, so the ty count is unknown"
+            exit 1
+          fi
+          ty_n=$(echo "$ty_out" | grep -cE '^[^ ]+:[0-9]+:[0-9]+: (error|warning)' || true)
+          {
+            echo "### Known debt (ratchet)"
+            echo "| check | findings | baseline |"
+            echo "|---|---|---|"
+            echo "| ruff \`scripts/\` | $ruff_n | $RUFF_SCRIPTS_BASELINE |"
+            echo "| ty (whole backend) | $ty_n | $TY_BASELINE |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::warning title=Known debt::ruff scripts/ $ruff_n (baseline $RUFF_SCRIPTS_BASELINE), ty $ty_n (baseline $TY_BASELINE)"
+          fail=0
+          if [ "$ruff_n" -gt "$RUFF_SCRIPTS_BASELINE" ]; then
+            echo "::error::ruff on scripts/ found $ruff_n findings, baseline is $RUFF_SCRIPTS_BASELINE - this change adds lint debt"
+            uv run ruff check scripts --output-format concise || true
+            fail=1
+          fi
+          if [ "$ty_n" -gt "$TY_BASELINE" ]; then
+            echo "::error::ty found $ty_n diagnostics, baseline is $TY_BASELINE - this change adds type debt"
+            uv run ty check . --output-format concise || true
+            fail=1
+          fi
+          exit $fail

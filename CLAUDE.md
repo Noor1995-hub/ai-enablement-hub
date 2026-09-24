@@ -78,11 +78,10 @@ untouched at `../app/`, historical only. The pre-cutover migration scripts were 
   **`bta-portal-cicd` has only the plain form and will hit the same failure; tell Michael.**
   Roadmap and open decisions: `docs/reviews/2026-09-17/`.
 - **Tier 1 status (2026-09-24):** 1.1–1.4 and 1.6–1.9 done (PRs #4–#16); 1.5 (dev database)
-  cancelled by decision. **`main` is ahead of production:** the last deploy is `7cd9cab`
-  (2026-09-23); PR #16 (`f84fded`, prompts git-only — read-only System Prompts page, `PUT`/`DELETE`
-  → 405) is merged but **not deployed**. Before pressing Deploy, open `/admin/prompts` and confirm
-  no prompt shows an **Edited** chip (a census on 2026-09-23 found 0 override rows; an override
-  saved since would be silently discarded). Next in the programme: Tier 2
+  cancelled by decision. Prompts git-only (#16) deployed 2026-09-24 together with the first Tier 2
+  batch (#18–#38: anthropic 1.x, bcrypt 5, coverage floor, `ty` on `src/`) — Deploy run
+  `35990005311` built `main` @ `f483cc1`; verified live — login, an AI call, read-only prompts
+  page (`PUT` → 405). Current state: ask `/api/health`, not this line. Tier 2 in progress
   (`docs/reviews/2026-09-17/` §5), then the July fix programme.
 - **Claude PR review (2026-09-23):** `.github/workflows/claude-code-review.yml` reviews every
   non-docs PR on open/ready/reopen, `/review` re-runs it; advice, not a required check; a red
@@ -93,7 +92,8 @@ untouched at `../app/`, historical only. The pre-cutover migration scripts were 
 
 - **Backend** (inside `backend/`): checks = `uv run poe format-check && uv run poe lint-src &&
   uv run poe ty-src && uv run poe test` — the same four CI runs (`ty` is pinned in the dev extra) (`poe format` rewrites, `poe lint` also covers
-  `scripts/`, which carries known findings and is linted by the non-required `staged` CI job).
+  `scripts/`, which carries known findings and is linted by the non-required `staged` CI job — a
+  ratchet: green at or below the baseline in `ci.yml`, red only when a change adds findings).
   Locally the integration tests hit the `ai-enablement-hub-test` Azure PG DB; in CI they run
   against a throwaway `postgres:18` service container. Dev server: `uv run poe dev`
   (→ :8000, Swagger at `/docs`). Migrations: `uv run poe upgrade`.

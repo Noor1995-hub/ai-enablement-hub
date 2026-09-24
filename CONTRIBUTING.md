@@ -51,10 +51,14 @@ to the branch name, which then becomes the commit message on `main`. Pass
 
 **5. Wait for the checks.** The `CI` workflow (`.github/workflows/ci.yml`) posts two required
 checks on the PR: `backend (format + lint + tests)` and `frontend (typecheck + lint + build)`.
-A third check, `staged (scripts lint + ty) — not required`, reports known debt and may be red;
-it does not block. The backend check also fails if test coverage of `backend/src/` drops below
-90% — add tests with the code, don't lower the floor. If a required check is red: open the job log, fix, push again. **Never work
-around a red check** — there is no bypass, and that is the point.
+A third check, `staged (scripts lint + ty) — not required`, counts the known lint/type debt in
+`backend/scripts/` and the whole backend. It is green while the count stays at or below the
+baseline in `ci.yml` and turns red only when your change **adds** findings. It does not block,
+but a red one means "you made the debt worse": fix it. If you fixed some debt, lower the
+baseline in the same PR. The backend check also fails if test coverage of `backend/src/` drops
+below 90% — add tests with the code, don't lower the floor. If a required check is red: open the
+job log, fix, push again. **Never work around a red check** — there is no bypass, and that is
+the point.
 
 **6. Review.** The gate is green CI plus the Claude review (see below) — read its findings and
 fix what is real. Repo admins then merge their own PR (`--admin`, step 7); we do **not**
