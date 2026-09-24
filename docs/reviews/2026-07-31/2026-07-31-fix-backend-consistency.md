@@ -952,6 +952,11 @@ sign-in keeps the email DOMAIN only, which still separates 'wrong tenant' from
 
 ## Task 7: Dependency & config hygiene
 
+> **Amended 2026-09-24 (way-of-working 2.4):** the `anthropic` half is done — it moved to main
+> dependencies as `anthropic~=1.8` (not `~=0.119`), and the three tests that build SDK errors now
+> use `httpx2`. Skip every `anthropic` step below; the `httptools`, `httpx`, `aiosqlite` and
+> `LlmSettings` steps still stand, and the `uv.lock` line numbers quoted here have moved.
+
 Closes review item **9.9**. `anthropic` is unpinned *and* in the `prod` extra while being a hard top-level import of `src` — so `uv sync --extra dev` alone cannot boot the app, and a re-lock could pull a breaking major. This is the exact mistake prior audit 11.2 fixed for ACS; it recurred.
 
 **Files:**

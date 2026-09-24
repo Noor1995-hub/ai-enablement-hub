@@ -14,7 +14,7 @@ import uuid
 from typing import TYPE_CHECKING, Any
 
 import anthropic
-import httpx
+import httpx2
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
@@ -336,9 +336,9 @@ class FakeOverloadedLlm:
         self, *, system: str, prompt: str, schema: Any, max_tokens: int
     ) -> tuple[dict[str, Any], LlmUsage]:
         self.calls += 1
-        request = httpx.Request("POST", "https://api.anthropic.com/v1/messages")
+        request = httpx2.Request("POST", "https://api.anthropic.com/v1/messages")
         raise anthropic.OverloadedError(
-            "Overloaded", response=httpx.Response(529, request=request), body=None
+            "Overloaded", response=httpx2.Response(529, request=request), body=None
         )
 
 

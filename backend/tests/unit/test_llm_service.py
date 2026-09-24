@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 import anthropic
-import httpx
+import httpx2
 
 from src.services.llm_service import (
     AnthropicLlmClient,
@@ -16,8 +16,8 @@ from tests.fixtures.llm import FakeAsyncAnthropic, FakeStructuredAsyncAnthropic
 
 def _status_error(cls: Any, status: int) -> Exception:
     """A real anthropic status error, built the way the SDK builds one."""
-    request = httpx.Request("POST", "https://api.anthropic.com/v1/messages")
-    return cls("boom", response=httpx.Response(status, request=request), body=None)
+    request = httpx2.Request("POST", "https://api.anthropic.com/v1/messages")
+    return cls("boom", response=httpx2.Response(status, request=request), body=None)
 
 
 def _overloaded() -> Exception:
@@ -104,7 +104,7 @@ class TestTransientProviderErrors:
         )
 
     def test_a_connection_error_is_transient(self) -> None:
-        exc = anthropic.APIConnectionError(request=httpx.Request("POST", "https://x/y"))
+        exc = anthropic.APIConnectionError(request=httpx2.Request("POST", "https://x/y"))
         assert is_transient_provider_error(exc) is True
 
     def test_our_own_llm_error_is_terminal(self) -> None:

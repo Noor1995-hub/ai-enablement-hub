@@ -8,7 +8,7 @@ from unittest import mock
 from unittest.mock import AsyncMock
 
 import anthropic
-import httpx
+import httpx2
 
 from src.repositories.base import (
     AbstractCalibrationNoteRepository,
@@ -30,9 +30,9 @@ _GOOD_BLOCKS = [
 
 def _overloaded() -> Exception:
     """The real 529 a run hits when Anthropic is at capacity."""
-    request = httpx.Request("POST", "https://api.anthropic.com/v1/messages")
+    request = httpx2.Request("POST", "https://api.anthropic.com/v1/messages")
     return anthropic.OverloadedError(
-        "Overloaded", response=httpx.Response(529, request=request), body=None
+        "Overloaded", response=httpx2.Response(529, request=request), body=None
     )
 
 
