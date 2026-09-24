@@ -1,0 +1,21 @@
+name: Bug
+description: Something in the hub behaves wrongly for a learner, an admin or an operator.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happens, and what should happen
+      description: One or two sentences each. Name the page or endpoint.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to see it
+      description: Steps, role (admin / user+ / user) and project. No passwords, tokens or learner personal data.
+  - type: input
+    id: build
+    attributes:
+      label: Build
+      description: The build_sha from /api/health or the admin Setup page, if you know it.

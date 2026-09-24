@@ -112,6 +112,15 @@ are skipped; prompt changes under `backend/prompts/` are reviewed.
   (PowerShell: `$env:UPDATE_GOLDEN='1'; uv run pytest tests/golden/ai`), read the diff, commit it
   with the change. They go live with the next deploy.
 
+## The backlog lives in GitHub Issues
+
+Anything we mean to do later is an issue, not a line in a doc: bugs, planned work, owed chores.
+Labels say which stream it belongs to: `way-of-working`, `fix-programme` (the July review's
+phases), `ops`, `security`, plus GitHub's `bug`/`enhancement`. A PR that finishes an issue says
+`Closes #N` in its description, so merging closes it. No assignees and no @-mentions (see step 6);
+pick up whatever is open. The specs, plans and reviews under `docs/` stay the detailed source — the
+issue links to them.
+
 ## Dependency updates (Dependabot)
 
 `.github/dependabot.yml` opens update PRs every Monday: one grouped PR per area (frontend, backend,

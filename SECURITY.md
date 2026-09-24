@@ -76,8 +76,8 @@ Inventory verified against Azure and GitHub on 2026-09-23 (names only; values we
 
 | Secret | Why | Blast radius | Status |
 |---|---|---|---|
-| Dev `AUTH__JWT_SECRET` (`backend/.env`) | Leaked into a tool transcript 2026-07-06 | Dev only: prod uses a different value. A forged token works only against a locally running dev server — which does talk to the live DB. | Owed, not scheduled |
-| `aienablementhubmedia` account key (`storage-connection-string` + `backend/.env`) | Leaked into a tool transcript 2026-07-30 | Read/write/delete on all lesson media in production | Owed, not scheduled |
+| Dev `AUTH__JWT_SECRET` (`backend/.env`) | Leaked into a tool transcript 2026-07-06 | Dev only: prod uses a different value. A forged token works only against a locally running dev server — which does talk to the live DB. | Owed — #42 |
+| `aienablementhubmedia` account key (`storage-connection-string` + `backend/.env`) | Leaked into a tool transcript 2026-07-30 | Read/write/delete on all lesson media in production | Owed — #43 |
 
 How, when the time comes (everything except the dev JWT secret changes Azure — agents ask
 first):

@@ -1,0 +1,15 @@
+name: Work item
+description: A planned change — feature, fix-programme task, ops chore, upgrade.
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What and why
+      description: The outcome, and why it matters. Link the spec, plan or review section if there is one.
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: Done when
+      description: How we will know — a check that passes, a page that shows X, a doc that says Y.
