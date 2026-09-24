@@ -43,6 +43,7 @@ import AddModuleModal from '../components/AddModuleModal'
 import { LEVELS, LEVEL_GRADIENT, levelByCode, INTRODUCTION_LEVEL } from '../lib/levels'
 import { resolveTrackColor, FALLBACK_TRACK_COLOR } from '../lib/trackColors'
 import { getRectZoomFactor } from '../lib/uiZoom'
+import { isIntroComplete, isModuleDone, isModuleUnlocked, isPrereqSatisfied, type LockContext } from '../lib/learningPathLocks'
 import type { ModuleNode, TrackNode } from '../types/domain'
 
 /* ── Lane geometry ── */
@@ -326,60 +327,21 @@ export default function LearningPathNew() {
     return m
   }, [modulesMap])
 
-  const isDone = (id: string): boolean => {
-    const mod = moduleById.get(id)
-    return !!mod && mod.lesson_count > 0 && mod.completed_lesson_count >= mod.lesson_count
-  }
-
-  // Introduction gate: the pre-Explorer track(s) must be finished before any
-  // other track unlocks. Lesson-based (matches the group bar) with the guard
-  // that an EMPTY Introduction (no lessons yet) leaves the gate OPEN, so
-  // shipping the empty track changes nothing until content is published.
-  const introComplete = useMemo(() => {
-    const introMods = tracks
-      .filter(t => t.is_introduction)
-      .flatMap(t => modulesMap[t.id] ?? [])
-    const total = introMods.reduce((n, m) => n + m.lesson_count, 0)
-    const done = introMods.reduce(
-      (n, m) => n + Math.min(m.completed_lesson_count, m.lesson_count),
-      0,
-    )
-    return total === 0 || done >= total
-  }, [tracks, modulesMap])
-
-  // A prerequisite is satisfied either by completion, OR — when it points into a
-  // strictly-lower maturity level than the dependent module's track — by the
-  // learner's maturity alone. isUnlocked only reaches the prereq check for a
-  // maturity-unlocked module, so its effective level already covers every
-  // lower-level track; re-gating on those cross-track (general → tool) edges
-  // would block a pinned/skip-ahead learner on general modules the ladder never
-  // required them to walk. Same-track and same-level prerequisites still gate.
-  const predSatisfied = (predId: string, dependentId: string): boolean => {
-    const myRank = moduleLevelRank.get(dependentId)
-    const pRank = moduleLevelRank.get(predId)
-    if (myRank !== undefined && pRank !== undefined && pRank < myRank) return true
-    return isDone(predId)
-  }
-  const isUnlocked = (id: string): boolean => {
-    if (canBypassLocks) return true // admin + user+ bypass, same as the live page
-    const mod = moduleById.get(id)
-    if (mod?.unlocked_by_maturity === false) return false
-    // Introduction gate: modules OUTSIDE the Introduction track stay locked
-    // until the Introduction is complete.
-    if (mod && !mod.is_introduction && !introComplete) return false
-    // Below-level tracks are already "mastered": a module whose track sits at a
-    // maturity level strictly below the learner's effective level is fully
-    // unlocked — the whole prerequisite path is bypassed so the learner can
-    // freely review it (levels below the assessed level count as complete, the
-    // same model the overall bar uses). Current-level and higher tracks still
-    // gate: higher levels never reach here (unlocked_by_maturity === false
-    // above), and same-level prerequisites fall through to predSatisfied below.
-    const rank = moduleLevelRank.get(id)
-    if (rank !== undefined && rank < levelIdx) return true
-    const preds = prereqMap.get(id)
-    if (!preds || preds.length === 0) return true
-    return preds.every(p => predSatisfied(p, id))
-  }
+  // The unlock rule itself lives in lib/learningPathLocks.ts (pure, unit-tested). These wrappers
+  // bind it to this page's state. lockCtx is built at call time: levelIdx is declared below.
+  const isDone = (id: string): boolean => isModuleDone(moduleById.get(id))
+  const introComplete = useMemo(() => isIntroComplete(tracks, modulesMap), [tracks, modulesMap])
+  const lockCtx = (): LockContext => ({
+    canBypassLocks,
+    moduleById,
+    prereqMap,
+    moduleLevelRank,
+    levelIdx,
+    introComplete,
+  })
+  const predSatisfied = (predId: string, dependentId: string): boolean =>
+    isPrereqSatisfied(lockCtx(), predId, dependentId)
+  const isUnlocked = (id: string): boolean => isModuleUnlocked(lockCtx(), id)
   const firstCurrent = (mods: ModuleNode[]): ModuleNode | null =>
     mods.find(m => !isDone(m.id) && isUnlocked(m.id)) ?? null
 

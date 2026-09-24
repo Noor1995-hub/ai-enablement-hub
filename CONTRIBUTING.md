@@ -32,7 +32,7 @@ e.g. `fix(admin): show a Maturity badge for the multiplier level`.
 **3. Run the checks yourself before you push** (Claude does this for you when asked):
 ```powershell
 cd .\backend;  uv run poe format-check; uv run poe lint-src; uv run poe ty-src; uv run poe test
-cd ..\frontend; npm run typecheck; npm run lint; npm run build
+cd ..\frontend; npm run typecheck; npm run lint; npm test; npm run build
 ```
 The backend tests run against the shared Azure test database; a flaky run happens now and then —
 rerun once before investigating. PowerShell 5.1 runs the commands on a line one after another

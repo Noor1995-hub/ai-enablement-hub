@@ -97,7 +97,8 @@ untouched at `../app/`, historical only. The pre-cutover migration scripts were 
   Locally the integration tests hit the `ai-enablement-hub-test` Azure PG DB; in CI they run
   against a throwaway `postgres:18` service container. Dev server: `uv run poe dev`
   (→ :8000, Swagger at `/docs`). Migrations: `uv run poe upgrade`.
-- **Frontend** (inside `frontend/`): checks = `npm run typecheck && npm run lint && npm run build`.
+- **Frontend** (inside `frontend/`): checks = `npm run typecheck && npm run lint && npm test && npm run build`
+  (Vitest + Testing Library, `*.test.ts(x)` next to the code).
   Dev: `npm run dev` (→ :5173, proxies `/api` → :8000). After a backend contract change,
   regenerate the committed API types with `npm run gen:api` (from `frontend/`) and commit
   `src/api/schema.d.ts`. It imports the app via `backend/scripts/export_openapi.py` and **never
@@ -228,7 +229,7 @@ git log + the specs themselves.
     gate, not a role check: admin and `user+` are NOT exempt.
   - **Module level:** `module_prerequisites` edge table (only DB constraint is `not_self`;
     nothing blocks cross-track or cyclic edges). The unlock rule exists ONLY in
-    `frontend/src/pages/LearningPathNew.tsx::isUnlocked`: unlocked ⇔ admin OR user+ OR no
+    `frontend/src/lib/learningPathLocks.ts::isModuleUnlocked` (pure, unit-tested next to it): unlocked ⇔ admin OR user+ OR no
     prereqs OR every prereq module has assigned-lesson `total > 0 && completed === total`.
     Tracks strictly below the learner's effective level are freely reviewable (2026-07-20).
     **Still frontend-only** — no server-side prerequisite check exists.
@@ -237,7 +238,7 @@ git log + the specs themselves.
   {Level}" lane lock) and deliberately does NOT assign content (assignment is seeded only on
   survey completion or by an admin — decision 2026-07-17) and does NOT bypass module
   prerequisites. Cross-track gotcha: tool-track first modules have prereqs on the last
-  General II module; `predSatisfied()` in `LearningPathNew.tsx` treats a prerequisite pointing
+  General II module; `isPrereqSatisfied()` in `lib/learningPathLocks.ts` treats a prerequisite pointing
   into a strictly-lower maturity level than the dependent's track as satisfied by maturity
   alone. Same-track/same-level prereqs still gate.
 - **Maturity gating, assignment and module prerequisites are visibility filters, NOT access
