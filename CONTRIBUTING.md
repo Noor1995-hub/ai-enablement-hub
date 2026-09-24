@@ -52,7 +52,8 @@ to the branch name, which then becomes the commit message on `main`. Pass
 **5. Wait for the checks.** The `CI` workflow (`.github/workflows/ci.yml`) posts two required
 checks on the PR: `backend (format + lint + tests)` and `frontend (typecheck + lint + build)`.
 A third check, `staged (scripts lint + ty) — not required`, reports known debt and may be red;
-it does not block. If a required check is red: open the job log, fix, push again. **Never work
+it does not block. The backend check also fails if test coverage of `backend/src/` drops below
+90% — add tests with the code, don't lower the floor. If a required check is red: open the job log, fix, push again. **Never work
 around a red check** — there is no bypass, and that is the point.
 
 **6. Review.** Non-admin contributors need one approving review. Repo admins may merge their own

@@ -357,6 +357,7 @@ the way the portal's agents own `evals/`).
 > Tier 2 in progress: 2.4 Dependabot config + `npm audit fix` (7 of 9 advisories; the remaining
 > two are react-router 6.x, fixed only in 7.18+, a major bump tracked as its own PR — no route in
 > the SPA navigates to a user-supplied URL, so the open redirect is not reachable today).
+> 2.4 part 2 (#19, `anthropic~=1.8` in main deps) awaits Aaron's review. 2.2 coverage floor 90% in CI.
 > Decisions taken since this report: manual deploy button (not on-merge);
 > review scope = every non-docs PR, no `@claude`; prompts edited only by Matthias and Aaron.
 
