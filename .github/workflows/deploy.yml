@@ -23,9 +23,8 @@ on:
         required: false
         default: ""
 
-permissions:
-  contents: read
-  id-token: write
+# Deny by default; the deploy job grants itself the two it needs (way-of-working 2.8).
+permissions: {}
 
 concurrency:
   group: deploy-production
@@ -43,11 +42,14 @@ env:
 jobs:
   deploy:
     name: build, migrate, roll, verify
+    permissions:
+      contents: read
+      id-token: write   # OIDC login to Azure as ai-hub-cicd (no stored secret)
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0   # merge-base check for rollback SHAs
 
@@ -71,7 +73,7 @@ jobs:
             echo "Build and deploy main HEAD $GITHUB_SHA"
           fi
 
-      - uses: azure/login@v2
+      - uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
