@@ -351,6 +351,12 @@ the way the portal's agents own `evals/`).
 
 ## 5. Prioritised recommendations
 
+> **Status (2026-09-24):** Tier 0 done (PRs #1–#2). Tier 1 done except 1.5, cancelled by decision
+> (no dev database): 1.1–1.3 CI deploy (#4–#7), 1.6 `SECURITY.md` (#8), 1.7 lessons ledger (#9),
+> 1.8 docs map (#10), 1.4 Claude PR review (#11–#15), 1.9 prompts git-only (#16, not yet deployed).
+> Tier 2 not started. Decisions taken since this report: manual deploy button (not on-merge);
+> review scope = every non-docs PR, no `@claude`; prompts edited only by Matthias and Aaron.
+
 Effort: **S** = under half a day, **M** = one to two days, **L** = three to five days. All
 estimates assume Claude does the typing and a human reviews.
 

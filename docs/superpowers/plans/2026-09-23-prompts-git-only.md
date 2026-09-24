@@ -40,7 +40,7 @@
 **Interfaces:**
 - Produces: `PromptService()` (no args) with sync `list_all() -> list[PromptSummary]`, `get(kind: str) -> PromptDetail`; `prompt_path(kind: str) -> str` returning `backend/prompts/<kind>.md`; `PromptSummary{kind,label,group,path}`, `PromptDetail{kind,label,content,path}`; `prompts.load_prompt`, `prompts.read_file`, `prompts.clear_cache` only.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 `backend/tests/unit/test_prompt_seam.py` — replace the file:
 
@@ -179,12 +179,12 @@ class TestNoWritePath:
 
 (Use the fixture names the current file actually uses — e.g. if the session fixture is not `db_session`, use its real name. Adapt, don't invent.)
 
-- [ ] **Step 2: Run them to verify they fail**
+- [x] **Step 2: Run them to verify they fail**
 
 Run (from `backend/`): `uv run pytest tests/unit/test_prompt_seam.py tests/unit/test_prompt_service.py tests/unit/test_prompt_integrity.py tests/integration/test_routers/test_admin_prompts.py -q -p no:randomly`
 Expected: FAIL — `ImportError: cannot import name 'prompt_path'`, `hasattr` asserts, PUT returns 200 not 405. (`test_prompt_integrity.py` may already pass: it tests files, not code — that is fine; note it.)
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `backend/src/services/prompts.py`:
 
@@ -354,16 +354,16 @@ and the now-unused imports `from src.repositories.prompt_repository import Promp
 
 Delete `backend/src/repositories/prompt_repository.py`. Then `grep -rn "prompt_repository\|PromptRepository\|set_cache\|reset_cache\|refresh_cache\|PromptUpdateRequest" backend/src backend/tests` must return nothing (fix any stragglers, e.g. a repositories `__init__` export).
 
-- [ ] **Step 4: Run the tests — expect PASS**
+- [x] **Step 4: Run the tests — expect PASS**
 
 Run: the Step 2 command. Expected: all pass.
 
-- [ ] **Step 5: Full backend checks**
+- [x] **Step 5: Full backend checks**
 
 Run (from `backend/`): `uv run poe format` then `uv run poe format-check; uv run poe lint-src; uv run poe test > /tmp/t1.log 2>&1; tail -5 /tmp/t1.log`
 Expected: format clean, lint "All checks passed!", tests all pass (rerun once if the shared test DB flakes). Coverage must not drop below the current level noticeably.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add -A backend/src backend/tests
@@ -379,7 +379,7 @@ git commit -m "feat(prompts): git is the only source of truth; read-only admin A
 **Interfaces:**
 - Produces: `RecordingLlm(structured_results: list[dict] | None = None, chunks: list[str] | None = None)` implementing `LlmClient`, with `.calls: list[dict]`; `render_calls(calls: list[dict]) -> str`; `assert_golden(name: str, calls: list[dict]) -> None`. Tasks 3–4 use exactly these.
 
-- [ ] **Step 1: Write the harness test (failing)**
+- [x] **Step 1: Write the harness test (failing)**
 
 `backend/tests/golden/ai/test_harness.py`:
 
@@ -439,11 +439,11 @@ def test_update_golden_is_ignored_in_ci(tmp_path, monkeypatch):
         assert_golden("never-written", [])
 ```
 
-- [ ] **Step 2: Run — expect FAIL** (`ModuleNotFoundError: tests.golden.ai.harness`).
+- [x] **Step 2: Run — expect FAIL** (`ModuleNotFoundError: tests.golden.ai.harness`).
 
 Run: `uv run pytest tests/golden/ai -q -p no:randomly`
 
-- [ ] **Step 3: Implement `harness.py`**
+- [x] **Step 3: Implement `harness.py`**
 
 ```python
 """Golden cases for the AI features: pin exactly what each feature sends the model.
@@ -547,9 +547,9 @@ def assert_golden(name: str, calls: list[dict[str, Any]]) -> None:
         )
 ```
 
-- [ ] **Step 4: Run the harness tests — expect PASS.**
+- [x] **Step 4: Run the harness tests — expect PASS.**
 
-- [ ] **Step 5: Feedback-triage golden (failing first)**
+- [x] **Step 5: Feedback-triage golden (failing first)**
 
 `test_feedback_triage_golden.py`: build the service exactly as `tests/unit/test_feedback_triage_service.py::test_prompt_carries_the_lesson_and_the_feedback` does (its `_row` / `_repo` helpers — copy them, don't import from another test module), with **fictional fixed values**: lesson title `"Prompting basics"`, feedback message `"Please add a worked example"`, fixed UUIDs (`uuid.UUID(int=1)` style) and any timestamps fixed. Use `RecordingLlm(structured_results=[{"suggested_status": "accepted", "rationale": "Actionable."}])`. Call `await service.suggest(limit=5)`, then:
 
@@ -561,7 +561,7 @@ def assert_golden(name: str, calls: list[dict[str, Any]]) -> None:
 
 Run without the snapshot → FAIL with "No golden snapshot … UPDATE_GOLDEN=1". Then `UPDATE_GOLDEN=1 uv run pytest tests/golden/ai/test_feedback_triage_golden.py -q`, **open the `.golden.txt` and read it** (it must show the real `feedback_triage.md` system prompt, the lesson and the feedback), then run plainly → PASS.
 
-- [ ] **Step 6: Commit** — `git add backend/tests/golden/ai && git commit -m "test(golden): harness for AI-feature golden cases + feedback triage"`
+- [x] **Step 6: Commit** — `git add backend/tests/golden/ai && git commit -m "test(golden): harness for AI-feature golden cases + feedback triage"`
 
 ### Task 3: Golden cases — chat surfaces and interviewer
 
@@ -569,10 +569,10 @@ Run without the snapshot → FAIL with "No golden snapshot … UPDATE_GOLDEN=1".
 
 **Interfaces:** Consumes Task 2's `RecordingLlm`, `assert_golden`, `render_calls`.
 
-- [ ] **Step 1: Chat (3 snapshots).** Construct `ChatService` as `tests/unit/test_chat_service.py` does (reuse its fake repositories by copying the minimal helpers). For each conversation kind `chatbot`, `assessment`, `lesson`: a fixed fictional conversation with one prior assistant turn and one new user message; drive the service method that streams a reply; consume the stream; `assert_golden(kind, llm.calls)` with `RecordingLlm(chunks=["ok"])`. If a kind injects context (e.g. lesson content), feed a fixed fictional lesson.
-- [ ] **Step 2: Interview (2 snapshots).** Construct `InterviewService` as `tests/unit/test_interview_service.py` does. `interview`: one conversation turn — the system must include the briefing (`build_briefing`) built from a fixed fictional user (first name `"Alex"`), fixed assessment results and fixed company context. `interview_playbook`: the playbook generation call — all four tokens (`{first_name}`, `{assessment_json}`, `{company_context}`, `{transcript}`) substituted with fixed values; assert in the test that none of the four literal tokens remain in the recorded system/prompt.
-- [ ] **Step 3:** Each test: run → FAIL (no snapshot); `UPDATE_GOLDEN=1` → generate; **read each snapshot**; plain run → PASS; determinism check as in Task 2 (freeze any clock with the same technique the unit tests use, or pass fixed datetimes).
-- [ ] **Step 4:** `uv run poe format; uv run poe lint-src; uv run pytest tests/golden -q` → pass. Commit `test(golden): chat surfaces + interviewer golden cases`.
+- [x] **Step 1: Chat (3 snapshots).** Construct `ChatService` as `tests/unit/test_chat_service.py` does (reuse its fake repositories by copying the minimal helpers). For each conversation kind `chatbot`, `assessment`, `lesson`: a fixed fictional conversation with one prior assistant turn and one new user message; drive the service method that streams a reply; consume the stream; `assert_golden(kind, llm.calls)` with `RecordingLlm(chunks=["ok"])`. If a kind injects context (e.g. lesson content), feed a fixed fictional lesson.
+- [x] **Step 2: Interview (2 snapshots).** Construct `InterviewService` as `tests/unit/test_interview_service.py` does. `interview`: one conversation turn — the system must include the briefing (`build_briefing`) built from a fixed fictional user (first name `"Alex"`), fixed assessment results and fixed company context. `interview_playbook`: the playbook generation call — all four tokens (`{first_name}`, `{assessment_json}`, `{company_context}`, `{transcript}`) substituted with fixed values; assert in the test that none of the four literal tokens remain in the recorded system/prompt.
+- [x] **Step 3:** Each test: run → FAIL (no snapshot); `UPDATE_GOLDEN=1` → generate; **read each snapshot**; plain run → PASS; determinism check as in Task 2 (freeze any clock with the same technique the unit tests use, or pass fixed datetimes).
+- [x] **Step 4:** `uv run poe format; uv run poe lint-src; uv run pytest tests/golden -q` → pass. Commit `test(golden): chat surfaces + interviewer golden cases`.
 
 ### Task 4: Golden cases — content improvement
 
@@ -580,9 +580,9 @@ Run without the snapshot → FAIL with "No golden snapshot … UPDATE_GOLDEN=1".
 
 **Interfaces:** Consumes Task 2's harness.
 
-- [ ] **Step 1:** Construct `ContentImprovementService` as `tests/unit/test_content_improvement_service.py` / `test_content_improvement_critique.py` do. `content_improvement`: the drafting call for one fixed fictional lesson (a few `content_blocks` with nested ids) + one accepted feedback item + two fixed calibration notes; the recorded system must contain the house style, the drafting prompt and both notes. `content_improvement_critique`: the critique call over a fixed draft.
-- [ ] **Step 2:** fail → `UPDATE_GOLDEN=1` → read → pass; determinism check.
-- [ ] **Step 3:** checks as Task 3 Step 4. Commit `test(golden): content-improvement golden cases`.
+- [x] **Step 1:** Construct `ContentImprovementService` as `tests/unit/test_content_improvement_service.py` / `test_content_improvement_critique.py` do. `content_improvement`: the drafting call for one fixed fictional lesson (a few `content_blocks` with nested ids) + one accepted feedback item + two fixed calibration notes; the recorded system must contain the house style, the drafting prompt and both notes. `content_improvement_critique`: the critique call over a fixed draft.
+- [x] **Step 2:** fail → `UPDATE_GOLDEN=1` → read → pass; determinism check.
+- [x] **Step 3:** checks as Task 3 Step 4. Commit `test(golden): content-improvement golden cases`.
 
 ### Task 5: Frontend — read-only System Prompts page
 
@@ -590,10 +590,10 @@ Run without the snapshot → FAIL with "No golden snapshot … UPDATE_GOLDEN=1".
 
 **Interfaces:** Consumes Task 1's `PromptSummary{kind,label,group,path}`, `PromptDetail{kind,label,content,path}`.
 
-- [ ] **Step 1: Regenerate API types without a server.** From `backend/`:
+- [x] **Step 1: Regenerate API types without a server.** From `backend/`:
   `uv run python -c "import json; from src.main import app; open('../frontend/openapi.tmp.json','w',encoding='utf-8').write(json.dumps(app.openapi()))"` then from `frontend/`: `npx openapi-typescript openapi.tmp.json -o src/api/schema.d.ts` and delete `openapi.tmp.json`. `git diff --stat src/api/schema.d.ts` must show only prompt-related changes (if unrelated drift appears, that is pre-existing drift — keep it, and note it in the PR).
-- [ ] **Step 2: Types + hooks.** `domain.ts`: `PromptSummary`/`PromptDetail` follow the schema (drop `source`, `updated_at`, `required_tokens`; add `path`). `api.ts`: delete `useUpdatePrompt` and `useResetPrompt` and their fetchers; keep `usePrompts`/`usePrompt`.
-- [ ] **Step 3: Page.** In `PromptsPage.tsx`: remove the Edited/Default chip, `sourceTone`/`sourceLabel`, the editor state, textarea, Save/Reset, `window.confirm`, required-token hint. The right pane shows the label, then a read-only block `<pre className="adm-prompt-text">{data.content}</pre>` (monospace, `white-space: pre-wrap`, scrollable, max-height ~70vh), then:
+- [x] **Step 2: Types + hooks.** `domain.ts`: `PromptSummary`/`PromptDetail` follow the schema (drop `source`, `updated_at`, `required_tokens`; add `path`). `api.ts`: delete `useUpdatePrompt` and `useResetPrompt` and their fetchers; keep `usePrompts`/`usePrompt`.
+- [x] **Step 3: Page.** In `PromptsPage.tsx`: remove the Edited/Default chip, `sourceTone`/`sourceLabel`, the editor state, textarea, Save/Reset, `window.confirm`, required-token hint. The right pane shows the label, then a read-only block `<pre className="adm-prompt-text">{data.content}</pre>` (monospace, `white-space: pre-wrap`, scrollable, max-height ~70vh), then:
 
   ```tsx
   <p className="adm-muted">
@@ -605,29 +605,53 @@ Run without the snapshot → FAIL with "No golden snapshot … UPDATE_GOLDEN=1".
 
   with `const REPO = 'https://github.com/DLW-INT-BTA-BELUX/ai-enablement-hub'` and
   `liveUrl = sha && sha !== 'dev' ? \`${REPO}/blob/${sha}/${data.path}\` : \`${REPO}/blob/main/${data.path}\``, where `sha` comes from the same health query hook `SetupPage.tsx` uses (import it; do not add a new fetch). Update the file's doc comment: read-only since 2026-09-23, git is the source of truth.
-- [ ] **Step 4: Checks.** `npm run typecheck; npm run lint; npm run build` → all green.
-- [ ] **Step 5: Render check (Review Focus 5)** per CLAUDE.md "Verifying without touching live data": Playwright with `addInitScript` stubbing `window.fetch` for `/api/admin/prompts`, `/api/admin/prompts/interview`, `/api/health` (two variants: `build_sha` = a 40-char sha, and `"dev"`) and whatever auth/me endpoint the admin shell needs, against the Vite dev server (`npm run dev`, frontend only — **no backend**). Assert: no `textarea`, no Save/Reset buttons; the `pre` contains the stubbed text; "View live version" href is `…/blob/<sha>/backend/prompts/interview.md`, and `…/blob/main/…` in the `dev` variant; "Edit on GitHub" href is `…/edit/main/backend/prompts/interview.md`. If driving the authenticated admin shell with stubs proves impractical, record that as a ruling and rely on typecheck + a unit-level reading of `liveUrl`.
-- [ ] **Step 6: Commit** `feat(admin): read-only System Prompts page with links to git`.
+- [x] **Step 4: Checks.** `npm run typecheck; npm run lint; npm run build` → all green.
+- [x] **Step 5: Render check (Review Focus 5)** per CLAUDE.md "Verifying without touching live data": Playwright with `addInitScript` stubbing `window.fetch` for `/api/admin/prompts`, `/api/admin/prompts/interview`, `/api/health` (two variants: `build_sha` = a 40-char sha, and `"dev"`) and whatever auth/me endpoint the admin shell needs, against the Vite dev server (`npm run dev`, frontend only — **no backend**). Assert: no `textarea`, no Save/Reset buttons; the `pre` contains the stubbed text; "View live version" href is `…/blob/<sha>/backend/prompts/interview.md`, and `…/blob/main/…` in the `dev` variant; "Edit on GitHub" href is `…/edit/main/backend/prompts/interview.md`. If driving the authenticated admin shell with stubs proves impractical, record that as a ruling and rely on typecheck + a unit-level reading of `liveUrl`.
+- [x] **Step 6: Commit** `feat(admin): read-only System Prompts page with links to git`.
 
 ### Task 6: Hooks and docs
 
 **Files:** Modify `.claude/hooks/prod_asset_nudge.py`, `backend/tests/unit/test_claude_hooks.py`, `CLAUDE.md`, `docs/README.md`, `CONTRIBUTING.md`.
 
-- [ ] **Step 1 (failing test):** in `test_claude_hooks.py`, change the prompts case's expected fragment from `"production asset"` to `"UPDATE_GOLDEN=1"`, and add a test asserting `"DB override" not in` the prompts message. Run → FAIL.
-- [ ] **Step 2:** `prod_asset_nudge.py` prompts rule text becomes:
+- [x] **Step 1 (failing test):** in `test_claude_hooks.py`, change the prompts case's expected fragment from `"production asset"` to `"UPDATE_GOLDEN=1"`, and add a test asserting `"DB override" not in` the prompts message. Run → FAIL.
+- [x] **Step 2:** `prod_asset_nudge.py` prompts rule text becomes:
   `"is a production asset baked into the Docker image, and git is its only source of truth: it ships with the next deploy. Regenerate the golden snapshots (UPDATE_GOLDEN=1 uv run pytest tests/golden/ai) and read their diff before calling this done."` Run → PASS.
-- [ ] **Step 3: CLAUDE.md** — replace each DB-overridable/admin-editable prompt mention:
+- [x] **Step 3: CLAUDE.md** — replace each DB-overridable/admin-editable prompt mention:
   - Repo map `backend/prompts/` line: "…loaded by `services/prompts.py`; git is the only source of truth (read-only System Prompts page since 2026-09-23). Treat edits as production changes. Never move/rename."
   - Feature index "System prompts, DB-overridable + admin-editable" → "**System prompts — git-only** (2026-09-23): `backend/prompts/*.md`, read-only admin page `admin2/PromptsPage.tsx`, golden cases in `backend/tests/golden/ai/` — `2026-09-23-prompts-git-only-design.md` (supersedes the editor half of `2026-07-29-prompt-editor-design.md`). The `prompts` table is retired, dropped in phase C."
   - Admin panel feature list "System Prompts" stays as a page name.
   - Grep afterwards: `grep -n -i "overrid" CLAUDE.md` — no prompt-override claims remain.
-- [ ] **Step 4: docs/README.md** "Not docs" paragraph: replace "(DB-overridable via the admin System Prompts page)" with "(git is their only source of truth; the admin System Prompts page is read-only)".
-- [ ] **Step 5: CONTRIBUTING.md** — under "Claude review", add a bullet: "**Prompt changes** (`backend/prompts/`) are ordinary PRs: regenerate the golden snapshots with `UPDATE_GOLDEN=1 uv run pytest tests/golden/ai`, read the diff, commit it with the change. They go live with the next deploy."
-- [ ] **Step 6:** `uv run pytest tests/unit/test_claude_hooks.py -q` → pass. Commit `docs: prompts are git-only; nudge hook + CLAUDE.md follow`.
+- [x] **Step 4: docs/README.md** "Not docs" paragraph: replace "(DB-overridable via the admin System Prompts page)" with "(git is their only source of truth; the admin System Prompts page is read-only)".
+- [x] **Step 5: CONTRIBUTING.md** — under "Claude review", add a bullet: "**Prompt changes** (`backend/prompts/`) are ordinary PRs: regenerate the golden snapshots with `UPDATE_GOLDEN=1 uv run pytest tests/golden/ai`, read the diff, commit it with the change. They go live with the next deploy."
+- [x] **Step 6:** `uv run pytest tests/unit/test_claude_hooks.py -q` → pass. Commit `docs: prompts are git-only; nudge hook + CLAUDE.md follow`.
 
 ### Task 7: PR, review, merge
 
-- [ ] **Step 1:** Push; `gh pr create --title "feat: prompts are git-only; read-only System Prompts page; golden cases per AI feature" --body-file <body>` — body: what & why, the census result (0 overrides), "no migration; `prompts` table retired, dropped in phase C", **deploy note: re-check /admin/prompts shows no Edited chip immediately before pressing Deploy**, checklist, attribution line.
-- [ ] **Step 2:** Wait for `backend`, `frontend` (required) and `claude-review`. Read every Claude finding; fix real ones (TDD) or reply why not.
-- [ ] **Step 3:** `gh pr merge --squash --delete-branch --admin`; `git fetch && git reset --hard origin/main`.
-- [ ] **Step 4:** Execution record appended to this plan in a small docs PR (ticked boxes, rulings, the Claude review outcome).
+- [x] **Step 1:** Push; `gh pr create --title "feat: prompts are git-only; read-only System Prompts page; golden cases per AI feature" --body-file <body>` — body: what & why, the census result (0 overrides), "no migration; `prompts` table retired, dropped in phase C", **deploy note: re-check /admin/prompts shows no Edited chip immediately before pressing Deploy**, checklist, attribution line.
+- [x] **Step 2:** Wait for `backend`, `frontend` (required) and `claude-review`. Read every Claude finding; fix real ones (TDD) or reply why not.
+- [x] **Step 3:** `gh pr merge --squash --delete-branch --admin`; `git fetch && git reset --hard origin/main`.
+- [x] **Step 4:** Execution record appended to this plan in a small docs PR (ticked boxes, rulings, the Claude review outcome).
+
+## Execution record (2026-09-23/24)
+
+Subagent-driven: 6 build tasks, each implemented by a fresh Sonnet agent and reviewed by a fresh
+reviewer (all approved); final whole-branch review on Opus; one fix wave, re-reviewed. Merged as
+**PR #16, squash `f84fded`** (2026-09-24). **Not deployed yet** — see CLAUDE.md "Current state".
+
+- **Live census before building:** production `prompts` table had **0 rows** (read-only `SELECT`), so
+  step 1 of the spec (fold overrides into files) was skipped.
+- **Final review Critical, fixed (`c672661`):** `test_update_golden_writes_then_plain_run_passes`
+  failed under GitHub's `CI=true` (the harness correctly ignores `UPDATE_GOLDEN` in CI, but its own
+  self-test never cleared `CI`). Reproduced with `CI=true`, fixed with `monkeypatch.delenv("CI")`.
+- **Claude PR review ($5.85, 26 turns):** one valid finding — the July phase-C task C8 still hardened
+  the `prompts` table and the master plan assumed the override. Fixed in `425ab06`: C8 now drops the
+  table; the master's notes are marked superseded/resolved.
+- **Rulings:** the `lesson` snapshot drives `kind="lesson"` with no lesson context (no injection path
+  exists in code; `lesson.md` is a placeholder) — regenerate it when lesson context ships.
+  `{company_context}` is hardcoded `""` in `InterviewService.build_playbook` today; the snapshot
+  reflects that. `types/domain.ts` needed only a comment change (types alias the generated schema).
+- **Deferred minors:** `get_prompt` is `async` doing a sync file read; the harness CI guard is
+  presence-based; duplicated transcript rows in the playbook golden; the three chat goldens could be
+  one parametrized test; "from `backend/`" regenerate hint lives in three places.
+- Suite at merge: 1555 backend tests passed; frontend typecheck/lint/build green.
+

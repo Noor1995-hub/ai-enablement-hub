@@ -77,6 +77,13 @@ untouched at `../app/`, historical only. The pre-cutover migration scripts were 
   (`repo:<org>@<orgId>/<repo>@<repoId>:ref:...`) so the identity carries both subject forms —
   **`bta-portal-cicd` has only the plain form and will hit the same failure; tell Michael.**
   Roadmap and open decisions: `docs/reviews/2026-09-17/`.
+- **Tier 1 status (2026-09-24):** 1.1–1.4 and 1.6–1.9 done (PRs #4–#16); 1.5 (dev database)
+  cancelled by decision. **`main` is ahead of production:** the last deploy is `7cd9cab`
+  (2026-09-23); PR #16 (`f84fded`, prompts git-only — read-only System Prompts page, `PUT`/`DELETE`
+  → 405) is merged but **not deployed**. Before pressing Deploy, open `/admin/prompts` and confirm
+  no prompt shows an **Edited** chip (a census on 2026-09-23 found 0 override rows; an override
+  saved since would be silently discarded). Next in the programme: Tier 2
+  (`docs/reviews/2026-09-17/` §5), then the July fix programme.
 - **Claude PR review (2026-09-23):** `.github/workflows/claude-code-review.yml` reviews every
   non-docs PR on open/ready/reopen, `/review` re-runs it; advice, not a required check; a red
   `claude-review` = nothing was posted. Rationing rule and meaning: `CONTRIBUTING.md` → Claude
@@ -92,7 +99,11 @@ untouched at `../app/`, historical only. The pre-cutover migration scripts were 
   (→ :8000, Swagger at `/docs`). Migrations: `uv run poe upgrade`.
 - **Frontend** (inside `frontend/`): checks = `npm run typecheck && npm run lint && npm run build`.
   Dev: `npm run dev` (→ :5173, proxies `/api` → :8000). After a backend contract change,
-  regenerate the committed API types: `npm run gen:api` (backend must be running).
+  regenerate the committed API types **without starting the backend** — `poe dev` connects to
+  the live DB and its lifespan cleanup loop deletes expired sessions: from `backend/`,
+  `uv run python -c "import json; from src.main import app; open('../frontend/openapi.tmp.json','w',encoding='utf-8').write(json.dumps(app.openapi()))"`,
+  then from `frontend/` `npx openapi-typescript openapi.tmp.json -o src/api/schema.d.ts` and delete
+  the temp file. (`npm run gen:api` still expects a running server — don't.)
 - **Deploy:** GitHub → Actions → **Deploy** → Run workflow (on `main`) — see "Deployment &
   operations". **Ask before any Azure-mutating command**; read-only `az` queries are fine.
 - **Secrets:** `backend/.env` + `db/.env` (git-ignored; keys documented in

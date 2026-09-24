@@ -152,3 +152,31 @@ flow uses `--fill` by default.
 
 **The rule.** For a branch with more than one commit, pass `--title "<type>(<area>): <summary>"`
 to `gh pr create`, or fix the title with `gh pr edit --title` before merging.
+
+## 2026-09-23 — the "regenerate API types" step needs a running backend, and the backend writes to live data
+
+**What went wrong.** Nothing broke — it was caught while planning 1.9. `npm run gen:api` fetches
+`http://localhost:8000/openapi.json`, so the documented way to regenerate `schema.d.ts` was to start
+`uv run poe dev`. That server connects to the one shared database, and its lifespan starts a cleanup
+loop that **deletes** expired auth sessions — a routine type regeneration would write to production.
+
+**Why it bites here.** The one-database rule: there is no dev database, so "just start the backend"
+is never a local-only action. The instruction sat in CLAUDE.md next to the rule it violated.
+
+**The rule.** Generate the OpenAPI document by importing the app (`from src.main import app;
+app.openapi()` — imports run no lifespan) and feed the file to `openapi-typescript`. CLAUDE.md
+"How to run & verify" carries the exact commands. Never start `poe dev` to regenerate types.
+
+## 2026-09-23 — a test of a CI-only guard ran in CI and failed
+
+**What went wrong.** The golden harness ignores `UPDATE_GOLDEN=1` whenever `CI` is set, so CI can
+never regenerate a snapshot. Its own self-test set `UPDATE_GOLDEN=1` and expected a write, and
+passed locally — but GitHub runners set `CI=true` for every step, so on the PR it would have been a
+red required check. The final branch review caught it by running `CI=true uv run pytest tests/golden`.
+
+**Why it bites here.** Local runs never have `CI` set; anything that branches on it is untested
+locally by default.
+
+**The rule.** A test that exercises environment-dependent behaviour sets or clears every variable it
+depends on (`monkeypatch.delenv("CI", raising=False)`), and a change touching such code is also run
+once with `CI=true` before the PR.
