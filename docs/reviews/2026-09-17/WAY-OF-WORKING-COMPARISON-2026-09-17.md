@@ -364,6 +364,10 @@ the way the portal's agents own `evals/`).
 > 2.8: `permissions: {}` + per-job grants, every action SHA-pinned at its current release.
 > 2.5: `tests/unit/test_docs_drift.py` (paths in maintained docs, CI job names vs `main-ci`,
 > `gen:api` never needs a server) + CI regenerates `schema.d.ts` and fails when it is stale.
+> 2.7: backlog in GitHub Issues (#42–#56, labels, issue forms; #57). 2.1: Vitest + Testing
+> Library in CI, unlock rule extracted to `lib/learningPathLocks.ts` with 48 tests (#58).
+> 2.6: root `CLAUDE.md` 322 → 197 lines + scoped `backend/`, `frontend/`, `docs/content/` guides,
+> `docs/feature-index.md`, state log to `docs/history/state-log-2026.md`.
 > **Deferred frontend-tooling upgrade (decided 2026-09-24):** TypeScript 7, ESLint 10 (+ `@eslint/js` 10),
 > `@vitejs/plugin-react` 6 and react-router 7 are one planned upgrade (spec → plan → PR), not
 > Dependabot merges. Their PRs #27–#30 were closed with `@dependabot ignore this major version`;

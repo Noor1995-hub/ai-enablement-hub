@@ -12,7 +12,8 @@ disagree, the code wins.
 |---|---|
 | `../README.md` | Front door: what the hub is, quickstart, where to look. |
 | `../CONTRIBUTING.md` | The branch → PR → green CI → squash-merge workflow, the rulesets, deploying. **Humans start here.** |
-| `../CLAUDE.md` | Operational guide: current state, conventions, feature index, locking semantics, deploy/ops. **Agents start here.** |
+| `../CLAUDE.md` | Operational guide: current state, the repo-wide rules, locking semantics, deploy/ops. **Agents start here.** Scoped guides load per folder: `../backend/CLAUDE.md`, `../frontend/CLAUDE.md`, `content/CLAUDE.md`. |
+| `feature-index.md` | Every shipped feature → its spec and the code it starts in. Add a line when a feature ships. |
 | `../SECURITY.md` | Every secret, where it lives, who can read it, rotations owed, rotate-on-handover. |
 | `../python-be-architecture.md` | Mandatory backend conventions (delaware template). |
 | `../db/README.md` | Database roles, credentials, procedures — read before any DB work. |
@@ -35,7 +36,7 @@ disagree, the code wins.
 | `content-enrichment-game-plan.md` | 2026-07-10 content-enrichment decisions from the fit-gap analysis. |
 | `copilot-track-enrichment-plan.md`, `copilot-track-lesson-briefs.md` | 2026-07-16 Copilot-track enrichment plan and its NotebookLM briefs. |
 | `external-sources/` | Raw source material gathered for content work (fit-gap analysis, course inventories, NotebookLM outputs). Input, not guidance. |
-| `history/` | Superseded docs kept for reference: the original rebuild plan, the 2026-07-29 interviewer follow-ups. |
+| `history/` | Superseded docs kept for reference: the original rebuild plan, the 2026-07-29 interviewer follow-ups, and `state-log-2026.md` (the dated state notes that used to open `CLAUDE.md`). |
 
 **Conventions.** Date-prefixed files and folders are historical by default; the only exception
 is a review folder that still holds an unexecuted programme, listed above. A new doc that must
