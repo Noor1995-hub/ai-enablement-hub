@@ -10,4 +10,4 @@ __all__ = ["get_settings"]
 @lru_cache
 def get_settings() -> Settings:
     # `auth` is populated from AUTH__* env vars at runtime (pydantic-settings).
-    return Settings()  # ty: ignore[missing-argument]
+    return Settings()

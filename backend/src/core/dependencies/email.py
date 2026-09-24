@@ -20,7 +20,9 @@ def _email_client(connection_string: str) -> EmailClient:
     """Process-lifetime client. No retries and bounded timeouts: the send runs
     inside the admin's request, so a dead ACS endpoint must fail fast (the
     endpoint then reports email_status="failed" and the admin copies the link)."""
-    return EmailClient.from_connection_string(
+    # ty sees EmailClient as a union of the generated class and azure's `_patch` re-export and
+    # does not find the classmethod on the generated half; the call is the documented API.
+    return EmailClient.from_connection_string(  # ty: ignore[unresolved-attribute]
         connection_string, retry_total=0, connection_timeout=5, read_timeout=10
     )
 

@@ -24,11 +24,13 @@ if TYPE_CHECKING:
 __all__ = ["TokenPair", "TokenService"]
 
 TokenPurpose = Literal["invite", "reset", "entra_login"]
+# The purposes an emailed link can carry; the only ones peek/consume accept by default.
+ActionPurpose = Literal["invite", "reset"]
 
 # Action-token purposes reachable via the invite/set-password endpoints. A
 # purpose outside this set (entra_login) must be invisible there: a leaked
 # login code must never be able to set a password.
-_ACTION_PURPOSES: tuple[str, ...] = ("invite", "reset")
+_ACTION_PURPOSES: tuple[ActionPurpose, ...] = ("invite", "reset")
 
 # An entra_login code only bridges the OAuth callback redirect to the SPA's
 # redeem POST — seconds of legitimate lifetime.

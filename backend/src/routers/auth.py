@@ -25,7 +25,7 @@ from src.services.exceptions import (
     TokenExpiredError,
     TokenNotFoundError,
 )
-from src.services.token_service import TokenPair, TokenPurpose, TokenService
+from src.services.token_service import ActionPurpose, TokenPair, TokenService
 from src.services.user_service import UserService
 
 __all__ = ["router"]
@@ -115,8 +115,8 @@ async def invite_info(token: str, token_service: TokenServiceDep) -> InviteInfoR
     except TokenExpiredError as exc:
         raise _EXPIRED_LINK from exc
     return InviteInfoResponse(
-        # The DB CHECK constraint restricts purpose to invite|reset.
-        purpose=cast("TokenPurpose", auth_token.purpose),
+        # peek_action_token only returns tokens whose purpose is in _ACTION_PURPOSES.
+        purpose=cast("ActionPurpose", auth_token.purpose),
         email=user.email,
         first_name=user.first_name,
     )

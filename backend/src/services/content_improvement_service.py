@@ -673,7 +673,7 @@ class ContentImprovementService:
         return normalised, summary.strip()[:_MAX_SUMMARY_CHARS]
 
     async def _record_failure(
-        self, lesson: Lesson, feedback_items: list[Feedback], exc: Exception
+        self, lesson: Lesson, feedback_items: list[Feedback], exc: BaseException
     ) -> None:
         """Store a `failed` proposal so the lesson leaves the queue and the
         admin can see WHY in the review UI. Rejecting it makes its source

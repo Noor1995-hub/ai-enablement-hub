@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from typing import Annotated, Literal
+from typing import Annotated, Literal, cast
 
 from fastapi import APIRouter, Depends, status
 
@@ -41,7 +41,8 @@ async def get_email_templates(
     return EmailTemplatesResponse(
         templates=[
             EmailTemplateOut(
-                purpose=item.purpose,
+                # get_templates resolves exactly the two Purpose values.
+                purpose=cast("Purpose", item.purpose),
                 subject=item.subject,
                 body_markdown=item.body_markdown,
                 is_custom=item.is_custom,

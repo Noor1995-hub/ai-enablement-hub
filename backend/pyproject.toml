@@ -44,6 +44,9 @@ dev = [
     "httpx2~=2.13",
     "aiosqlite~=0.20",
     "ruff~=0.11",
+    # Pinned exactly: ty is pre-1.0 and every release can add diagnostics; `ty check src` is part
+    # of the required CI check, so a new version arrives as a Dependabot PR, never by surprise.
+    "ty==0.0.83",
     "poethepoet~=0.30",
     "pytest-xdist>=3.8.0",
     # Auto-retry integration tests once on failure — they hit a real remote
@@ -65,7 +68,9 @@ format = "ruff format ."
 format-check = "ruff format --check ."
 lint = "ruff check ."
 lint-src = "ruff check src tests alembic"
-ty = "uvx ty check ."
+# ty-src is clean and gates CI; ty (whole backend) carries known debt in scripts/ + alembic/.
+ty-src = "ty check src"
+ty = "ty check ."
 migrate = "alembic revision --autogenerate -m"
 upgrade = "alembic upgrade head"
 downgrade = "alembic downgrade -1"

@@ -92,7 +92,7 @@ untouched at `../app/`, historical only. The pre-cutover migration scripts were 
 ## How to run & verify
 
 - **Backend** (inside `backend/`): checks = `uv run poe format-check && uv run poe lint-src &&
-  uv run poe test` — the same three CI runs (`poe format` rewrites, `poe lint` also covers
+  uv run poe ty-src && uv run poe test` — the same four CI runs (`ty` is pinned in the dev extra) (`poe format` rewrites, `poe lint` also covers
   `scripts/`, which carries known findings and is linted by the non-required `staged` CI job).
   Locally the integration tests hit the `ai-enablement-hub-test` Azure PG DB; in CI they run
   against a throwaway `postgres:18` service container. Dev server: `uv run poe dev`

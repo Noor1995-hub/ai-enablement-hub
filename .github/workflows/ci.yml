@@ -69,6 +69,8 @@ jobs:
         run: uv run poe format-check
       - name: Lint (src, tests, alembic)
         run: uv run poe lint-src
+      - name: Type check (src)
+        run: uv run poe ty-src
       - name: Tests with coverage
         # -n 4 rather than -n auto: the runner has 4 vCPUs and conftest's auto rule would leave
         # only 2 workers. Coverage floor 90% (measured 96% on 2026-09-24): a PR that drops line
@@ -101,8 +103,9 @@ jobs:
       - run: npm run build
 
   staged:
-    # Not required by the ruleset. Runs the checks that are not clean yet (30 ruff findings in
-    # backend/scripts, ~25 ty diagnostics) so the debt is visible on every PR without blocking.
+    # Not required by the ruleset. Runs the checks that are not clean yet (ruff on backend/scripts,
+    # ty on the whole backend — src/ itself is clean and type-checked by the backend job) so the
+    # debt is visible on every PR without blocking.
     name: staged (scripts lint + ty) — not required
     runs-on: ubuntu-latest
     timeout-minutes: 15
