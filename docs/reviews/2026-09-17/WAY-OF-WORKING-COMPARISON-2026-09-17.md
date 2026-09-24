@@ -360,7 +360,10 @@ the way the portal's agents own `evals/`).
 > 2.4 part 2: `anthropic~=1.8` in main deps (#19); bcrypt 5 with explicit 72-byte truncation (#38).
 > 2.2: coverage floor 90% in CI (#20).
 > 2.3: `ty check src` is clean and runs in the required backend job (ty pinned in the dev extra);
-> the `staged` job keeps ruff on `scripts/` and ty on the whole backend.
+> the `staged` job is a debt ratchet (ruff `scripts/` 30, ty 21; red only when a change adds findings).
+> 2.8: `permissions: {}` + per-job grants, every action SHA-pinned at its current release.
+> 2.5: `tests/unit/test_docs_drift.py` (paths in maintained docs, CI job names vs `main-ci`,
+> `gen:api` never needs a server) + CI regenerates `schema.d.ts` and fails when it is stale.
 > **Deferred frontend-tooling upgrade (decided 2026-09-24):** TypeScript 7, ESLint 10 (+ `@eslint/js` 10),
 > `@vitejs/plugin-react` 6 and react-router 7 are one planned upgrade (spec → plan → PR), not
 > Dependabot merges. Their PRs #27–#30 were closed with `@dependabot ignore this major version`;

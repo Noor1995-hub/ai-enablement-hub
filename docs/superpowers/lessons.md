@@ -165,7 +165,7 @@ is never a local-only action. The instruction sat in CLAUDE.md next to the rule 
 
 **The rule.** Generate the OpenAPI document by importing the app (`from src.main import app;
 app.openapi()` — imports run no lifespan) and feed the file to `openapi-typescript`. CLAUDE.md
-"How to run & verify" carries the exact commands. Never start `poe dev` to regenerate types.
+"How to run & verify" carries the exact commands. Never start `poe dev` to regenerate types. (2026-09-24: now built in — `npm run gen:api` imports the app via `backend/scripts/export_openapi.py`, and CI fails when `schema.d.ts` is stale.)
 
 ## 2026-09-23 — a test of a CI-only guard ran in CI and failed
 

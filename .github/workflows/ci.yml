@@ -102,6 +102,23 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
+      # API-types drift check: regenerate src/api/schema.d.ts from the backend (imports the app,
+      # no server, no database) and fail if it differs from the committed file.
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - name: API types match the backend
+        env:
+          # Settings.auth has no default; a placeholder, as in the backend job.
+          AUTH__JWT_SECRET: ci-only-placeholder-jwt-secret-not-a-real-value
+        run: |
+          (cd ../backend && uv sync --frozen --no-dev --quiet)
+          npm run gen:api
+          git diff --exit-code -- src/api/schema.d.ts || {
+            echo "::error::frontend/src/api/schema.d.ts is out of date with the backend API. Run \`npm run gen:api\` in frontend/ and commit the result."
+            exit 1
+          }
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run build

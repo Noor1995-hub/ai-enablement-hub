@@ -99,11 +99,11 @@ untouched at `../app/`, historical only. The pre-cutover migration scripts were 
   (→ :8000, Swagger at `/docs`). Migrations: `uv run poe upgrade`.
 - **Frontend** (inside `frontend/`): checks = `npm run typecheck && npm run lint && npm run build`.
   Dev: `npm run dev` (→ :5173, proxies `/api` → :8000). After a backend contract change,
-  regenerate the committed API types **without starting the backend** — `poe dev` connects to
-  the live DB and its lifespan cleanup loop deletes expired sessions: from `backend/`,
-  `uv run python -c "import json; from src.main import app; open('../frontend/openapi.tmp.json','w',encoding='utf-8').write(json.dumps(app.openapi()))"`,
-  then from `frontend/` `npx openapi-typescript openapi.tmp.json -o src/api/schema.d.ts` and delete
-  the temp file. (`npm run gen:api` still expects a running server — don't.)
+  regenerate the committed API types with `npm run gen:api` (from `frontend/`) and commit
+  `src/api/schema.d.ts`. It imports the app via `backend/scripts/export_openapi.py` and **never
+  starts the backend** (`poe dev` connects to the live DB and its cleanup loop deletes expired
+  sessions). CI regenerates the file on every PR and fails when the committed one is stale;
+  `tests/unit/test_docs_drift.py` keeps `gen:api` off `localhost`.
 - **Deploy:** GitHub → Actions → **Deploy** → Run workflow (on `main`) — see "Deployment &
   operations". **Ask before any Azure-mutating command**; read-only `az` queries are fine.
 - **Secrets:** `backend/.env` + `db/.env` (git-ignored; keys documented in
