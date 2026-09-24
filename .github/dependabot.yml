@@ -1,0 +1,59 @@
+# Dependabot version updates for the frontend (npm), the backend (uv) and the workflows.
+#
+# Shape: one grouped PR per ecosystem per week for minor + patch bumps, one PR per major bump
+# (majors change behaviour and deserve their own review and revert). A 7-day cooldown keeps a
+# release out until it has been public for a week — most malicious or broken releases are
+# yanked within days.
+#
+# Dependabot PRs run the normal CI (it needs no secrets) but are NOT reviewed by Claude: the
+# review workflow has no access to secrets on Dependabot-authored PRs, by design. Merging one is
+# the same as any PR: both required checks green, read the changelog for a major, squash-merge.
+# Nothing is deployed until someone presses Deploy.
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      frontend-minor-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: uv
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      backend-minor-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: "chore(ci)"
+    groups:
+      actions:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+# Docker base images are deliberately not covered: the Dockerfile tags float within a runtime line
+# (node:22-alpine, python:3.13-slim-bookworm, postgres:18), so every build already picks up patches;
+# the only PRs Dependabot could open are runtime-line changes, which are decisions, not updates.

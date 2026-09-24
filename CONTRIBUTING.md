@@ -106,6 +106,14 @@ are skipped; prompt changes under `backend/prompts/` are reviewed.
   (PowerShell: `$env:UPDATE_GOLDEN='1'; uv run pytest tests/golden/ai`), read the diff, commit it
   with the change. They go live with the next deploy.
 
+## Dependency updates (Dependabot)
+
+`.github/dependabot.yml` opens update PRs every Monday: one grouped PR per area (frontend, backend,
+workflows) for minor and patch releases, and one PR per major release. Releases younger than 7
+days are held back. They run the normal CI but get no Claude review (Dependabot PRs have no access
+to secrets). Merge a green grouped PR as usual; for a major, read the package's changelog first and
+treat it like any behaviour change. Merging does not deploy anything.
+
 ## Deploying
 
 Deploying is a button, not a script: GitHub → **Actions** → **Deploy** → **Run workflow** (on
