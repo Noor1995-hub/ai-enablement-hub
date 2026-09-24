@@ -101,6 +101,10 @@ are skipped; prompt changes under `backend/prompts/` are reviewed.
   `main`.
 - **A PR that edits the review workflow itself** is not reviewed — GitHub-side guard, by
   design. The change takes effect on the next PR opened after merge.
+- **Prompt changes** (`backend/prompts/`) are ordinary PRs: regenerate the golden snapshots with
+  `UPDATE_GOLDEN=1 uv run pytest tests/golden/ai` from `backend/`
+  (PowerShell: `$env:UPDATE_GOLDEN='1'; uv run pytest tests/golden/ai`), read the diff, commit it
+  with the change. They go live with the next deploy.
 
 ## Deploying
 

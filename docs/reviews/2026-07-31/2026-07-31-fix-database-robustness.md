@@ -1229,6 +1229,8 @@ EOF
 
 ### Task 8: Close the newer-table drift on `prompts` and `project_ai_settings` (6.4 — migration 2/3)
 
+> **Amended 2026-09-23 (PR #16, spec `docs/superpowers/specs/2026-09-23-prompts-git-only-design.md`):** prompts are git-only; no code reads or writes `prompts` any more. The `prompts` half of this task is **replaced**: do not add the `kind` CHECK or `created_at` — instead drop the `prompts` table and `backend/src/db/models/prompt.py` in this migration (expand-first is already satisfied: no deployed code uses the table after PR #16 ships; confirm that deploy happened first). The `project_ai_settings` half stands as written.
+
 `prompts.kind` is the only enum-as-text column in the schema with no CHECK, `prompts` has no
 `created_at`, and `project_ai_settings` has neither timestamp while its sibling
 `project_component_settings` has `updated_at`.

@@ -809,22 +809,23 @@ button.adm-loc-chip:hover .adm-loc-label { color: var(--adm-red-deep); }
 .adm-ci-editor .adm-subtext { margin-bottom: 8px; }
 .adm-ci-learn { margin: 12px 0; padding: 10px 12px; border: 1px solid var(--adm-info-border); background: var(--adm-info-bg); border-radius: var(--adm-radius); }
 
-/* ── System prompts (DB-backed, admin editor) ─────────────────────────────
-   Backs frontend/src/pages/admin2/PromptsPage.tsx. Not project-scoped (same
-   family as Content AI/calibration notes) — one page, local selection state,
-   no child route. Rows reuse .adm-comp-name/.adm-subtext/.adm-push-right
-   (Projects) and the editor's action row reuses the kit-wide .adm-btn and
-   .adm-form-msg families; only the row/textarea/token chip below are new. */
+/* ── System prompts (git-backed, read-only) ────────────────────────────────
+   Backs frontend/src/pages/admin2/PromptsPage.tsx. READ-ONLY since
+   2026-09-23 — git is the only source of truth, this page just browses it;
+   the DB-editor-era .adm-prompt-textarea/.adm-prompt-token/.adm-form-actions
+   rules this block used to carry are gone with the editor. Not project-scoped
+   (same family as Content AI/calibration notes) — one page, local selection
+   state, no child route. Rows reuse .adm-comp-name (Projects). */
 /* Master–detail layout (2026-07-30): fixed-width list column (left) + the
-   editor's remaining space (right), same fixed+flexible convention as
+   detail pane's remaining space (right), same fixed+flexible convention as
    .adm-assign-layout's tree+matrix rather than .adm-grid-31's fluid ratio —
-   the list's rows are short (label + chip + last-edited), so a fixed track
-   avoids the editor and list fighting for space as the viewport grows.
-   min-width: 0 on both tracks guards against the textarea/row content
-   overflowing its grid track. Collapses to a single column (list above,
-   editor below) under 900px — admin is desktop-first, matching the
-   740/980px breakpoints already used for marketing-page type scale in
-   index.css; this is a graceful fallback, not the primary target. */
+   the list's rows are short (label only), so a fixed track avoids the detail
+   pane and list fighting for space as the viewport grows. min-width: 0 on
+   both tracks guards against the pre/row content overflowing its grid track.
+   Collapses to a single column (list above, detail below) under 900px —
+   admin is desktop-first, matching the 740/980px breakpoints already used
+   for marketing-page type scale in index.css; this is a graceful fallback,
+   not the primary target. */
 .adm-prompts-layout { display: grid; grid-template-columns: 340px 1fr; gap: 20px; align-items: start; }
 .adm-prompts-list, .adm-prompts-detail { min-width: 0; }
 @media (max-width: 900px) {
@@ -840,18 +841,14 @@ button.adm-loc-chip:hover .adm-loc-label { color: var(--adm-red-deep); }
 .adm-prompt-row:hover, .adm-prompt-row.selected { background: var(--adm-surface); }
 .adm-prompt-row.selected .adm-comp-name { color: var(--adm-red-deep); }
 
-.adm-prompt-textarea {
-  width: 100%; min-height: 320px; padding: 12px 14px; box-sizing: border-box;
+/* The raw prompt file content — monospace, wraps rather than scrolling
+   horizontally, and capped so a long prompt doesn't push the "source of
+   truth" footer (and the rest of the admin shell) off screen. */
+.adm-prompt-text {
+  width: 100%; max-height: 70vh; overflow-y: auto; margin: 0 0 12px; padding: 12px 14px; box-sizing: border-box;
   font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px; line-height: 1.6;
-  color: var(--adm-ink); border: 1px solid var(--adm-border); border-radius: var(--adm-radius-sm);
-  outline: none; resize: vertical; margin-bottom: 12px;
-}
-.adm-prompt-textarea:focus { border-color: var(--adm-faint); }
-
-.adm-prompt-token {
-  display: inline-block; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11.5px;
-  padding: 2px 6px; margin: 0 4px 4px 0; border-radius: var(--adm-radius-sm);
-  background: var(--adm-surface); color: var(--adm-text); border: 1px solid var(--adm-border);
+  white-space: pre-wrap; word-break: break-word; color: var(--adm-ink);
+  border: 1px solid var(--adm-border); border-radius: var(--adm-radius-sm); background: var(--adm-surface);
 }
 
-.adm-form-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
+.adm-muted { font-family: var(--dlw-font-body); font-size: 12.5px; color: var(--adm-muted); margin: 0; }

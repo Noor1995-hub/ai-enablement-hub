@@ -38,7 +38,7 @@ def _run(script: Path, stdin: str, env_extra: dict[str, str] | None = None) -> t
     ("path", "fragment"),
     [
         ("C:/x/AI enablement hub/frontend/src/pages/LessonPage.tsx", "production-shaped fixtures"),
-        ("/repo/backend/prompts/house_style.md", "production asset"),
+        ("/repo/backend/prompts/house_style.md", "UPDATE_GOLDEN=1"),
         ("/repo/backend/alembic/versions/abc123_add_table.py", "ai-enablement-hub-migrate"),
     ],
 )
@@ -48,6 +48,15 @@ def test_nudge_flags_production_assets(path: str, fragment: str) -> None:
     payload = json.loads(out)
     assert fragment in payload["systemMessage"]
     assert Path(path).name in payload["systemMessage"]
+
+
+def test_nudge_prompts_message_has_no_db_override_claim() -> None:
+    code, out = _run(
+        NUDGE, json.dumps({"tool_input": {"file_path": "/repo/backend/prompts/house_style.md"}})
+    )
+    assert code == 0
+    payload = json.loads(out)
+    assert "DB override" not in payload["systemMessage"]
 
 
 @pytest.mark.parametrize(

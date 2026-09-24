@@ -1118,10 +1118,11 @@ export function useGraduateCalibrationNote() {
   })
 }
 
-// ── System prompts (DB-backed, admin editor) ────────────────────────────────────────────────
-// The prompt text driving the agent surfaces (assessment/interview/lesson-generation etc.),
-// editable by an admin and stored in the DB; falls back to the shipped file default until the
-// first save. `source` on each summary/detail tells the page which is currently in effect.
+// ── System prompts (git-backed, read-only) ──────────────────────────────────────────────────
+// The prompt text driving the agent surfaces (assessment/interview/lesson-generation etc.).
+// Read-only since 2026-09-23: git (`backend/prompts/*.md`) is the only source of truth, loaded
+// at process startup — there is no DB override and no admin editor anymore (Task 1 of the
+// git-only-prompts rewrite removed PUT/DELETE from the backend; they now 405).
 
 async function fetchPrompts(): Promise<PromptSummary[]> {
   const { data, error } = await client.GET('/api/admin/prompts')
@@ -1149,53 +1150,5 @@ export function usePrompt(kind: string | null) {
     queryKey: ['admin', 'prompt', kind] as const,
     queryFn: () => fetchPrompt(kind as string),
     enabled: kind !== null,
-  })
-}
-
-export interface UpdatePromptInput {
-  kind: string
-  content: string
-}
-
-async function updatePrompt({ kind, content }: UpdatePromptInput): Promise<void> {
-  const { error } = await client.PUT('/api/admin/prompts/{kind}', {
-    params: { path: { kind } },
-    body: { content },
-  })
-  // Surfaced verbatim (not a generic toast): a 422 here means the saved content dropped a
-  // required token, and the backend's `exc.message` names which one — the page shows this
-  // inline next to the editor rather than swallowing it into a generic failure message.
-  if (error) throw new Error(errorMessage(error, 'Failed to save the prompt.'))
-}
-
-export function useUpdatePrompt() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: updatePrompt,
-    onSuccess: (_data, { kind }) => {
-      void queryClient.invalidateQueries({ queryKey: ['admin', 'prompts'] })
-      void queryClient.invalidateQueries({ queryKey: ['admin', 'prompt', kind] })
-    },
-  })
-}
-
-async function resetPrompt(kind: string): Promise<void> {
-  const { error } = await client.DELETE('/api/admin/prompts/{kind}', {
-    params: { path: { kind } },
-  })
-  if (error) throw new Error(errorMessage(error, 'Failed to reset the prompt.'))
-}
-
-/** Unlike `useResetInterview` (which only invalidates the single interview it reset), this
- * invalidates BOTH the list and the single-prompt key: dropping the DB override flips the
- * list row's `source` back to "file" too, not just the detail pane's content. */
-export function useResetPrompt() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: resetPrompt,
-    onSuccess: (_data, kind) => {
-      void queryClient.invalidateQueries({ queryKey: ['admin', 'prompts'] })
-      void queryClient.invalidateQueries({ queryKey: ['admin', 'prompt', kind] })
-    },
   })
 }

@@ -42,5 +42,5 @@ is a review folder that still holds an unexecuted programme, listed above. A new
 stay current goes in the first table, in the same PR that adds it.
 
 Not docs: `backend/prompts/*.md` are runtime assets baked into the Docker image and loaded by
-`services/prompts.py` (DB-overridable via the admin System Prompts page). Never move or rename
-them, and treat edits as production changes.
+`services/prompts.py` (git is their only source of truth; the admin System Prompts page is
+read-only). Never move or rename them, and treat edits as production changes.

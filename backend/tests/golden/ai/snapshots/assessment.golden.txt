@@ -1,0 +1,10 @@
+=== call 1: stream_reply (max_tokens=1024) ===
+--- system ---
+Placeholder prompt — the real assessment deep-dive prompt (probing for richer
+answers during the assessment, never suggesting or evaluating an answer) is
+written in a later batch. This file exists only so the kind doesn't 404.
+--- message 1 (assistant) ---
+Tell me a bit more about how often you use AI tools day to day.
+--- message 2 (user) ---
+A few times a week, mostly to draft emails and summarise meeting notes.
+

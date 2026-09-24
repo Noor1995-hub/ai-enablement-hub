@@ -106,8 +106,8 @@ untouched at `../app/`, historical only. The pre-cutover migration scripts were 
   `schemas/`, `db/models/`, `core/{configs,dependencies}`. Tests in `backend/tests/`
   (`unit / integration / golden / fixtures`).
 - `backend/prompts/` — **runtime assets, not docs**: the AI system prompts, COPY'd into the
-  Docker image and loaded by `services/prompts.py`; DB-overridable per prompt via the admin
-  System Prompts page. Treat edits as production changes. Never move/rename.
+  Docker image and loaded by `services/prompts.py`; git is the only source of truth (read-only
+  System Prompts page since 2026-09-23). Treat edits as production changes. Never move/rename.
 - `backend/alembic/versions/` — migrations. `backend/scripts/` — ops tooling: `content_qa/`
   (content-review toolkit incl. `check_draft.py`, the pre-write drafting gate),
   `issue_invite.py` (bootstrap invite links), `rescore_parity.py`, `read_goldstandard.py`.
@@ -185,9 +185,10 @@ git log + the specs themselves.
   `require_interview_surface`.
 - **Project AI surface toggles** (per-project, default OFF, 403 until toggled) —
   `2026-07-27-project-ai-surface-toggles-design.md`; `core/dependencies` `require_ai_surface`.
-- **System prompts, DB-overridable + admin-editable** —
-  `2026-07-30-prompts-page-master-detail-design.md`; `admin2/PromptsPage.tsx`,
-  `services/prompt_service.py` (bustable `load_prompt` cache), `prompts` table.
+- **System prompts — git-only** (2026-09-23): `backend/prompts/*.md`, read-only admin page
+  `admin2/PromptsPage.tsx`, golden cases in `backend/tests/golden/ai/` —
+  `2026-09-23-prompts-git-only-design.md` (supersedes the editor half of
+  `2026-07-29-prompt-editor-design.md`). The `prompts` table is retired (nothing reads it); phase C's C8 is amended to drop it.
 - **Nightly DB backups** — `2026-07-29-database-backups-design.md`; runbook
   `docs/db-backup-restore.md` (job `ai-enablement-hub-db-backup`, 02:30 UTC, 30-day retention,
   log-based alerts; **no Postgres client tools on the dev machine** — restores run via the

@@ -1,8 +1,10 @@
 # AI Agents in the Hub — feasibility, design & provider setup (Foundry / Anthropic API)
 
-> **Status (2026-08-10): largely SHIPPED.** The chat foundation, AI interviewer, DB-overridable
-> prompts + admin System Prompts page, and feedback-driven content improvement are all live in
-> prod (see the root `CLAUDE.md` feature index). This doc remains the authoritative reference
+> **Status (2026-08-10): largely SHIPPED.** The chat foundation, AI interviewer, and
+> feedback-driven content improvement are all live in prod (see the root `CLAUDE.md` feature
+> index). Prompts are git-only since 2026-09-23 (read-only admin System Prompts page with links
+> to git; spec `docs/superpowers/specs/2026-09-23-prompts-git-only-design.md`), superseding the
+> DB-overridable prompts design below. This doc remains the authoritative reference
 > for the provider seam (§7) and the Anthropic API key / spend-cap setup (§8b); the Foundry
 > alternative (§8) is kept as reference. Design details elsewhere in the doc are the original
 > plan and may differ from what shipped — trust the code and the per-feature specs.

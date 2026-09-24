@@ -236,6 +236,7 @@ the `chatbot` surface is enabled for any project.
 
 **5.12 ·** C8's `prompts.kind` CHECK means a future prompt kind needs a migration alongside its
 `KNOWN_PROMPTS` entry — the same cost every other enum in the schema already pays.
+*Superseded 2026-09-23: C8 now drops `prompts` instead (prompts are git-only).*
 **5.13 ·** D7 **deletes** the unused `LlmSettings.provider` rather than tightening it to
 `Literal["anthropic"]`: `infra/containerapp.yaml` carries no `LLM__*` keys, so the live value and its
 casing are unverified and a `Literal` would turn an unknown prod string into a startup failure.
@@ -255,7 +256,8 @@ Both are **data** conditions, not code — check them before the phase that need
    learners lose the interview. Verify per project first.
 2. **A4's envelope will not reach an overridden prompt.** Prompts are DB-overridable since 2026-07-30;
    a saved `interview` override in the `prompts` table keeps its old text. Reset or re-save that prompt
-   after A4 deploys.
+   after A4 deploys. *Resolved 2026-09-23: prompts are git-only (PR #16) — no override can exist, so
+   this check is no longer needed.*
 3. **C10 may find duplicate interview conversations.** The plan deliberately refuses to auto-delete —
    each row is a real learner's transcript. If the pre-flight returns rows, it stops for a decision on
    which one survives.

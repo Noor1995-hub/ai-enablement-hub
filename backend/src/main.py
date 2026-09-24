@@ -20,7 +20,6 @@ from src.core.configs.settings import Settings
 from src.core.dependencies.settings import get_settings
 from src.repositories.auth_session_repository import AuthSessionRepository
 from src.repositories.auth_token_repository import AuthTokenRepository
-from src.repositories.prompt_repository import PromptRepository
 from src.repositories.user_repository import UserRepository
 from src.routers import (
     admin_calibration_notes,
@@ -53,7 +52,6 @@ from src.services.exceptions import (
     PayloadTooLargeError,
     UnsupportedMediaTypeError,
 )
-from src.services.prompt_service import PromptService
 from src.services.scoring import ScoringError
 from src.services.token_service import TokenService
 
@@ -145,8 +143,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         )
     engine = create_async_engine(**kwargs)
     app.state.db_engine = engine
-    async with AsyncSession(engine, expire_on_commit=False) as session:
-        await PromptService(PromptRepository(session)).refresh_cache()
     cleanup_task = asyncio.create_task(_auth_cleanup_loop(engine, settings.auth))
     yield
     cleanup_task.cancel()

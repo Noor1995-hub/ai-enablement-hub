@@ -13,6 +13,9 @@ __all__ = ["Prompt"]
 
 
 class Prompt(Base):
+    """Retired 2026-09-23 (prompts are git-only; nothing reads or writes this table). Kept for
+    rollback safety; dropped by a July phase-C migration."""
+
     __tablename__ = "prompts"
 
     kind: Mapped[str] = mapped_column(Text, primary_key=True)

@@ -1,5 +1,5 @@
-"""Admin System-Prompts editor CRUD (admin-only). Default conftest client —
-these routes touch only the DB, no ACS/Blob/Anthropic."""
+"""Admin System-Prompts read-only API (admin-only). Default conftest client —
+these routes touch only the filesystem, no DB/ACS/Blob/Anthropic."""
 
 from __future__ import annotations
 
@@ -19,24 +19,10 @@ if TYPE_CHECKING:
     from src.db.models import User
 
 
-_KNOWN_KINDS = {
-    "interview",
-    "interview_playbook",
-    "chatbot",
-    "assessment",
-    "lesson",
-    "content_improvement",
-    "content_improvement_critique",
-    "house_style",
-    "feedback_triage",
-}
-
-
 @pytest_asyncio.fixture(autouse=True)
 async def _clear_prompt_cache():
-    """The prompt cache (`src.services.prompts`) is a process-global dict, not
-    scoped to the per-test DB transaction — clear it around every test so a
-    save/reset in one test can't leak into another."""
+    """The prompt cache (`src.services.prompts`) is a process-global dict —
+    clear it around every test so no state leaks between tests."""
     P.clear_cache()
     yield
     P.clear_cache()
@@ -52,30 +38,16 @@ async def admin_headers(admin: User, test_settings: Settings) -> dict[str, str]:
     return auth_headers(admin, test_settings)
 
 
-class TestListPrompts:
+class TestList:
     async def test_list_as_admin_contains_all_nine_kinds(
         self, client: AsyncClient, admin_headers: dict[str, str]
     ) -> None:
         response = await client.get("/api/admin/prompts", headers=admin_headers)
         assert response.status_code == 200
-        kinds = {p["kind"] for p in response.json()["prompts"]}
-        assert kinds == _KNOWN_KINDS
-
-    async def test_interview_source_flips_to_db_after_a_put(
-        self, client: AsyncClient, admin_headers: dict[str, str]
-    ) -> None:
-        before = await client.get("/api/admin/prompts", headers=admin_headers)
-        interview_before = next(p for p in before.json()["prompts"] if p["kind"] == "interview")
-        assert interview_before["source"] == "file"
-
-        put = await client.put(
-            "/api/admin/prompts/interview", json={"content": "NEW"}, headers=admin_headers
-        )
-        assert put.status_code == 200
-
-        after = await client.get("/api/admin/prompts", headers=admin_headers)
-        interview_after = next(p for p in after.json()["prompts"] if p["kind"] == "interview")
-        assert interview_after["source"] == "db"
+        prompts = response.json()["prompts"]
+        assert len(prompts) == 9
+        assert {p["path"] for p in prompts} == {f"backend/prompts/{p['kind']}.md" for p in prompts}
+        assert "source" not in prompts[0]
 
     async def test_non_admin_is_403(
         self, client: AsyncClient, db_session: AsyncSession, test_settings: Settings
@@ -85,100 +57,30 @@ class TestListPrompts:
         assert response.status_code == 403
 
 
-class TestGetPrompt:
+class TestDetail:
+    async def test_detail_returns_file_content(
+        self, client: AsyncClient, admin_headers: dict[str, str]
+    ) -> None:
+        response = await client.get("/api/admin/prompts/interview", headers=admin_headers)
+        assert response.status_code == 200
+        body = response.json()
+        assert body["content"].startswith("You are the AI Opportunity Interviewer")
+        assert body["path"] == "backend/prompts/interview.md"
+
     async def test_unknown_kind_is_404(
         self, client: AsyncClient, admin_headers: dict[str, str]
     ) -> None:
         response = await client.get("/api/admin/prompts/does_not_exist", headers=admin_headers)
         assert response.status_code == 404
 
-    async def test_non_admin_is_403(
-        self, client: AsyncClient, db_session: AsyncSession, test_settings: Settings
-    ) -> None:
-        user = await create_user(db_session, email="prompt-user2@example.com", role="user")
-        response = await client.get(
-            "/api/admin/prompts/interview", headers=auth_headers(user, test_settings)
-        )
-        assert response.status_code == 403
 
-
-class TestPutPrompt:
-    async def test_put_then_get_reflects_the_override_and_primes_the_cache(
-        self, client: AsyncClient, admin_headers: dict[str, str]
-    ) -> None:
-        put = await client.put(
-            "/api/admin/prompts/interview", json={"content": "NEW"}, headers=admin_headers
-        )
-        assert put.status_code == 200
-        assert put.json()["content"] == "NEW"
-        assert put.json()["source"] == "db"
-
-        get = await client.get("/api/admin/prompts/interview", headers=admin_headers)
-        assert get.status_code == 200
-        assert get.json()["content"] == "NEW"
-        assert get.json()["source"] == "db"
-
-        # The save must prime the in-process cache immediately (not only at
-        # the next process start), since request-time code reads via
-        # load_prompt(), not the repository.
-        assert P.load_prompt("interview") == "NEW"
-
-    async def test_put_missing_required_token_is_422(
-        self, client: AsyncClient, admin_headers: dict[str, str]
-    ) -> None:
+class TestNoWritePath:
+    async def test_put_is_405(self, client: AsyncClient, admin_headers: dict[str, str]) -> None:
         response = await client.put(
-            "/api/admin/prompts/interview_playbook",
-            json={"content": "missing slots"},
-            headers=admin_headers,
+            "/api/admin/prompts/interview", json={"content": "x"}, headers=admin_headers
         )
-        assert response.status_code == 422
+        assert response.status_code == 405
 
-    async def test_unknown_kind_is_404(
-        self, client: AsyncClient, admin_headers: dict[str, str]
-    ) -> None:
-        response = await client.put(
-            "/api/admin/prompts/does_not_exist", json={"content": "x"}, headers=admin_headers
-        )
-        assert response.status_code == 404
-
-    async def test_non_admin_is_403(
-        self, client: AsyncClient, db_session: AsyncSession, test_settings: Settings
-    ) -> None:
-        user = await create_user(db_session, email="prompt-user3@example.com", role="user")
-        response = await client.put(
-            "/api/admin/prompts/interview",
-            json={"content": "NEW"},
-            headers=auth_headers(user, test_settings),
-        )
-        assert response.status_code == 403
-
-
-class TestDeletePrompt:
-    async def test_delete_reverts_to_default(
-        self, client: AsyncClient, admin_headers: dict[str, str]
-    ) -> None:
-        await client.put(
-            "/api/admin/prompts/interview", json={"content": "NEW"}, headers=admin_headers
-        )
-
-        delete = await client.delete("/api/admin/prompts/interview", headers=admin_headers)
-        assert delete.status_code == 204
-
-        get = await client.get("/api/admin/prompts/interview", headers=admin_headers)
-        assert get.json()["source"] == "file"
-        assert get.json()["content"] != "NEW"
-
-    async def test_unknown_kind_is_404(
-        self, client: AsyncClient, admin_headers: dict[str, str]
-    ) -> None:
-        response = await client.delete("/api/admin/prompts/does_not_exist", headers=admin_headers)
-        assert response.status_code == 404
-
-    async def test_non_admin_is_403(
-        self, client: AsyncClient, db_session: AsyncSession, test_settings: Settings
-    ) -> None:
-        user = await create_user(db_session, email="prompt-user4@example.com", role="user")
-        response = await client.delete(
-            "/api/admin/prompts/interview", headers=auth_headers(user, test_settings)
-        )
-        assert response.status_code == 403
+    async def test_delete_is_405(self, client: AsyncClient, admin_headers: dict[str, str]) -> None:
+        response = await client.delete("/api/admin/prompts/interview", headers=admin_headers)
+        assert response.status_code == 405

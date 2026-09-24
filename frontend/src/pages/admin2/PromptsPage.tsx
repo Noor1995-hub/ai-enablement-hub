@@ -1,24 +1,22 @@
-import { useEffect, useState } from 'react'
-import { formatDate } from '../admin/adminHelpers'
+import { useState } from 'react'
 import type { PromptSummary } from '../../types/domain'
-import { usePrompt, usePrompts, useResetPrompt, useUpdatePrompt } from './api'
-import { Card, Chip, EmptyState, ErrorState, Spinner } from './kit'
-import type { ChipTone } from './kit'
+import { useHealth, usePrompt, usePrompts } from './api'
+import { Card, EmptyState, ErrorState, Spinner } from './kit'
 
-/** System prompts (`/admin/prompts`) — the prompt text driving each agent
- * surface (interviewer, chat, content generation), editable per `kind` and
- * stored in the DB; falls back to the shipped file default until an admin
- * saves an override here. Not project-scoped — one page, local selection
+const REPO = 'https://github.com/DLW-INT-BTA-BELUX/ai-enablement-hub'
+
+/** System prompts (`/admin/prompts`) — READ-ONLY since 2026-09-23: git
+ * (`backend/prompts/*.md`) is the only source of truth for prompt text, and
+ * the admin PUT/DELETE editor this page used to host is gone (Task 5 of the
+ * 2026-09-23 git-only-prompts rewrite; backend Task 1 removed the write
+ * routes, which now 405). Not project-scoped — one page, local selection
  * state, no child route, same family as Content AI/calibration notes rather
  * than TemplatesPage's project-scoped shape (there is nothing here to scope
  * a prompt by). Master–detail layout: the grouped list on the left, the
- * editor for the selected `kind` in the right pane beside it (2026-07-30 —
- * previously the editor sat in a single column below all the group Cards,
- * which put it off-screen on a tall page). Row click selects a `kind`; until
- * then (or if the selection somehow doesn't match a loaded prompt) it falls
- * back to the first group's first row, so the right pane is never empty. The
- * editor is keyed by kind so switching prompts (or a successful save/reset)
- * always shows the right content — see PromptEditor's doc comment. */
+ * selected `kind`'s raw content in the right pane beside it. Row click
+ * selects a `kind`; until then (or if the selection somehow doesn't match a
+ * loaded prompt) it falls back to the first group's first row, so the right
+ * pane is never empty. */
 export default function PromptsPage() {
   const promptsQuery = usePrompts()
   const [selectedKind, setSelectedKind] = useState<string | null>(null)
@@ -50,8 +48,8 @@ export default function PromptsPage() {
     <div>
       <h1 className="adm-page-title">System prompts</h1>
       <p className="adm-page-sub">
-        The prompt text behind each agent surface. Saving here overrides the shipped default for
-        everyone, immediately — there is no project scope.
+        The prompt text behind each agent surface. Git is the source of truth for every prompt —
+        change it with a pull request, then deploy.
       </p>
 
       {promptsQuery.data.length === 0 ? (
@@ -76,10 +74,9 @@ export default function PromptsPage() {
           </div>
 
           <div className="adm-prompts-detail">
-            {/* Keyed by kind: switching prompts remounts the editor so its
-                local `content` state starts fresh rather than patching a
-                stale value. */}
-            {selected && <PromptEditor key={selected.kind} kind={selected.kind} label={selected.label} />}
+            {/* Keyed by kind: switching prompts remounts the viewer so it always
+                shows the newly selected prompt's content rather than a stale one. */}
+            {selected && <PromptViewer key={selected.kind} kind={selected.kind} label={selected.label} />}
           </div>
         </div>
       )}
@@ -104,17 +101,6 @@ function groupByGroup(prompts: PromptSummary[]): [string, PromptSummary[]][] {
   return order.map(name => [name, byGroup.get(name) ?? []])
 }
 
-/** "Edited" (DB override in effect) vs "Default" (still the shipped file) —
- * always paired with the word itself, never color-only (same rule the kit's
- * own Chip doc states). */
-function sourceTone(source: string): ChipTone {
-  return source === 'db' ? 'warn' : 'default'
-}
-
-function sourceLabel(source: string): string {
-  return source === 'db' ? 'Edited' : 'Default'
-}
-
 interface PromptRowProps {
   item: PromptSummary
   selected: boolean
@@ -129,37 +115,24 @@ function PromptRow({ item, selected, onSelect }: PromptRowProps) {
       onClick={onSelect}
     >
       <span className="adm-comp-name">{item.label}</span>
-      <Chip tone={sourceTone(item.source)}>{sourceLabel(item.source)}</Chip>
-      {item.updated_at && (
-        <span className="adm-subtext adm-push-right">Last edited {formatDate(item.updated_at)}</span>
-      )}
     </button>
   )
 }
 
-interface PromptEditorProps {
+interface PromptViewerProps {
   kind: string
   label: string
 }
 
-/** The selected prompt's editor. Mounted with `key={kind}` at the call site
- * (PromptsPage above), so switching prompts unmounts/remounts this whole
- * component — `content` always starts from a clean slate rather than a stale
- * previous prompt's text. Same kind, post-save/reset: the effect below
- * reseeds `content` from `promptQuery.data` — TanStack Query's structural
- * sharing keeps that reference stable while the admin is mid-edit (an
- * unrelated background refetch that returns identical data won't re-trigger
- * this), and changes it exactly when the invalidation this mutation
- * triggers brings back new content, which is what we want to reflect. */
-function PromptEditor({ kind, label }: PromptEditorProps) {
+/** The selected prompt's read-only content. Mounted with `key={kind}` at the
+ * call site (PromptsPage above), so switching prompts unmounts/remounts this
+ * whole component rather than patching stale state in place. `liveUrl` points
+ * at the exact deployed commit when known (`useHealth`'s `build_sha`, the
+ * same hook SetupPage's Deployment card reads — no separate fetch here) and
+ * falls back to `main` locally, where health reports the sentinel `"dev"`. */
+function PromptViewer({ kind, label }: PromptViewerProps) {
   const promptQuery = usePrompt(kind)
-  const updatePrompt = useUpdatePrompt()
-  const resetPrompt = useResetPrompt()
-  const [content, setContent] = useState('')
-
-  useEffect(() => {
-    if (promptQuery.data) setContent(promptQuery.data.content)
-  }, [promptQuery.data])
+  const healthQuery = useHealth()
 
   if (promptQuery.isLoading) {
     return (
@@ -183,85 +156,18 @@ function PromptEditor({ kind, label }: PromptEditorProps) {
   }
 
   const data = promptQuery.data
-  const dirty = content !== data.content
-  const missingTokens = data.required_tokens.filter(token => !content.includes(token))
-  const canSave = dirty && content.trim() !== '' && missingTokens.length === 0
-  const busy = updatePrompt.isPending || resetPrompt.isPending
-
-  function handleSave() {
-    if (!window.confirm(`This changes the live "${label}" prompt for everyone, immediately. Save?`)) return
-    updatePrompt.mutate({ kind, content })
-  }
-
-  function handleReset() {
-    if (
-      !window.confirm(
-        `This discards the edited "${label}" prompt and restores the shipped default for everyone. Reset?`,
-      )
-    )
-      return
-    resetPrompt.mutate(kind)
-  }
+  const sha = healthQuery.data?.build_sha
+  const liveUrl =
+    sha && sha !== 'dev' ? `${REPO}/blob/${sha}/${data.path}` : `${REPO}/blob/main/${data.path}`
 
   return (
-    <Card title={label} actions={<Chip tone={sourceTone(data.source)}>{sourceLabel(data.source)}</Chip>}>
-      {data.required_tokens.length > 0 && (
-        <p className="adm-hint">
-          Required — the save is rejected if any of these are missing:{' '}
-          {data.required_tokens.map(token => (
-            <code key={token} className="adm-prompt-token">{token}</code>
-          ))}
-        </p>
-      )}
-
-      <textarea
-        className="adm-prompt-textarea"
-        aria-label={label}
-        value={content}
-        onChange={e => setContent(e.target.value)}
-        spellCheck
-        rows={16}
-      />
-
-      {missingTokens.length > 0 && (
-        <p className="adm-form-msg adm-form-msg-err">
-          Missing required token{missingTokens.length === 1 ? '' : 's'}:{' '}
-          {missingTokens.join(', ')}
-        </p>
-      )}
-
-      <div className="adm-form-actions">
-        <button
-          type="button"
-          className="adm-btn adm-btn-primary"
-          disabled={!canSave || busy}
-          onClick={handleSave}
-        >
-          {updatePrompt.isPending ? 'Saving…' : 'Save'}
-        </button>
-        {data.source === 'db' && (
-          <button
-            type="button"
-            className="adm-btn adm-btn-ghost"
-            disabled={busy}
-            onClick={handleReset}
-          >
-            {resetPrompt.isPending ? 'Resetting…' : 'Reset to default'}
-          </button>
-        )}
-        {data.updated_at && <span className="adm-subtext">Last edited {formatDate(data.updated_at)}</span>}
-      </div>
-
-      {updatePrompt.isError && (
-        <p className="adm-form-msg adm-form-msg-err">
-          {updatePrompt.error instanceof Error ? updatePrompt.error.message : 'Failed to save the prompt.'}
-        </p>
-      )}
-      {resetPrompt.isError && (
-        <p className="adm-form-msg adm-form-msg-err">
-          {resetPrompt.error instanceof Error ? resetPrompt.error.message : 'Failed to reset the prompt.'}
-        </p>
-      )}
+    <Card title={label}>
+      <pre className="adm-prompt-text">{data.content}</pre>
+      <p className="adm-muted">
+        Source of truth: <code>{data.path}</code> in git. Change it with a pull request, then deploy.{' '}
+        <a href={liveUrl} target="_blank" rel="noreferrer">View live version</a>{' · '}
+        <a href={`${REPO}/edit/main/${data.path}`} target="_blank" rel="noreferrer">Edit on GitHub</a>
+      </p>
     </Card>
   )
 }

@@ -124,7 +124,7 @@ export type InterviewState = components['schemas']['InterviewStateResponse']
 export type AdminInterview = components['schemas']['AdminInterviewResponse']
 // --- end interview types ---
 
-// DB-backed system prompts + admin editor
+// Read-only, git-backed System Prompts page — types alias the generated schema.
 export type PromptSummary = components['schemas']['PromptSummary']
 export type PromptDetail = components['schemas']['PromptDetail']
 export type PromptListResponse = components['schemas']['PromptListResponse']

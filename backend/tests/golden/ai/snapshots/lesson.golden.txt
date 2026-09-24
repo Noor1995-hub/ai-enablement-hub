@@ -1,0 +1,10 @@
+=== call 1: stream_reply (max_tokens=1024) ===
+--- system ---
+Placeholder prompt — the real lesson-helper prompt (answering questions using
+the current lesson's content as context) is written in a later batch. This
+file exists only so the kind doesn't 404.
+--- message 1 (assistant) ---
+Happy to help with this lesson — what's unclear?
+--- message 2 (user) ---
+In the 'Prompting basics' lesson, what does it mean to be specific in a prompt?
+

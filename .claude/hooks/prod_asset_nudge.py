@@ -21,9 +21,10 @@ RULES: tuple[tuple[str, str], ...] = (
     ),
     (
         "backend/prompts/",
-        "is a production asset: the system prompts are baked into the Docker image and can be "
-        "masked by a DB override on the admin System Prompts page. Treat the edit as a "
-        "production change and check no override hides it.",
+        "is a production asset baked into the Docker image, and git is its only source of "
+        "truth: it ships with the next deploy. Regenerate the golden snapshots "
+        "(UPDATE_GOLDEN=1 uv run pytest tests/golden/ai from backend/) and read their diff "
+        "before calling this done.",
     ),
     (
         "backend/alembic/versions/",
