@@ -59,7 +59,12 @@ class ChatService:
         if conversation_id is None:
             return await self._conversations.create(user_id=user_id, kind=kind)
         conversation = await self._conversations.get_by_id(conversation_id)
-        if conversation is None or conversation.user_id != user_id:
+        # kind must match the PATH segment, not just ownership: require_ai_surface
+        # gates on the path kind while send_message below loads the system prompt
+        # from conversation.kind, so a mismatch would let an enabled surface
+        # continue a disabled one's conversation (and write into the interview
+        # transcript admins read).
+        if conversation is None or conversation.user_id != user_id or conversation.kind != kind:
             raise NotFoundError("Conversation")
         return conversation
 

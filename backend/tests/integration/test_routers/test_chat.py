@@ -222,6 +222,36 @@ class TestSendChatMessage:
         )
         assert response.status_code == 404
 
+    async def test_interview_conversation_id_rejected_on_the_chatbot_surface(
+        self,
+        chat_client: Callable[[FakeLlmClient], AsyncClient],
+        db_session: AsyncSession,
+        test_settings: Settings,
+    ) -> None:
+        """Only `chatbot` is enabled here. Posting the user's own INTERVIEW
+        conversation id must 404 rather than append a turn to the interview
+        transcript that admins read and the playbook generator consumes."""
+        company = await create_company(db_session, "Chat Kind Co")
+        project = await create_project(db_session, company, "Chat Kind Project")
+        user = await create_user(
+            db_session,
+            email="chat-kind-confusion@example.com",
+            company_id=company.id,
+            project_id=project.id,
+        )
+        await _enable_ai(db_session, project.id, "chatbot")
+        interview = await ConversationRepository(db_session).create(
+            user_id=user.id, kind="interview"
+        )
+
+        client = chat_client(FakeLlmClient(chunks=["hi"]))
+        response = await client.post(
+            "/api/chat/chatbot",
+            json={"content": "hi", "conversation_id": str(interview.id)},
+            headers=auth_headers(user, test_settings),
+        )
+        assert response.status_code == 404
+
 
 class TestListAndGetConversations:
     async def test_list_and_detail_ungated_by_ai_setting(

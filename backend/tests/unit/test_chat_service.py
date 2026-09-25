@@ -45,6 +45,22 @@ async def test_resolve_conversation_rejects_someone_elses() -> None:
         )
 
 
+async def test_resolve_conversation_rejects_a_different_kind() -> None:
+    """The AI-surface gate is keyed on the PATH kind while send_message loads the
+    system prompt from the STORED row, so accepting a mismatched conversation
+    would let an enabled surface drive a disabled one's conversation."""
+    service, conversations, _ = _service(FakeLlmClient(chunks=[]))
+    user_id = uuid.uuid4()
+    conversations.get_by_id.return_value = SimpleNamespace(
+        id=uuid.uuid4(), user_id=user_id, kind="interview"
+    )
+
+    with pytest.raises(NotFoundError):
+        await service.resolve_conversation(
+            user_id=user_id, kind="chatbot", conversation_id=uuid.uuid4()
+        )
+
+
 async def test_send_message_streams_tokens_then_done_and_persists() -> None:
     llm = FakeLlmClient(chunks=["Hel", "lo!"])
     service, _, messages = _service(llm)
