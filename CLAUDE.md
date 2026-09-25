@@ -123,19 +123,23 @@ history that used to live here: `docs/history/state-log-2026.md`.
     `total > 0 && completed === total`. Tracks strictly below the learner's effective level are
     freely reviewable (2026-07-20). **Still frontend-only** — no server-side prerequisite check.
 - **Admin maturity pin** (`users.maturity_override`, `PUT /api/admin/users/{id}/maturity`) is
-  **visibility-only**: it sets the base of `effective_level` (the whole-track "Unlocks at
-  {Level}" lane lock) and deliberately does NOT assign content (assignment is seeded only on
+  **level-only**: it sets the base of `effective_level` (the whole-track "Unlocks at
+  {Level}" lane lock and the lesson access gate below) and deliberately does NOT assign content (assignment is seeded only on
   survey completion or by an admin — decision 2026-07-17) and does NOT bypass module
   prerequisites. Cross-track gotcha: tool-track first modules have prereqs on the last
   General II module; `isPrereqSatisfied()` in `lib/learningPathLocks.ts` treats a prerequisite
   pointing into a strictly-lower maturity level than the dependent's track as satisfied by
   maturity alone. Same-track/same-level prereqs still gate.
-- **Maturity gating, assignment and module prerequisites are visibility filters, NOT access
-  control** (component locks are the one exception): `GET /api/lessons/{id}` serves any lesson
-  to any authenticated user whose project has `learning` unlocked, and `PUT …/progress`
-  accepts unassigned/locked lessons. Closing this needs a server-side port of the
-  prerequisite-DAG check plus wiring maturity/assignment into `learning_service.py` — tracked
-  in the 2026-07-31 review.
+- **Lesson access gate (server-side, since the 2026-07-31 review fix):** `GET /api/lessons/{id}`
+  and `PUT …/progress` allow a lesson iff admin/`user+` (`LOCK_BYPASS_ROLES`) OR Introduction
+  track OR assigned to the caller OR its track's `required_level` ≤ the caller's
+  `effective_level` (so the maturity pin now opens tracks server-side too); only "unassigned
+  AND above level" ⇒ 403 `LessonNotAccessibleError`. A caller with neither a completed
+  assessment nor a maturity pin has no effective level: assigned + Introduction only. Unknown
+  lesson still 404s first. The rule
+  lives in `backend/src/services/learning_service.py::_is_accessible`; the router resolves
+  maturity. **Module prerequisites are still a visibility filter only** (frontend, above), and
+  `GET /api/modules/{id}/lessons` + `GET /api/learning/graph` stay ungated discovery surfaces.
 - **No prerequisites between tracks** (the dotted general→tool graph edge is decorative) and
   **none between lessons** (`sort_order` only; the quiz gate blocks "Mark as complete", not
   navigation).

@@ -19,6 +19,7 @@ from src.main import app
 from src.services.media_service import MediaService
 from tests.fixtures.auth import auth_headers
 from tests.fixtures.factories import (
+    assign_lesson,
     create_company,
     create_lesson,
     create_module,
@@ -123,6 +124,7 @@ class TestGetLessonStamping:
         learner = await create_user(
             db_session, email="media-learner@example.com", project_id=learning_project_id
         )
+        await assign_lesson(db_session, learner, lesson)
 
         response = await media_client.get(
             f"/api/lessons/{lesson.id}", headers=auth_headers(learner, test_settings)
@@ -140,15 +142,17 @@ class TestGetLessonStamping:
         await db_session.refresh(lesson)
         assert lesson.content_blocks == original_blocks
 
-    async def test_unassigned_learner_still_gets_stamped_urls(
+    async def test_stamping_does_not_depend_on_progress_state(
         self,
         media_client: AsyncClient,
         db_session: AsyncSession,
         test_settings: Settings,
         learning_project_id: uuid.UUID,
     ) -> None:
-        """Stamping doesn't depend on progress/assignment state — same lesson
-        row, just confirming the media dependency runs on the plain path too."""
+        """Stamping is independent of completion state — same lesson row, an
+        assigned learner who has completed nothing. (Before the lesson access
+        gate this test used an UNassigned learner; unassigned + above-level now
+        403s by design, and assignment is what makes the lesson reachable.)"""
         track = await create_track(db_session, "Media Track 2")
         module = await create_module(db_session, track, "Media Module 2")
         lesson = await create_lesson(
@@ -157,6 +161,7 @@ class TestGetLessonStamping:
         learner = await create_user(
             db_session, email="media-learner-2@example.com", project_id=learning_project_id
         )
+        await assign_lesson(db_session, learner, lesson)
 
         response = await media_client.get(
             f"/api/lessons/{lesson.id}", headers=auth_headers(learner, test_settings)
@@ -281,6 +286,7 @@ class TestStorageUnset:
         learner = await create_user(
             db_session, email="no-storage-learner@example.com", project_id=learning_project_id
         )
+        await assign_lesson(db_session, learner, lesson)
 
         response = await client.get(
             f"/api/lessons/{lesson.id}", headers=auth_headers(learner, test_settings)
@@ -333,6 +339,7 @@ class TestUnknownBlockRoundTrip:
         learner = await create_user(
             db_session, email="unknown-block-learner@example.com", project_id=learning_project_id
         )
+        await assign_lesson(db_session, learner, lesson)
 
         get_response = await media_client.get(
             f"/api/lessons/{lesson.id}", headers=auth_headers(learner, test_settings)

@@ -325,6 +325,12 @@ export interface paths {
          * @description Lesson + module + caller's answers + next destination in one response
          *     (collapses LessonPage's sequential prefetch chain, fixes legacy B4).
          *
+         *     Effective maturity and the role bypass are resolved HERE and passed down:
+         *     services never call other services, so the router composes MaturityService
+         *     and LearningService exactly as get_learning_graph above does. A lesson that
+         *     is neither assigned nor maturity-unlocked is a 403 (see
+         *     LearningService._is_accessible).
+         *
          *     content_blocks gets fresh SAS urls stamped onto image/blob-video blocks
          *     when storage is configured. Response-only: `media.stamp_blocks` returns a
          *     new list, so rebinding the aggregate dict's key never assigns back onto
@@ -350,7 +356,8 @@ export interface paths {
         /**
          * Save Lesson Progress
          * @description Mark the lesson complete for the caller (idempotent upsert). lesson_id
-         *     is the only client-supplied identifier — ownership comes from the token.
+         *     is the only client-supplied identifier — ownership comes from the token,
+         *     and the same access gate as GET applies.
          */
         put: operations["save_lesson_progress_api_lessons__lesson_id__progress_put"];
         post?: never;

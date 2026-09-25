@@ -15,6 +15,7 @@ __all__ = [
     "InvalidEmailTemplateError",
     "InvalidRequestError",
     "InvalidSessionError",
+    "LessonNotAccessibleError",
     "LessonSetMismatchError",
     "NotFoundError",
     "PayloadTooLargeError",
@@ -77,6 +78,18 @@ class ComponentLockedError(DomainError):
 
     def __init__(self, component: str) -> None:
         super().__init__(f"The {component} component is not available for your project")
+
+
+class LessonNotAccessibleError(DomainError):
+    """The lesson exists, but it is neither assigned to the caller nor in a
+    track their effective maturity covers. → 403
+
+    Distinct from ComponentLockedError: that one is a project-level switch,
+    this one is per-lesson and IS bypassed by admin/user+ (LOCK_BYPASS_ROLES).
+    """
+
+    def __init__(self) -> None:
+        super().__init__("This lesson is not available on your learning path")
 
 
 class ConflictError(DomainError):

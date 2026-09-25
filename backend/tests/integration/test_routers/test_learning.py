@@ -20,6 +20,7 @@ from tests.fixtures.factories import (
     create_module,
     create_prerequisite,
     create_project,
+    create_survey,
     create_track,
     create_user,
     unlock_component,
@@ -355,3 +356,187 @@ class TestProgress:
             headers=auth_headers(world.learner, test_settings),
         )
         assert response.status_code == 404
+
+
+class TestLessonAccessControl:
+    """Assignment + maturity are now access control on the two lesson endpoints,
+    not just visibility filters. Prerequisite ordering is deliberately NOT
+    enforced server-side (see the plan's decision note)."""
+
+    async def test_unassigned_above_level_lesson_is_403(
+        self, client: AsyncClient, world: World, db_session: AsyncSession, test_settings: Settings
+    ) -> None:
+        locked_track = await create_track(
+            db_session, "Locked Track", sort_order=9, required_level="integrator"
+        )
+        locked_module = await create_module(db_session, locked_track, "Locked Module")
+        locked_lesson = await create_lesson(db_session, locked_module, "Locked Lesson")
+
+        response = await client.get(
+            f"/api/lessons/{locked_lesson.id}",
+            headers=auth_headers(world.learner, test_settings),
+        )
+        assert response.status_code == 403
+        assert response.json()["error"]["code"] == "forbidden"
+
+    async def test_progress_on_an_inaccessible_lesson_is_403(
+        self, client: AsyncClient, world: World, db_session: AsyncSession, test_settings: Settings
+    ) -> None:
+        locked_track = await create_track(
+            db_session, "Locked Progress Track", sort_order=10, required_level="integrator"
+        )
+        locked_module = await create_module(db_session, locked_track, "Locked Progress Module")
+        locked_lesson = await create_lesson(db_session, locked_module, "Locked Progress Lesson")
+
+        response = await client.put(
+            f"/api/lessons/{locked_lesson.id}/progress",
+            json={"answers": {}},
+            headers=auth_headers(world.learner, test_settings),
+        )
+        assert response.status_code == 403
+
+    async def test_assessed_learner_is_gated_by_level_not_just_by_survey(
+        self, client: AsyncClient, world: World, db_session: AsyncSession, test_settings: Settings
+    ) -> None:
+        """A learner WITH a completed assessment (effective level practitioner;
+        nothing assigned, so no live progression) is refused an unassigned lesson
+        on a track above their level, and allowed unassigned lessons at and
+        below it, on both endpoints."""
+        assessed = await create_user(
+            db_session, email="assessed-practitioner@example.com", project_id=world.project_id
+        )
+        await create_survey(db_session, assessed, status="complete", score_level="practitioner")
+        lessons_by_level: dict[str, Lesson] = {}
+        for offset, level in enumerate(("explore", "practitioner", "integrator")):
+            track = await create_track(
+                db_session, f"Level {level} Track", sort_order=20 + offset, required_level=level
+            )
+            module = await create_module(db_session, track, f"Level {level} Module")
+            lessons_by_level[level] = await create_lesson(
+                db_session, module, f"Level {level} Lesson"
+            )
+        headers = auth_headers(assessed, test_settings)
+
+        above = lessons_by_level["integrator"]
+        assert (await client.get(f"/api/lessons/{above.id}", headers=headers)).status_code == 403
+        put_above = await client.put(
+            f"/api/lessons/{above.id}/progress", json={"answers": {}}, headers=headers
+        )
+        assert put_above.status_code == 403
+
+        for level in ("practitioner", "explore"):
+            lesson = lessons_by_level[level]
+            got = await client.get(f"/api/lessons/{lesson.id}", headers=headers)
+            assert got.status_code == 200, level
+            put = await client.put(
+                f"/api/lessons/{lesson.id}/progress", json={"answers": {}}, headers=headers
+            )
+            assert put.status_code == 204, level
+
+    async def test_assignment_alone_grants_access_even_above_level(
+        self, client: AsyncClient, world: World, db_session: AsyncSession, test_settings: Settings
+    ) -> None:
+        """An assignment is an admin's explicit grant; a maturity computation
+        must never lock a learner out of content they were given."""
+        high_track = await create_track(
+            db_session, "Granted Track", sort_order=11, required_level="multiplier"
+        )
+        high_module = await create_module(db_session, high_track, "Granted Module")
+        high_lesson = await create_lesson(db_session, high_module, "Granted Lesson")
+        await assign_lesson(db_session, world.learner, high_lesson)
+
+        response = await client.get(
+            f"/api/lessons/{high_lesson.id}", headers=auth_headers(world.learner, test_settings)
+        )
+        assert response.status_code == 200
+
+    async def test_maturity_alone_grants_access_to_an_unassigned_lesson(
+        self, client: AsyncClient, world: World, db_session: AsyncSession, test_settings: Settings
+    ) -> None:
+        """Below-/at-level free review is a shipped feature (2026-07-20): the
+        API must not 403 what the learning path lets them click."""
+        explorer = await create_user(
+            db_session, email="explorer-browser@example.com", project_id=world.project_id
+        )
+        await create_survey(db_session, explorer, status="complete", score_level="explore")
+        open_track = await create_track(
+            db_session, "Open Track", sort_order=12, required_level="explore"
+        )
+        open_module = await create_module(db_session, open_track, "Open Module")
+        open_lesson = await create_lesson(db_session, open_module, "Open Lesson")
+
+        response = await client.get(
+            f"/api/lessons/{open_lesson.id}", headers=auth_headers(explorer, test_settings)
+        )
+        assert response.status_code == 200
+
+    async def test_introduction_lessons_need_no_assignment(
+        self, client: AsyncClient, world: World, db_session: AsyncSession, test_settings: Settings
+    ) -> None:
+        intro_track = await create_track(
+            db_session, "Intro Access Track", sort_order=13, is_introduction=True
+        )
+        intro_module = await create_module(db_session, intro_track, "Intro Access Module")
+        intro_lesson = await create_lesson(db_session, intro_module, "Intro Access Lesson")
+        newcomer = await create_user(
+            db_session, email="intro-newcomer@example.com", project_id=world.project_id
+        )
+
+        response = await client.get(
+            f"/api/lessons/{intro_lesson.id}", headers=auth_headers(newcomer, test_settings)
+        )
+        assert response.status_code == 200
+
+    async def test_admin_and_user_plus_bypass_the_gate(
+        self, client: AsyncClient, world: World, db_session: AsyncSession, test_settings: Settings
+    ) -> None:
+        locked_track = await create_track(
+            db_session, "Bypass Track", sort_order=14, required_level="multiplier"
+        )
+        locked_module = await create_module(db_session, locked_track, "Bypass Module")
+        locked_lesson = await create_lesson(db_session, locked_module, "Bypass Lesson")
+        admin = await create_user(
+            db_session,
+            email="bypass-admin@example.com",
+            role="admin",
+            project_id=world.project_id,
+        )
+        user_plus = await create_user(
+            db_session,
+            email="bypass-userplus@example.com",
+            role="user+",
+            project_id=world.project_id,
+        )
+
+        for actor in (admin, user_plus):
+            response = await client.get(
+                f"/api/lessons/{locked_lesson.id}", headers=auth_headers(actor, test_settings)
+            )
+            assert response.status_code == 200, actor.email
+
+    async def test_unknown_lesson_is_still_404_not_403(
+        self, client: AsyncClient, world: World, test_settings: Settings
+    ) -> None:
+        """Existence is checked before access, so a deleted lesson keeps 404ing
+        (test_admin_content.py's delete test depends on this)."""
+        response = await client.get(
+            f"/api/lessons/{uuid.uuid4()}", headers=auth_headers(world.learner, test_settings)
+        )
+        assert response.status_code == 404
+
+    async def test_module_lessons_listing_is_not_gated(
+        self, client: AsyncClient, world: World, db_session: AsyncSession, test_settings: Settings
+    ) -> None:
+        """The listing endpoint stays the discovery surface: it already returns
+        per-caller `assigned` flags and the UI filters on them."""
+        locked_track = await create_track(
+            db_session, "Listing Track", sort_order=15, required_level="integrator"
+        )
+        locked_module = await create_module(db_session, locked_track, "Listing Module")
+        await create_lesson(db_session, locked_module, "Listing Lesson")
+
+        response = await client.get(
+            f"/api/modules/{locked_module.id}/lessons",
+            headers=auth_headers(world.learner, test_settings),
+        )
+        assert response.status_code == 200

@@ -15,12 +15,18 @@ __all__ = [
     "DEFAULT_LOCKED",
     "LEVEL_ORDER",
     "LEVEL_RANK",
+    "LOCK_BYPASS_ROLES",
     "advance_level",
 ]
 
 COMPONENTS = ("assessment", "learning", "interview")
 DEFAULT_LOCKED = {"assessment": False, "learning": True, "interview": True}
 DEFAULT_HIDDEN = {"assessment": False, "learning": False, "interview": False}
+
+# Roles that bypass learning-path locks (maturity + assignment). NOT a bypass of
+# the project-level component locks: those are explicitly not a role check
+# (see ComponentLockedError and the user+ role design doc).
+LOCK_BYPASS_ROLES: tuple[str, ...] = ("admin", "user+")
 
 # The maturity ladder, in progression order. The scoring engine only ever
 # assigns the first three (`multiplier` is aspirational — see lib/levels.ts on

@@ -4,10 +4,10 @@ import uuid
 from typing import TYPE_CHECKING, Any, Literal
 
 from src.core.constants import LEVEL_RANK
-from src.services.exceptions import NotFoundError
+from src.services.exceptions import LessonNotAccessibleError, NotFoundError
 
 if TYPE_CHECKING:
-    from src.db.models import Lesson
+    from src.db.models import Lesson, Track
     from src.repositories.base import (
         AbstractAssignmentRepository,
         AbstractContentRepository,
@@ -180,11 +180,64 @@ class LearningService:
             "next_lesson_id": next_lesson.id if next_lesson is not None else None,
         }
 
-    async def lesson_detail(self, user_id: uuid.UUID, lesson_id: uuid.UUID) -> dict[str, Any]:
+    @staticmethod
+    def _is_accessible(
+        *,
+        lesson_id: uuid.UUID,
+        track: Track | None,
+        assigned: set[uuid.UUID],
+        effective_level: str | None,
+        bypass_locks: bool,
+    ) -> bool:
+        """Whether the caller may READ/COMPLETE this specific lesson.
+
+        An OR of four independent grants, and the order matters only for cost:
+          1. admin / user+ (LOCK_BYPASS_ROLES) — resolved by the router,
+          2. the Introduction track — implicitly assigned to everyone, exactly as
+             `graph` treats it,
+          3. an explicit assignment — an admin's grant outranks any maturity
+             computation, so this holds even for a maturity-locked track (the
+             alternative would lock a learner out of content they were given),
+          4. the track's required_level is at or below the caller's effective
+             maturity — below-level free review is a shipped feature
+             (2026-07-20), so the API must not 403 what the path lets them click.
+
+        Prerequisite ordering is deliberately NOT enforced: it lives only in
+        frontend/src/lib/learningPathLocks.ts::isModuleUnlocked and governs
+        sequence within content the learner already has, not confidentiality.
+
+        Fails closed on anything unrecognisable (missing track, unknown level
+        code).
+        """
+        if bypass_locks:
+            return True
+        if track is None:
+            return False
+        if track.is_introduction or lesson_id in assigned:
+            return True
+        required = LEVEL_RANK.get(track.required_level)
+        caller = LEVEL_RANK.get(effective_level) if effective_level is not None else None
+        return required is not None and caller is not None and required <= caller
+
+    async def lesson_detail(
+        self,
+        user_id: uuid.UUID,
+        lesson_id: uuid.UUID,
+        *,
+        effective_level: str | None,
+        bypass_locks: bool,
+    ) -> dict[str, Any]:
         """One response for LessonPage, collapsing its sequential prefetch chain
         (fixes legacy B4). Next-destination semantics match the old page — next
         lesson in the module, else first lesson of the next module in the track —
-        but only lessons ASSIGNED to the caller qualify as a destination."""
+        but only lessons ASSIGNED to the caller qualify as a destination.
+
+        Access control, not just filtering: a lesson that is neither assigned nor
+        maturity-unlocked raises LessonNotAccessibleError (403). Existence is
+        checked FIRST so a deleted/unknown lesson still 404s. This is also what
+        stops any authenticated learner minting a media SAS url for any lesson
+        in the catalogue (the router stamps them onto the response).
+        """
         lesson = await self._content.get_lesson(lesson_id)
         if lesson is None:
             raise NotFoundError("Lesson")
@@ -192,9 +245,18 @@ class LearningService:
         if module is None:  # pragma: no cover - FK guarantees the module exists
             raise NotFoundError("Module")
 
-        progress = await self._progress.get(user_id, lesson_id)
         assigned = await self._assignments.lesson_ids_for_user(user_id)
         track = await self._content.get_track(module.track_id)
+        if not self._is_accessible(
+            lesson_id=lesson_id,
+            track=track,
+            assigned=assigned,
+            effective_level=effective_level,
+            bypass_locks=bypass_locks,
+        ):
+            raise LessonNotAccessibleError
+
+        progress = await self._progress.get(user_id, lesson_id)
         intro = track is not None and track.is_introduction
 
         def is_assigned(lesson_id_: uuid.UUID) -> bool:
@@ -242,8 +304,27 @@ class LearningService:
         }
 
     async def save_progress(
-        self, user_id: uuid.UUID, lesson_id: uuid.UUID, answers: dict[str, Any] | None
+        self,
+        user_id: uuid.UUID,
+        lesson_id: uuid.UUID,
+        answers: dict[str, Any] | None,
+        *,
+        effective_level: str | None,
+        bypass_locks: bool,
     ) -> None:
-        if await self._content.get_lesson(lesson_id) is None:
+        """Same access rule as lesson_detail — a learner must not be able to
+        mark a lesson complete that they are not entitled to open."""
+        lesson = await self._content.get_lesson(lesson_id)
+        if lesson is None:
             raise NotFoundError("Lesson")
+        module = await self._content.get_module(lesson.module_id)
+        track = await self._content.get_track(module.track_id) if module is not None else None
+        if not self._is_accessible(
+            lesson_id=lesson_id,
+            track=track,
+            assigned=await self._assignments.lesson_ids_for_user(user_id),
+            effective_level=effective_level,
+            bypass_locks=bypass_locks,
+        ):
+            raise LessonNotAccessibleError
         await self._progress.upsert(user_id, lesson_id, answers or {})

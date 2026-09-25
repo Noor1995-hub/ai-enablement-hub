@@ -90,6 +90,11 @@ async def seed(db_session: AsyncSession) -> Seed:
         company_id=company.id,
         project_id=project.id,
     )
+    # The lesson gate is not a role check either: the matrix's blanket "user
+    # succeeds everywhere non-admin-only" needs this lesson to actually be on
+    # the user's learning path, same as a real onboarded learner. (seed.admin
+    # bypasses via LOCK_BYPASS_ROLES.)
+    await assign_lesson(db_session, user, lesson)
     other = await create_user(db_session, email="matrix-other@example.com")
     # For the "chat-conversations-list" _MATRIX entry below — this fixture's
     # `client` has test_settings.llm=None, so get_llm_service -> get_chat_service

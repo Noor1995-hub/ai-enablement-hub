@@ -48,6 +48,7 @@ from src.services.exceptions import (
     ComponentLockedError,
     ConflictError,
     DomainError,
+    LessonNotAccessibleError,
     NotFoundError,
     PayloadTooLargeError,
     UnsupportedMediaTypeError,
@@ -314,6 +315,13 @@ async def conflict_handler(request: Request, exc: ConflictError) -> JSONResponse
 
 @app.exception_handler(ComponentLockedError)
 async def component_locked_handler(request: Request, exc: ComponentLockedError) -> JSONResponse:
+    return _error_response(403, exc.message)
+
+
+@app.exception_handler(LessonNotAccessibleError)
+async def lesson_not_accessible_handler(
+    request: Request, exc: LessonNotAccessibleError
+) -> JSONResponse:
     return _error_response(403, exc.message)
 
 
