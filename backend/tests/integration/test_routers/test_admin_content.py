@@ -445,3 +445,62 @@ class TestReorderLessons:
             headers=admin_headers,
         )
         assert response.status_code == 404
+
+
+class TestLessonUpdateLinkSchemes:
+    """PATCH deliberately skips the full structural validator (most live lessons
+    predate it), but the url-scheme allowlist is narrow enough to apply here --
+    and it is the only thing standing between pasted MDX and a javascript: link
+    going live."""
+
+    async def test_disallowed_scheme_is_rejected(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        admin_headers: dict[str, str],
+    ) -> None:
+        track = await create_track(db_session, "Scheme Track")
+        module = await create_module(db_session, track, "Scheme Module")
+        lesson = await create_lesson(db_session, module, "Scheme Lesson")
+
+        response = await client.patch(
+            f"/api/admin/lessons/{lesson.id}",
+            json={
+                "content_blocks": [
+                    {"id": "b1", "type": "paragraph", "text": "[click](javascript:alert(1))"}
+                ]
+            },
+            headers=admin_headers,
+        )
+
+        assert response.status_code == 400
+        assert "javascript" in response.json()["error"]["message"]
+        await db_session.refresh(lesson)
+        assert lesson.content_blocks == []
+
+    async def test_ordinary_lesson_content_still_saves(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        admin_headers: dict[str, str],
+    ) -> None:
+        """A structurally imperfect but harmless payload (the common case for
+        the real corpus) must still save -- this task adds the scheme check
+        only, not the structural validator."""
+        track = await create_track(db_session, "Scheme Ok Track")
+        module = await create_module(db_session, track, "Scheme Ok Module")
+        lesson = await create_lesson(db_session, module, "Scheme Ok Lesson")
+
+        blocks = [
+            {"id": "b1", "type": "paragraph", "text": "See [the docs](https://example.com)."},
+            {"type": "markdown", "body": "no id, unknown type -- still fine here"},
+        ]
+        response = await client.patch(
+            f"/api/admin/lessons/{lesson.id}",
+            json={"content_blocks": blocks},
+            headers=admin_headers,
+        )
+
+        assert response.status_code == 200
+        await db_session.refresh(lesson)
+        assert lesson.content_blocks == blocks

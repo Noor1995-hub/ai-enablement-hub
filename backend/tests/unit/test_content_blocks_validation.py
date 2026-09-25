@@ -2,6 +2,7 @@ import copy
 
 from src.services.content_blocks_validation import (
     check_house_style,
+    check_link_schemes,
     check_media_immutable,
     media_locators,
     normalise_nested_ids,
@@ -761,3 +762,213 @@ def test_house_style_compliant_changed_text_block_passes() -> None:
 def test_house_style_compliant_changed_quiz_passes() -> None:
     quiz = _quiz_two_questions((0, 1))
     assert check_house_style([], [_HEADING_CHECK, quiz]) == []
+
+
+# --- check_link_schemes: reject markdown links / embed-video urls carrying a
+# scheme outside the http/https/mailto allowlist. ---
+
+
+def test_javascript_link_scheme_is_rejected() -> None:
+    errors = check_link_schemes(
+        [{"id": "b1", "type": "paragraph", "text": "Try [this](javascript:alert(1)) now."}]
+    )
+    assert len(errors) == 1
+    assert "javascript" in errors[0]
+
+
+def test_data_uri_link_scheme_is_rejected() -> None:
+    errors = check_link_schemes(
+        [{"id": "b1", "type": "callout", "text": "[open](data:text/html;base64,PHNjcmlwdD4=)"}]
+    )
+    assert any("data" in e for e in errors)
+
+
+def test_https_and_mailto_and_relative_links_pass() -> None:
+    assert (
+        check_link_schemes(
+            [
+                {"id": "b1", "type": "paragraph", "text": "[docs](https://example.com/a)"},
+                {"id": "b2", "type": "paragraph", "text": "[mail](mailto:x@example.com)"},
+                {"id": "b3", "type": "paragraph", "text": "[rel](/learning/lesson/1)"},
+                {"id": "b4", "type": "paragraph", "text": "[anchor](#section)"},
+                {"id": "b5", "type": "paragraph", "text": "[bare](example.com/page)"},
+                {"id": "b6", "type": "paragraph", "text": "[host](//example.com/a)"},
+            ]
+        )
+        == []
+    )
+
+
+def test_nested_card_and_quiz_text_is_scanned() -> None:
+    errors = check_link_schemes(
+        [
+            {
+                "id": "b1",
+                "type": "card_group",
+                "cards": [
+                    {"id": "c1", "title": "Ok", "body": "[x](vbscript:msgbox)"},
+                ],
+            },
+            {
+                "id": "b2",
+                "type": "quiz",
+                "questions": [
+                    {
+                        "id": "q1",
+                        "q": "Which [one](javascript:0)?",
+                        "options": ["a", "b"],
+                        "correct": 0,
+                        "explanation": "because",
+                    }
+                ],
+            },
+        ]
+    )
+    assert len(errors) == 2
+
+
+def test_embed_video_must_be_http_or_https() -> None:
+    assert (
+        check_link_schemes(
+            [
+                {
+                    "id": "b1",
+                    "type": "video",
+                    "source": "embed",
+                    "url": "https://player.vimeo.com/video/1",
+                }
+            ]
+        )
+        == []
+    )
+    errors = check_link_schemes(
+        [{"id": "b1", "type": "video", "source": "embed", "url": "javascript:alert(1)"}]
+    )
+    assert any("javascript" in e for e in errors)
+
+
+def test_blob_paths_are_not_treated_as_urls() -> None:
+    assert (
+        check_link_schemes(
+            [
+                {"id": "b1", "type": "image", "blob_path": "images/abc.png", "alt": "A"},
+                {"id": "b2", "type": "video", "source": "blob", "blob_path": "videos/d.mp4"},
+            ]
+        )
+        == []
+    )
+
+
+def test_validate_content_blocks_includes_the_scheme_check() -> None:
+    """Wiring assertion: both AI paths call validate_content_blocks, so the
+    scheme check must ride along with it, not need a separate call site."""
+    errors = validate_content_blocks(
+        [{"id": "b1", "type": "paragraph", "text": "[x](javascript:alert(1))"}]
+    )
+    assert any("javascript" in e for e in errors)
+
+
+def test_non_list_input_is_tolerated() -> None:
+    assert check_link_schemes({"id": "b1"}) == []
+    assert check_link_schemes(None) == []
+
+
+# --- bypass hardening (ruling 1): browsers strip ASCII TAB/LF/CR from
+# anywhere in a url, and strip leading C0 controls/spaces, before parsing the
+# scheme -- so the scheme check must normalise the same way before judging. ---
+
+
+def test_tab_split_javascript_scheme_is_rejected() -> None:
+    errors = check_link_schemes(
+        [{"id": "b1", "type": "paragraph", "text": "[x](java\tscript:alert(1))"}]
+    )
+    assert any("javascript" in e for e in errors)
+
+
+def test_mixed_case_javascript_scheme_is_rejected() -> None:
+    errors = check_link_schemes(
+        [{"id": "b1", "type": "paragraph", "text": "[x](JaVaScRiPt:alert(1))"}]
+    )
+    assert any("javascript" in e for e in errors)
+
+
+def test_leading_control_char_javascript_scheme_is_rejected() -> None:
+    errors = check_link_schemes(
+        [{"id": "b1", "type": "paragraph", "text": "[x](\x01javascript:alert(1))"}]
+    )
+    assert any("javascript" in e for e in errors)
+
+
+def test_leading_space_javascript_scheme_is_rejected() -> None:
+    errors = check_link_schemes(
+        [{"id": "b1", "type": "paragraph", "text": "[x](  javascript:alert(1))"}]
+    )
+    assert any("javascript" in e for e in errors)
+
+
+# --- overlapping-scan hardening (review 2026-09-25, Critical 1): renderInline.tsx
+# tokenises bold, italic and link together in one alternation, so a bold/italic
+# token starting before what looks like a completed link can consume part of it
+# and expose a DIFFERENT link -- with a bad scheme -- inside the leftover text.
+# A left-to-right, non-overlapping link-only scan (the pre-fix behaviour) misses
+# this because it only ever sees the FIRST link-shaped span. ---
+
+
+def test_link_scheme_bypass_via_italic_overlap_is_rejected() -> None:
+    # Reproduction from the review: the renderer's italic token `*a [b](c *`
+    # (matching up to the next lone "*") consumes the start of what looks like
+    # the first link, exposing "[z](javascript:alert(1))" as a second link that
+    # actually renders as <a href="javascript:alert(1">. The pre-fix
+    # non-overlapping scan only ever found the first "[...](...)" span, whose
+    # target ("c *[z](javascript:alert(1") has no scheme, and returned [].
+    text = "*a [b](c *[z](javascript:alert(1))"
+    errors = check_link_schemes([{"id": "b1", "type": "paragraph", "text": text}])
+    assert any("javascript" in e for e in errors)
+
+
+def test_link_scheme_bypass_via_bold_overlap_is_rejected() -> None:
+    # Same shape, with a "**...**" bold token instead of "*...*" italic one --
+    # the review notes this variant "behaves the same".
+    text = "**a [b](c **[z](javascript:alert(1))**"
+    errors = check_link_schemes([{"id": "b1", "type": "paragraph", "text": text}])
+    assert any("javascript" in e for e in errors)
+
+
+def test_link_scheme_bypass_via_newline_in_text_is_rejected() -> None:
+    # Reproduction from re-review round 2: renderInline.tsx's SPLIT step
+    # (renderInline.tsx:6) excludes "\n" from the link text class, so a
+    # segment like "[x\ny](javascript:alert%281%29)" isn't recognised as a
+    # link token there -- but the leftover segment is then tested whole
+    # against the PER-PART regex (renderInline.tsx:10,
+    # `^\[([^\]]+)\]\(([^)]+)\)$`), which has NO "\n" exclusion at all, so it
+    # still renders as a link. Real paragraph text carries embedded newlines
+    # (ParagraphBlock.tsx joins wrapped lines with "\n"), so this is reachable.
+    # The percent-encoded parens avoid closing the link target early while
+    # still decoding to a working alert(1) once the browser un-escapes it.
+    text = "[x\ny](javascript:alert%281%29)"
+    errors = check_link_schemes([{"id": "b1", "type": "paragraph", "text": text}])
+    assert any("javascript" in e for e in errors)
+
+
+def test_link_scheme_bypass_via_newline_in_target_is_rejected() -> None:
+    # Same gap, newline inside the TARGET instead of the text. The renderer's
+    # per-part regex allows "\n" in the target too, and a browser deletes
+    # embedded LF/CR from a URL before parsing its scheme (the same fact
+    # _normalise_target's normalisation already relies on), so
+    # "java\nscript:..." executes as a plain javascript: href.
+    text = "[x](java\nscript:alert%281%29)"
+    errors = check_link_schemes([{"id": "b1", "type": "paragraph", "text": text}])
+    assert any("javascript" in e for e in errors)
+
+
+def test_host_colon_port_target_is_rejected_as_a_scheme() -> None:
+    # `localhost:8000/a` parses as an explicit scheme "localhost" under RFC
+    # 3986, and a browser's URL parser would read it exactly the same way --
+    # the link is already broken as a bare host:port target, so rejecting it
+    # here is defensible even though the resulting error text reads oddly
+    # ("disallowed url scheme 'localhost'"). Left as-is per review minor 2:
+    # a live-corpus census should watch for host:port-shaped targets too.
+    errors = check_link_schemes(
+        [{"id": "b1", "type": "paragraph", "text": "[x](localhost:8000/a)"}]
+    )
+    assert any("localhost" in e for e in errors)

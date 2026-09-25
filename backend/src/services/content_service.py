@@ -3,6 +3,7 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING, Any
 
+from src.services.content_blocks_validation import check_link_schemes
 from src.services.exceptions import (
     InvalidRequestError,
     LessonSetMismatchError,
@@ -100,6 +101,15 @@ class ContentService:
         if lesson is None:
             raise NotFoundError("Lesson")
         if "content_blocks" in values:
+            # Scheme-only validation, NOT the full structural validator: most of
+            # the live corpus predates that validator (see review 6.8), so
+            # applying it here would block ordinary saves. The scheme allowlist
+            # is narrow enough to be safe and is the only guard on this path --
+            # an admin pasting MDX produced by the AI would otherwise bypass the
+            # proposal pipeline's check entirely.
+            scheme_errors = check_link_schemes(values["content_blocks"])
+            if scheme_errors:
+                raise InvalidRequestError("; ".join(scheme_errors[:5]))
             # Ephemeral SAS urls (stamped on read) must never persist, even
             # when storage is unconfigured — the editor may echo a stale one
             # back verbatim, and stale urls in the JSONB would go stale forever.

@@ -7,6 +7,7 @@ from typing import Any, cast
 __all__ = [
     "KNOWN_BLOCK_TYPES",
     "check_house_style",
+    "check_link_schemes",
     "check_media_immutable",
     "media_locators",
     "normalise_nested_ids",
@@ -47,7 +48,10 @@ def validate_content_blocks(blocks: object) -> list[str]:
     duplicated media block would even slip past `check_media_immutable` (both
     copies match the base entry for that id).
 
-    Purely structural. It does NOT enforce media immutability (that a proposal
+    Structural, plus the url-scheme allowlist: it also enforces
+    `check_link_schemes` below, so both AI paths (`content_improvement_service`
+    `_draft`/`_apply`) get the scheme check for free without a second call
+    site to forget. It does NOT enforce media immutability (that a proposal
     must not add or alter image/video blob_paths) — that lives in
     `check_media_immutable` below.
     """
@@ -57,6 +61,7 @@ def validate_content_blocks(blocks: object) -> list[str]:
     seen_ids: set[str] = set()
     for i, block in enumerate(blocks):
         errors.extend(_validate_block(i, block, seen_ids))
+    errors.extend(check_link_schemes(blocks))
     return errors
 
 
@@ -486,6 +491,122 @@ def media_locators(blocks: object) -> list[tuple[str, str]]:
         if entry is not None and entry[1]:
             found.append(entry)
     return found
+
+
+# Judges the same target shape renderInline.tsx can turn into an <a href>:
+# `[text](target)`. This must be a SUPERSET of what BOTH of that file's two
+# regexes match, not a reimplementation of either -- reimplementing would
+# couple this check to them and go stale silently if either is edited.
+#
+# The tokeniser SPLIT regex excludes "\n" from every markdown class and scans
+# left-to-right non-overlapping, so an earlier bold/italic token can consume
+# part of a link and expose a DIFFERENT link in the leftover text. The
+# PER-PART link regex, applied to whatever the split step leaves as one
+# segment, is more permissive -- no "\n" exclusion -- so embedded newlines
+# (lesson paragraphs are joined with "\n") don't hide a link from it either.
+#
+# The classes below match the per-part regex's more permissive shape, and the
+# whole pattern sits in a zero-width lookahead so `finditer` retries at EVERY
+# character position instead of scanning non-overlapping matches -- catching
+# every `[` that opens a well-formed link even when another token overlaps it.
+_MD_LINK_TARGET_RE = re.compile(r"(?=\[[^\]]+\]\(([^)]+)\))")
+# An explicit scheme prefix, per RFC 3986: ALPHA *( ALPHA / DIGIT / "+" / "-" / "." ) ":"
+_URL_SCHEME_RE = re.compile(r"^([a-zA-Z][a-zA-Z0-9+.\-]*):")
+# Schemes a lesson link may carry. A target with NO scheme (relative path,
+# "#anchor", "//host/x", bare "example.com") is deliberately allowed: it is not
+# dangerous and the real corpus is full of them. Only an explicit scheme is
+# judged, which is what keeps this from rejecting legacy content.
+_ALLOWED_LINK_SCHEMES = frozenset({"http", "https", "mailto"})
+# An embed video url ends up as an <iframe src>; mailto has no meaning there.
+_ALLOWED_EMBED_SCHEMES = frozenset({"http", "https"})
+# Browsers delete ASCII TAB/LF/CR from anywhere in a URL, and strip leading C0
+# controls (U+0000-U+001F) and spaces, before parsing the scheme -- so
+# `java\tscript:` and `\x01javascript:` both execute as javascript: links even
+# though a naive `.strip()` + regex match would not see a scheme at all. The
+# scheme judgement below must normalise the same way the browser does, or this
+# whole check is a strip()-away from being bypassed.
+_STRIPPABLE_RE = re.compile(r"[\t\n\r]")
+_LEADING_CONTROL_RE = re.compile(r"^[\x00-\x20]+")
+
+
+def _normalise_target(target: str) -> str:
+    """See the comment on `_STRIPPABLE_RE`/`_LEADING_CONTROL_RE` above for why:
+    this must match what a browser does to a URL before it parses the scheme,
+    or the scheme judgement below is trivially bypassed."""
+    without_control_newlines = _STRIPPABLE_RE.sub("", target)
+    return _LEADING_CONTROL_RE.sub("", without_control_newlines)
+
+
+def _scheme_error(where: str, target: str, allowed: frozenset[str]) -> str | None:
+    match = _URL_SCHEME_RE.match(_normalise_target(target))
+    if match is None:
+        return None  # relative/anchor/scheme-less — not a scheme risk
+    scheme = match.group(1).lower()
+    if scheme in allowed:
+        return None
+    return (
+        f"{where} uses a disallowed url scheme {scheme!r} (allowed: {', '.join(sorted(allowed))})"
+    )
+
+
+def _walk_strings(value: object, where: str) -> list[tuple[str, str]]:
+    """Every (location, string) pair anywhere in a block, recursing dicts and
+    lists. Recursive rather than field-by-field on purpose: renderInline is
+    applied to a dozen different fields across 8 block components, and a new
+    prose field must not silently escape the check by being forgotten here."""
+    if isinstance(value, str):
+        return [(where, value)]
+    if isinstance(value, list):
+        found: list[tuple[str, str]] = []
+        for index, item in enumerate(value):
+            found.extend(_walk_strings(item, f"{where}[{index}]"))
+        return found
+    if isinstance(value, dict):
+        found = []
+        for key, item in value.items():
+            found.extend(_walk_strings(item, f"{where}.{key}"))
+        return found
+    return []
+
+
+def check_link_schemes(blocks: object) -> list[str]:
+    """Reject markdown links and embed-video urls carrying a scheme outside the
+    allowlist. Returns human-readable error strings; empty means clean.
+
+    Why this is not paranoia about admin-authored content any more: the
+    content-improvement agent drafts content_blocks FROM learner-submitted
+    feedback text, and the learner renderer builds `<a href={target}>` from
+    `[text](target)` with no protocol check of its own
+    (frontend/src/components/lesson/blocks/renderInline.tsx). React 18 warns on
+    a `javascript:` href but still renders it. So the chain learner feedback ->
+    AI draft -> admin approves a prose diff -> live for every learner needs a
+    gate that does not depend on an admin spotting a scheme inside a link
+    target.
+
+    Deliberately narrow (see _ALLOWED_LINK_SCHEMES): only an EXPLICIT scheme is
+    judged, so no legacy relative link can fail. Structural validity is
+    `validate_content_blocks`' job, media immutability is
+    `check_media_immutable`'s — neither substitutes for the other.
+    """
+    if not isinstance(blocks, list):
+        return []
+    errors: list[str] = []
+    for index, block in enumerate(blocks):
+        if not isinstance(block, dict):
+            continue
+        where = f"block[{index}]"
+        is_embed = block.get("type") == "video" and block.get("source") == "embed"
+        for location, text in _walk_strings(block, where):
+            if is_embed and location == f"{where}.url":
+                error = _scheme_error(location, text, _ALLOWED_EMBED_SCHEMES)
+                if error is not None:
+                    errors.append(error)
+                continue
+            for target in _MD_LINK_TARGET_RE.findall(text):
+                error = _scheme_error(location, target, _ALLOWED_LINK_SCHEMES)
+                if error is not None:
+                    errors.append(error)
+    return errors
 
 
 def check_media_immutable(base: object, proposed: object) -> list[str]:
