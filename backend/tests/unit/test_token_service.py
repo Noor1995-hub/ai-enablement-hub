@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, tzinfo
 from typing import Any
 from unittest.mock import AsyncMock
 
@@ -21,7 +21,7 @@ from src.services.exceptions import (
     TokenExpiredError,
     TokenNotFoundError,
 )
-from src.services.token_service import TokenService
+from src.services.token_service import _REUSE_GRACE_SECONDS, TokenService
 
 AUTH = AuthSettings(jwt_secret=SecretStr("unit-test-secret-0123456789-0123456789"))
 
@@ -152,6 +152,138 @@ class TestRefreshPair:
         with pytest.raises(InvalidSessionError):
             await service.refresh_pair("raced")
         sessions.create.assert_not_awaited()
+
+    async def test_reused_revoked_token_revokes_the_whole_family(self) -> None:
+        """RFC 9700 / OAuth 2 BCP: replaying an already-rotated refresh token
+        means the token leaked, so every session of that user dies -- otherwise
+        the victim just re-logs-in and the thief keeps a live session."""
+        service, users, _, sessions = make_service()
+        user = make_user()
+        rotated_at = datetime.now(UTC) - timedelta(seconds=_REUSE_GRACE_SECONDS + 1)
+        # revoke() (rotation/logout) stamps both columns with the same instant.
+        sessions.get_by_hash.return_value = make_session_row(
+            user.id, revoked_at=rotated_at, last_used_at=rotated_at
+        )
+        users.get_by_id.return_value = user
+
+        with pytest.raises(InvalidSessionError):
+            await service.refresh_pair("replayed")
+
+        sessions.revoke_all_for_user.assert_awaited_once_with(user.id)
+        sessions.create.assert_not_awaited()
+
+    async def test_family_revoked_token_does_not_burn_the_family_again(self) -> None:
+        """revoke_all_for_user (set-password, or a previous detection) leaves
+        last_used_at NULL. A stale device presenting such a token an hour later
+        was logged out, not robbed: it must not kill the session the user just
+        created, e.g. on the phone they reset their password from."""
+        service, users, _, sessions = make_service()
+        user = make_user()
+        sessions.get_by_hash.return_value = make_session_row(
+            user.id, revoked_at=datetime.now(UTC) - timedelta(hours=1), last_used_at=None
+        )
+        users.get_by_id.return_value = user
+
+        with pytest.raises(InvalidSessionError):
+            await service.refresh_pair("stale-laptop")
+
+        sessions.revoke_all_for_user.assert_not_awaited()
+        sessions.create.assert_not_awaited()
+
+    @pytest.mark.parametrize(
+        ("age", "burns"),
+        [
+            (timedelta(seconds=_REUSE_GRACE_SECONDS), False),
+            (timedelta(seconds=_REUSE_GRACE_SECONDS, microseconds=1), True),
+        ],
+    )
+    async def test_grace_window_boundary_is_inclusive(
+        self, monkeypatch: pytest.MonkeyPatch, age: timedelta, burns: bool
+    ) -> None:
+        """Exactly _REUSE_GRACE_SECONDS old is still the benign race; one tick
+        more is reuse. Frozen clock so the boundary is exact."""
+        frozen = datetime(2026, 9, 25, 12, 0, tzinfo=UTC)
+
+        class _FrozenDatetime(datetime):
+            @classmethod
+            def now(cls, tz: tzinfo | None = None) -> _FrozenDatetime:
+                return cls.fromtimestamp(frozen.timestamp(), tz)
+
+        monkeypatch.setattr("src.services.token_service.datetime", _FrozenDatetime)
+        service, users, _, sessions = make_service()
+        user = make_user()
+        revoked_at = frozen - age
+        sessions.get_by_hash.return_value = make_session_row(
+            user.id,
+            revoked_at=revoked_at,
+            last_used_at=revoked_at,
+            expires_at=frozen + timedelta(days=1),
+        )
+        users.get_by_id.return_value = user
+
+        with pytest.raises(InvalidSessionError):
+            await service.refresh_pair("boundary")
+
+        assert sessions.revoke_all_for_user.await_count == (1 if burns else 0)
+
+    async def test_reuse_inside_grace_window_does_not_revoke_the_family(self) -> None:
+        """Two tabs share one refresh token in localStorage; when their access
+        token expires together both POST it. The loser presents a token revoked
+        a moment ago by the winner's rotation -- a benign race, not theft. It
+        gets a plain 401 and the winner's fresh session survives."""
+        service, users, _, sessions = make_service()
+        user = make_user()
+        sessions.get_by_hash.return_value = make_session_row(
+            user.id, revoked_at=datetime.now(UTC) - timedelta(seconds=2)
+        )
+        users.get_by_id.return_value = user
+
+        with pytest.raises(InvalidSessionError):
+            await service.refresh_pair("second-tab")
+
+        sessions.revoke_all_for_user.assert_not_awaited()
+        sessions.create.assert_not_awaited()
+
+    async def test_never_rotated_token_still_rotates_normally(self) -> None:
+        """The reuse branch must not touch a live token: it rotates as before
+        and no family revocation happens."""
+        service, users, _, sessions = make_service()
+        user = make_user()
+        row = make_session_row(user.id)
+        sessions.get_by_hash.return_value = row
+        users.get_by_id.return_value = user
+
+        pair = await service.refresh_pair("fresh")
+
+        sessions.revoke.assert_awaited_once_with(row)
+        sessions.create.assert_awaited_once()
+        assert hash_token(pair.refresh_token) == sessions.create.await_args.args[1]
+        sessions.revoke_all_for_user.assert_not_awaited()
+
+    async def test_unknown_token_does_not_revoke_anything(self) -> None:
+        """An unknown hash proves nothing (typo, purged row) -- it must not be a
+        remote kill switch for a user we cannot even identify."""
+        service, _, _, sessions = make_service()
+        sessions.get_by_hash.return_value = None
+
+        with pytest.raises(InvalidSessionError):
+            await service.refresh_pair("garbage")
+
+        sessions.revoke_all_for_user.assert_not_awaited()
+
+    async def test_expired_token_does_not_revoke_the_family(self) -> None:
+        """Expiry is the normal end of a 14-day session, not evidence of theft."""
+        service, users, _, sessions = make_service()
+        user = make_user()
+        sessions.get_by_hash.return_value = make_session_row(
+            user.id, expires_at=datetime.now(UTC) - timedelta(seconds=1)
+        )
+        users.get_by_id.return_value = user
+
+        with pytest.raises(InvalidSessionError):
+            await service.refresh_pair("stale")
+
+        sessions.revoke_all_for_user.assert_not_awaited()
 
 
 class TestRevokeSession:

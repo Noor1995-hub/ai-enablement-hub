@@ -50,6 +50,11 @@ async function doRefresh(): Promise<string | null> {
     return null // network blip: keep the tokens, surface the original 401
   }
   if (res.status === 401) {
+    // The single-flight above is per tab, but localStorage is shared: if another
+    // tab rotated while we were in flight, our token lost that race — adopt the
+    // winner's pair rather than logging every tab out.
+    const current = getRefreshToken()
+    if (current !== null && current !== refresh) return getAccessToken()
     clearTokens() // session is dead (revoked/expired) — forced logout broadcast
     return null
   }
