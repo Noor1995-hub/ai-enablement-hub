@@ -15,7 +15,14 @@ _CONN_STRING = (
 )
 
 
-def _settings(conn_string: str, *, sas_ttl_hours: int = 48) -> StorageSettings:
+def _settings(conn_string: str, *, sas_ttl_hours: int | None = None) -> StorageSettings:
+    # sas_ttl_hours is only forwarded when the caller cares about it, so tests
+    # that don't pass it exercise the real StorageSettings default instead of
+    # silently pinning one here. Passed directly (not via **kwargs) so its
+    # `int` type lines up with the field instead of a dict type broad enough
+    # to also (wrongly) cover the str-typed fields.
+    if sas_ttl_hours is None:
+        return StorageSettings(connection_string=SecretStr(conn_string))
     return StorageSettings(connection_string=SecretStr(conn_string), sas_ttl_hours=sas_ttl_hours)
 
 
@@ -67,9 +74,13 @@ class TestConnectionStringParsing:
 
 class TestDefaults:
     def test_container_and_sas_ttl_defaults(self) -> None:
+        """A stamped SAS url works with no authentication until it expires, so
+        its lifetime is exactly the window a shared url stays usable. The
+        default sits one hour above the 25h floor (see _MIN_SAS_TTL_HOURS),
+        not at 48h: every extra hour is an hour a leaked url keeps working."""
         settings = _settings(_CONN_STRING)
         assert settings.container == "lesson-media"
-        assert settings.sas_ttl_hours == 48
+        assert settings.sas_ttl_hours == 26
 
     def test_sas_ttl_below_25_hours_is_rejected(self) -> None:
         with pytest.raises(ValidationError, match="25"):

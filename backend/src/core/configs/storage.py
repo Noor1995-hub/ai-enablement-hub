@@ -25,7 +25,14 @@ class StorageSettings(BaseModel):
 
     connection_string: SecretStr
     container: str = "lesson-media"
-    sas_ttl_hours: int = 48
+    # SAS windows start at midnight UTC and run for this many hours, so a
+    # stamped url works with no authentication until it expires: its lifetime
+    # is exactly the window a leaked url stays usable. 26 is one hour above
+    # _MIN_SAS_TTL_HOURS (25), not 48 — the cost is that a url minted just
+    # before midnight UTC has only ~2h of validity left instead of ~24h (a
+    # lesson tab left open across ~02:00 UTC may need a reload to keep
+    # loading/seeking media); re-fetch cadence is unchanged either way.
+    sas_ttl_hours: int = 26
 
     # Derived from connection_string by _parse_connection_string below; these
     # defaults are placeholders only, always overwritten at construction.

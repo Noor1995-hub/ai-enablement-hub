@@ -21,7 +21,9 @@ _UUID_HEX = "[0-9a-f]{32}"
 
 
 def _service(
-    uploader: RecordingUploader | None = None, *, sas_ttl_hours: int = 48
+    uploader: RecordingUploader | None = None,
+    *,
+    sas_ttl_hours: int = TEST_STORAGE.sas_ttl_hours,
 ) -> tuple[MediaService, RecordingUploader]:
     uploader = uploader or RecordingUploader()
     service = MediaService(
@@ -62,12 +64,12 @@ class TestSasUrl:
         expiry = datetime.strptime(query["se"][0], "%Y-%m-%dT%H:%M:%SZ")
         assert (expiry - start).total_seconds() == 72 * 3600
 
-    def test_default_ttl_is_48_hours(self) -> None:
+    def test_default_ttl_matches_storage_settings_default(self) -> None:
         service, _ = _service()
         query = parse_qs(urlparse(service.sas_url("images/abc.png")).query)
         start = datetime.strptime(query["st"][0], "%Y-%m-%dT%H:%M:%SZ")
         expiry = datetime.strptime(query["se"][0], "%Y-%m-%dT%H:%M:%SZ")
-        assert (expiry - start).total_seconds() == 48 * 3600
+        assert (expiry - start).total_seconds() == TEST_STORAGE.sas_ttl_hours * 3600
 
     def test_permission_is_read_only(self) -> None:
         service, _ = _service()
