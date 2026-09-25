@@ -1,9 +1,10 @@
 # App health alerts — runbook
 
 Three Azure Monitor metric alerts watch the `ai-enablement-hub` Container App and mail the
-`ai-hub-backup-alerts` action group (Matthias + Aaron). Created by `infra/60-app-alerts.ps1`
-(idempotent; 2026-09-24, issue #48). Each alert also mails when it resolves. The nightly-backup
-alerts are separate: `docs/db-backup-restore.md`.
+`ai-hub-app-alerts` action group, which reaches **Matthias only** (his call, 2026-09-25). Created by
+`infra/60-app-alerts.ps1` (idempotent; 2026-09-24, issue #48). Each alert also mails when it
+resolves. The nightly-backup alerts are separate and still reach Matthias and Aaron through
+`ai-hub-backup-alerts`: `docs/db-backup-restore.md`.
 
 | Alert | Fires when | Severity |
 |---|---|---|
@@ -42,6 +43,8 @@ first.
 
 ## Changing or removing an alert
 
-The script leaves an existing rule untouched. Change thresholds in the portal (Monitor → Alerts →
+The script creates `ai-hub-app-alerts` if it is missing and moves an existing rule off the old
+shared `ai-hub-backup-alerts` group. Otherwise it leaves an existing rule untouched. To change who
+gets the mails, edit the group in the portal (Monitor → Alerts → Action groups). Change thresholds in the portal (Monitor → Alerts →
 Alert rules) or delete the rule there and re-run the script after editing it — and update this
 page in the same PR.
