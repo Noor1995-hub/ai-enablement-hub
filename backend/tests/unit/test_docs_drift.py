@@ -31,6 +31,7 @@ MAINTAINED_DOCS = [
     "docs/README.md",
     "docs/superpowers/lessons.md",
     "docs/db-backup-restore.md",
+    "docs/app-alerts.md",
     *sorted(p.relative_to(REPO_ROOT).as_posix() for p in (REPO_ROOT / "docs/content").glob("*.md")),
 ]
 REPO_ROOTED = ("backend/", "frontend/", "docs/", "infra/", "db/", ".github/", ".claude/")

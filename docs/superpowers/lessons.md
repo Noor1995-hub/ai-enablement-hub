@@ -197,3 +197,22 @@ suite still passes, not that the library behaves the same on inputs the suite ne
 **The rule.** Before merging a Dependabot **major**, read the changelog's breaking-changes
 section and grep our call sites for each item; if one applies, fix it in our own PR with a test
 that fails on the new version (this one: `tests/unit/test_security.py`, the 72-byte cases).
+
+## 2026-09-24 — az.cmd let cmd.exe eat a JMESPath filter, and the idempotency probe went blind
+
+**What went wrong.** The first run of `infra/60-app-alerts.ps1` printed
+`-o was unexpected at this time.` before each rule. The probe
+`--query "length([?name=='ai-hub-app-5xx'])" -o tsv` never reached az: `az.cmd` is a batch file,
+so PowerShell hands its arguments to `cmd.exe`, which parsed the `==`/quotes itself and choked.
+The probe returned nothing, so the script treated every rule as missing. The creates were
+correct only because the rules really were missing; a re-run would have re-created them instead
+of leaving them alone.
+
+**Why it bites here.** The az CLI on this machine is the old `az.cmd` (off PATH), invoked from
+PowerShell 5.1. The same filter works in the portal's shell, on Linux and in GitHub Actions, and
+simple `--query` paths (`id`, `[].name`) work here too — only filters with `==`, `'` or `|` break.
+
+**The rule.** From PowerShell on this machine, keep `--query` to plain paths and filter the
+result in PowerShell (`@(& $AZ ... --query '[].name' -o tsv) -contains $name`). Treat any
+`was unexpected at this time` line as a failed command even when the script carries on, and
+read back what a mutating script created before trusting it.

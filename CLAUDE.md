@@ -26,13 +26,15 @@ history that used to live here: `docs/history/state-log-2026.md`.
   properties.template.containers[0].image -o tsv`. DB schema: `cd backend && uv run alembic
   current` (code head `1cd2cc2d05a9`, single linear chain).
 - **Backlog = GitHub Issues** (labels `way-of-working`, `fix-programme`, `ops`, `security`).
-  Next: the rest of Tier 2 (`docs/reviews/2026-09-17/` §5), then the July fix programme (issues
-  #52–#56; plans in `docs/reviews/2026-07-31/`; **phase C owns all new migrations**).
-- **Scale:** ~85 endpoints across 19 routers (`backend/src/routers/`); feature-complete, in
-  active content + AI-feature iteration. ~104 users as of 2026-08-04.
-- **Auth:** password (JWT) live; Entra ID OIDC code-complete but deployed **dark** (no
-  `ENTRA__*` env on prod; blocked on one-time IT admin consent).
-- **Roles:** `admin`, `user+` (bypasses learning-path locks, no admin powers), `user`.
+  Way-of-working Tier 2 is complete (`docs/reviews/2026-09-17/` §5). Next: the July fix programme
+  (issues #52–#56; plans in `docs/reviews/2026-07-31/`; **phase C owns all new migrations**) —
+  its master plan §5 lists decisions Matthias must take first.
+- **`main` ahead of production (2026-09-25):** live is `2b9ab05`; #57–#61 are not deployed. #58
+  moved the learning-path unlock rule (a pure move); after the next deploy, open the learning
+  path once as a normal user and check the locks look unchanged.
+- **Scale:** ~85 endpoints, 19 routers (`backend/src/routers/`); ~104 users as of 2026-08-04.
+- **Auth:** password (JWT) live; Entra ID OIDC code-complete but **dark** (no `ENTRA__*` on prod;
+  blocked on IT admin consent). Roles: `admin`, `user+` (bypasses locks, no admin powers), `user`.
 - **Maturity ladder:** `explore → practitioner → integrator → multiplier`
   (`core/constants.py::LEVEL_ORDER`). The multiplier level holds 4 tracks (General III, Copilot
   II, Claude II, Capstone-only For Developers). Content model: `docs/content/README.md`; active
@@ -46,7 +48,9 @@ history that used to live here: `docs/history/state-log-2026.md`.
 - **Git:** `main` is the only long-lived branch and is **protected** (`.github/rulesets/`): every
   change is a `<type>/<topic>` branch → pull request → both `CI` checks green → **squash merge**.
   No direct pushes, no force-pushes, admins included. Admins merge their own PR after reading the
-  Claude review; nobody @-mentions or requests reviewers. Full flow: `CONTRIBUTING.md`.
+  Claude review; nobody @-mentions or requests reviewers. Full flow: `CONTRIBUTING.md`. **Agents
+  cannot merge** (`gh pr merge --admin` and ruleset edits are blocked by the permission classifier,
+  by Matthias's choice) — hand an admin the merge-ready PRs, in order.
 - **Checks:** backend `uv run poe format-check && uv run poe lint-src && uv run poe ty-src &&
   uv run poe test`; frontend `npm run typecheck && npm run lint && npm test && npm run build`
   (details in the scoped guides). CI also enforces coverage ≥ 90%, fresh API types, and the
@@ -169,6 +173,8 @@ history that used to live here: `docs/history/state-log-2026.md`.
   Sev1 alerts (`ai-hub-db-backup-failed`, `-missing`). Restores via the manual restore job —
   **never write a procedure assuming local `pg_restore`**. Runbook: `docs/db-backup-restore.md`.
   Azure PITR stays at the server default 7 days.
+- **Health alerts:** app down (Sev1), 3+ 5xx in 15 min, container restarts (Sev2) → the same
+  action group. What each means and first checks: `docs/app-alerts.md` (`infra/60-app-alerts.ps1`).
 - **Verifying without touching live data:** dump production-shaped fixtures via read-only
   service calls, serve from a temporary `frontend/public/__verify/`, stub `window.fetch` in a
   Playwright `addInitScript` (page context — the MCP host has no `fs`/`fetch`). Assert on
@@ -189,9 +195,6 @@ history that used to live here: `docs/history/state-log-2026.md`.
   playground deployment is the live one. Custom-domain recipe: `docs/history/state-log-2026.md`.
 - **LLM spend:** prod carries `llm-api-key` and admin-reachable AI spend is live; whether the key
   is capped is unverified — issue #44.
-- **Emails:** ACS `imaginemore-playground-acs`, sender `hub@…azurecomm.net`. Local `.env` sends
-  REAL email (see `backend/CLAUDE.md`).
+- **Emails:** ACS `imaginemore-playground-acs`; local `.env` sends REAL email (`backend/CLAUDE.md`).
 - **Owed rotations** (deliberately unscheduled): dev `AUTH__JWT_SECRET`, leaked 2026-07-06 (#42),
   and the `aienablementhubmedia` storage key, leaked 2026-07-30 (#43) — `SECURITY.md` → Rotations owed.
-- **`bta-portal-cicd`** (the portal's deploy identity, not ours) has only the plain OIDC subject
-  and will fail like our first deploy did — tell Michael.

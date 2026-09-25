@@ -1,5 +1,9 @@
 # Plan — frontend tests (spec `../specs/2026-09-24-frontend-tests-design.md`, issue #46)
 
+**Status: done 2026-09-24 — all four tasks and the final review shipped in PR #58 (squash
+`c264dad`).** The review's two should-fix findings (render test too weak, check order unpinned)
+were fixed before merge; its Docker-stage install nit was accepted.
+
 One PR, four commits, each green on its own.
 
 1. **Runner.** `npm i -D vitest jsdom @testing-library/react @testing-library/dom

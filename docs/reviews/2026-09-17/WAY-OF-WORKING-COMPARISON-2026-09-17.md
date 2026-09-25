@@ -368,13 +368,20 @@ the way the portal's agents own `evals/`).
 > Library in CI, unlock rule extracted to `lib/learningPathLocks.ts` with 48 tests (#58).
 > 2.6: root `CLAUDE.md` 322 → 197 lines + scoped `backend/`, `frontend/`, `docs/content/` guides,
 > `docs/feature-index.md`, state log to `docs/history/state-log-2026.md`.
+> 2.9: app health alerts (down / 5xx / restarts) via `infra/60-app-alerts.ps1`, runbook
+> `docs/app-alerts.md`. **Dropped by decision 2026-09-24:** 2.11 revision history (the real risk,
+> blocks vanishing on edit, is bug #60), 2.12 content export (backups + PITR cover recovery), 2.13
+> feedback→issues (not worth a GitHub token in the app). 2.10 waits on a dev database, which was
+> cancelled — not planned. **Tier 2 is complete.**
 > **Deferred frontend-tooling upgrade (decided 2026-09-24):** TypeScript 7, ESLint 10 (+ `@eslint/js` 10),
 > `@vitejs/plugin-react` 6 and react-router 7 are one planned upgrade (spec → plan → PR), not
 > Dependabot merges. Their PRs #27–#30 were closed with `@dependabot ignore this major version`;
 > to resume, comment `@dependabot unignore <dependency>` on a Dependabot PR or remove the ignore
 > under Insights → Dependency graph → Dependabot. react-router 7 also closes the last two npm advisories.
 > Decisions taken since this report: admins self-merge with `--admin` after green CI + the Claude
-> review, no @-mentions or review requests (2026-09-24, keeps `main-review` at 1 approval); manual deploy button (not on-merge);
+> review, no @-mentions or review requests (2026-09-24, keeps `main-review` at 1 approval — dropping
+> it to 0 so agents could merge was considered and declined the same day: "good you don't have
+> full auth"); manual deploy button (not on-merge);
 > review scope = every non-docs PR, no `@claude`; prompts edited only by Matthias and Aaron.
 
 Effort: **S** = under half a day, **M** = one to two days, **L** = three to five days. All
