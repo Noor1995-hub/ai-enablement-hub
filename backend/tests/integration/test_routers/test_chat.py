@@ -31,7 +31,12 @@ from src.repositories.message_repository import MessageRepository
 from src.repositories.org_repository import OrgRepository
 from src.services.chat_service import ChatService
 from tests.fixtures.auth import auth_headers
-from tests.fixtures.factories import create_company, create_project, create_user
+from tests.fixtures.factories import (
+    create_company,
+    create_project,
+    create_user,
+    unlock_component,
+)
 from tests.fixtures.llm import FakeLlmClient
 
 if TYPE_CHECKING:
@@ -40,6 +45,7 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
     from src.core.configs.settings import Settings
+    from src.db.models import Project, User
 
 
 def _parse_sse(raw: str) -> list[tuple[str, dict]]:
@@ -321,3 +327,136 @@ class TestListAndGetConversations:
         client = chat_client(FakeLlmClient(chunks=[]))
         response = await client.get("/api/chat/conversations?kind=chatbot")
         assert response.status_code == 401
+
+
+class TestInterviewKindComponentGate:
+    """`kind=interview` on the chat router honours the project's `interview`
+    component lock (same 403 ComponentLockedError as /api/interview/*): interview
+    turns stream through POST /api/chat/interview and history reads through
+    GET /api/chat/conversations?kind=interview. The AI surface is enabled in
+    every case, so a 403 here can only come from the component gate (asserted
+    via the "interview component" message). Other kinds ignore the lock."""
+
+    async def _learner(self, db_session: AsyncSession, slug: str) -> tuple[User, Project]:
+        company = await create_company(db_session, f"Chat Interview Gate Co {slug}")
+        project = await create_project(db_session, company, f"Chat Interview Gate {slug}")
+        user = await create_user(
+            db_session,
+            email=f"chat-interview-{slug}@example.com",
+            company_id=company.id,
+            project_id=project.id,
+        )
+        await _enable_ai(db_session, project.id, "interview")
+        await _enable_ai(db_session, project.id, "chatbot")
+        return user, project
+
+    async def test_post_interview_403_when_locked_by_default(
+        self,
+        chat_client: Callable[[FakeLlmClient], AsyncClient],
+        db_session: AsyncSession,
+        test_settings: Settings,
+    ) -> None:
+        user, _ = await self._learner(db_session, "post-locked")
+        client = chat_client(FakeLlmClient(chunks=["never"]))
+        response = await client.post(
+            "/api/chat/interview", json={"content": "hi"}, headers=auth_headers(user, test_settings)
+        )
+        assert response.status_code == 403
+        assert "interview component" in response.json()["error"]["message"]
+
+    async def test_post_interview_403_when_hidden(
+        self,
+        chat_client: Callable[[FakeLlmClient], AsyncClient],
+        db_session: AsyncSession,
+        test_settings: Settings,
+    ) -> None:
+        user, project = await self._learner(db_session, "post-hidden")
+        await unlock_component(db_session, project, "interview", hidden=True)
+        client = chat_client(FakeLlmClient(chunks=["never"]))
+        response = await client.post(
+            "/api/chat/interview", json={"content": "hi"}, headers=auth_headers(user, test_settings)
+        )
+        assert response.status_code == 403
+        assert "interview component" in response.json()["error"]["message"]
+
+    async def test_post_interview_streams_when_unlocked(
+        self,
+        chat_client: Callable[[FakeLlmClient], AsyncClient],
+        db_session: AsyncSession,
+        test_settings: Settings,
+    ) -> None:
+        user, project = await self._learner(db_session, "post-open")
+        await unlock_component(db_session, project, "interview")
+        client = chat_client(FakeLlmClient(chunks=["Hello"]))
+        async with client.stream(
+            "POST",
+            "/api/chat/interview",
+            json={"content": "hi"},
+            headers=auth_headers(user, test_settings),
+        ) as response:
+            assert response.status_code == 200
+            raw = "".join([chunk async for chunk in response.aiter_text()])
+        assert [e for e, _ in _parse_sse(raw)] == ["token", "done"]
+
+    async def test_list_interview_403_when_locked(
+        self,
+        chat_client: Callable[[FakeLlmClient], AsyncClient],
+        db_session: AsyncSession,
+        test_settings: Settings,
+    ) -> None:
+        user, _ = await self._learner(db_session, "list-locked")
+        client = chat_client(FakeLlmClient(chunks=[]))
+        response = await client.get(
+            "/api/chat/conversations?kind=interview", headers=auth_headers(user, test_settings)
+        )
+        assert response.status_code == 403
+        assert "interview component" in response.json()["error"]["message"]
+
+    async def test_list_interview_403_when_hidden(
+        self,
+        chat_client: Callable[[FakeLlmClient], AsyncClient],
+        db_session: AsyncSession,
+        test_settings: Settings,
+    ) -> None:
+        user, project = await self._learner(db_session, "list-hidden")
+        await unlock_component(db_session, project, "interview", hidden=True)
+        client = chat_client(FakeLlmClient(chunks=[]))
+        response = await client.get(
+            "/api/chat/conversations?kind=interview", headers=auth_headers(user, test_settings)
+        )
+        assert response.status_code == 403
+
+    async def test_list_interview_allowed_when_unlocked(
+        self,
+        chat_client: Callable[[FakeLlmClient], AsyncClient],
+        db_session: AsyncSession,
+        test_settings: Settings,
+    ) -> None:
+        user, project = await self._learner(db_session, "list-open")
+        await unlock_component(db_session, project, "interview")
+        await ConversationRepository(db_session).create(user_id=user.id, kind="interview")
+        client = chat_client(FakeLlmClient(chunks=[]))
+        response = await client.get(
+            "/api/chat/conversations?kind=interview", headers=auth_headers(user, test_settings)
+        )
+        assert response.status_code == 200
+        assert len(response.json()["conversations"]) == 1
+
+    async def test_other_kinds_ignore_the_interview_lock(
+        self,
+        chat_client: Callable[[FakeLlmClient], AsyncClient],
+        db_session: AsyncSession,
+        test_settings: Settings,
+    ) -> None:
+        """interview stays default-locked here; chatbot must still work."""
+        user, _ = await self._learner(db_session, "other-kind")
+        client = chat_client(FakeLlmClient(chunks=["ok"]))
+        headers = auth_headers(user, test_settings)
+        async with client.stream(
+            "POST", "/api/chat/chatbot", json={"content": "hi"}, headers=headers
+        ) as response:
+            assert response.status_code == 200
+            _ = [chunk async for chunk in response.aiter_text()]
+        list_response = await client.get("/api/chat/conversations?kind=chatbot", headers=headers)
+        assert list_response.status_code == 200
+        assert len(list_response.json()["conversations"]) == 1

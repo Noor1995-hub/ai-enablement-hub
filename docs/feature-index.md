@@ -31,7 +31,8 @@ a feature ships.
   `docs/ai-agents-plan.md` (§7 provider seam, §8b key/spend — spend cap: issue #44).
 - **AI interviewer** — `2026-07-28-ai-interviewer-design.md` (+ round 2:
   `2026-07-30-interviewer-opener-design.md`); `routers/interview.py`, gated by
-  `require_interview_surface`.
+  `require_interview_surface` + the `interview` component lock
+  (`require_component_unlocked`, and `require_chat_kind_unlocked` on chat).
 - **Project AI surface toggles** (per-project, default OFF, 403 until toggled) —
   `2026-07-27-project-ai-surface-toggles-design.md`; `core/dependencies` `require_ai_surface`.
 - **System prompts — git-only** (2026-09-23): `backend/prompts/*.md`, read-only admin page

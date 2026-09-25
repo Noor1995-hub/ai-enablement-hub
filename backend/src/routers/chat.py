@@ -10,6 +10,7 @@ from fastapi.sse import EventSourceResponse, ServerSentEvent
 
 from src.core.dependencies.auth import get_current_user
 from src.core.dependencies.chat import ChatKind, get_chat_service, require_ai_surface
+from src.core.dependencies.components import require_chat_kind_unlocked
 from src.core.dependencies.interview import get_interview_context_service
 from src.core.dependencies.ratelimit import get_rate_limiter
 from src.core.ratelimit import RateLimiter
@@ -119,7 +120,7 @@ ChatRequestDep = Annotated[_PreparedChat, Depends(_prepare_chat_message)]
 @router.post(
     "/{kind}",
     response_class=EventSourceResponse,
-    dependencies=[Depends(require_ai_surface)],
+    dependencies=[Depends(require_chat_kind_unlocked), Depends(require_ai_surface)],
 )
 async def send_chat_message(chat_request: ChatRequestDep) -> AsyncIterator[ServerSentEvent]:
     async for event in chat_request.chat_service.send_message(
@@ -148,7 +149,11 @@ async def send_chat_message(chat_request: ChatRequestDep) -> AsyncIterator[Serve
             )
 
 
-@router.get("/conversations", response_model=ConversationListResponse)
+@router.get(
+    "/conversations",
+    response_model=ConversationListResponse,
+    dependencies=[Depends(require_chat_kind_unlocked)],
+)
 async def list_conversations(
     user: CurrentUserDep,
     chat_service: ChatServiceDep,

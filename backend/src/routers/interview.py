@@ -6,6 +6,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from src.core.dependencies.auth import get_current_user, require_admin
+from src.core.dependencies.components import require_component_unlocked
 from src.core.dependencies.domain import get_admin_user_service
 from src.core.dependencies.interview import get_interview_service, require_interview_surface
 from src.core.dependencies.ratelimit import get_rate_limiter
@@ -22,8 +23,21 @@ from src.services.interview_service import InterviewService
 
 __all__ = ["admin_router", "router"]
 
+# TWO gates, deliberately: the component lock is the project-level "is this part
+# of the hub switched on at all" flag (same as survey.py/learning.py), while
+# require_interview_surface is the per-project AI-spend toggle. Interview is one
+# of the three gated components (core/constants.py COMPONENTS), so an admin who
+# hides or locks the Interview tile must also close the API. The chat router
+# applies the same component gate to kind=interview (require_chat_kind_unlocked).
+# admin_router is deliberately NOT gated: reading a learner's interview must not
+# depend on the admin's own project flags.
 router = APIRouter(
-    prefix="/api/interview", tags=["interview"], dependencies=[Depends(require_interview_surface)]
+    prefix="/api/interview",
+    tags=["interview"],
+    dependencies=[
+        Depends(require_component_unlocked("interview")),
+        Depends(require_interview_surface),
+    ],
 )
 admin_router = APIRouter(
     prefix="/api/admin", tags=["admin:interview"], dependencies=[Depends(require_admin)]

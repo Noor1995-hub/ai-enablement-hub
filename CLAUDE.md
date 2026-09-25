@@ -113,8 +113,9 @@ history that used to live here: `docs/history/state-log-2026.md`.
     greyed inert card. Unlock is a manual admin toggle (completing the assessment does NOT
     unlock learning, despite the copy). **Hard server-side gate since 2026-07-23:**
     `require_component_unlocked` (`core/dependencies/components.py`) is router-level on
-    `survey.py` and `learning.py` — hidden/locked ⇒ 403 `ComponentLockedError`. Project-level
-    gate, not a role check: admin and `user+` are NOT exempt.
+    `survey.py`, `learning.py` and `interview.py` (not its `admin_router`); `chat.py` applies the
+    same gate to `kind=interview` only (`require_chat_kind_unlocked`) — hidden/locked ⇒ 403
+    `ComponentLockedError`. Project-level gate, not a role check: admin and `user+` are NOT exempt.
   - **Module level:** `module_prerequisites` edge table (only DB constraint is `not_self`;
     nothing blocks cross-track or cyclic edges). The unlock rule exists ONLY in
     `frontend/src/lib/learningPathLocks.ts::isModuleUnlocked` (pure, unit-tested next to it):
