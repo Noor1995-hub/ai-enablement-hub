@@ -166,6 +166,10 @@ deploy, or an out-of-level learner sees a misleading message.
 
 ## 5. Decisions needed from Matthias
 
+**Status 2026-09-25: all decided.** Matthias answered 5.1–5.11 on 2026-09-25, each as recommended;
+the dated *Decided* line under each item is binding for the phase plans. Before starting a task,
+re-verify its "verified facts" against today's code, because the plans date from 2026-07-31.
+
 ### Blocking — a task cannot start without the answer
 
 **5.1 · The interview slice's service→service dependency (gates D9, D10).**
@@ -178,6 +182,9 @@ Options: **(a)** extract the briefing into a pure render module + a shared
 repo call returns); or **(b)** amend `python-be-architecture.md` to sanction "composer services" —
 ~15 lines, zero code, but it converts the one hard rule into a judgement call.
 **Recommendation: (a).** D1 costs both; D2–D8 proceed either way.
+*Decided 2026-09-25: **(a)**. Extract the pure render module and `gather_briefing_inputs(...)`;
+`python-be-architecture.md` keeps its hard rule. Re-verified that day: `InterviewContextService.__init__`
+still takes `SurveyService`, `MaturityService`, `LearningService`.*
 
 **5.2 · Admin lesson-write validation (gates C14).**
 Human lesson saves bypass `validate_content_blocks` while AI-proposal saves are gated by it.
@@ -185,12 +192,18 @@ Human lesson saves bypass `validate_content_blocks` while AI-proposal saves are 
 only *regressions* against the stored blocks (M). This is blocking because **66 of 91 live lessons fail
 the strict validator** — a naive hard gate would make real lessons unsavable.
 **Recommendation: (A) now, (B) after the nested-id backfill.** Also confirm 1 MiB is the right ceiling.
+*Decided 2026-09-25: **(A) now with a 1 MiB ceiling**; (B) follows the nested-id backfill as a
+separate task. Re-verified that day: only `content_improvement_service.py` calls
+`validate_content_blocks`; the admin PATCH path still bypasses it.*
 
 **5.3 · `sort_order` uniqueness (gates C11 and its conditional migration).**
 Could not be proven safe statically (creation uses `max+1`, reorder writes 0-based indices, and two
 past migrations planted fixed values), so C11 ships a **read-only pre-flight query** instead of a
 migration. Even if it comes back clean, the constraint must be `DEFERRABLE INITIALLY DEFERRED` because
 `reorder_lessons` passes through colliding intermediate states. Need a go/no-go.
+*Decided 2026-09-25: **go, conditional**. Run the read-only pre-flight (Matthias approves that
+specific prod read). If it is clean, ship the `DEFERRABLE INITIALLY DEFERRED` unique constraint as a C
+migration. If it finds duplicates, stop and decide per duplicate.*
 
 **5.4 · Lesson access-control semantics (gates A9 — the largest single behaviour change).**
 Access = admin/`user+` **OR** Introduction track **OR** explicitly assigned **OR** track at/below the
@@ -202,6 +215,8 @@ outranks the maturity calculation) and an *unassigned but at/below-level* lesson
 intent rather than a stricter "assigned only" rule. Note A9 rewrites six existing tests that encode
 today's accepted behaviour (2 authz-matrix rows + 4 in `test_lesson_media_stamping.py`, one of which
 says so in its name).
+*Decided 2026-09-25: **the permissive rule as written** (not "assigned only"). The six tests are
+rewritten to the new rule. The §4 cross-stack note stands: land E2 before or with A9's deploy.*
 
 **5.5 · Unsaved-changes scope (gates E11b).**
 `useBlocker` **cannot** be used as originally specified: react-router 6.30.4 implements it via
@@ -211,6 +226,8 @@ says so in its name).
 navigation stays unguarded. E11b sketches the data-router migration that would close that gap, but it
 re-declares every route, redirect and auth gate in an app with no automated frontend tests.
 **Recommendation: ship E11 only.**
+*Decided 2026-09-25: **E11 only; E11b dropped.** The frontend now has Vitest (#58), but the data-router
+migration is still too wide for the gap it closes.*
 
 ### Confirm-or-drop — optional tasks, each independently removable
 
@@ -231,6 +248,12 @@ building a `NotificationService`, which is only legal if 5.1 lands as **(b)**).
 **5.11 ·** C — dialogue retention: "how long may we keep a learner's chat/interview transcript?" is a
 product/legal call, not code. **Recommendation:** cap the history read now, decide the window before
 the `chatbot` surface is enabled for any project.
+
+*Decided 2026-09-25 (5.6–5.11, all as recommended): **keep A10** (26 h SAS) and **keep A8** (scheme
+check on admin saves). **Defer E21**, **leave** the bare-array responses as they are and write the
+convention into the spec, and **document** the router as the home for email orchestration. **Cap** the
+dialogue-history read in C. The retention window remains an open product/legal question and must be
+answered before `chatbot` is enabled for any project.*
 
 ### For information — deviations already made deliberately
 
