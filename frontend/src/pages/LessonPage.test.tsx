@@ -1,0 +1,157 @@
+import { fireEvent, render, screen } from '@testing-library/react'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import LessonPage from './LessonPage'
+
+const LESSON_ID = '11111111-1111-1111-1111-111111111111'
+const MODULE_ID = '22222222-2222-2222-2222-222222222222'
+
+// client.GET is hit for two endpoints from this page (lesson detail, module
+// lesson list); route on the templated path openapi-fetch is called with.
+const clientMock = vi.hoisted(() => ({ GET: vi.fn() }))
+vi.mock('../api/client', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../api/client')>()
+  return { ...actual, client: clientMock }
+})
+
+const authState = vi.hoisted(() => ({ role: 'user' as string }))
+vi.mock('../contexts/AuthContext', () => ({
+  useAuth: () => ({
+    user: { id: 'learner-1', role: authState.role, first_name: 'Ada', last_name: 'Lovelace' },
+    role: authState.role,
+    logout: vi.fn(),
+  }),
+}))
+
+function lessonBody(overrides: Record<string, unknown> = {}) {
+  return {
+    id: LESSON_ID,
+    module_id: MODULE_ID,
+    title: 'Test lesson',
+    sort_order: 1,
+    content_blocks: [{ id: 'p1', type: 'paragraph', text: 'Hello world' }],
+    module: { id: MODULE_ID, title: 'Test module' },
+    my_answers: null,
+    next_lesson_id: null,
+    next_module_id: null,
+    ...overrides,
+  }
+}
+
+function mockLessonResponse(result: { data?: unknown; status?: number; error?: unknown }) {
+  clientMock.GET.mockImplementation((path: string) => {
+    if (path === '/api/lessons/{lesson_id}') {
+      return Promise.resolve({
+        data: result.data,
+        error: result.error,
+        response: { status: result.status ?? 200 },
+      })
+    }
+    if (path === '/api/modules/{module_id}/lessons') {
+      return Promise.resolve({ data: { lessons: [] }, error: undefined, response: { status: 200 } })
+    }
+    throw new Error(`unexpected client.GET call: ${path}`)
+  })
+}
+
+function renderLessonPage(url = `/learning/lesson/${LESSON_ID}`) {
+  return render(
+    <MemoryRouter initialEntries={[url]}>
+      <Routes>
+        <Route path="/learning/lesson/:lessonId" element={<LessonPage />} />
+      </Routes>
+    </MemoryRouter>,
+  )
+}
+
+describe('LessonPage load failures', () => {
+  beforeEach(() => {
+    authState.role = 'user'
+    clientMock.GET.mockReset()
+  })
+
+  it('shows the server message on a 403', async () => {
+    mockLessonResponse({
+      status: 403,
+      error: { error: { code: 'lesson_not_accessible', message: 'This lesson is not available on your learning path' } },
+    })
+    renderLessonPage()
+
+    expect(await screen.findByText('This lesson is not available on your learning path')).toBeInTheDocument()
+    expect(screen.queryByText('Lesson not found.')).not.toBeInTheDocument()
+    expect(screen.queryByText("We couldn't load this lesson.")).not.toBeInTheDocument()
+  })
+
+  it('shows "Lesson not found" on a 404', async () => {
+    mockLessonResponse({ status: 404 })
+    renderLessonPage()
+
+    expect(await screen.findByText('Lesson not found.')).toBeInTheDocument()
+    expect(screen.queryByText('Try again')).not.toBeInTheDocument()
+  })
+
+  it('shows a generic failure with a retry option on other errors (e.g. 500)', async () => {
+    mockLessonResponse({ status: 500 })
+    renderLessonPage()
+
+    expect(await screen.findByText("We couldn't load this lesson.")).toBeInTheDocument()
+    expect(screen.getByText('Try again')).toBeInTheDocument()
+  })
+
+  it('shows the same generic failure when the fetch itself rejects (offline, no response at all)', async () => {
+    // openapi-fetch re-throws a rejected fetch rather than resolving with some
+    // sentinel status — this is the case a bare "!data" check on a resolved
+    // response can never catch; load() must catch the rejection itself.
+    clientMock.GET.mockImplementation((path: string) => {
+      if (path === '/api/lessons/{lesson_id}') return Promise.reject(new TypeError('Failed to fetch'))
+      return Promise.resolve({ data: { lessons: [] }, error: undefined, response: { status: 200 } })
+    })
+    renderLessonPage()
+
+    expect(await screen.findByText("We couldn't load this lesson.")).toBeInTheDocument()
+    expect(screen.getByText('Try again')).toBeInTheDocument()
+  })
+
+  it('recovers on "Try again" once the retried fetch succeeds', async () => {
+    let call = 0
+    clientMock.GET.mockImplementation((path: string) => {
+      if (path === '/api/lessons/{lesson_id}') {
+        call += 1
+        if (call === 1) return Promise.resolve({ data: undefined, error: undefined, response: { status: 500 } })
+        return Promise.resolve({ data: lessonBody(), error: undefined, response: { status: 200 } })
+      }
+      return Promise.resolve({ data: { lessons: [] }, error: undefined, response: { status: 200 } })
+    })
+    renderLessonPage()
+
+    const retry = await screen.findByText('Try again')
+    fireEvent.click(retry)
+
+    expect(await screen.findByText('Test lesson')).toBeInTheDocument()
+    expect(screen.queryByText("We couldn't load this lesson.")).not.toBeInTheDocument()
+  })
+})
+
+describe('LessonPage ?edit=true admin gate', () => {
+  beforeEach(() => {
+    clientMock.GET.mockReset()
+    mockLessonResponse({ data: lessonBody() })
+  })
+
+  it('gives a non-admin no editor even with ?edit=true in the URL', async () => {
+    authState.role = 'user'
+    renderLessonPage(`/learning/lesson/${LESSON_ID}?edit=true`)
+
+    await screen.findByText('Test lesson')
+    expect(screen.queryByText('Edit content')).not.toBeInTheDocument()
+    expect(screen.queryByText('MDX')).not.toBeInTheDocument()
+    expect(screen.queryByText('Hello world')).toBeInTheDocument()
+  })
+
+  it('lets an admin open straight into the editor from a ?edit=true deep link', async () => {
+    authState.role = 'admin'
+    renderLessonPage(`/learning/lesson/${LESSON_ID}?edit=true`)
+
+    await screen.findByText('✓ Editing')
+  })
+})

@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 import AppNav from '../components/AppNav'
 import { parseMdxToBlocks } from '../lib/mdxParser'
 import { blocksToMdx } from '../lib/blocksToMdx'
+import { classifyLessonLoadError, type LessonLoadError } from '../lib/lessonLoadError'
 import LessonView from '../components/lesson/LessonView'
 import LessonEditor, { type EditedLesson } from '../components/lesson/LessonEditor'
 import LessonFeedback from '../components/LessonFeedback'
@@ -17,9 +18,20 @@ export default function LessonPage() {
   const navigate     = useNavigate()
   const { user }     = useAuth()
 
+  // Derived before the state block: the initial editMode depends on it. AppRoutes
+  // gates on `loading` before rendering any page, so `user` is already resolved here.
+  const isAdmin = user?.role === 'admin'
+
   const [lesson, setLesson]   = useState<LessonDetail | null>(null)
   const [loading, setLoading] = useState(true)
-  const [editMode, setEditMode]   = useState(searchParams.get('edit') === 'true')
+  // Why the load produced no lesson — 404 vs 403 vs "the request itself
+  // failed" need different copy (see the render guards below).
+  const [loadError, setLoadError] = useState<LessonLoadError | null>(null)
+  const [reloadKey, setReloadKey]   = useState(0)
+  // Admin-only: the editor pane used to render for anyone who put ?edit=true in
+  // the URL. Writes were always 403'd server-side, so this was cosmetic — but it
+  // showed learners an editing surface that isn't theirs (review 2.9).
+  const [editMode, setEditMode]   = useState(isAdmin && searchParams.get('edit') === 'true')
   const [mdxMode, setMdxMode]     = useState(false)
   const [mdxText, setMdxText]     = useState('')
   const [mdxSaving, setMdxSaving] = useState(false)
@@ -43,7 +55,6 @@ export default function LessonPage() {
   const blocks  = (lesson?.content_blocks ?? []) as ContentBlock[]
   const hasQuiz = blocks.some(b => b.type === 'quiz')
 
-  const isAdmin = user?.role === 'admin'
   const mdxBlocks = mdxText.trim() ? parseMdxToBlocks(mdxText) : blocks
 
   const userId = user?.id
@@ -66,19 +77,43 @@ export default function LessonPage() {
     contentRef.current?.scrollTo(0, 0)
     window.scrollTo(0, 0)
     async function load() {
-      const { data } = await client.GET('/api/lessons/{lesson_id}', {
-        params: { path: { lesson_id: lid } },
-      })
-      if (cancelled) return
-      if (!data) { setLesson(null); setLoading(false); return }
-      setLesson(data)
-      setAnswers((data.my_answers as Record<string, string> | null) ?? {})
-      setNextLessonId(data.next_lesson_id)
-      setLoading(false)
+      // client.GET can REJECT rather than resolve: openapi-fetch has no
+      // onError middleware here, so a fetch that never gets a response at all
+      // (offline, a dropped connection mid-deploy) throws instead of coming
+      // back as some sentinel status. Without this try/catch that rejection
+      // was unhandled and `loading` never went back to false — the page (and
+      // a failed "Try again") got stuck on "Loading…" forever.
+      try {
+        const { data, error, response } = await client.GET('/api/lessons/{lesson_id}', {
+          params: { path: { lesson_id: lid } },
+        })
+        if (cancelled) return
+        if (!data) {
+          setLesson(null)
+          // 404 = doesn't exist (or isn't the caller's); 403 = exists but
+          // access denied — show the server's own message. Anything else
+          // (500, 502, a malformed id, …) is a failure to load, and telling
+          // the learner the lesson "doesn't exist" would be both wrong and
+          // unactionable.
+          setLoadError(classifyLessonLoadError(response.status, error))
+          setLoading(false)
+          return
+        }
+        setLoadError(null)
+        setLesson(data)
+        setAnswers((data.my_answers as Record<string, string> | null) ?? {})
+        setNextLessonId(data.next_lesson_id)
+        setLoading(false)
+      } catch {
+        if (cancelled) return
+        setLesson(null)
+        setLoadError({ kind: 'failed' })
+        setLoading(false)
+      }
     }
     load()
     return () => { cancelled = true }
-  }, [lessonId])
+  }, [lessonId, reloadKey])
 
   // Sidebar: the caller's ASSIGNED lessons in the current module + per-lesson
   // completion. completedIds stays unfiltered so the current lesson's own
@@ -175,12 +210,37 @@ export default function LessonPage() {
   }
 
   if (!lesson) {
+    // null (never loaded) and 'not-found' both render the same "doesn't
+    // exist" copy — loadError is only ever null here on the very first
+    // render, before the load effect has run once.
+    const isFailedLoad = loadError?.kind === 'failed'
+    const message =
+      loadError?.kind === 'forbidden' ? loadError.message
+      : isFailedLoad ? "We couldn't load this lesson."
+      : 'Lesson not found.'
     return (
       <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
-        <p style={{ fontFamily: 'var(--dlw-font-body)', fontWeight: 600, fontSize: 16, color: '#101820' }}>Lesson not found.</p>
-        <button onClick={() => navigate('/learning')} style={{ background: 'none', border: '1px solid #E2E2E2', borderRadius: 999, padding: '9px 20px', cursor: 'pointer', fontSize: 14, color: '#8A8A8A', fontFamily: 'var(--dlw-font-body)' }}>
-          ← Back to learning path
-        </button>
+        <p style={{ fontFamily: 'var(--dlw-font-body)', fontWeight: 600, fontSize: 16, color: '#101820' }}>
+          {message}
+        </p>
+        {isFailedLoad && (
+          <p style={{ fontFamily: 'var(--dlw-font-body)', fontWeight: 300, fontSize: 14, color: '#8A8A8A', margin: 0 }}>
+            Something went wrong on our side. Please try again.
+          </p>
+        )}
+        <div style={{ display: 'flex', gap: 8 }}>
+          {isFailedLoad && (
+            <button
+              onClick={() => { setLoading(true); setReloadKey(k => k + 1) }}
+              style={{ background: '#C42828', border: 'none', borderRadius: 999, padding: '9px 20px', cursor: 'pointer', fontSize: 14, color: '#fff', fontWeight: 700, fontFamily: 'var(--dlw-font-body)' }}
+            >
+              Try again
+            </button>
+          )}
+          <button onClick={() => navigate('/learning')} style={{ background: 'none', border: '1px solid #E2E2E2', borderRadius: 999, padding: '9px 20px', cursor: 'pointer', fontSize: 14, color: '#8A8A8A', fontFamily: 'var(--dlw-font-body)' }}>
+            ← Back to learning path
+          </button>
+        </div>
       </div>
     )
   }
