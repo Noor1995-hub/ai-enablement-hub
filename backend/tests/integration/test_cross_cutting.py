@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
+from src.core.configs.app import AppSettings
 from src.core.dependencies.database import get_session
 from src.core.dependencies.settings import get_settings
 from src.core.security import hash_token, new_opaque_token
@@ -193,3 +194,42 @@ class TestContentSecurityPolicy:
         csp = response.headers["content-security-policy"]
         assert f"img-src 'self' data: {TEST_STORAGE.blob_endpoint};" in csp
         assert f"media-src 'self' {TEST_STORAGE.blob_endpoint};" in csp
+
+    async def test_csp_pins_base_uri_and_form_action(self, client: AsyncClient) -> None:
+        """Neither directive falls back to default-src, so both must be explicit:
+        base-uri stops an injected <base href> from re-pointing every relative
+        URL, form-action stops a form POSTing credentials off-origin."""
+        response = await client.get("/api/health")
+        csp = response.headers["content-security-policy"]
+        assert "base-uri 'self'" in csp
+        assert "form-action 'self'" in csp
+
+    async def test_docs_path_is_csp_exempt_in_dev_but_not_in_prod(
+        self, db_session: AsyncSession, test_settings: Settings
+    ) -> None:
+        """The exemption exists only so dev's Swagger UI can load its CDN assets.
+        In prod the docs routes do not exist at all, so nothing may be exempt --
+        /docs falls through to the SPA catch-all and must carry the CSP."""
+
+        async def _override_session() -> AsyncGenerator[AsyncSession]:
+            yield db_session
+
+        async def _csp_for(env: Literal["dev", "prod"]) -> str | None:
+            settings = test_settings.model_copy(
+                update={"app": AppSettings(url="https://hub.example.com", env=env)}
+            )
+            app.dependency_overrides[get_session] = _override_session
+            app.dependency_overrides[get_settings] = lambda: settings
+            try:
+                async with AsyncClient(
+                    transport=ASGITransport(app=app), base_url="http://testserver"
+                ) as client:
+                    response = await client.get("/docs")
+                    return response.headers.get("content-security-policy")
+            finally:
+                app.dependency_overrides.clear()
+
+        assert await _csp_for("dev") is None
+        prod_csp = await _csp_for("prod")
+        assert prod_csp is not None
+        assert "script-src 'self'" in prod_csp

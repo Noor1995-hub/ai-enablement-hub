@@ -151,10 +151,35 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     await engine.dispose()
 
 
-app = FastAPI(title="AI Enablement Hub API", lifespan=lifespan)
+_app_settings = get_settings().app
+
+
+def _doc_urls(env: str) -> dict[str, str | None]:
+    """FastAPI's docs kwargs for this environment.
+
+    In prod /docs, /redoc and /openapi.json would hand an anonymous visitor the
+    complete API surface — every /api/admin/* path plus its request schema. The
+    endpoints are all auth-guarded, so this is information disclosure rather
+    than access, but there is no reason to publish it. Pure (rather than read
+    inline) because the app object is built once at import time, so this is the
+    only part a test can exercise.
+    """
+    if env == "prod":
+        return {"docs_url": None, "redoc_url": None, "openapi_url": None}
+    return {"docs_url": "/docs", "redoc_url": "/redoc", "openapi_url": "/openapi.json"}
+
+
+_docs = _doc_urls(_app_settings.env)
+
+app = FastAPI(
+    title="AI Enablement Hub API",
+    lifespan=lifespan,
+    docs_url=_docs["docs_url"],
+    redoc_url=_docs["redoc_url"],
+    openapi_url=_docs["openapi_url"],
+)
 
 # Bearer-token API, no cookies — hence no allow_credentials.
-_app_settings = get_settings().app
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_app_settings.cors_origins,
@@ -179,7 +204,11 @@ def _build_csp(storage: StorageSettings | None) -> str:
         f"img-src 'self' data:{blob_endpoint}; connect-src 'self'; frame-ancestors 'none'; "
         f"media-src 'self'{blob_endpoint}; "
         "frame-src https://www.youtube-nocookie.com https://player.vimeo.com "
-        "https://*.sharepoint.com"
+        "https://*.sharepoint.com; "
+        # Neither of these falls back to default-src (object-src does, which is why
+        # it is deliberately absent): base-uri stops an injected <base> from
+        # re-pointing every relative url, form-action stops an off-origin POST.
+        "base-uri 'self'; form-action 'self'"
     )
 
 
@@ -193,12 +222,17 @@ async def security_headers(request: Request, call_next: RequestResponseEndpoint)
     h["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains; preload"
     h["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), payment=()"
     path = request.url.path
-    # Swagger UI at /docs loads its JS/CSS from cdn.jsdelivr.net — exempt it.
-    if not path.startswith(("/docs", "/redoc")):
-        # Resolved the same way FastAPI's dependency injection would (honoring
-        # dependency_overrides), so tests can swap settings without an app
-        # factory/reimport — plain middleware doesn't go through Depends().
-        settings = request.app.dependency_overrides.get(get_settings, get_settings)()
+    # Resolved the same way FastAPI's dependency injection would (honoring
+    # dependency_overrides), so tests can swap settings without an app
+    # factory/reimport — plain middleware doesn't go through Depends().
+    settings = request.app.dependency_overrides.get(get_settings, get_settings)()
+    # Swagger UI / ReDoc load their JS+CSS from cdn.jsdelivr.net, which
+    # script-src 'self' blocks — so those two paths are exempt in dev, where
+    # they are the point. In prod they are not routed at all (see _doc_urls),
+    # and /docs falls through to the SPA catch-all, so nothing is exempt there:
+    # prod has no CSP-free path.
+    docs_exempt = settings.app.env != "prod" and path.startswith(("/docs", "/redoc"))
+    if not docs_exempt:
         h["Content-Security-Policy"] = _build_csp(settings.storage)
     if path.startswith("/assets/"):
         # Files directly under /assets/ are Vite hash-named bundles; subdirs
@@ -341,8 +375,9 @@ async def health(settings: Annotated[Settings, Depends(get_settings)]) -> Health
 
 
 # --- SPA serving (container only) -------------------------------------------
-# Registered last so every explicit route above (routers, /docs, /openapi.json)
-# wins over the catch-all.
+# Registered last so every explicit route above (routers, plus /docs, /redoc
+# and /openapi.json when enabled -- dev only, see _doc_urls; prod never
+# registers them) wins over the catch-all.
 if (_STATIC_DIR / "index.html").is_file():
     app.mount("/assets", StaticFiles(directory=_STATIC_DIR / "assets"), name="assets")
 
