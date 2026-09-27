@@ -8,7 +8,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from src.core.dependencies.auth import get_current_user, require_admin
 from src.core.dependencies.components import require_component_unlocked
 from src.core.dependencies.domain import get_admin_user_service
-from src.core.dependencies.interview import get_interview_service, require_interview_surface
+from src.core.dependencies.interview import (
+    get_interview_service,
+    require_completed_assessment,
+    require_interview_surface,
+)
 from src.core.dependencies.ratelimit import get_rate_limiter
 from src.core.ratelimit import RateLimiter
 from src.db.models import User
@@ -23,12 +27,20 @@ from src.services.interview_service import InterviewService
 
 __all__ = ["admin_router", "router"]
 
-# TWO gates, deliberately: the component lock is the project-level "is this part
-# of the hub switched on at all" flag (same as survey.py/learning.py), while
-# require_interview_surface is the per-project AI-spend toggle. Interview is one
-# of the three gated components (core/constants.py COMPONENTS), so an admin who
-# hides or locks the Interview tile must also close the API. The chat router
-# applies the same component gate to kind=interview (require_chat_kind_unlocked).
+# TWO router-level gates, deliberately: the component lock is the project-level
+# "is this part of the hub switched on at all" flag (same as
+# survey.py/learning.py), while require_interview_surface is the per-project
+# AI-spend toggle. Interview is one of the three gated components
+# (core/constants.py COMPONENTS), so an admin who hides or locks the Interview
+# tile must also close the API. The chat router applies the same component gate
+# to kind=interview (require_chat_kind_unlocked).
+# A THIRD gate sits on the two write routes only (opener, playbook):
+# require_completed_assessment (spec 2026-09-26 A.3.5) — admins are exempt so
+# they can test the flow, but a learner must have a COMPLETED assessment before
+# starting the interview, since it is briefed from that assessment. It is
+# deliberately NOT on GET /me: a learner who already has a playbook (e.g. built
+# before this gate shipped, or by an admin on their behalf) must still be able
+# to read it.
 # admin_router is deliberately NOT gated: reading a learner's interview must not
 # depend on the admin's own project flags.
 router = APIRouter(
@@ -63,7 +75,11 @@ async def get_my_interview_state(
     return await interview_service.get_state(user=current_user)
 
 
-@router.post("/opener", response_model=InterviewOpenerResponse)
+@router.post(
+    "/opener",
+    response_model=InterviewOpenerResponse,
+    dependencies=[Depends(require_completed_assessment)],
+)
 async def open_my_interview(
     current_user: CurrentUserDep,
     interview_service: InterviewServiceDep,
@@ -80,7 +96,11 @@ async def open_my_interview(
     return await interview_service.open_interview(user=current_user)
 
 
-@router.post("/playbook", response_model=PlaybookResponse)
+@router.post(
+    "/playbook",
+    response_model=PlaybookResponse,
+    dependencies=[Depends(require_completed_assessment)],
+)
 async def create_my_playbook(
     current_user: CurrentUserDep,
     interview_service: InterviewServiceDep,

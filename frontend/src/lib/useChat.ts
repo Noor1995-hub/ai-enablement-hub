@@ -5,7 +5,7 @@
 // optional conversation_id). History loading (conversation list/detail) goes through the typed
 // `openapi-fetch` client instead, since those are plain JSON GET endpoints.
 import { useCallback, useState } from 'react'
-import { client, refreshAccessToken } from '../api/client'
+import { client, errorMessage, refreshAccessToken } from '../api/client'
 import { getAccessToken } from '../api/tokens'
 
 export type ChatKind = 'chatbot' | 'assessment' | 'lesson' | 'interview'
@@ -82,7 +82,8 @@ export function useChat(kind: ChatKind) {
           body: JSON.stringify({ content, conversation_id: conversationId }),
         })
         if (!response.ok || !response.body) {
-          setError(`Chat request failed (${response.status})`)
+          const body = await response.json().catch(() => null)
+          setError(errorMessage(body, `Chat request failed (${response.status})`))
           setMessages(dropTrailingEmptyAssistant)
           setLoading(false)
           return

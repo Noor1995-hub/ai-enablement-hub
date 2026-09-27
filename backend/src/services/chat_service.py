@@ -7,7 +7,8 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from src.services.exceptions import NotFoundError
-from src.services.prompts import load_prompt
+from src.services.interview_marker import strip_ready_marker
+from src.services.prompts import load_prompt, prompt_version
 
 if TYPE_CHECKING:
     from src.db.models import Conversation, Message
@@ -109,7 +110,11 @@ class ChatService:
         finally:
             accumulated = "".join(chunks)
             if accumulated:
-                metadata: dict[str, Any] = {"truncated": truncated}
+                metadata: dict[str, Any] = {
+                    "truncated": truncated,
+                    "model": self._llm.model,
+                    "prompt_version": prompt_version(conversation.kind),
+                }
                 if usage is not None:
                     metadata["usage"] = {
                         "input_tokens": usage.input_tokens,
@@ -127,6 +132,13 @@ class ChatService:
 
     async def _history_for(self, conversation_id: uuid.UUID) -> list[dict[str, str]]:
         rows = await self._messages.list_recent(conversation_id, limit=_HISTORY_WINDOW)
+        # strip_ready_marker: only the interviewer ever emits it, and the model must not
+        # re-read its own UI signal on every later turn (spec 2026-09-26 A.1, §8.4).
         return [
-            {"role": m.role, "content": m.content} for m in rows if m.role in ("user", "assistant")
+            {
+                "role": m.role,
+                "content": strip_ready_marker(m.content) if m.role == "assistant" else m.content,
+            }
+            for m in rows
+            if m.role in ("user", "assistant")
         ]

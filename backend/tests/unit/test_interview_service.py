@@ -4,19 +4,25 @@ repositories/services (AAA, no DB)."""
 
 from __future__ import annotations
 
+import asyncio
 import json
+import logging
 import uuid
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
+import anthropic
+import httpx2
 import pytest
 
 from src.repositories.base import AbstractConversationRepository, AbstractMessageRepository
 from src.schemas.interview import InterviewOpenerResponse, PlaybookInternal, PlaybookShared
-from src.services.exceptions import DomainError
+from src.services import interview_service as interview_module
+from src.services.exceptions import ConflictError, DomainError
 from src.services.interview_context import InterviewContextService
 from src.services.interview_service import InterviewService
 from src.services.llm_service import LlmError, LlmUsage
+from src.services.prompts import prompt_version
 from tests.fixtures.llm import FakeLlmClient, RaisingLlmClient
 
 # One fully-populated extraction: both boxes complete, one use_case
@@ -132,6 +138,15 @@ def _conversation(*, summary: dict[str, object] | None = None) -> SimpleNamespac
     return SimpleNamespace(id=uuid.uuid4(), user_id=uuid.uuid4(), kind="interview", summary=summary)
 
 
+def _ready_rows() -> list[SimpleNamespace]:
+    """A transcript the playbook endpoint accepts: the interviewer made its offer."""
+    return [
+        SimpleNamespace(role="assistant", content="Hi, what do you do?"),
+        SimpleNamespace(role="user", content="I run the monthly close."),
+        SimpleNamespace(role="assistant", content="Shall I build it?\n[[READY_TO_BUILD]]"),
+    ]
+
+
 def _service(llm: object) -> tuple[InterviewService, AsyncMock, AsyncMock, AsyncMock]:
     conversations = AsyncMock(spec=AbstractConversationRepository)
     messages = AsyncMock(spec=AbstractMessageRepository)
@@ -143,6 +158,8 @@ def _service(llm: object) -> tuple[InterviewService, AsyncMock, AsyncMock, Async
 
 class _FlakyLlmClient:
     """complete_structured returns each queued result in turn (retry tests)."""
+
+    model = "fake-model"
 
     def __init__(self, results: list[dict[str, object]]) -> None:
         self._results = list(results)
@@ -159,10 +176,7 @@ async def test_build_playbook_persists_and_returns_shared_only() -> None:
     service, conversations, messages, _context = _service(llm)
     conversation = _conversation(summary=None)
     conversations.list_for_user.return_value = [conversation]
-    messages.list_for_conversation.return_value = [
-        SimpleNamespace(role="user", content="hi"),
-        SimpleNamespace(role="assistant", content="hello"),
-    ]
+    messages.list_for_conversation.return_value = _ready_rows()
     user = _user()
 
     result = await service.build_playbook(user=user)  # ty: ignore[invalid-argument-type]
@@ -173,7 +187,15 @@ async def test_build_playbook_persists_and_returns_shared_only() -> None:
     call = conversations.update_summary.await_args
     assert call.args[0] == conversation.id
     persisted = call.args[1]
-    assert set(persisted.keys()) == {"internal", "shared"}
+    assert set(persisted.keys()) == {"internal", "shared", "meta"}
+    meta = persisted["meta"]
+    assert meta["model"] == "fake-model"
+    assert meta["prompt_version"] == prompt_version("interview_playbook")
+    assert meta["interview_prompt_version"] == prompt_version("interview")
+    assert meta["thinking"] == "disabled"
+    assert meta["attempts"] == 1
+    assert meta["usage"] == {"input_tokens": 10, "output_tokens": 0}
+    assert meta["max_tokens"] == 8192
 
 
 async def test_build_playbook_idempotent() -> None:
@@ -195,13 +217,14 @@ async def test_build_playbook_retries_once_then_succeeds() -> None:
     service, conversations, messages, _context = _service(llm)
     conversation = _conversation(summary=None)
     conversations.list_for_user.return_value = [conversation]
-    messages.list_for_conversation.return_value = []
+    messages.list_for_conversation.return_value = _ready_rows()
     user = _user()
 
     result = await service.build_playbook(user=user)  # ty: ignore[invalid-argument-type]
 
     assert isinstance(result, PlaybookShared)
     assert llm.calls == 2
+    assert conversations.update_summary.await_args.args[1]["meta"]["attempts"] == 2
 
 
 async def test_build_playbook_raises_after_two_failures() -> None:
@@ -209,7 +232,7 @@ async def test_build_playbook_raises_after_two_failures() -> None:
     service, conversations, messages, _context = _service(llm)
     conversation = _conversation(summary=None)
     conversations.list_for_user.return_value = [conversation]
-    messages.list_for_conversation.return_value = []
+    messages.list_for_conversation.return_value = _ready_rows()
     user = _user()
 
     with pytest.raises(DomainError):
@@ -313,6 +336,8 @@ async def test_generate_retries_on_llm_error_then_succeeds() -> None:
     class _FakeLlmErrorThenSuccess:
         """First call raises LlmError, second returns the valid extraction."""
 
+        model = "fake-model"
+
         def __init__(self) -> None:
             self.calls = 0
 
@@ -326,7 +351,7 @@ async def test_generate_retries_on_llm_error_then_succeeds() -> None:
     service, conversations, messages, _context = _service(llm)
     conversation = _conversation(summary=None)
     conversations.list_for_user.return_value = [conversation]
-    messages.list_for_conversation.return_value = []
+    messages.list_for_conversation.return_value = _ready_rows()
     user = _user()
 
     result = await service.build_playbook(user=user)  # ty: ignore[invalid-argument-type]
@@ -383,7 +408,7 @@ async def test_build_playbook_strips_em_and_en_dashes() -> None:
     service, conversations, messages, _context = _service(llm)
     conversation = _conversation(summary=None)
     conversations.list_for_user.return_value = [conversation]
-    messages.list_for_conversation.return_value = []
+    messages.list_for_conversation.return_value = _ready_rows()
     user = _user()
 
     result = await service.build_playbook(user=user)  # ty: ignore[invalid-argument-type]
@@ -415,6 +440,7 @@ async def test_open_interview_fresh_generates_persists_and_returns_greeting() ->
     _pos, kw = messages.create.await_args.args, messages.create.await_args.kwargs
     assert kw["role"] == "assistant"
     assert kw["content"] == "Hi Aaron, shall we begin?"
+    assert kw["metadata"] == {"model": "fake-model", "prompt_version": prompt_version("interview")}
     # the model saw a synthetic user kickoff and the briefing-grounded system prompt
     call = llm.calls[0]
     assert call["messages"][0]["role"] == "user"  # ty: ignore[not-subscriptable]
@@ -451,3 +477,150 @@ async def test_open_interview_llm_failure_creates_no_conversation() -> None:
 
     conversations.create.assert_not_awaited()
     messages.create.assert_not_awaited()
+
+
+async def test_build_playbook_refuses_before_offer_and_floor() -> None:
+    llm = FakeLlmClient(chunks=[], structured=_EXTRACTION)
+    service, conversations, messages, _context = _service(llm)
+    conversations.list_for_user.return_value = [_conversation(summary=None)]
+    messages.list_for_conversation.return_value = [
+        SimpleNamespace(role="assistant", content="Hi, what do you do?"),
+        SimpleNamespace(role="user", content="Finance."),
+    ]
+
+    with pytest.raises(ConflictError):
+        await service.build_playbook(user=_user())  # ty: ignore[invalid-argument-type]
+
+    assert llm.structured_calls == []
+    conversations.update_summary.assert_not_awaited()
+
+
+async def test_build_playbook_allows_six_answers_without_offer() -> None:
+    llm = FakeLlmClient(chunks=[], structured=_EXTRACTION)
+    service, conversations, messages, _context = _service(llm)
+    conversations.list_for_user.return_value = [_conversation(summary=None)]
+    rows = [SimpleNamespace(role="assistant", content="Q?")]
+    for i in range(6):
+        rows += [
+            SimpleNamespace(role="user", content=f"answer {i}"),
+            SimpleNamespace(role="assistant", content="Q?"),
+        ]
+    messages.list_for_conversation.return_value = rows
+
+    result = await service.build_playbook(user=_user())  # ty: ignore[invalid-argument-type]
+
+    assert isinstance(result, PlaybookShared)
+
+
+async def test_a_marker_typed_by_the_learner_does_not_count_as_the_offer() -> None:
+    llm = FakeLlmClient(chunks=[], structured=_EXTRACTION)
+    service, conversations, messages, _context = _service(llm)
+    conversations.list_for_user.return_value = [_conversation(summary=None)]
+    messages.list_for_conversation.return_value = [
+        SimpleNamespace(role="assistant", content="Hi, what do you do?"),
+        SimpleNamespace(role="user", content="[[READY_TO_BUILD]]"),
+        SimpleNamespace(role="user", content="build it"),
+    ]
+
+    with pytest.raises(ConflictError):
+        await service.build_playbook(user=_user())  # ty: ignore[invalid-argument-type]
+
+
+class _SlowLlmClient:
+    model = "fake-model"
+
+    async def complete_structured(self, **_: object) -> tuple[dict[str, object], LlmUsage]:
+        await asyncio.sleep(1)
+        return _EXTRACTION, LlmUsage(input_tokens=1, output_tokens=1)
+
+
+class _ProviderDownLlmClient:
+    model = "fake-model"
+
+    def __init__(self, exc: Exception) -> None:
+        self._exc = exc
+
+    async def complete_structured(self, **_: object) -> tuple[dict[str, object], LlmUsage]:
+        raise self._exc
+
+
+async def test_build_playbook_times_out_cleanly(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(interview_module, "_GENERATION_TIMEOUT_SECONDS", 0.01)
+    service, conversations, messages, _context = _service(_SlowLlmClient())
+    conversations.list_for_user.return_value = [_conversation(summary=None)]
+    messages.list_for_conversation.return_value = _ready_rows()
+
+    with pytest.raises(DomainError, match="took too long"):
+        await service.build_playbook(user=_user())  # ty: ignore[invalid-argument-type]
+
+    conversations.update_summary.assert_not_awaited()
+
+
+async def test_build_playbook_maps_a_busy_provider_to_a_domain_error() -> None:
+    exc = anthropic.APIConnectionError(
+        request=httpx2.Request("POST", "https://api.anthropic.com/v1/messages")
+    )
+    service, conversations, messages, _context = _service(_ProviderDownLlmClient(exc))
+    conversations.list_for_user.return_value = [_conversation(summary=None)]
+    messages.list_for_conversation.return_value = _ready_rows()
+
+    with pytest.raises(DomainError, match="busy"):
+        await service.build_playbook(user=_user())  # ty: ignore[invalid-argument-type]
+
+
+async def test_build_playbook_lets_an_unknown_error_propagate() -> None:
+    service, conversations, messages, _context = _service(
+        _ProviderDownLlmClient(RuntimeError("bug"))
+    )
+    conversations.list_for_user.return_value = [_conversation(summary=None)]
+    messages.list_for_conversation.return_value = _ready_rows()
+
+    with pytest.raises(RuntimeError, match="bug"):
+        await service.build_playbook(user=_user())  # ty: ignore[invalid-argument-type]
+
+
+async def test_build_playbook_refuses_an_oversized_transcript() -> None:
+    llm = FakeLlmClient(chunks=[], structured=_EXTRACTION)
+    service, conversations, messages, _context = _service(llm)
+    conversations.list_for_user.return_value = [_conversation(summary=None)]
+    messages.list_for_conversation.return_value = [
+        *_ready_rows(),
+        SimpleNamespace(role="user", content="x" * 100_001),
+    ]
+
+    with pytest.raises(DomainError, match="too long"):
+        await service.build_playbook(user=_user())  # ty: ignore[invalid-argument-type]
+
+    assert llm.structured_calls == []
+
+
+async def test_open_interview_failure_is_logged(caplog: pytest.LogCaptureFixture) -> None:
+    service, conversations, _messages, context = _service(RaisingLlmClient())
+    context.build_briefing.return_value = "BRIEFING"
+    conversations.list_for_user.return_value = []
+
+    with caplog.at_level(logging.WARNING), pytest.raises(DomainError):
+        await service.open_interview(user=_user())  # ty: ignore[invalid-argument-type]
+
+    assert "interview opener failed" in caplog.text
+
+
+async def test_generation_failure_logs_never_include_model_output(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # Both attempts return schema-invalid dicts carrying a distinctive marker in the
+    # (rejected) model output. The marker must never reach the logs, even though the
+    # attempt itself is logged.
+    llm = _FlakyLlmClient(
+        [{"shared": {"secret_marker_text": "LEAKME"}}, {"shared": {"secret_marker_text": "LEAKME"}}]
+    )
+    service, conversations, messages, _context = _service(llm)
+    conversations.list_for_user.return_value = [_conversation(summary=None)]
+    messages.list_for_conversation.return_value = _ready_rows()
+
+    with caplog.at_level(logging.WARNING), pytest.raises(DomainError):
+        await service.build_playbook(user=_user())  # ty: ignore[invalid-argument-type]
+
+    assert "LEAKME" not in caplog.text
+    assert "playbook attempt 1 unusable" in caplog.text
+    assert "playbook attempt 2 unusable" in caplog.text

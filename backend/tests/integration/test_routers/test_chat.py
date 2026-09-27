@@ -34,6 +34,7 @@ from tests.fixtures.auth import auth_headers
 from tests.fixtures.factories import (
     create_company,
     create_project,
+    create_survey,
     create_user,
     unlock_component,
 )
@@ -387,6 +388,7 @@ class TestInterviewKindComponentGate:
     ) -> None:
         user, project = await self._learner(db_session, "post-open")
         await unlock_component(db_session, project, "interview")
+        await create_survey(db_session, user, status="complete")
         client = chat_client(FakeLlmClient(chunks=["Hello"]))
         async with client.stream(
             "POST",

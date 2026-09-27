@@ -2,6 +2,7 @@ from __future__ import annotations
 
 __all__ = [
     "AiGenerationError",
+    "AssessmentRequiredError",
     "AuthError",
     "ComponentLockedError",
     "ConflictError",
@@ -90,6 +91,15 @@ class LessonNotAccessibleError(DomainError):
 
     def __init__(self) -> None:
         super().__init__("This lesson is not available on your learning path")
+
+
+class AssessmentRequiredError(DomainError):
+    """The interview is briefed from the caller's completed assessment, so it needs one.
+    A role check, unlike ComponentLockedError: admins are exempt so they can test the
+    flow (spec 2026-09-26 A.3.5). user+ is NOT exempt. → 403"""
+
+    def __init__(self) -> None:
+        super().__init__("Complete your assessment before starting the interview")
 
 
 class ConflictError(DomainError):

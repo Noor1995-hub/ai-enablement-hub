@@ -13,7 +13,11 @@ from typing import Annotated
 from fastapi import Depends, HTTPException, status
 
 from src.core.dependencies.auth import get_current_user
-from src.core.dependencies.chat import get_conversation_repository, get_message_repository
+from src.core.dependencies.chat import (
+    ChatKind,
+    get_conversation_repository,
+    get_message_repository,
+)
 from src.core.dependencies.domain import (
     get_learning_service,
     get_maturity_service,
@@ -24,6 +28,7 @@ from src.core.dependencies.llm import get_llm_service
 from src.db.models import User
 from src.repositories.conversation_repository import ConversationRepository
 from src.repositories.message_repository import MessageRepository
+from src.services.exceptions import AssessmentRequiredError
 from src.services.interview_context import InterviewContextService
 from src.services.interview_service import InterviewService
 from src.services.learning_service import LearningService
@@ -35,6 +40,8 @@ from src.services.survey_service import SurveyService
 __all__ = [
     "get_interview_context_service",
     "get_interview_service",
+    "require_completed_assessment",
+    "require_interview_assessment",
     "require_interview_surface",
 ]
 
@@ -74,3 +81,34 @@ async def require_interview_surface(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="AI feature not enabled for your project"
         )
+
+
+# Deliberately NOT core/constants.py LOCK_BYPASS_ROLES ("admin", "user+"): user+ bypasses
+# learning-path locks but still needs an assessment (spec 2026-09-26 A.3.5). Adding a role
+# that bypasses gates? Check both lists.
+_ASSESSMENT_EXEMPT_ROLES: tuple[str, ...] = ("admin",)
+
+
+async def require_completed_assessment(
+    user: Annotated[User, Depends(get_current_user)],
+    surveys: Annotated[SurveyService, Depends(get_survey_service)],
+) -> None:
+    """The interview write paths need a COMPLETED assessment (a draft is not enough).
+    Admins are exempt. Deliberately not on GET /api/interview/me, nor on the read paths
+    GET /api/chat/conversations*, so a learner who already has a playbook (or an old
+    interview transcript) can still read it."""
+    if user.role in _ASSESSMENT_EXEMPT_ROLES:
+        return
+    if await surveys.survey_status(user.id) != "complete":
+        raise AssessmentRequiredError
+
+
+async def require_interview_assessment(
+    kind: ChatKind,
+    user: Annotated[User, Depends(get_current_user)],
+    surveys: Annotated[SurveyService, Depends(get_survey_service)],
+) -> None:
+    """Chat-router twin of require_completed_assessment: applies to kind=interview only
+    (same binding rule as require_chat_kind_unlocked)."""
+    if kind == "interview":
+        await require_completed_assessment(user, surveys)

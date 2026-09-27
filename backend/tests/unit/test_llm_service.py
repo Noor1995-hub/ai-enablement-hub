@@ -6,6 +6,7 @@ import anthropic
 import httpx2
 
 from src.services.llm_service import (
+    THINKING_MODE,
     AnthropicLlmClient,
     LlmError,
     StructuredSchema,
@@ -122,3 +123,50 @@ class TestTransientProviderErrors:
 
     def test_an_unknown_error_is_terminal(self) -> None:
         assert is_transient_provider_error(RuntimeError("something else")) is False
+
+
+def test_anthropic_client_exposes_its_model() -> None:
+    client = AnthropicLlmClient(
+        FakeAsyncAnthropic(chunks=[]),  # ty: ignore[invalid-argument-type]
+        model="claude-sonnet-5",
+    )
+    assert client.model == "claude-sonnet-5"
+
+
+async def test_stream_reply_sends_the_recorded_thinking_mode() -> None:
+    """Guards THINKING_MODE against drifting from what's actually sent: if a future edit
+    changes one without the other, this catches it (see llm_service.THINKING_MODE)."""
+    fake_sdk = FakeAsyncAnthropic(chunks=[])
+    client = AnthropicLlmClient(
+        fake_sdk,  # ty: ignore[invalid-argument-type]
+        model="claude-sonnet-5",
+    )
+
+    async with client.stream_reply(
+        system="You are helpful.", messages=[{"role": "user", "content": "hi"}], max_tokens=1024
+    ) as reply:
+        async for _ in reply:
+            pass
+
+    call = fake_sdk.messages.calls[0]
+    assert call["thinking"] == {"type": THINKING_MODE}
+
+
+async def test_complete_structured_sends_the_recorded_thinking_mode() -> None:
+    fake_sdk = FakeStructuredAsyncAnthropic(tool_input={"a": "b"})
+    client = AnthropicLlmClient(
+        fake_sdk,  # ty: ignore[invalid-argument-type]
+        model="claude-sonnet-5",
+    )
+    schema = StructuredSchema(
+        name="triage",
+        description="Suggest a triage disposition.",
+        input_schema={"type": "object", "properties": {}},
+    )
+
+    await client.complete_structured(
+        system="You triage feedback.", prompt="Feedback: unclear.", schema=schema, max_tokens=512
+    )
+
+    call = fake_sdk.messages.calls[0]
+    assert call["thinking"] == {"type": THINKING_MODE}

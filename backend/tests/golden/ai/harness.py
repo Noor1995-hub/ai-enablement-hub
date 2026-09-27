@@ -25,6 +25,8 @@ _USAGE = LlmUsage(input_tokens=10, output_tokens=5)
 class RecordingLlm:
     """An LlmClient that records every call and returns canned output."""
 
+    model = "fake-model"
+
     def __init__(
         self,
         structured_results: list[dict[str, Any]] | None = None,

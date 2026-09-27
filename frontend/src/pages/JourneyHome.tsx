@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { client } from '../api/client'
 import { DEFAULT_HIDDEN, DEFAULT_LOCKED, type ComponentKey } from '../lib/constants'
 import { useAuth } from '../contexts/AuthContext'
+import { resolveInterviewTile } from '../lib/interviewAccess'
 import AppNav from '../components/AppNav'
 import Spinner from '../components/Spinner'
 
@@ -63,12 +64,22 @@ const BADGE: Partial<Record<ModuleState, BadgeDef>> = {
 }
 
 const BEING_BUILT_BADGE: BadgeDef = { label: 'Being built', bg: '#EFF6FF', color: '#2563EB' }
+const ASSESSMENT_FIRST_BADGE: BadgeDef = { label: 'Assessment first', bg: '#F1EFEC', color: '#9A958F' }
 
 /** Resolve the badge for a component, applying the "Being built" override
- *  (learning locked while the assessment is done) over the plain Locked pill.
- *  Used by BOTH the stepper status text and the card pill so they stay in sync. */
-function resolveBadge(key: ComponentKey, states: Record<ComponentKey, ModuleState>): BadgeDef {
+ *  (learning locked while the assessment is done) and the "Assessment first"
+ *  override (interview locked pending a completed assessment) over the plain
+ *  Locked pill. Used by BOTH the stepper status text and the card pill so
+ *  they stay in sync. */
+function resolveBadge(
+  key: ComponentKey,
+  states: Record<ComponentKey, ModuleState>,
+  interviewNeedsAssessment = false,
+): BadgeDef {
   const state = states[key]
+  if (key === 'interview' && state === 'locked' && interviewNeedsAssessment) {
+    return ASSESSMENT_FIRST_BADGE
+  }
   if (key === 'learning' && state === 'locked' && states['assessment'] === 'done') {
     return BEING_BUILT_BADGE
   }
@@ -341,11 +352,12 @@ function ModuleCard({ mod, state, meta, onAction, badge }: ModuleCardProps) {
 
 export default function JourneyHome() {
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, role } = useAuth()
   // Defaults are only ever visible on the fetch-failure fallback — first paint
   // shows a spinner until /api/me/journey resolves (loaded flag below).
   const [states, setStates] = useState<Record<ComponentKey, ModuleState>>({ assessment: 'available', learning: 'locked', interview: 'locked' })
   const [loaded, setLoaded] = useState(false)
+  const [interviewNeedsAssessment, setInterviewNeedsAssessment] = useState(false)
   const progress = calcProgress(states)
 
   const userId = user?.id
@@ -384,10 +396,15 @@ export default function JourneyHome() {
           else if (data.learning_status === 'in_progress') resolved[mod.key] = 'in_progress'
           else resolved[mod.key] = 'available'
         } else if (mod.key === 'interview') {
-          if (locked) resolved[mod.key] = 'locked'
-          else if (data.interview_status === 'complete') resolved[mod.key] = 'done'
-          else if (data.interview_status === 'in_progress') resolved[mod.key] = 'in_progress'
-          else resolved[mod.key] = 'available'
+          const tile = resolveInterviewTile({
+            componentLocked: locked,
+            role,
+            surveyStatus: data.survey_status,
+            interviewStatus: data.interview_status,
+          })
+          setInterviewNeedsAssessment(tile === 'needs_assessment')
+          // every other InterviewTile value is already a ModuleState
+          resolved[mod.key] = tile === 'needs_assessment' ? 'locked' : tile
         } else {
           // Unreachable with the current ComponentKey union (assessment/learning/
           // interview are all handled above), kept as a defensive fallback for
@@ -401,7 +418,7 @@ export default function JourneyHome() {
     }
     load()
     return () => { cancelled = true }
-  }, [userId])
+  }, [userId, role])
 
   const firstName = user?.first_name ?? ''
 
@@ -452,7 +469,7 @@ export default function JourneyHome() {
               const nodeState = NODE_STATE[states[mod.key]] ?? 'upcoming'
               const prevDone = i > 0 && states[visible[i - 1].key] === 'done'
               // Same resolved badge as the card pill, so the two never disagree.
-              const stepBadge = resolveBadge(mod.key, states)
+              const stepBadge = resolveBadge(mod.key, states, interviewNeedsAssessment)
               const statusText = stepBadge.label
               const statusColor = stepBadge.color
               return (
@@ -480,7 +497,7 @@ export default function JourneyHome() {
               state={states[mod.key]}
               meta={MODULE_META[mod.key]}
               onAction={() => navigate(mod.route)}
-              badge={resolveBadge(mod.key, states)}
+              badge={resolveBadge(mod.key, states, interviewNeedsAssessment)}
             />
           ))}
         </div>

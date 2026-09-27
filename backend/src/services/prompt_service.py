@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from src.schemas.prompt import PromptDetail, PromptSummary
 from src.services import prompts as P
 from src.services.exceptions import NotFoundError
+from src.services.interview_marker import READY_MARKER
 
 __all__ = ["KNOWN_PROMPTS", "REQUIRED_TOKENS", "PromptMeta", "PromptService", "prompt_path"]
 
@@ -31,6 +32,9 @@ KNOWN_PROMPTS: list[PromptMeta] = [
 ]
 
 REQUIRED_TOKENS: dict[str, tuple[str, ...]] = {
+    # The interviewer's only machine-read output: without it the Build button never
+    # appears except through the 6-answer fallback.
+    "interview": (READY_MARKER,),
     "interview_playbook": (
         "{first_name}",
         "{assessment_json}",

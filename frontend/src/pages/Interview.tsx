@@ -7,18 +7,24 @@
 // the hub's real design system (index.css --dlw-* tokens), the same idiom as
 // pages/JourneyHome.tsx and pages/Assessment.tsx.
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { client } from '../api/client'
 import AppNav from '../components/AppNav'
 import Spinner from '../components/Spinner'
 import Playbook from '../components/interview/Playbook'
+import { useAuth } from '../contexts/AuthContext'
+import { resolveInterviewTile } from '../lib/interviewAccess'
 import { buildPlaybook, getInterviewState, openInterview } from '../lib/interviewApi'
 import { useChat } from '../lib/useChat'
 import type { InterviewState } from '../types/domain'
 
-type Phase = 'loading' | 'welcome' | 'chat' | 'building' | 'done'
+type Phase = 'loading' | 'welcome' | 'chat' | 'building' | 'done' | 'needs_assessment'
 
 /** Fallback floor: if the interviewer never signals readiness, the manual build still
  *  unlocks once the learner has sent this many answers, so no one is ever stuck. The
- *  primary path is the model's own readiness signal (READY_MARKER). */
+ *  primary path is the model's own readiness signal (READY_MARKER). The server enforces the
+ *  same floor (backend/src/services/interview_service.py _MIN_ANSWERS_WITHOUT_OFFER): keep
+ *  the two numbers equal. */
 const FALLBACK_MIN_ANSWERS = 6
 
 /** Server caps chat message content at 4000 chars (backend/src/schemas/chat.py); over that is
@@ -27,7 +33,8 @@ const MAX_INPUT = 4000
 
 /** The interviewer appends this marker (backend/prompts/interview.md) to the turn where it
  *  offers to build the playbook — the signal to reveal the button. Always stripped from
- *  display; the learner never sees it. */
+ *  display; the learner never sees it. Kept in sync with
+ *  backend/src/services/interview_marker.py, the backend's single home for the marker. */
 const READY_MARKER = '[[READY_TO_BUILD]]'
 
 /** Strip the readiness marker from an assistant message for display, and report whether the
@@ -179,6 +186,26 @@ function WelcomeScreen({ onStart }: { onStart: () => void }) {
 
       <button type="button" className="btn-red" style={s.btnPrimary} onClick={onStart}>
         Start the interview →
+      </button>
+    </div>
+  )
+}
+
+// ── Needs-assessment notice ──────────────────────────────────────────────────
+// Shown instead of Welcome/Chat when the learner hasn't completed their assessment
+// yet (and isn't an admin): mirrors the backend's assessment gate on the write paths,
+// so a learner never sees a 403 or an un-winnable "Try again" button.
+
+function NeedsAssessmentScreen({ onGoToAssessment }: { onGoToAssessment: () => void }) {
+  return (
+    <div>
+      <p style={s.eyebrow}>AI Opportunity Interview</p>
+      <h1 style={s.heading}>Complete your assessment first</h1>
+      <p style={s.body}>
+        The interview builds on your assessment answers, so it opens once your assessment is done.
+      </p>
+      <button type="button" className="btn-red" style={s.btnPrimary} onClick={onGoToAssessment}>
+        Go to your assessment →
       </button>
     </div>
   )
@@ -357,6 +384,8 @@ function BuildingScreen() {
 
 export default function Interview() {
   const chat = useChat('interview')
+  const navigate = useNavigate()
+  const { role } = useAuth()
   const [state, setState] = useState<InterviewState | null>(null)
   const [phase, setPhase] = useState<Phase>('loading')
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -368,11 +397,40 @@ export default function Interview() {
   useEffect(() => {
     let cancelled = false
 
+    // Mirrors the backend's require_completed_assessment gate on the write paths, so a
+    // learner without a completed assessment sees a calm notice instead of a Welcome/Chat
+    // screen that would 403 on Start/Send. A completed playbook (data.status === 'complete')
+    // never reaches this check, so it always renders regardless of assessment state. If the
+    // journey call fails, fall back to today's behaviour — the backend gate still protects.
+    async function needsAssessment(interviewStatus: InterviewState['status']): Promise<boolean> {
+      try {
+        const { data } = await client.GET('/api/me/journey')
+        if (!data) return false
+        const tile = resolveInterviewTile({
+          componentLocked: false,
+          role,
+          surveyStatus: data.survey_status,
+          interviewStatus,
+        })
+        return tile === 'needs_assessment'
+      } catch {
+        return false
+      }
+    }
+
     async function load() {
       try {
         const data = await getInterviewState()
         if (cancelled) return
         setState(data)
+
+        if (data.status !== 'complete' && (await needsAssessment(data.status))) {
+          if (cancelled) return
+          setPhase('needs_assessment')
+          return
+        }
+        if (cancelled) return
+
         if (data.status === 'not_started') {
           setPhase('welcome')
         } else if (data.status === 'in_progress') {
@@ -392,6 +450,8 @@ export default function Interview() {
     return () => { cancelled = true }
     // Mount-only: chat.loadConversation is stable (useCallback with no deps), and this
     // effect must run exactly once regardless of the fresh `chat` object identity each render.
+    // `role` (read by needsAssessment) is safe to capture once: App.tsx renders no route until
+    // the auth restore has finished, so it is final by the time this page mounts.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -435,6 +495,8 @@ export default function Interview() {
           <p style={s.errorMsg}>{loadError}</p>
         ) : phase === 'loading' ? (
           <div style={s.loadingWrap}><Spinner /></div>
+        ) : phase === 'needs_assessment' ? (
+          <NeedsAssessmentScreen onGoToAssessment={() => navigate('/assessment')} />
         ) : phase === 'welcome' ? (
           <WelcomeScreen onStart={handleStart} />
         ) : phase === 'chat' ? (

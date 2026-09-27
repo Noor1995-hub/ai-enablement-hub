@@ -17,6 +17,7 @@ from tests.fixtures.auth import auth_headers
 from tests.fixtures.factories import (
     create_company,
     create_project,
+    create_survey,
     create_user,
     unlock_component,
 )
@@ -175,3 +176,110 @@ class TestAdminInterviewIsNotComponentGated:
         )
         assert response.status_code == 404
         assert "not configured" in response.json()["error"]["message"]
+
+
+class TestAssessmentGate:
+    """Spec 2026-09-26 A.3.5: normal users need a COMPLETED assessment; admins are exempt.
+    404 "not configured" (llm=None in test settings) proves every gate passed."""
+
+    async def _open_project(self, db_session: AsyncSession, project: Project) -> None:
+        await unlock_component(db_session, project, "interview")
+        await _enable_interview_ai(db_session, project.id)
+
+    async def test_no_assessment_is_403_on_opener_and_playbook(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        project: Project,
+        test_settings: Settings,
+    ) -> None:
+        await self._open_project(db_session, project)
+        user = await create_user(db_session, email="gate-none@example.com", project_id=project.id)
+        headers = auth_headers(user, test_settings)
+
+        for path in ("/api/interview/opener", "/api/interview/playbook"):
+            response = await client.post(path, headers=headers)
+            assert response.status_code == 403
+            assert "Complete your assessment" in response.json()["error"]["message"]
+
+    async def test_a_draft_assessment_is_not_enough(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        project: Project,
+        test_settings: Settings,
+    ) -> None:
+        await self._open_project(db_session, project)
+        user = await create_user(db_session, email="gate-draft@example.com", project_id=project.id)
+        await create_survey(db_session, user, status="in_progress")
+
+        response = await client.post(
+            "/api/interview/opener", headers=auth_headers(user, test_settings)
+        )
+        assert response.status_code == 403
+
+    async def test_a_completed_assessment_passes(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        project: Project,
+        test_settings: Settings,
+    ) -> None:
+        await self._open_project(db_session, project)
+        user = await create_user(db_session, email="gate-done@example.com", project_id=project.id)
+        await create_survey(db_session, user, status="complete")
+
+        response = await client.post(
+            "/api/interview/opener", headers=auth_headers(user, test_settings)
+        )
+        assert response.status_code == 404
+        assert "not configured" in response.json()["error"]["message"]
+
+    async def test_admin_without_assessment_passes(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        project: Project,
+        test_settings: Settings,
+    ) -> None:
+        await self._open_project(db_session, project)
+        admin = await create_user(
+            db_session, email="gate-admin@example.com", role="admin", project_id=project.id
+        )
+
+        response = await client.post(
+            "/api/interview/opener", headers=auth_headers(admin, test_settings)
+        )
+        assert response.status_code == 404
+
+    async def test_state_endpoint_is_not_gated(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        project: Project,
+        test_settings: Settings,
+    ) -> None:
+        """A learner with an existing playbook but no assessment must still read it."""
+        await self._open_project(db_session, project)
+        user = await create_user(db_session, email="gate-me@example.com", project_id=project.id)
+
+        response = await client.get("/api/interview/me", headers=auth_headers(user, test_settings))
+        assert response.status_code == 404
+
+    async def test_interview_chat_turn_is_gated(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        project: Project,
+        test_settings: Settings,
+    ) -> None:
+        await self._open_project(db_session, project)
+        user = await create_user(db_session, email="gate-chat@example.com", project_id=project.id)
+
+        response = await client.post(
+            "/api/chat/interview",
+            json={"content": "hello"},
+            headers=auth_headers(user, test_settings),
+        )
+        assert response.status_code == 403
+        assert "Complete your assessment" in response.json()["error"]["message"]

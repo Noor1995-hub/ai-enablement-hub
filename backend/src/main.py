@@ -45,6 +45,7 @@ from src.routers import (
 from src.schemas.health import HealthOut
 from src.services.exceptions import (
     AiGenerationError,
+    AssessmentRequiredError,
     ComponentLockedError,
     ConflictError,
     DomainError,
@@ -321,6 +322,13 @@ async def component_locked_handler(request: Request, exc: ComponentLockedError) 
 @app.exception_handler(LessonNotAccessibleError)
 async def lesson_not_accessible_handler(
     request: Request, exc: LessonNotAccessibleError
+) -> JSONResponse:
+    return _error_response(403, exc.message)
+
+
+@app.exception_handler(AssessmentRequiredError)
+async def assessment_required_handler(
+    request: Request, exc: AssessmentRequiredError
 ) -> JSONResponse:
     return _error_response(403, exc.message)
 

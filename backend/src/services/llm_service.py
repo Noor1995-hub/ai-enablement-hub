@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any, Final, Protocol
 
 import anthropic
 
@@ -10,6 +10,7 @@ if TYPE_CHECKING:
     from anthropic import AsyncAnthropic
 
 __all__ = [
+    "THINKING_MODE",
     "AnthropicLlmClient",
     "LlmClient",
     "LlmError",
@@ -80,6 +81,9 @@ class LlmClient(Protocol):
     implementation for now (see docs/ai-agents-plan.md §7 for the provider
     decision and the Foundry-adapter option kept open by this Protocol)."""
 
+    @property
+    def model(self) -> str: ...
+
     def stream_reply(
         self, *, system: str, messages: list[dict[str, str]], max_tokens: int
     ) -> LlmReplyStream: ...
@@ -115,6 +119,10 @@ class _AnthropicReplyStream:
         return LlmUsage(final.usage.input_tokens, final.usage.output_tokens)
 
 
+# What both calls below send as `thinking`. Recorded in run metadata (spec 2026-09-26 A.1).
+THINKING_MODE: Final = "disabled"
+
+
 class AnthropicLlmClient:
     """Thin wrapper over `AsyncAnthropic` — mirrors how EmailService wraps ACS.
 
@@ -128,13 +136,17 @@ class AnthropicLlmClient:
         self._client = client
         self._model = model
 
+    @property
+    def model(self) -> str:
+        return self._model
+
     def stream_reply(
         self, *, system: str, messages: list[dict[str, str]], max_tokens: int
     ) -> _AnthropicReplyStream:
         manager = self._client.messages.stream(
             model=self._model,
             max_tokens=max_tokens,
-            thinking={"type": "disabled"},
+            thinking={"type": THINKING_MODE},
             system=system,
             messages=messages,  # ty: ignore[invalid-argument-type]
         )
@@ -146,7 +158,7 @@ class AnthropicLlmClient:
         message = await self._client.messages.create(
             model=self._model,
             max_tokens=max_tokens,
-            thinking={"type": "disabled"},
+            thinking={"type": THINKING_MODE},
             system=system,
             messages=[{"role": "user", "content": prompt}],
             tools=[

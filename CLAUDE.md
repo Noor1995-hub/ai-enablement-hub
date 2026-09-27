@@ -116,6 +116,12 @@ history that used to live here: `docs/history/state-log-2026.md`.
     `survey.py`, `learning.py` and `interview.py` (not its `admin_router`); `chat.py` applies the
     same gate to `kind=interview` only (`require_chat_kind_unlocked`) — hidden/locked ⇒ 403
     `ComponentLockedError`. Project-level gate, not a role check: admin and `user+` are NOT exempt.
+  - **Interview assessment gate (2026-09-26):** `require_completed_assessment`
+    (`core/dependencies/interview.py`) on `POST /api/interview/opener`, `/playbook` and
+    `POST /api/chat/interview`: learners need `survey_status == "complete"` (a draft does not
+    count) ⇒ else 403 `AssessmentRequiredError`. A role check: `admin` exempt, `user+` not.
+    `GET /api/interview/me` is deliberately ungated so an existing playbook stays readable.
+    Frontend twin: `frontend/src/lib/interviewAccess.ts` ("Assessment first" tile).
   - **Module level:** `module_prerequisites` edge table (only DB constraint is `not_self`;
     nothing blocks cross-track or cyclic edges). The unlock rule exists ONLY in
     `frontend/src/lib/learningPathLocks.ts::isModuleUnlocked` (pure, unit-tested next to it):

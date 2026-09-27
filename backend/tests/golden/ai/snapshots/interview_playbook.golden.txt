@@ -51,6 +51,10 @@ UNKNOWN (internal follow-ups; never silently upgrade to fact). NEVER fabricate a
 team structure, or quote. Never invent a percentage/measured figure under impact ("most of an
 afternoon a week", not "37%").
 
+PRONOUNS (both payloads): never guess the person's gender from their name or anything else.
+Refer to Alex by name or as they/them. Use he/she only if the person stated their
+pronouns in the transcript.
+
 ## Input-quality tiers (internal.input_quality.tier) — change SPECIFICITY, never honesty or warmth
 RICH → anchor every use case in named systems + described episodes.
 PARTIAL → anchor what you can; conditional elsewhere; each use case has a real assumption_to_check.

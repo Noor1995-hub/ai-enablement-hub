@@ -10,7 +10,7 @@ import pytest
 from src.repositories.base import AbstractConversationRepository, AbstractMessageRepository
 from src.services.chat_service import ChatService, DoneEvent, TokenEvent
 from src.services.exceptions import NotFoundError
-from src.services.prompts import load_prompt
+from src.services.prompts import load_prompt, prompt_version
 from tests.fixtures.llm import FakeLlmClient
 
 
@@ -89,6 +89,8 @@ async def test_send_message_streams_tokens_then_done_and_persists() -> None:
     assert assistant_call.kwargs["role"] == "assistant"
     assert assistant_call.kwargs["content"] == "Hello!"
     assert assistant_call.kwargs["metadata"]["truncated"] is False
+    assert assistant_call.kwargs["metadata"]["model"] == "fake-model"
+    assert assistant_call.kwargs["metadata"]["prompt_version"] == prompt_version("chatbot")
 
 
 async def test_send_message_persists_partial_on_disconnect() -> None:
@@ -177,3 +179,28 @@ async def test_send_message_persists_partial_on_cancellation() -> None:
     assert assistant_call.kwargs["role"] == "assistant"
     assert assistant_call.kwargs["metadata"]["truncated"] is True
     assert assistant_call.kwargs["content"] == "Hel"
+
+
+async def test_history_sent_to_the_model_has_no_ready_marker() -> None:
+    """Once emitted, the marker must not be re-read by the model on every later turn."""
+    llm = FakeLlmClient(chunks=["ok"])
+    service, _, messages = _service(llm)
+    messages.list_recent.return_value = [
+        SimpleNamespace(role="assistant", content="Shall I build it?\n[[READY_TO_BUILD]]"),
+        SimpleNamespace(role="user", content="one more thing"),
+    ]
+    conversation = SimpleNamespace(id=uuid.uuid4(), user_id=uuid.uuid4(), kind="interview")
+
+    _ = [
+        e
+        async for e in service.send_message(
+            conversation=conversation,  # ty: ignore[invalid-argument-type]
+            content="one more thing",
+        )
+    ]
+
+    sent = llm.calls[0]["messages"]
+    assert sent == [
+        {"role": "assistant", "content": "Shall I build it?"},
+        {"role": "user", "content": "one more thing"},
+    ]

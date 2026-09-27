@@ -25,7 +25,9 @@ DEFAULT_HIDDEN = {"assessment": False, "learning": False, "interview": False}
 
 # Roles that bypass learning-path locks (maturity + assignment). NOT a bypass of
 # the project-level component locks: those are explicitly not a role check
-# (see ComponentLockedError and the user+ role design doc).
+# (see ComponentLockedError and the user+ role design doc). Also not the interview's
+# assessment gate, which exempts admin only (core/dependencies/interview.py
+# _ASSESSMENT_EXEMPT_ROLES).
 LOCK_BYPASS_ROLES: tuple[str, ...] = ("admin", "user+")
 
 # The maturity ladder, in progression order. The scoring engine only ever

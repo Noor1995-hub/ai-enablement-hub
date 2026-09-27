@@ -62,8 +62,10 @@ class _FakeMessages:
     def __init__(self, chunks: list[str], usage: tuple[int, int]) -> None:
         self._chunks = chunks
         self._usage = usage
+        self.calls: list[dict[str, object]] = []
 
-    def stream(self, **_: object) -> FakeAnthropicStreamManager:
+    def stream(self, **kwargs: object) -> FakeAnthropicStreamManager:
+        self.calls.append(kwargs)
         return FakeAnthropicStreamManager(self._chunks, self._usage)
 
 
@@ -101,6 +103,8 @@ class FakeLlmReplyStream:
 class FakeLlmClient:
     """Stubs LlmClient: streams canned chunks, reports canned usage."""
 
+    model = "fake-model"
+
     def __init__(
         self,
         chunks: list[str],
@@ -130,6 +134,8 @@ class FakeLlmClient:
 
 class RaisingLlmClient:
     """Every call blows up (dead Anthropic endpoint, bad key, ...)."""
+
+    model = "fake-model"
 
     def stream_reply(self, **_: object) -> FakeLlmReplyStream:
         msg = "Anthropic API unreachable"

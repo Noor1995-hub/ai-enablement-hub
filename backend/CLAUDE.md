@@ -38,7 +38,10 @@ test user or a script that writes rows edits live learner data.
    every variable they depend on; run such a change once with `CI=true` before the PR.
 6. **Services never call other services** (`admin_user_service.py`, `content_improvement_service.py`
    say so; `core/attention.py` + `advance_level` exist to avoid it). The interviewer slice is the
-   known exception — decision 5.1 of the July master plan.
+   known exception — decision 5.1 of the July master plan. Run stamps: assistant turns carry
+   `model` + `prompt_version` in `messages.metadata`; playbooks carry
+   `conversations.summary["meta"]` (model, both prompt versions, max_tokens, thinking, attempts,
+   usage, generated_at). `prompt_version` = first 12 hex of SHA-256 of the shipped prompt file.
 7. `anthropic` is a main dependency, bounded to `~=1.x`; 1.x is built on `httpx2`, so tests that
    build SDK errors use `httpx2.Request/Response`. A major SDK bump is its own PR.
 
