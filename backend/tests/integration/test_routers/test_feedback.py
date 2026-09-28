@@ -87,3 +87,50 @@ class TestSubmitFeedback:
             headers=auth_headers(user, test_settings),
         )
         assert response.status_code == 404
+
+
+class TestSubmitFeedbackRateLimit:
+    """Mirrors the TestLoginRateLimit / chat convention: hammer N+1 times on one
+    key and assert the over-limit call is 429 + Retry-After. `rate_limiter` is a
+    process-global reset by conftest's autouse `_reset_rate_limiter`, so this is
+    deterministic."""
+
+    async def test_eleventh_submission_in_the_window_is_429(
+        self, client: AsyncClient, db_session: AsyncSession, test_settings: Settings
+    ) -> None:
+        track = await create_track(db_session)
+        module = await create_module(db_session, track)
+        lesson = await create_lesson(db_session, module, "Rate limited lesson")
+        user = await create_user(db_session, email="fb-flood@example.com")
+        headers = auth_headers(user, test_settings)
+        body = {"lesson_id": str(lesson.id), "message": "more examples please"}
+
+        for _ in range(10):
+            response = await client.post("/api/feedback", json=body, headers=headers)
+            assert response.status_code == 201
+
+        response = await client.post("/api/feedback", json=body, headers=headers)
+        assert response.status_code == 429
+        assert response.json()["error"]["code"] == "rate_limited"
+        assert response.headers["Retry-After"] == "600"
+
+    async def test_the_limit_is_per_user(
+        self, client: AsyncClient, db_session: AsyncSession, test_settings: Settings
+    ) -> None:
+        """One learner spamming must not silence their colleagues."""
+        track = await create_track(db_session)
+        module = await create_module(db_session, track)
+        lesson = await create_lesson(db_session, module, "Shared lesson")
+        noisy = await create_user(db_session, email="fb-noisy@example.com")
+        quiet = await create_user(db_session, email="fb-quiet@example.com")
+        body = {"lesson_id": str(lesson.id), "message": "a note"}
+
+        for _ in range(11):
+            await client.post(
+                "/api/feedback", json=body, headers=auth_headers(noisy, test_settings)
+            )
+
+        response = await client.post(
+            "/api/feedback", json=body, headers=auth_headers(quiet, test_settings)
+        )
+        assert response.status_code == 201

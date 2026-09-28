@@ -1589,7 +1589,11 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Submit Feedback */
+        /**
+         * Submit Feedback
+         * @description Keyed by user id, not IP: the caller is always authenticated here, and a
+         *     shared office IP must not let one learner's burst silence the floor.
+         */
         post: operations["submit_feedback_api_feedback_post"];
         delete?: never;
         options?: never;
