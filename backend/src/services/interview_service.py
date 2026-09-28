@@ -17,10 +17,15 @@ from src.schemas.interview import (
     PlaybookShared,
     TranscriptMessage,
 )
-from src.services.exceptions import ConflictError, DomainError, NotFoundError
+from src.services.exceptions import AiGenerationError, ConflictError, DomainError, NotFoundError
 from src.services.interview_marker import has_ready_marker, strip_ready_marker
 from src.services.interview_schema import PLAYBOOK_SCHEMA
-from src.services.llm_service import THINKING_MODE, LlmError, is_transient_provider_error
+from src.services.llm_service import (
+    THINKING_MODE,
+    LlmError,
+    is_provider_error,
+    is_transient_provider_error,
+)
 from src.services.prompts import load_prompt, prompt_version
 
 if TYPE_CHECKING:
@@ -41,6 +46,9 @@ _GENERATE_PROMPT = "Produce the playbook now by calling the record_playbook tool
 _OPENER_MAX_TOKENS = 1024
 _KICKOFF = "[Begin the interview now: greet me and ask your first question.]"
 
+# The opener is one short streamed greeting; bound it well inside the 240 s ingress
+# timeout so a hung provider call answers the learner instead of the ingress doing it.
+_OPENER_TIMEOUT_SECONDS = 45.0
 # One budget for the whole generation (both attempts, and the SDK's own retries inside
 # them). Sized under the Container Apps ingress timeout of 240 s, same reasoning as
 # content_improvement_service._PER_LESSON_TIMEOUT_SECONDS.
@@ -58,6 +66,15 @@ _DASH_CHARS = ("—", "–", "―")  # em dash, en dash, horizontal bar
 # Server-side twin of the Build button rule in frontend/src/pages/Interview.tsx
 # (`canBuild = modelReady || answerCount >= FALLBACK_MIN_ANSWERS`). Keep the two numbers equal.
 _MIN_ANSWERS_WITHOUT_OFFER = 6
+
+
+# A provider failure is the provider's problem, not the request's: AiGenerationError (502).
+# A transient one gets "try again" wording, anything else a neutral "failed".
+_BUSY_MESSAGE = "The AI service is busy right now - please try again in a minute."
+
+
+def _provider_failure(exc: BaseException, fallback: str) -> AiGenerationError:
+    return AiGenerationError(_BUSY_MESSAGE if is_transient_provider_error(exc) else fallback)
 
 
 def _sanitize_dashes(value: object) -> object:
@@ -149,17 +166,26 @@ class InterviewService:
         system = f"{load_prompt(_KIND)}\n\n{await self._context.build_briefing(user)}"
         try:
             chunks: list[str] = []
-            async with self._llm.stream_reply(
-                system=system,
-                messages=[{"role": "user", "content": _KICKOFF}],
-                max_tokens=_OPENER_MAX_TOKENS,
-            ) as reply:
+            async with (
+                asyncio.timeout(_OPENER_TIMEOUT_SECONDS),
+                self._llm.stream_reply(
+                    system=system,
+                    messages=[{"role": "user", "content": _KICKOFF}],
+                    max_tokens=_OPENER_MAX_TOKENS,
+                ) as reply,
+            ):
                 async for text in reply:
                     chunks.append(text)
             greeting = "".join(chunks).strip()
-        except Exception as exc:  # noqa: BLE001 - best-effort opener; the UI offers retry
+        except Exception as exc:  # noqa: BLE001 - re-raised unless a timeout or provider failure
             logger.warning("interview opener failed for user %s", user.id, exc_info=exc)
-            raise DomainError("Could not start the interview - please try again.") from exc
+            # Same line as _generate: the provider failing (or taking too long) is a 502 the
+            # UI offers a retry for; anything else is a bug and propagates as a 500.
+            if not (isinstance(exc, TimeoutError) or is_provider_error(exc)):
+                raise
+            raise _provider_failure(
+                exc, "Could not start the interview - please try again."
+            ) from exc
         if not greeting:
             logger.warning("interview opener failed for user %s: empty greeting", user.id)
             raise DomainError("Could not start the interview - please try again.")
@@ -216,8 +242,9 @@ class InterviewService:
         the usage of the call that produced it, and which attempt (1 or 2) that was.
 
         Unusable output (schema mismatch, no tool_use block) is retried once. A timeout or
-        a provider outage is not: the SDK has already retried those itself, so another
-        round only burns the budget. Anything else is a bug and propagates as a 500."""
+        a provider failure is not: the SDK has already retried those itself, so another
+        round only burns the budget. Both are a 502 (AiGenerationError). Anything else is
+        a bug and propagates as a 500."""
         last_error: Exception | None = None
         try:
             async with asyncio.timeout(_GENERATION_TIMEOUT_SECONDS):
@@ -244,17 +271,26 @@ class InterviewService:
                 _GENERATION_TIMEOUT_SECONDS,
                 conversation_id,
             )
-            raise DomainError("Building your playbook took too long - please try again.") from exc
-        except Exception as exc:  # noqa: BLE001 - re-raised unless transient
-            if not is_transient_provider_error(exc):
+            raise AiGenerationError(
+                "Building your playbook took too long - please try again."
+            ) from exc
+        except Exception as exc:  # noqa: BLE001 - re-raised unless a provider failure
+            if not is_provider_error(exc):
                 raise
-            logger.warning(
-                "playbook generation: provider unavailable (%s) (conversation %s)",
-                type(exc).__name__,
-                conversation_id,
-            )
-            raise DomainError(
-                "The AI service is busy right now - please try again in a minute."
+            if is_transient_provider_error(exc):
+                logger.warning(
+                    "playbook generation: provider unavailable (%s) (conversation %s)",
+                    type(exc).__name__,
+                    conversation_id,
+                )
+            else:
+                logger.error(
+                    "playbook generation: provider call failed (%s) (conversation %s)",
+                    type(exc).__name__,
+                    conversation_id,
+                )
+            raise _provider_failure(
+                exc, "Could not generate the playbook - please try again."
             ) from exc
         logger.error(
             "playbook generation failed after 2 attempts (conversation %s): %s",

@@ -5,6 +5,10 @@ RecordingSender/RaisingSender pattern, plus a fake shaped like AsyncAnthropic's
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
+from typing import Any
+
+import anthropic
+import httpx2
 
 from src.services.llm_service import LlmUsage
 
@@ -17,7 +21,30 @@ __all__ = [
     "FakeStructuredAsyncAnthropic",
     "FakeToolUseBlock",
     "RaisingLlmClient",
+    "connection_error",
+    "overloaded_error",
+    "status_error",
 ]
+
+
+def status_error(cls: Any, status: int) -> Exception:
+    """A real anthropic status error, built the way the SDK builds one
+    (anthropic 1.8.0 is on httpx2, not httpx — see `llm_service.py`'s
+    `_TRANSIENT_PROVIDER_ERRORS` and `test_llm_service.py`)."""
+    request = httpx2.Request("POST", "https://api.anthropic.com/v1/messages")
+    return cls("boom", response=httpx2.Response(status, request=request), body=None)
+
+
+def overloaded_error() -> Exception:
+    """The 529 a run actually hits when Anthropic is at capacity."""
+    return status_error(anthropic.OverloadedError, 529)
+
+
+def connection_error() -> Exception:
+    """A transport failure that never reached the API (dropped connection,
+    DNS, TLS, ...)."""
+    request = httpx2.Request("POST", "https://api.anthropic.com/v1/messages")
+    return anthropic.APIConnectionError(request=request)
 
 
 class FakeAnthropicMessage:

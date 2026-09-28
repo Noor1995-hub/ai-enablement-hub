@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Any
-
 import anthropic
 import httpx2
 
@@ -10,20 +8,15 @@ from src.services.llm_service import (
     AnthropicLlmClient,
     LlmError,
     StructuredSchema,
+    is_provider_error,
     is_transient_provider_error,
 )
-from tests.fixtures.llm import FakeAsyncAnthropic, FakeStructuredAsyncAnthropic
-
-
-def _status_error(cls: Any, status: int) -> Exception:
-    """A real anthropic status error, built the way the SDK builds one."""
-    request = httpx2.Request("POST", "https://api.anthropic.com/v1/messages")
-    return cls("boom", response=httpx2.Response(status, request=request), body=None)
-
-
-def _overloaded() -> Exception:
-    """The 529 the content-improvement run actually hit in production."""
-    return _status_error(anthropic.OverloadedError, 529)
+from tests.fixtures.llm import (
+    FakeAsyncAnthropic,
+    FakeStructuredAsyncAnthropic,
+    overloaded_error,
+    status_error,
+)
 
 
 async def test_anthropic_client_streams_chunks_and_reports_usage() -> None:
@@ -94,15 +87,13 @@ class TestTransientProviderErrors:
     treated as transient re-consumes every future run forever."""
 
     def test_an_overloaded_error_is_transient(self) -> None:
-        assert is_transient_provider_error(_overloaded()) is True
+        assert is_transient_provider_error(overloaded_error()) is True
 
     def test_a_rate_limit_error_is_transient(self) -> None:
-        assert is_transient_provider_error(_status_error(anthropic.RateLimitError, 429)) is True
+        assert is_transient_provider_error(status_error(anthropic.RateLimitError, 429)) is True
 
     def test_a_server_error_is_transient(self) -> None:
-        assert (
-            is_transient_provider_error(_status_error(anthropic.InternalServerError, 500)) is True
-        )
+        assert is_transient_provider_error(status_error(anthropic.InternalServerError, 500)) is True
 
     def test_a_connection_error_is_transient(self) -> None:
         exc = anthropic.APIConnectionError(request=httpx2.Request("POST", "https://x/y"))
@@ -119,10 +110,27 @@ class TestTransientProviderErrors:
         assert is_transient_provider_error(TimeoutError()) is False
 
     def test_a_bad_request_is_terminal(self) -> None:
-        assert is_transient_provider_error(_status_error(anthropic.BadRequestError, 400)) is False
+        assert is_transient_provider_error(status_error(anthropic.BadRequestError, 400)) is False
 
     def test_an_unknown_error_is_terminal(self) -> None:
         assert is_transient_provider_error(RuntimeError("something else")) is False
+
+
+class TestProviderErrors:
+    """`is_provider_error` separates "the provider call failed" (a 502 for the caller)
+    from a bug in our own code (a 500)."""
+
+    def test_transient_and_terminal_sdk_errors_are_provider_errors(self) -> None:
+        assert is_provider_error(overloaded_error()) is True
+        assert is_provider_error(status_error(anthropic.AuthenticationError, 401)) is True
+        assert is_provider_error(status_error(anthropic.BadRequestError, 400)) is True
+        exc = anthropic.APIConnectionError(request=httpx2.Request("POST", "https://x/y"))
+        assert is_provider_error(exc) is True
+
+    def test_our_own_errors_and_bugs_are_not(self) -> None:
+        assert is_provider_error(LlmError("no tool_use block")) is False
+        assert is_provider_error(TimeoutError()) is False
+        assert is_provider_error(RuntimeError("bug")) is False
 
 
 def test_anthropic_client_exposes_its_model() -> None:

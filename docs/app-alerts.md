@@ -36,7 +36,9 @@ any of these firing is worth a look.
 - **Out-of-memory restarts:** the app has 1 GiB; look for a request that loads something large.
   Scaling out is not an option (min = max = 1 replica is a design constraint, CLAUDE.md).
 - **5xx from the AI features only:** the Anthropic API may be down or rate-limiting; the
-  backend treats those as transient. Check status.anthropic.com before digging.
+  backend treats those as transient. Check status.anthropic.com before digging. Interview
+  502s (`/api/interview/*`) count toward this 5xx alert; they cover provider overload,
+  timeouts and a rejected key alike.
 
 Any Azure-changing step (restart, scale, secret) is a deliberate operator action — agents ask
 first.

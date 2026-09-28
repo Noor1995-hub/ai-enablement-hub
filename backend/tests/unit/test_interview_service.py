@@ -8,22 +8,28 @@ import asyncio
 import json
 import logging
 import uuid
+from collections.abc import AsyncIterator, Callable
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import anthropic
-import httpx2
 import pytest
 
 from src.repositories.base import AbstractConversationRepository, AbstractMessageRepository
 from src.schemas.interview import InterviewOpenerResponse, PlaybookInternal, PlaybookShared
 from src.services import interview_service as interview_module
-from src.services.exceptions import ConflictError, DomainError
+from src.services.exceptions import AiGenerationError, ConflictError, DomainError
 from src.services.interview_context import InterviewContextService
 from src.services.interview_service import InterviewService
 from src.services.llm_service import LlmError, LlmUsage
 from src.services.prompts import prompt_version
-from tests.fixtures.llm import FakeLlmClient, RaisingLlmClient
+from tests.fixtures.llm import (
+    FakeLlmClient,
+    RaisingLlmClient,
+    connection_error,
+    overloaded_error,
+    status_error,
+)
 
 # One fully-populated extraction: both boxes complete, one use_case
 # (difficulty "Quick Win"), tier "RICH".
@@ -467,12 +473,30 @@ async def test_open_interview_idempotent_returns_existing_greeting() -> None:
 
 
 async def test_open_interview_llm_failure_creates_no_conversation() -> None:
+    exc = status_error(anthropic.AuthenticationError, 401)
+    service, conversations, messages, context = _service(_FailingStreamingLlmClient(exc))
+    context.build_briefing.return_value = "BRIEFING"
+    conversations.list_for_user.return_value = []
+    user = _user()
+
+    with pytest.raises(AiGenerationError) as exc_info:
+        await service.open_interview(user=user)  # ty: ignore[invalid-argument-type]
+
+    # A rejected key is a provider failure but not a transient one: a neutral 502,
+    # never "busy, try again".
+    assert "busy" not in str(exc_info.value).lower()
+    conversations.create.assert_not_awaited()
+    messages.create.assert_not_awaited()
+
+
+async def test_open_interview_lets_an_unknown_error_propagate() -> None:
+    """A bug in our own code is not an AI failure: it propagates (500), not a 502."""
     service, conversations, messages, context = _service(RaisingLlmClient())
     context.build_briefing.return_value = "BRIEFING"
     conversations.list_for_user.return_value = []
     user = _user()
 
-    with pytest.raises(DomainError):
+    with pytest.raises(RuntimeError, match="unreachable"):
         await service.open_interview(user=user)  # ty: ignore[invalid-argument-type]
 
     conversations.create.assert_not_awaited()
@@ -539,8 +563,10 @@ class _ProviderDownLlmClient:
 
     def __init__(self, exc: Exception) -> None:
         self._exc = exc
+        self.calls = 0
 
     async def complete_structured(self, **_: object) -> tuple[dict[str, object], LlmUsage]:
+        self.calls += 1
         raise self._exc
 
 
@@ -550,22 +576,53 @@ async def test_build_playbook_times_out_cleanly(monkeypatch: pytest.MonkeyPatch)
     conversations.list_for_user.return_value = [_conversation(summary=None)]
     messages.list_for_conversation.return_value = _ready_rows()
 
-    with pytest.raises(DomainError, match="took too long"):
+    # A timeout is a provider failure, not a bad request: 502, not 400.
+    with pytest.raises(AiGenerationError, match="took too long"):
         await service.build_playbook(user=_user())  # ty: ignore[invalid-argument-type]
 
     conversations.update_summary.assert_not_awaited()
 
 
-async def test_build_playbook_maps_a_busy_provider_to_a_domain_error() -> None:
-    exc = anthropic.APIConnectionError(
-        request=httpx2.Request("POST", "https://api.anthropic.com/v1/messages")
-    )
-    service, conversations, messages, _context = _service(_ProviderDownLlmClient(exc))
+@pytest.mark.parametrize("make_exc", [connection_error, overloaded_error])
+async def test_build_playbook_maps_a_busy_provider_to_a_502(
+    make_exc: Callable[[], Exception],
+) -> None:
+    llm = _ProviderDownLlmClient(make_exc())
+    service, conversations, messages, _context = _service(llm)
     conversations.list_for_user.return_value = [_conversation(summary=None)]
     messages.list_for_conversation.return_value = _ready_rows()
 
-    with pytest.raises(DomainError, match="busy"):
+    with pytest.raises(AiGenerationError, match="busy"):
         await service.build_playbook(user=_user())  # ty: ignore[invalid-argument-type]
+
+    # Not retried: a second call to a busy provider inside one request only doubles the wait.
+    assert llm.calls == 1
+    conversations.update_summary.assert_not_awaited()
+
+
+async def test_build_playbook_maps_a_non_transient_provider_error_to_a_neutral_502(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A rejected key (401) is the provider failing, not a bug: 502, logged as an error
+    (type and conversation id only), and no "try again later" wording."""
+    exc = status_error(anthropic.AuthenticationError, 401)
+    service, conversations, messages, _context = _service(_ProviderDownLlmClient(exc))
+    conversation = _conversation(summary=None)
+    conversations.list_for_user.return_value = [conversation]
+    messages.list_for_conversation.return_value = _ready_rows()
+
+    with (
+        caplog.at_level(logging.WARNING, logger="src.services.interview_service"),
+        pytest.raises(AiGenerationError) as exc_info,
+    ):
+        await service.build_playbook(user=_user())  # ty: ignore[invalid-argument-type]
+
+    assert "busy" not in str(exc_info.value).lower()
+    records = [r for r in caplog.records if r.name == "src.services.interview_service"]
+    assert [r.levelname for r in records] == ["ERROR"]
+    assert "AuthenticationError" in records[0].getMessage()
+    assert str(conversation.id) in records[0].getMessage()
+    assert "monthly close" not in caplog.text
 
 
 async def test_build_playbook_lets_an_unknown_error_propagate() -> None:
@@ -595,11 +652,12 @@ async def test_build_playbook_refuses_an_oversized_transcript() -> None:
 
 
 async def test_open_interview_failure_is_logged(caplog: pytest.LogCaptureFixture) -> None:
-    service, conversations, _messages, context = _service(RaisingLlmClient())
+    llm = _FailingStreamingLlmClient(overloaded_error())
+    service, conversations, _messages, context = _service(llm)
     context.build_briefing.return_value = "BRIEFING"
     conversations.list_for_user.return_value = []
 
-    with caplog.at_level(logging.WARNING), pytest.raises(DomainError):
+    with caplog.at_level(logging.WARNING), pytest.raises(AiGenerationError):
         await service.open_interview(user=_user())  # ty: ignore[invalid-argument-type]
 
     assert "interview opener failed" in caplog.text
@@ -624,3 +682,75 @@ async def test_generation_failure_logs_never_include_model_output(
     assert "LEAKME" not in caplog.text
     assert "playbook attempt 1 unusable" in caplog.text
     assert "playbook attempt 2 unusable" in caplog.text
+
+
+class _SlowStreamManager:
+    async def __aenter__(self) -> _SlowStreamManager:
+        return self
+
+    async def __aexit__(self, *_exc: object) -> None:
+        return None
+
+    async def __aiter__(self) -> AsyncIterator[str]:
+        await asyncio.sleep(1)
+        yield "too late"
+
+    async def usage(self) -> LlmUsage:
+        return LlmUsage(input_tokens=0, output_tokens=0)
+
+
+class _SlowStreamingLlmClient:
+    model = "fake-model"
+
+    def stream_reply(self, **_: object) -> _SlowStreamManager:
+        return _SlowStreamManager()
+
+
+async def test_opener_is_bounded_by_its_own_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(interview_module, "_OPENER_TIMEOUT_SECONDS", 0.01)
+    service, conversations, messages, context = _service(_SlowStreamingLlmClient())
+    context.build_briefing.return_value = "BRIEFING"
+    conversations.list_for_user.return_value = []
+
+    with pytest.raises(AiGenerationError):
+        await service.open_interview(user=_user())  # ty: ignore[invalid-argument-type]
+
+    conversations.create.assert_not_awaited()
+    messages.create.assert_not_awaited()
+
+
+class _FailingStreamManager:
+    def __init__(self, exc: Exception) -> None:
+        self._exc = exc
+
+    async def __aenter__(self) -> _FailingStreamManager:
+        raise self._exc
+
+    async def __aexit__(self, *_exc: object) -> None:
+        return None
+
+
+class _FailingStreamingLlmClient:
+    model = "fake-model"
+
+    def __init__(self, exc: Exception) -> None:
+        self._exc = exc
+
+    def stream_reply(self, **_: object) -> _FailingStreamManager:
+        return _FailingStreamManager(self._exc)
+
+
+@pytest.mark.parametrize("make_exc", [connection_error, overloaded_error])
+async def test_opener_transient_provider_failure_is_a_busy_502(
+    make_exc: Callable[[], Exception],
+) -> None:
+    exc = make_exc()
+    service, conversations, messages, context = _service(_FailingStreamingLlmClient(exc))
+    context.build_briefing.return_value = "BRIEFING"
+    conversations.list_for_user.return_value = []
+
+    with pytest.raises(AiGenerationError, match="busy"):
+        await service.open_interview(user=_user())  # ty: ignore[invalid-argument-type]
+
+    conversations.create.assert_not_awaited()
+    messages.create.assert_not_awaited()

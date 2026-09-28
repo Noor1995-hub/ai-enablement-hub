@@ -69,6 +69,10 @@ def _classify_domain_error(exc: DomainError, calls: list[dict[str, Any]]) -> str
         return "timeout"
     if "busy" in message:
         return "provider_unavailable"
+    # A non-transient provider failure (auth, bad request, ...) reaches us as a neutral
+    # AiGenerationError whose cause is the SDK error.
+    if isinstance(exc.__cause__, anthropic.APIError):
+        return "provider_error"
     if "too long" in message:
         return "transcript_too_large"
     return "generation_failed"
@@ -137,10 +141,10 @@ async def _run_one(
         )
         return cost
     except anthropic.APIError as exc:
-        # R6: only transient provider errors are wrapped into DomainError by
-        # InterviewService; anything else (auth, bad request, ...) escapes raw. Absorb it
-        # here so one bad case/rep does not take the whole run down, but bill whatever
-        # was actually spent before it failed.
+        # R6: InterviewService wraps every provider error into AiGenerationError (a
+        # DomainError, classified above). Kept as a guard: should a raw SDK error ever
+        # escape, absorb it so one bad case/rep does not take the whole run down, but
+        # bill whatever was actually spent before it failed.
         cost = _bill(recorder, expected_model)
         _append_jsonl(
             variant_dir / "errors.jsonl",

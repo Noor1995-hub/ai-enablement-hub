@@ -17,6 +17,7 @@ __all__ = [
     "LlmReplyStream",
     "LlmUsage",
     "StructuredSchema",
+    "is_provider_error",
     "is_transient_provider_error",
 ]
 
@@ -48,6 +49,14 @@ def is_transient_provider_error(exc: BaseException) -> bool:
     failure re-consumes every future run forever.
     """
     return isinstance(exc, _TRANSIENT_PROVIDER_ERRORS)
+
+
+def is_provider_error(exc: BaseException) -> bool:
+    """True for any failure the provider itself reported or caused: the transient
+    ones above plus the rest of the SDK's hierarchy (a rejected key, a 400, ...).
+    Lets a caller tell "the model call failed" apart from a bug in our own code
+    without learning the provider's exception types."""
+    return isinstance(exc, anthropic.APIError)
 
 
 @dataclass(frozen=True)

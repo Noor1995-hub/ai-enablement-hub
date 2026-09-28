@@ -426,13 +426,13 @@ class _ApiErrorLlmClient:
         raise self._exc
 
 
-async def test_an_escaping_anthropic_api_error_lands_in_errors_as_provider_error(
+async def test_a_non_transient_anthropic_api_error_lands_in_errors_as_provider_error(
     tmp_path: Path,
 ) -> None:
-    """R6: a non-transient anthropic.APIError (e.g. AuthenticationError) is not wrapped
-    by InterviewService, so it escapes build_playbook raw. The runner must catch it
-    itself, write it to errors.jsonl as 'provider_error' with billed usage/cost so far,
-    and keep the run alive instead of crashing."""
+    """R6: a non-transient anthropic.APIError (e.g. AuthenticationError) reaches the
+    runner as a neutral AiGenerationError caused by the SDK error. It must land in
+    errors.jsonl as 'provider_error' with billed usage/cost so far, and keep the run
+    alive instead of crashing."""
     exc = _sdk_error(anthropic.AuthenticationError, 401)
     llm = _ApiErrorLlmClient(exc)
 
