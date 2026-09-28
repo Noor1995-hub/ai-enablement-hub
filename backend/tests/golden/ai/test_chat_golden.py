@@ -46,7 +46,7 @@ def _repos(*, prior_reply: str, new_user_message: str) -> tuple[AsyncMock, Async
 
 async def _send(kind: str, *, prior_reply: str, new_user_message: str, llm: RecordingLlm) -> None:
     conversations, messages = _repos(prior_reply=prior_reply, new_user_message=new_user_message)
-    service = ChatService(conversations, messages, llm)  # ty: ignore[invalid-argument-type]
+    service = ChatService(conversations, messages, llm)
     conversation = _conversation(kind)
     async for _event in service.send_message(
         conversation=conversation,  # ty: ignore[invalid-argument-type]

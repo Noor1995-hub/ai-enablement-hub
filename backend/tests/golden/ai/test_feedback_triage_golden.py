@@ -39,7 +39,7 @@ async def test_feedback_triage_golden() -> None:
     llm = RecordingLlm(
         structured_results=[{"suggested_status": "accepted", "rationale": "Actionable."}]
     )
-    service = FeedbackTriageService(repo, llm)  # ty: ignore[invalid-argument-type]
+    service = FeedbackTriageService(repo, llm)
 
     await service.suggest(limit=5)
 
@@ -51,7 +51,7 @@ async def test_feedback_triage_golden() -> None:
     second_run_llm = RecordingLlm(
         structured_results=[{"suggested_status": "accepted", "rationale": "Actionable."}]
     )
-    service2 = FeedbackTriageService(repo2, second_run_llm)  # ty: ignore[invalid-argument-type]
+    service2 = FeedbackTriageService(repo2, second_run_llm)
     await service2.suggest(limit=5)
 
     assert render_calls(llm.calls) == render_calls(second_run_llm.calls)

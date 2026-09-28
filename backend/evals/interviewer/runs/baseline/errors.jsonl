@@ -1,0 +1,1 @@
+{"prompt_id": "md-construction", "rep": 2, "failure_class": "generation_failed", "message": "Could not generate the playbook - please try again.", "usage": {"input_tokens": 19180, "output_tokens": 9193}, "cost_usd": 0.13029}

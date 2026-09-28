@@ -18,7 +18,7 @@ def _service(llm: FakeLlmClient) -> tuple[ChatService, AsyncMock, AsyncMock]:
     conversations = AsyncMock(spec=AbstractConversationRepository)
     messages = AsyncMock(spec=AbstractMessageRepository)
     messages.list_recent.return_value = []
-    return ChatService(conversations, messages, llm), conversations, messages  # ty: ignore[invalid-argument-type]
+    return ChatService(conversations, messages, llm), conversations, messages
 
 
 async def test_resolve_conversation_creates_new_when_no_id() -> None:

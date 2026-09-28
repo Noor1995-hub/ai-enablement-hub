@@ -1,0 +1,145 @@
+{
+  "id": "compliance-head-food",
+  "status": "approved",
+  "tags": [
+    "management"
+  ],
+  "industry": "food production",
+  "user": {
+    "first_name": "Ingrid",
+    "last_name": "Van Damme"
+  },
+  "assessment": {
+    "job_title": "Head of Compliance",
+    "department": "Quality & Compliance",
+    "b_freq": "MONTHLY",
+    "b_tools": [
+      "NONE_YET"
+    ],
+    "b_setup": [
+      "NONE"
+    ],
+    "b_barriers": [
+      "DONT_TRUST"
+    ],
+    "q_timesink": "Cross-checking audit findings against the regulation list by hand",
+    "q_excitement": "Honestly not sure there's much for me here",
+    "c1_code": "PARTIAL",
+    "c2_code": "MISSING",
+    "c3_code": "MISSING",
+    "c4_code": "HAVE",
+    "c5_codes": [
+      "NO_USE"
+    ],
+    "c6_code": "PARTIAL",
+    "score_level": "explore",
+    "usage_band": "dormant",
+    "effective_level": "explore",
+    "learning_status": "not_started"
+  },
+  "persona": "Ingrid Van Damme is Head of Compliance at a mid-size food producer (bakery and ingredients). She tracks audit findings and regulatory updates in a shared SharePoint site and keeps her own working notes in Excel, cross-checking every audit finding against the regulation list herself before signing off. A few years ago a chatbot at a previous employer gave a colleague confidently wrong regulatory guidance that nearly caused a real problem, and she says plainly, early on, that she does not think AI can be trusted with anything regulatory after what happened. Later in the conversation, once she has talked through how much of her week is actually repetitive cross-checking rather than judgment calls, she softens that and admits that for drafting an internal summary she would still double-check herself, it might genuinely save her time. She is measured and precise, never dismissive, and answers every question fully before deciding she has said what she came to say.",
+  "ground_truth": {
+    "named_systems": [
+      "SharePoint",
+      "Excel"
+    ],
+    "workstreams": [
+      {
+        "name": "audit tracking",
+        "keywords": [
+          "audit"
+        ]
+      },
+      {
+        "name": "regulatory monitoring",
+        "keywords": [
+          "regulat"
+        ]
+      },
+      {
+        "name": "leadership summaries",
+        "keywords": [
+          "summar"
+        ]
+      }
+    ],
+    "hesitations_voiced": [
+      "I don't think AI can be trusted with anything regulatory"
+    ],
+    "hesitations_withdrawn": [],
+    "pronouns_stated": null
+  },
+  "adversarial": null,
+  "stop_after_answers": null,
+  "transcript": [
+    {
+      "role": "assistant",
+      "content": "Hi Ingrid, good to meet you. I've got you as Head of Compliance in Quality & Compliance, using AI only a few times a month so far, and you mentioned cross-checking audit findings against the regulation list by hand as your biggest time-sink, does that still sound right?"
+    },
+    {
+      "role": "user",
+      "content": "Yes, that's accurate. Cross-checking audit findings against our regulation list is genuinely the bulk of my recurring work — I do it every time an audit closes out, and we have audits closing more or less continuously across our sites. I keep my own working notes in Excel alongside the shared SharePoint site, and I go through each finding line by line to confirm it maps correctly to the relevant regulation, that nothing's been missed, and that the wording hasn't drifted from what was actually cited. It's meticulous work, and it has to be, but yes, it eats a lot of my week.\n\nAs for AI — I'll say this plainly, since it'll come up anyway. I don't think AI can be trusted with anything regulatory. I had a colleague at a previous employer given confidently wrong guidance by a chatbot, stated as fact, no hedging, and it nearly caused a real problem before someone caught it. So I'm cautious. That's the honest starting point."
+    },
+    {
+      "role": "assistant",
+      "content": "Thanks for laying that out so directly, Ingrid, that's exactly the kind of honest starting point I want. That near-miss with confidently wrong guidance sounds like it left a real mark, can you tell me more about what happened there, did it get caught before it reached a regulator or auditor, or was it internal?"
+    },
+    {
+      "role": "user",
+      "content": "It was caught internally, thankfully, before it went anywhere near a regulator or an external auditor. My colleague had asked a chatbot something about a labelling requirement — I won't pretend I remember the exact regulation number after all this time — and the tool answered with complete confidence, no caveats, nothing to suggest it might be wrong. It sounded entirely plausible. She took it at face value and started drafting a response based on it.\n\nIt was only because someone else on the team happened to cross-check it against the actual regulation text — which is exactly the kind of manual verification I still do myself — that the error surfaced. The guidance was wrong in a way that would have mattered; it wasn't a trivial slip. If it had gone out to an auditor as our stated position, that would have been a real problem, possibly a finding against us, possibly worse depending on how it was interpreted.\n\nWhat stayed with me wasn't just that it was wrong. It was how confidently wrong it was. There was no signal, no \"you may want to verify this,\" nothing to prompt a second look. That's what makes it dangerous in a compliance context specifically — the whole job is precision, and a tool that's wrong with total confidence is worse than no tool at all."
+    },
+    {
+      "role": "assistant",
+      "content": "That makes complete sense, and honestly that's a healthy instinct for compliance work specifically. Let's go back to the cross-checking task itself, when a finding doesn't map cleanly, what does that actually look like, is it usually wording that's drifted, or something more substantive like a missing citation?"
+    },
+    {
+      "role": "user",
+      "content": "Good question. Honestly, it's a mix, but I'd say it splits roughly into three categories.\n\nThe most common is wording drift — an auditor cites a regulation but paraphrases it loosely, or references it by an old section number because that's what's in their template, and I have to trace it back to confirm it's actually still the current, correct citation. That's tedious but usually not substantive — it's just verification work.\n\nThe second category is genuinely missing or incomplete citations, where a finding references \"food safety labelling requirements\" generally without pointing to the specific clause, and I have to work out which regulation actually applies, sometimes there's more than one candidate and I need to determine which one governs in that specific context.\n\nThe third, and the one that actually requires judgment, is when a finding seems to conflict with how I understand the regulation to apply — where the auditor's interpretation and my reading of the regulation text don't quite line up, and I have to decide whether the finding needs to be pushed back on or whether I'm missing context from the site visit that changes the picture.\n\nThat third category is the one where I want my own eyes on it, no question. The first two — the wording drift, the missing citation matching — that's mechanical. It's checking against a list. It's the kind of thing that, now that I say it out loud, probably doesn't need to be me doing it by hand every single time."
+    },
+    {
+      "role": "assistant",
+      "content": "That's a really useful distinction, thanks for walking through it. Roughly how many findings come through per audit close-out, and how much of your week does the mechanical checking (categories one and two) actually eat up?"
+    },
+    {
+      "role": "user",
+      "content": "It varies by audit type, but a typical site audit might generate anywhere from fifteen to forty findings, and with sites closing out fairly continuously, I'm probably looking at somewhere between sixty and a hundred findings in an active month.\n\nOf those, I'd estimate seventy to eighty percent fall into the first two categories — wording drift or citation matching. So if I'm honest about it, that's a genuinely large chunk. I'd say it's easily ten to twelve hours a week, sometimes more if a few big audits close in the same window. And that's time where I'm not really exercising judgment, I'm just being thorough, which isn't the same thing.\n\nThe substantive category — where I'm actually weighing whether the auditor's interpretation holds up — is maybe a quarter of my findings, and that's where the real value of my time is going. So when you lay it out like that, there's a fairly clear imbalance between where my hours go and where my judgment is actually needed."
+    },
+    {
+      "role": "assistant",
+      "content": "That's a really clear picture, ten to twelve hours a week on mechanical checking versus a quarter of your time where your judgment actually earns its keep. Now, apart from this cross-checking work, is there another part of your week that eats time in a similar frustrating way, maybe something unrelated to audits entirely?"
+    },
+    {
+      "role": "user",
+      "content": "Yes — internal summaries. Periodically I need to write up a summary for senior leadership or for a site manager, pulling together what's changed in the regulatory landscape, or summarising a cluster of audit findings into something digestible for someone who isn't going to read the full detail. The actual drafting of those — turning my notes into clean, readable prose — takes longer than it should, given that the thinking is mostly already done by that point. I know what I want to say, I've done the analysis, but getting it into a well-organised written form still takes real time, and it's not where my expertise is particularly adding value. It's just writing.\n\nThat one, unlike the regulatory cross-checking, doesn't carry the same risk if something goes slightly wrong in a first draft — I'd still read it over and check it myself before it went anywhere. So thinking about it now, that might actually be a place where a tool could genuinely save me time, since I'm reviewing it either way."
+    },
+    {
+      "role": "assistant",
+      "content": "That's a great distinction, and interesting that you landed there yourself. Beyond that regulation list you mentioned in SharePoint, what other systems touch this work, is there a formal audit management system, or is it mostly Excel and SharePoint end to end?"
+    },
+    {
+      "role": "user",
+      "content": "It's mostly Excel and SharePoint end to end, honestly. The audits themselves are logged by the site quality teams into their own tracking sheets — not a unified system, more a set of templates that vary a bit site to site — and those findings get consolidated into the shared SharePoint site where I do my review. My own cross-checking notes live in Excel, which I maintain separately so I have a clean audit trail of what I checked, when, and against which version of the regulation list.\n\nWe don't have a dedicated audit management platform pulling this together automatically. There's been talk of it over the years, but for a business our size it's never quite made the business case, so it stays manual — which is part of why the cross-checking load sits where it does."
+    },
+    {
+      "role": "assistant",
+      "content": "That's useful context, thank you. When you're compiling those summaries for senior leadership, who else typically reads them or acts on them, does anything come back to you afterward that shapes future audits or the regulation list itself?\n\nGiven what we've covered, that's a solid foundation. Before I offer to put the playbook together, is there anything blocking you today from even trying something small, like drafting a summary with AI assistance, beyond the trust concern we already discussed, something practical like data access or approval to use a tool at all?"
+    },
+    {
+      "role": "user",
+      "content": "On the summaries — yes, they typically go to senior leadership and to the relevant site managers, and sometimes to our external auditors if it's a summary being prepared ahead of a scheduled visit. What comes back varies: sometimes leadership flags a pattern they want investigated further, sometimes a site manager pushes back on how a finding was characterised and that sends me back to re-check it. Occasionally it does feed into how we update the regulation list itself, if a summary surfaces that our internal reference is out of date relative to what's actually being cited in audits.\n\nOn your practical question — nothing's blocking me in terms of data access or approval, we do have tools available to us. It's really been the trust concern driving my hesitation, not a technical or procedural barrier. Given what we've talked through today, I'd be open to trying AI assistance on drafting a summary specifically, since I'd be reviewing it myself regardless. I'd want to keep it well away from anything touching the regulation cross-checking itself, at least for now."
+    },
+    {
+      "role": "assistant",
+      "content": "That's genuinely useful, Ingrid, and I think we've got a solid picture now. You've got two clear, distinct pains: the mechanical cross-checking (categories one and two, ten to twelve hours a week of wording drift and citation matching, low judgment but high time cost) and the drafting slog on leadership summaries, where the thinking's done but writing clean prose still takes real time. You've named your systems clearly (Excel for your working notes, SharePoint for the shared audit findings), you've got a genuine, well-earned trust concern about anything touching regulatory judgment specifically, and you're open to starting small with the summaries since you'd review them anyway regardless.\n\nHere's what I can offer: a playbook that gives you a clear read on where you stand with AI right now, a handful of use-cases matched specifically to your work and the systems you named (each with a before and after, and roughly how much effort each takes to get going), a few concrete next moves, and one thing you could try today, likely starting with that summary drafting since it's lowest-risk and you're already reviewing the output anyway.\n\nWould you like me to put that together?\n\n[[READY_TO_BUILD]]"
+    }
+  ],
+  "simulation": {
+    "model": "claude-sonnet-5",
+    "interview_prompt_version": "fb2975df012d",
+    "simulated_at": "2026-09-27T17:27:44.223898+00:00"
+  },
+  "approval": {
+    "approved_at": "2026-09-27T18:38:42.555315+00:00",
+    "notes": ""
+  }
+}

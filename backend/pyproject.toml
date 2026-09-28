@@ -69,9 +69,9 @@ format = "ruff format ."
 # programme and is linted by the non-required "staged" CI job instead).
 format-check = "ruff format --check ."
 lint = "ruff check ."
-lint-src = "ruff check src tests alembic"
+lint-src = "ruff check src tests alembic evals"
 # ty-src is clean and gates CI; ty (whole backend) carries known debt in scripts/ + alembic/.
-ty-src = "ty check src"
+ty-src = "ty check src evals"
 ty = "ty check ."
 migrate = "alembic revision --autogenerate -m"
 upgrade = "alembic upgrade head"

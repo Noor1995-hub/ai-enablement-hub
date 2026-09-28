@@ -81,7 +81,7 @@ async def chat_client(
         service = ChatService(
             ConversationRepository(db_session),
             MessageRepository(db_session),
-            fake_llm,  # ty: ignore[invalid-argument-type]
+            fake_llm,
         )
         app.dependency_overrides[get_session] = _override_session
         app.dependency_overrides[get_settings] = lambda: test_settings

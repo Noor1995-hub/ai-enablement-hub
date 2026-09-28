@@ -1,0 +1,150 @@
+{
+  "id": "food-safety-coordinator",
+  "status": "approved",
+  "tags": [
+    "operational"
+  ],
+  "industry": "food production",
+  "user": {
+    "first_name": "Nele",
+    "last_name": "Peeters"
+  },
+  "assessment": {
+    "job_title": "Food Safety Coordinator",
+    "department": "Quality",
+    "b_freq": "NEVER",
+    "b_tools": [
+      "NONE_YET"
+    ],
+    "b_setup": [
+      "NONE"
+    ],
+    "b_barriers": [
+      "NO_ACCESS",
+      "POLICY_RESTRICTS"
+    ],
+    "q_timesink": "Typing HACCP log entries into the quality system by hand every shift",
+    "q_excitement": "Anything that saves me re-typing the same log entries",
+    "c1_code": "MISSING",
+    "c2_code": "MISSING",
+    "c3_code": "MISSING",
+    "c4_code": "PARTIAL",
+    "c5_codes": [
+      "NO_USE"
+    ],
+    "c6_code": "MISSING",
+    "score_level": "explore",
+    "usage_band": "dormant",
+    "effective_level": "explore",
+    "learning_status": "not_started"
+  },
+  "persona": "Nele Peeters is a Food Safety Coordinator at a dairy processing plant. Her PC is locked down and validated, nothing can be installed without IT approval, and she is not sure she is even allowed to open a public AI tool on it. She logs HACCP checks into the quality management system by hand every shift and keeps her own audit-prep notes in Excel, and she describes both in concrete detail when asked. She answers questions carefully and honestly, and when asked what she could realistically start using tomorrow she is doubtful that anything is actually available to her given the IT restrictions, saying so plainly rather than pretending otherwise. She wraps up once she has covered her actual daily tasks, typically after 6-7 answers.",
+  "ground_truth": {
+    "named_systems": [
+      "quality management system",
+      "MasterControl",
+      "ChatGPT"
+    ],
+    "workstreams": [
+      {
+        "name": "HACCP logging",
+        "keywords": [
+          "haccp",
+          "log entr"
+        ]
+      },
+      {
+        "name": "deviation write-ups",
+        "keywords": [
+          "deviation"
+        ]
+      }
+    ],
+    "hesitations_voiced": [
+      "I've assumed it's a no, rather than actually testing it and getting in trouble"
+    ],
+    "hesitations_withdrawn": [],
+    "pronouns_stated": null
+  },
+  "adversarial": null,
+  "stop_after_answers": null,
+  "transcript": [
+    {
+      "role": "assistant",
+      "content": "Hi Nele, good to have you here. From your assessment I've got you as a Food Safety Coordinator in Quality, currently not using any AI tools, with the log entry typing into the quality system as your biggest time-sink, is that right?"
+    },
+    {
+      "role": "user",
+      "content": "Yes, that's right. Every shift I go through the HACCP checkpoints — CCPs, pasteurization temps, cooling times, sanitation verification — and I type each one into the quality management system by hand. It's not complicated work, it's just repetitive, and if something's slightly out of range I have to write a deviation note explaining what happened and what corrective action was taken. That part especially eats time because I have to phrase it carefully so it holds up if an auditor reads it later."
+    },
+    {
+      "role": "assistant",
+      "content": "That's a really clear picture, thank you. Quick question first: what's the quality management system called, the one you're typing these into?"
+    },
+    {
+      "role": "user",
+      "content": "It's called MasterControl — that's the system we log the HACCP checks and deviations into. I don't administer it or anything, I just use the forms IT and QA set up for us."
+    },
+    {
+      "role": "assistant",
+      "content": "Good to know, that's a specific one. Before I dig into MasterControl more, where do the raw numbers actually come from first, like the pasteurization temps and cooling times, are they on paper on the floor before they reach you?"
+    },
+    {
+      "role": "user",
+      "content": "Some of it's automatic — the pasteurizer has a chart recorder and a digital readout that logs temps continuously, so I check that against the printed strip. But cooling times, sanitation checks, things like allergen line clearance, those I still write down on a paper checklist as I walk the floor. Then I go back to the office and transfer everything from the paper sheet and the chart recorder into MasterControl by hand."
+    },
+    {
+      "role": "assistant",
+      "content": "Now that makes sense, so paper checklist plus chart recorder readings, then a manual retype into MasterControl. Roughly how long does that transfer step take you, and how many times a shift or a day does it happen?"
+    },
+    {
+      "role": "user",
+      "content": "I do rounds four times a shift, so four checklists, and each one takes me maybe 15-20 minutes to transfer in — a bit longer if there's a deviation to write up. So call it an hour, hour and a half total per shift just on data entry, on top of the actual walking-the-floor time."
+    },
+    {
+      "role": "assistant",
+      "content": "That's a solid chunk of time, an hour to ninety minutes every shift just moving numbers from paper into MasterControl. Let's shift for a second, when a deviation happens and you have to write that corrective action note, walk me through the last time that happened, what triggered it and what you actually typed."
+    },
+    {
+      "role": "user",
+      "content": "Last one was maybe two weeks ago — the cooling tank on line 2 was reading a couple degrees above spec on my afternoon round. So I noted the actual temp, the time, then I had to go find the line operator and ask what happened. Turned out a valve hadn't fully closed after a wash cycle. I wrote it up as something like: temp deviation observed at [time], root cause identified as valve X not fully seated after CIP, corrective action taken — valve reseated, product held and retested, temp back in spec by [time], no product released outside parameters. Then I flagged it for my supervisor to countersign. That one took a while because I had to track down the operator first before I could even write the note properly."
+    },
+    {
+      "role": "assistant",
+      "content": "That's a great concrete example, thank you. So two separate pains already: the routine paper-to-MasterControl retyping, and the deviation write-up which is slower because it needs the phrasing right AND tracking someone down first. Let's go to a different angle: aside from your supervisor countersigning, who else ever sees or uses what you type into MasterControl?"
+    },
+    {
+      "role": "user",
+      "content": "QA management pulls reports from it for trend review, and it's what auditors look at when they come through — whether that's a customer audit or a regulatory one like the FDA. So the wording really does matter, because someone outside the plant who has no context is going to read it eventually."
+    },
+    {
+      "role": "assistant",
+      "content": "That's an important detail, the audience is often someone with zero floor context. Now, thinking about barriers, your assessment mentioned no access to AI tools and a company policy restricting it, what have you actually tried or heard that led you to believe it's off limits?"
+    },
+    {
+      "role": "user",
+      "content": "Honestly, nothing's been announced one way or the other — I just know my PC is locked down, IT has to approve any software install, and I've never seen anything about AI tools in our SOPs or policies. So I've assumed it's a no, rather than actually testing it and getting in trouble. I haven't tried opening anything like ChatGPT on my work computer, no."
+    },
+    {
+      "role": "assistant",
+      "content": "That's a really useful distinction, an assumed no rather than a tested one. So on your work computer right now, without any new install or IT ticket, what could you actually open, is there a browser, email, anything like that already sitting there unrestricted?"
+    },
+    {
+      "role": "user",
+      "content": "There is a browser, and I can get to email and our intranet fine. But I genuinely don't know if a site like ChatGPT would even load, or if it's blocked at the network level, or if opening it would flag something with IT. I've never tried, so I couldn't tell you for sure what's realistically usable tomorrow without just testing it or asking IT directly first.\n\nI think that covers the main parts of my day — the rounds, the MasterControl entries, and the deviation write-ups are really the core of what I do. That's probably a good place to stop."
+    },
+    {
+      "role": "assistant",
+      "content": "That's a fair place to pause, and it's honest that you haven't tested the water there. I think I've got what I need: two clear pains (the routine paper-to-MasterControl retyping eating an hour to ninety minutes a shift, and the slower deviation write-ups that need careful phrasing plus tracking someone down first), the systems involved (MasterControl, paper checklists, the chart recorder), who reads the output (supervisor, QA management, auditors with no floor context), and the real blocker (an assumed rather than tested policy restriction, plus a locked-down PC).\n\nHere's what I'd suggest: let me put together a playbook that gives you a read on where you stand with AI right now, a few use-cases matched specifically to the rounds, MasterControl entries, and deviation notes you described (each with a before and after, and roughly how much effort each would take to set up), some concrete next steps including how to actually find out what's usable on your current setup, and one small thing you could try as soon as tomorrow. Does that sound useful to build?\n\n[[READY_TO_BUILD]]"
+    }
+  ],
+  "simulation": {
+    "model": "claude-sonnet-5",
+    "interview_prompt_version": "fb2975df012d",
+    "simulated_at": "2026-09-27T17:31:00.013147+00:00"
+  },
+  "approval": {
+    "approved_at": "2026-09-27T18:39:00.248208+00:00",
+    "notes": ""
+  }
+}

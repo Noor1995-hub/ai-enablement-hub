@@ -1,0 +1,190 @@
+{
+  "id": "md-construction",
+  "status": "approved",
+  "tags": [
+    "management"
+  ],
+  "industry": "construction",
+  "user": {
+    "first_name": "Marc",
+    "last_name": "Lauwers"
+  },
+  "assessment": {
+    "job_title": "Managing Director",
+    "department": "Executive",
+    "b_freq": "MONTHLY",
+    "b_tools": [
+      "CHATGPT"
+    ],
+    "b_setup": [
+      "NONE"
+    ],
+    "b_barriers": [
+      "NO_TIME"
+    ],
+    "q_timesink": "Honestly it's just a busy job, lots of things competing for attention",
+    "q_excitement": "The industry moving faster in general, staying on top of the curve",
+    "c1_code": "MISSING",
+    "c2_code": "MISSING",
+    "c3_code": "MISSING",
+    "c4_code": "PARTIAL",
+    "c5_codes": [
+      "NO_USE"
+    ],
+    "c6_code": "MISSING",
+    "score_level": "explore",
+    "usage_band": "occasional",
+    "effective_level": "explore",
+    "learning_status": "not_started"
+  },
+  "persona": "Marc Lauwers is Managing Director of a mid-size construction company that builds commercial buildings for developers. He speaks almost entirely in generalities: the industry is changing, efficiency matters, everyone needs to keep up, and he wants the company to be on top of the curve. When asked what he personally does in a normal week, he stays at the same altitude, talking about steering the business and having a lot on his plate, and rarely lands on a concrete task or system; the closest he gets is mentioning he checks Outlook constantly. Only when pressed specifically for one thing he actually sits down and does every week does he mention the Friday margin review with his project directors, going through the numbers on active sites, before drifting straight back to the big picture. He is affable and talks a lot, but every other follow-up question pulls the same broad answer back out rather than a specific one. He winds the conversation down once he feels he has given his views on where the industry is headed, usually after 6-7 answers.",
+  "ground_truth": {
+    "named_systems": [
+      "Outlook",
+      "Word",
+      "PowerPoint"
+    ],
+    "workstreams": [
+      {
+        "name": "project margin review",
+        "keywords": [
+          "margin",
+          "project director"
+        ]
+      },
+      {
+        "name": "email chase-down",
+        "keywords": [
+          "dig",
+          "chas"
+        ]
+      }
+    ],
+    "hesitations_voiced": [
+      "there just aren't enough hours in the day to sit down and really learn a new tool properly"
+    ],
+    "hesitations_withdrawn": [],
+    "pronouns_stated": null
+  },
+  "adversarial": null,
+  "stop_after_answers": null,
+  "transcript": [
+    {
+      "role": "assistant",
+      "content": "Hi Marc, good to meet you. I've got you down as a Managing Director in Executive, using ChatGPT a few times a month, and the main barrier being just not having time to learn it properly — sound about right?"
+    },
+    {
+      "role": "user",
+      "content": "That's right, that's right. Look, the reality is the whole industry is moving very fast at the moment, and everyone's talking about AI, everyone's got an opinion on it, but the honest truth is between running the business and being on site and in front of clients, there just aren't enough hours in the day to sit down and really learn a new tool properly. I know it's important, I know we need to be on top of the curve on this, but it's one of those things that keeps getting pushed to next week."
+    },
+    {
+      "role": "assistant",
+      "content": "That makes total sense, especially with everyone having an opinion and the pressure to \"keep up.\" Let me get a feel for a normal week so I can spot where something might actually slot in without needing extra hours. What does a typical Monday morning look like for you, systems-wise, what's the first thing you open?"
+    },
+    {
+      "role": "user",
+      "content": "Well, Monday morning is usually straight into it - I mean, I'm checking Outlook constantly, that's really the hub of everything for me, emails coming in from all directions, developers, project directors, subcontractors. It's about getting on top of what's happened over the weekend on the sites, making sure nothing's fallen over, and then setting the tone for the week. There's always a lot on my plate, a lot of balls in the air, so Monday's really about triage more than anything else."
+    },
+    {
+      "role": "assistant",
+      "content": "Got it, Outlook as the real hub. When you say triage, walk me through it a bit more, what does that actually look like, are you reading every email in the inbox in order, flagging things, forwarding to people?"
+    },
+    {
+      "role": "user",
+      "content": "Look, it's a bit of everything, honestly. It's reading through, flagging what's urgent, firing things off to the right people, making sure the important stuff doesn't get lost in the noise. It's about keeping the whole operation moving, really, because if I sit on something for a day, that can hold up a whole site. So it's very much reactive, responsive, staying ahead of it rather than behind it."
+    },
+    {
+      "role": "assistant",
+      "content": "That reactive, stay-ahead-of-it pressure makes sense given how much rides on a quick turnaround. Beyond Outlook, what's the next system you're in most during the week, something like a project system, financials, anything like that?"
+    },
+    {
+      "role": "user",
+      "content": "There's a few things I dip into - we've got our project management systems that the directors run day to day, and I'll look at the financials package when I need to, but honestly I'm not the one living in those systems day to day, that's what I have good people for. My job is more about steering the ship, keeping an eye on the big picture, making sure we're heading in the right direction as a business."
+    },
+    {
+      "role": "assistant",
+      "content": "That's a useful distinction, thanks. So most of your own hands-on time is in Outlook and probably things like Word or PowerPoint for reports or presentations, would that be fair, or is there something else you personally sit in?"
+    },
+    {
+      "role": "user",
+      "content": "Yeah, look, Word and PowerPoint, absolutely, for board papers, presentations, that sort of thing. But if you want the one thing I really sit down and do every week, it's the Friday margin review with my project directors - we go through the numbers on all the active sites, line by line, make sure everything's tracking where it should be. That's the one fixed point in my week that doesn't move. Everything else kind of flows around that."
+    },
+    {
+      "role": "assistant",
+      "content": "That Friday margin review sounds like real, concrete territory. Walk me through it, where do the numbers come from before you sit down, are they emailed to you, do you pull them from a system, and what do you personally do with them once you're looking at them?"
+    },
+    {
+      "role": "user",
+      "content": "The directors put the numbers together from their end - they pull it from the project systems - and it comes through to me ahead of the meeting so I've had a chance to have a look. Then in the room we go through it together, site by site, and we're really interrogating where we're at, where the risks are, where we might be leaking margin. It's a good discipline, keeps everybody honest, keeps everybody sharp. And it feeds straight back into the bigger picture of how the business is performing, which is ultimately what I'm accountable for at the end of the day.\n\nI think that gives you a good flavour of it, really. Look, the big picture for me is that this industry has to modernise, we can't stand still, and however this AI piece fits in, it needs to make life easier, not add another layer of complexity to already very busy weeks."
+    },
+    {
+      "role": "assistant",
+      "content": "That's a fair bar to set, easier not heavier. Quick one on that Friday review, when the numbers land ahead of the meeting, what format are they in, a spreadsheet, a PDF report, something else?"
+    },
+    {
+      "role": "user",
+      "content": "It's normally a spreadsheet that comes through, yeah. Look, that's really the mechanics of it - the bigger point is that whatever we bring into this business on the AI side has to serve that kind of discipline, not distract from it. That's what I'll be watching closely as we go forward."
+    },
+    {
+      "role": "assistant",
+      "content": "Good to know it's spreadsheets landing from each director. Given how packed the reading and review side is, when you're going through the spreadsheet, are you spotting the risks yourself line by line, or are you relying mostly on what the directors flag to you beforehand?"
+    },
+    {
+      "role": "user",
+      "content": "Bit of both, honestly. I'll cast my own eye over it, I've got a good instinct for where the numbers don't look right after all these years, but I'm also relying on my directors to flag what they're seeing on the ground, because they're closer to it day to day than I am. It's a good balance, and that's ultimately what the review is for, bringing those two perspectives together."
+    },
+    {
+      "role": "assistant",
+      "content": "That balance of instinct and their ground-level view makes sense. Let's shift a bit, outside the Friday review and the Monday inbox triage, what's the last thing at work that made you actually sigh, something that felt like a genuine time-sink or frustration?"
+    },
+    {
+      "role": "user",
+      "content": "Look, if I'm honest, it's the sheer volume of email. That's the thing that really tests me. It just doesn't stop, it keeps coming, and it can feel relentless at times. I think that's probably the same for every managing director in this industry, to be fair, it's not unique to us. But that's the nature of the job, isn't it, you've got to stay on top of it or it gets on top of you."
+    },
+    {
+      "role": "assistant",
+      "content": "Right, the volume itself is the enemy, not any one email. When it's really piling up, is there a particular kind of email that eats the most time to deal with, the long ones that need a proper reply, or ones where you have to go dig up information before you can answer, or something else?"
+    },
+    {
+      "role": "user",
+      "content": "It's probably the ones where I've got to go and dig something out before I can even respond properly - chase somebody, find a document, get the background - that's what really eats the time. The quick ones I can fire back in thirty seconds, it's the ones that need a bit of legwork behind them that slow the whole day down.\n\nLook, I think you've got a good picture now of how my week runs. The big message from me is that this industry is changing fast, and we need to make sure we're ahead of that curve rather than playing catch-up, whatever shape that ends up taking."
+    },
+    {
+      "role": "assistant",
+      "content": "That digging-and-chasing pattern before you can reply is a great concrete example, thanks. Before I wrap up my picture, one thing I haven't asked, have you actually tried using ChatGPT for anything work related yet, even something small, or has it mostly stayed separate from the actual job so far?"
+    },
+    {
+      "role": "user",
+      "content": "I've had a bit of a play with it, if I'm honest, nothing major - I think I asked it to help draft something once, a bit of wording for an email or a report, just to see what it could do. But it's not really embedded in what I do day to day yet. I think that's true for a lot of people in my position, it's more curiosity than actual habit at this stage."
+    },
+    {
+      "role": "assistant",
+      "content": "Appreciate the honesty there, that curiosity-not-habit stage is really common. When you tried it for that wording, did you use what it gave you pretty much as is, or did you end up rewriting most of it yourself?"
+    },
+    {
+      "role": "user",
+      "content": "Ah, look, I tidied it up quite a bit, put my own stamp on it, because at the end of the day it's got to sound like me, hasn't it. But it wasn't a bad starting point, I'll give it that. Anyway, look, I think we've covered the ground well here - the main thing for me is making sure this business stays ahead of the curve as the industry keeps moving, and whatever comes out of this needs to work with that, not against it."
+    },
+    {
+      "role": "assistant",
+      "content": "That \"not a bad starting point but needed my stamp on it\" is a really useful data point, thanks for that. I think I've got a solid picture now: Outlook as the real battleground with that dig-and-chase problem before replies, the Friday margin review as the one fixed, high-value ritual in your week, and a genuine appetite to stay ahead of the curve even though AI hasn't found its way into daily habits yet. Before I close things off, one last gap, when something needs sign-off or input from someone else, whether it's the directors or another part of the business, who tends to be on the other end of those emails you're chasing?"
+    },
+    {
+      "role": "user",
+      "content": "That's usually my project directors, or sometimes it's the developers themselves on the client side - depends on what's needed. But look, I think that's a good summary of where things stand. The main thing I'd leave you with is that this industry has to keep moving forward, we can't afford to stand still, and I'm keen for us to be on the front foot with all of this rather than playing catch-up down the line."
+    },
+    {
+      "role": "assistant",
+      "content": "That gives me a clear enough picture to build something useful for you, Marc. Here's what I've got: you're mostly working in Outlook, Word and PowerPoint, with the Friday margin review as the one fixed ritual pulling spreadsheet data from your directors, real time-sinks around email volume (especially the dig-and-chase ones where you need to hunt down info or people before replying), a good instinct for spotting risk in numbers balanced against relying on your directors' ground-level view, and a stage with AI that's curious but not yet habitual, happy to use a draft as a starting point but always putting your own stamp on it.\n\nThat's enough for me to put together a playbook: a read on where you stand with AI today, a handful of use-cases matched to your actual week (the email chase-down problem and the margin review are the obvious candidates), roughly how much lift each one takes, a few clear next moves, and one thing you could try this week without waiting on anyone. Want me to build that now?\n\n[[READY_TO_BUILD]]"
+    }
+  ],
+  "simulation": {
+    "model": "claude-sonnet-5",
+    "interview_prompt_version": "fb2975df012d",
+    "simulated_at": "2026-09-27T17:29:00.857739+00:00"
+  },
+  "approval": {
+    "approved_at": "2026-09-27T18:38:48.800689+00:00",
+    "notes": ""
+  }
+}

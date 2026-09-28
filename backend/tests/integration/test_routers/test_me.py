@@ -188,7 +188,7 @@ class TestJourney:
         app.dependency_overrides[get_interview_service] = lambda: InterviewService(
             ConversationRepository(db_session),
             MessageRepository(db_session),
-            FakeLlmClient(chunks=[]),  # ty: ignore[invalid-argument-type]
+            FakeLlmClient(chunks=[]),
             None,  # ty: ignore[invalid-argument-type] - status_for never touches context
         )
 

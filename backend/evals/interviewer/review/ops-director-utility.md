@@ -1,0 +1,106 @@
+# Review: ops-director-utility
+
+Tags: management
+
+## Assessment
+```json
+{
+  "job_title": "Operations Director",
+  "department": "Operations",
+  "b_freq": "MONTHLY",
+  "b_tools": [
+    "NONE_YET"
+  ],
+  "b_setup": [
+    "NONE"
+  ],
+  "b_barriers": [
+    "NO_TIME"
+  ],
+  "q_timesink": "Sign-off on things my team leads already worked out",
+  "q_excitement": "Not really sure, my team would know better than me",
+  "c1_code": "MISSING",
+  "c2_code": "MISSING",
+  "c3_code": "MISSING",
+  "c4_code": "PARTIAL",
+  "c5_codes": [
+    "NO_USE"
+  ],
+  "c6_code": "MISSING",
+  "score_level": "explore",
+  "usage_band": "dormant",
+  "effective_level": "explore",
+  "learning_status": "not_started"
+}
+```
+
+## Persona (simulator brief, not shown to the interviewer)
+Johan Peeters is Operations Director at a regional water utility. He oversees several team leads who run the actual maintenance and network-planning systems, and he mostly deals with budgets, sign-offs and Outlook, since the detailed work happens below him. He gives short, generic answers about his own week and quickly redirects any specific question to what his team does, saying he trusts them to handle the tools directly. He answers plainly and does not embellish, but he is busy and clearly wants the interview to wrap up quickly, giving only a handful of brief answers before he says he needs to get back to a meeting.
+
+## Transcript
+**assistant:** Hi Johan, good to meet you. From your assessment I've got you down as an Operations Director, using AI only a few times a month so far, and not really having any tools or workflows set up yet, mostly for lack of time. Sound right?
+
+If so, let's start simple: walk me through yesterday, what was the first system or tool you opened when you sat down to work?
+
+**user:** Yeah, that's about right. Yesterday morning I just opened Outlook, went through emails, had a couple of budget sign-offs waiting. Pretty standard start to the day.
+
+**assistant:** Got it, Outlook and budget sign-offs first thing. When you say sign-offs were waiting, what did you actually have to do to approve one, open an attachment, check numbers against something, reply to a thread?
+
+**user:** Mostly just opening an attachment - usually a spreadsheet one of my team leads put together - checking the totals looked right against what we'd budgeted, and replying to approve it. Nothing complicated.
+
+**assistant:** Okay, so a spreadsheet attachment in Outlook. Where does that budget you're checking against live, is that in the same spreadsheet, a separate file, or another system entirely?
+
+**user:** That's usually in a separate finance system, but honestly my team leads handle pulling that together - I just check the final numbers make sense before signing off. You'd want to ask them about the details of how it's put together.
+
+**assistant:** Fair enough, that's their side of it. From your side then, when you say you check the numbers "make sense", is that mostly eyeballing whether it's in the right ballpark, or do you actually cross-reference specific figures against the finance system yourself?
+
+**user:** Mostly eyeballing it, checking it's in the right ballpark and flagging anything that looks off - I'm not going line by line into the finance system myself. Look, I need to get to a meeting now, but good chatting with you.
+
+**assistant:** Totally understand, thanks for the time so far, Johan. Quick honest note before you go: I've got a decent read on your sign-off routine, but I'm missing a second concrete pain point beyond that, and I don't yet have a clear picture of who else is involved besides your team leads. That means the playbook will be thinner on cross-functional angles and on alternative time-sinks, it'll mostly focus on the sign-off flow.
+
+If you've got two minutes another time, that's what would sharpen it most. For now, want me to go ahead and build what I can from what we've covered?
+
+[[READY_TO_BUILD]]
+
+## Ground truth (reconciled against the transcript)
+```json
+{
+  "named_systems": [
+    "Outlook"
+  ],
+  "workstreams": [
+    {
+      "name": "approvals",
+      "keywords": [
+        "sign-off",
+        "approv"
+      ]
+    }
+  ],
+  "hesitations_voiced": [
+    "I don't really have time for this, my team would know better than me"
+  ],
+  "hesitations_withdrawn": [],
+  "pronouns_stated": null
+}
+```
+
+Named systems not found in the person's answers (remove at review if really unsaid): none
+
+Possible systems the person named that are not in named_systems (add at review if they are systems): none
+
+Workstreams whose keywords never appear in the person's answers (fix keywords or remove at review): none
+
+Empty learner replies replaced with the placeholder: none
+
+Will build at run time: yes (offer present)
+
+## Checklist before approving
+- [ ] No real names, companies or identifying details anywhere above.
+- [ ] Every `named_systems` entry was actually said in the transcript.
+- [ ] Every system the person named in the transcript is listed in named_systems (add any missing).
+- [ ] Every 'possible system' above that really is a system has been added to named_systems (or dismissed as not a system).
+- [ ] Every workstream with no keyword hits above has been fixed or removed.
+- [ ] The transcript reads like this persona, not a generic interview.
+- [ ] The stop point matches the persona's stated stop rule.
+- [ ] The 'Will build at run time' line says yes.

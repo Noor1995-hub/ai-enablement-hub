@@ -1,0 +1,167 @@
+# Review: data-analyst-services
+
+Tags: operational
+
+## Assessment
+```json
+{
+  "job_title": "Data Analyst",
+  "department": "Analytics",
+  "b_freq": "INTENSIVE",
+  "b_tools": [
+    "CLAUDE",
+    "CHATGPT"
+  ],
+  "b_setup": [
+    "REUSABLE_INSTR",
+    "CONNECTION"
+  ],
+  "b_barriers": [
+    "NOTHING"
+  ],
+  "q_timesink": "Rebuilding the same one-off SQL query from scratch every time a client asks a slightly different question",
+  "q_excitement": "Turning my ad hoc scripts into something a colleague could actually run without me",
+  "c1_code": "ADV_D",
+  "c2_code": "ADV_E",
+  "c3_code": "ADV_D",
+  "c4_code": "ADV_D",
+  "c5_codes": [
+    "APPROVED_PASTE"
+  ],
+  "c6_code": "ADV_D",
+  "score_level": "integrator",
+  "usage_band": "embedded",
+  "effective_level": "integrator",
+  "learning_status": "not_started"
+}
+```
+
+## Persona (simulator brief, not shown to the interviewer)
+Yara De Backer is a Data Analyst at a professional services and consulting firm. They mention early on, unprompted, 'I use they/them,' and carry on. Yara builds client-facing dashboards in Power BI and writes most of the underlying queries in SQL, and already uses Claude daily with a saved set of custom instructions plus a connection into exported data files to speed up analysis. Their real frustration is that every project reinvents the same query logic from scratch instead of reusing what already works, and they want to go from scattered ad hoc scripts to one documented, reusable workflow a colleague could run without them, not a wholesale rebuild of how the team works. They talk precisely, using the right technical terms, and answer efficiently without padding, wrapping up once they have covered current setup, the real gap and what one step up would look like, usually after 6-8 answers.
+
+## Transcript
+**assistant:** Hi Yara, good to meet you. From your assessment, I've got you as a Data Analyst in Analytics who's already deep into AI use, daily Claude and ChatGPT, with a reusable prompt template and a tool connected to another app already set up. Sound right?
+
+If so, let's start concrete: walk me through the last time a client asked one of those "slightly different question" variations, what were you actually doing step by step to rebuild that SQL query?
+
+**user:** I use they/them, just so that's clear from the start. And yes, that's roughly right.
+
+Last instance was a client who wanted their standard revenue-by-region breakdown, but filtered to exclude a specific product line they'd divested mid-quarter. So, step by step: I pulled up the last version of the query from that project folder, manually scanned it to find where the product filter logic lived, then opened Claude with the export of the data dictionary and the previous query pasted in. I asked it to modify the WHERE clause and add the exclusion, checked the join logic hadn't broken anything downstream since the exclusion affected an aggregation upstream too, then ran it against a sample extract to sanity check row counts before pushing it into the actual Power BI model.
+
+Total time maybe 40 minutes, but 15 of those were just me re-familiarizing myself with a query I wrote three months ago for a different client.
+
+**assistant:** Thanks for the correction, noted, they/them it is.
+
+That's a really concrete walkthrough, thank you. Quick one before I move on: where does that "last version of the query" actually live, is that project folder a shared drive, a repo, something else by name?
+
+**user:** It's a shared drive, SharePoint. Each client engagement has its own folder, and within that there's usually a "queries" or "scripts" subfolder where I dump whatever I last used. No version control beyond filenames like "revenue_query_v3_final_USE_THIS.sql" — which is exactly the problem, there's no single source of truth, just whatever the last analyst on the project happened to name things.
+
+**assistant:** That naming convention says a lot. So SharePoint for storage, Claude for query editing, and Power BI as where it eventually lands, good to have those named.
+
+Now, second pain, something different from the SQL rebuild: what's the last thing at work that made you sigh, maybe not related to queries at all?
+
+**user:** Documentation. I wrote a full data dictionary and transformation notes for a client project two months ago — took me half a day — and last week a colleague picking up follow-on work for the same client didn't know it existed, went and rebuilt half the transformations from scratch by reading the Power BI model backwards. It was sitting in the same SharePoint folder, just not somewhere they thought to look, because there's no convention for where documentation lives relative to the queries it describes.
+
+That's the sigh. Not that the work was hard, but that it already existed and got redone anyway.
+
+**assistant:** That's a real one, half a day of work invisible to the person who needed it most. That colleague, are they also in Analytics, or a different team entirely, and do they normally work in the same SharePoint structure as you?
+
+**user:** Same team, Analytics, same SharePoint structure. That's what makes it worse — it's not a cross-team handoff problem where you'd expect friction, it's someone who had access to the exact same folder and still didn't find it. So it's not really a permissions or tooling gap, it's that nothing points to where the documentation lives, no index, no naming convention, nothing in the query file itself saying "hey, there's a dictionary for this two folders up."
+
+**assistant:** That's a good distinction, same access, still invisible, so it's a discoverability problem not a permissions one. Given both of these, the query rebuilding and the buried documentation, where do you think AI could actually help, in your own words?
+
+**user:** Honestly, I think this is less an AI problem and more a structure problem that AI could then make useful. If we had one documented, reusable query template per common analysis type — parameterized for client-specific filters — with the documentation living right alongside it, consistently, then Claude could actually help maintain and extend that living document instead of me reconstructing context from scratch every time.
+
+Concretely: a folder convention, a template library of the 5-6 query patterns we rebuild constantly, each with inline documentation, and then Claude used to help adapt the template to a new client's specifics and to keep the docs updated when the query changes. That way a colleague doesn't need me to explain anything, they open the template, the notes are right there, and the AI assist is on updating and adapting, not reconstructing.
+
+That's the one step up I'd actually want. Not a new tool, not a wholesale process rebuild, just us finally treating the query logic as a reusable asset instead of scratch work.
+
+**assistant:** That's a genuinely well thought through answer, and it lines up with what excites you already, turning ad hoc scripts into something a colleague can run without you. Given you clearly see the fix, what's actually stopped you or the team from building that template library so far, even a rough first version?
+
+**user:** Time and ownership, mostly. Everyone's billable to client work, so building shared infrastructure is the thing that only happens if someone volunteers unpaid effort or a manager explicitly carves out hours for it. I've started it twice, actually, got two or three templates half-documented, and then a client deadline hit and it sat there. There's also no clear owner, it's not anyone's job to maintain it, so even the version I started, nobody's sure if they should build on it or if I'm still "using" it.
+
+That's really it, it's not a skills or tooling gap, it's that it's nobody's explicit responsibility.
+
+**assistant:** That's the real blocker then, not capability, ownership and priority. Let's shift a bit: besides that one colleague, who else touches this work upstream or downstream, like where does the client request actually come from, and who consumes the Power BI model after you build it?
+
+**user:** Requests usually come through the engagement manager, who's talked to the client and translates their ask into something like "add a filter for this" or "we need this broken out by quarter instead." Sometimes it's more raw than that, just forwarded client emails, and I have to interpret what they actually mean.
+
+Downstream, it's the client themselves viewing the Power BI dashboard directly, sometimes it's the engagement manager presenting it in a meeting, pulling screenshots into a slide deck. So there's no other analyst layer after me, I'm the last technical touchpoint before it's client-facing, which is part of why the query quality and documentation matters. If I get it wrong or undocumented, there's no one downstream to catch it.
+
+**assistant:** That makes the stakes clearer, you're the last technical checkpoint before it's client-facing. One more thing on that translation step, when the engagement manager forwards a raw client email and you have to interpret what they actually mean, how often does that happen, and does it ever lead you down the wrong path before you realize the ask was different?
+
+**user:** Fairly often, maybe a third of requests come that way. And yes, it's led me down the wrong path a handful of times — client says something like "can we see the trend over time" and I build a monthly trend, turns out they wanted quarterly because that's how their internal reporting cycle works, which I'd have known if I'd been on the original call. That's another one or two hours lost to a clarification I could've gotten upfront if the engagement manager had just asked one follow-up question, or if I'd been looped into the email thread directly instead of getting the paraphrase.
+
+**assistant:** That's a third real pain, ambiguous handoff from paraphrased requests, costing you one to two hours when it goes sideways. That's a good, clear picture building up. Let me ask one more thing on maturity, when you use Claude for the query modification work, do you tend to check its output line by line, or has your trust in it grown to the point where you mostly skim and run?
+
+**user:** Depends on the complexity. For a straightforward filter addition, I skim, mostly checking the WHERE clause and that it hasn't touched anything else. But for anything involving joins or aggregations, I check it line by line, because I've had it silently change a join type or drop a null handling case that mattered, subtle enough that the query still runs, just gives wrong numbers. Given I'm the last checkpoint before client-facing, I can't afford to just trust and run on anything nontrivial.
+
+**assistant:** That's a sharp, well calibrated way to use it, trust scaled to risk, not blanket trust. I think I've got a solid, clear picture now: two named systems (SharePoint and Power BI, with Claude as your working tool), three real pains (the query rebuild rework, the buried documentation, and the paraphrased client-request ambiguity), your own template-library idea, the ownership blocker behind it, and a clear view of who's upstream and downstream of you.
+
+That's enough to build a useful playbook. It'll give you a read on where you actually stand with AI right now, a handful of use cases matched to your real tasks and the systems you named, each with a before and after and a rough sense of effort, a few concrete next moves, and one thing you could try today. Want me to go ahead and build it?
+
+[[READY_TO_BUILD]]
+
+## Ground truth (reconciled against the transcript)
+```json
+{
+  "named_systems": [
+    "Power BI",
+    "SQL",
+    "Claude",
+    "SharePoint"
+  ],
+  "workstreams": [
+    {
+      "name": "client dashboards",
+      "keywords": [
+        "dashboard",
+        "power bi"
+      ]
+    },
+    {
+      "name": "query reuse",
+      "keywords": [
+        "query",
+        "sql"
+      ]
+    },
+    {
+      "name": "documentation discoverability",
+      "keywords": [
+        "document"
+      ]
+    },
+    {
+      "name": "client request handoff",
+      "keywords": [
+        "paraphrase",
+        "clarif"
+      ]
+    }
+  ],
+  "hesitations_voiced": [],
+  "hesitations_withdrawn": [],
+  "pronouns_stated": "they/them"
+}
+```
+
+Named systems not found in the person's answers (remove at review if really unsaid): none
+
+Possible systems the person named that are not in named_systems (add at review if they are systems): Analytics, AI, Sometimes
+
+Workstreams whose keywords never appear in the person's answers (fix keywords or remove at review): none
+
+Empty learner replies replaced with the placeholder: none
+
+Will build at run time: yes (offer present)
+
+## Checklist before approving
+- [ ] No real names, companies or identifying details anywhere above.
+- [ ] Every `named_systems` entry was actually said in the transcript.
+- [ ] Every system the person named in the transcript is listed in named_systems (add any missing).
+- [ ] Every 'possible system' above that really is a system has been added to named_systems (or dismissed as not a system).
+- [ ] Every workstream with no keyword hits above has been fixed or removed.
+- [ ] The transcript reads like this persona, not a generic interview.
+- [ ] The stop point matches the persona's stated stop rule.
+- [ ] The 'Will build at run time' line says yes.

@@ -5,7 +5,6 @@ RecordingSender/RaisingSender pattern, plus a fake shaped like AsyncAnthropic's
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
-from types import TracebackType
 
 from src.services.llm_service import LlmUsage
 
@@ -22,18 +21,36 @@ __all__ = [
 
 
 class FakeAnthropicMessage:
-    def __init__(self, input_tokens: int, output_tokens: int) -> None:
+    def __init__(
+        self,
+        input_tokens: int,
+        output_tokens: int,
+        *,
+        model: str = "fake-served-model",
+        stop_reason: str = "end_turn",
+    ) -> None:
         self.usage = type(
             "Usage", (), {"input_tokens": input_tokens, "output_tokens": output_tokens}
         )()
+        self.model = model
+        self.stop_reason = stop_reason
 
 
 class FakeAnthropicStream:
     """Shaped like anthropic's MessageStream: `.text_stream` + `.get_final_message()`."""
 
-    def __init__(self, chunks: list[str], usage: tuple[int, int]) -> None:
+    def __init__(
+        self,
+        chunks: list[str],
+        usage: tuple[int, int],
+        *,
+        model: str = "fake-served-model",
+        stop_reason: str = "end_turn",
+    ) -> None:
         self._chunks = chunks
         self._usage = usage
+        self._model = model
+        self._stop_reason = stop_reason
 
     @property
     async def text_stream(self) -> AsyncIterator[str]:
@@ -41,7 +58,7 @@ class FakeAnthropicStream:
             yield chunk
 
     async def get_final_message(self) -> FakeAnthropicMessage:
-        return FakeAnthropicMessage(*self._usage)
+        return FakeAnthropicMessage(*self._usage, model=self._model, stop_reason=self._stop_reason)
 
 
 class FakeAnthropicStreamManager:
@@ -84,12 +101,7 @@ class FakeLlmReplyStream:
     async def __aenter__(self) -> FakeLlmReplyStream:
         return self
 
-    async def __aexit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc: BaseException | None,
-        tb: TracebackType | None,
-    ) -> None:
+    async def __aexit__(self, *exc: object) -> None:
         return None
 
     async def __aiter__(self) -> AsyncIterator[str]:
@@ -153,9 +165,18 @@ class FakeToolUseBlock:
 
 
 class FakeAnthropicToolMessage:
-    def __init__(self, tool_input: dict[str, object], usage: tuple[int, int]) -> None:
+    def __init__(
+        self,
+        tool_input: dict[str, object],
+        usage: tuple[int, int],
+        *,
+        model: str = "fake-served-model",
+        stop_reason: str = "end_turn",
+    ) -> None:
         self.content = [FakeToolUseBlock(tool_input)]
         self.usage = type("Usage", (), {"input_tokens": usage[0], "output_tokens": usage[1]})()
+        self.model = model
+        self.stop_reason = stop_reason
 
 
 class _FakeStructuredMessages:

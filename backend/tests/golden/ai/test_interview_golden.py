@@ -179,7 +179,7 @@ async def test_interview_golden() -> None:
         id=_CONVERSATION_ID, user_id=_USER_ID, kind="interview", summary=None
     )
     conversations.create.return_value = new_conversation
-    service = InterviewService(conversations, messages, llm, _context())  # ty: ignore[invalid-argument-type]
+    service = InterviewService(conversations, messages, llm, _context())
     user = _user()
 
     await service.open_interview(user=user)  # ty: ignore[invalid-argument-type]
@@ -194,7 +194,7 @@ async def test_interview_golden() -> None:
     conversations2.create.return_value = SimpleNamespace(
         id=_CONVERSATION_ID, user_id=_USER_ID, kind="interview", summary=None
     )
-    service2 = InterviewService(conversations2, messages2, llm2, _context())  # ty: ignore[invalid-argument-type]
+    service2 = InterviewService(conversations2, messages2, llm2, _context())
     await service2.open_interview(user=_user())  # ty: ignore[invalid-argument-type]
     assert render_calls(llm.calls) == render_calls(llm2.calls)
 
@@ -220,7 +220,7 @@ async def test_interview_playbook_golden() -> None:
             content="Which system is that, by name?\n[[READY_TO_BUILD]]",
         ),
     ]
-    service = InterviewService(conversations, messages, llm, _context())  # ty: ignore[invalid-argument-type]
+    service = InterviewService(conversations, messages, llm, _context())
     user = _user()
 
     await service.build_playbook(user=user)  # ty: ignore[invalid-argument-type]
@@ -251,6 +251,6 @@ async def test_interview_playbook_golden() -> None:
             content="Which system is that, by name?\n[[READY_TO_BUILD]]",
         ),
     ]
-    service2 = InterviewService(conversations2, messages2, llm2, _context())  # ty: ignore[invalid-argument-type]
+    service2 = InterviewService(conversations2, messages2, llm2, _context())
     await service2.build_playbook(user=_user())  # ty: ignore[invalid-argument-type]
     assert render_calls(llm.calls) == render_calls(llm2.calls)

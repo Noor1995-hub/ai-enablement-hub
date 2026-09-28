@@ -72,7 +72,7 @@ def _content_improvement_service(
         proposals,
         feedback_repo,
         content,
-        llm,  # ty: ignore[invalid-argument-type]
+        llm,
         notes,
     )
     return service, lesson
@@ -152,7 +152,7 @@ def _critique_service(llm: RecordingLlm) -> tuple[ContentImprovementService, Any
         proposals,
         AsyncMock(spec=AbstractFeedbackRepository),
         AsyncMock(spec=AbstractContentRepository),
-        llm,  # ty: ignore[invalid-argument-type]
+        llm,
         notes,
     )
     return service, proposal

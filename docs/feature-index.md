@@ -33,6 +33,10 @@ a feature ships.
   `2026-07-30-interviewer-opener-design.md`); `routers/interview.py`, gated by
   `require_interview_surface` + the `interview` component lock
   (`require_component_unlocked`, and `require_chat_kind_unlocked` on chat).
+- **AI interviewer eval (tranche 1 + 2)** — run stamping, generation hardening, assessment
+  gate (`2026-09-26-interviewer-evaluation-design.md`); frozen test set + automatic
+  checks (`2026-09-27-interviewer-eval-tranche-2-design.md`); `backend/evals/interviewer/`,
+  `docs/guides/interviewer-evals-learning-guide.md`.
 - **Project AI surface toggles** (per-project, default OFF, 403 until toggled) —
   `2026-07-27-project-ai-surface-toggles-design.md`; `core/dependencies` `require_ai_surface`.
 - **System prompts — git-only** (2026-09-23): `backend/prompts/*.md`, read-only admin page

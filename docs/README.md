@@ -20,6 +20,7 @@ disagree, the code wins.
 | `superpowers/lessons.md` | Dated ledger of traps this repo has already hit (what went wrong / why it bites here / the rule). Append when a new one happens. |
 | `db-backup-restore.md` | Operator runbook for the nightly DB backups and restore drills. |
 | `app-alerts.md` | Runbook for the three app health alerts (down, 5xx, restarts): what fired, first checks, fixes. |
+| `guides/interviewer-evals-learning-guide.md` | Plain-language guide to how the AI interviewer's evals are built: the sequence we followed and why. Updated after each eval step. |
 | `content/` | Content model (`README.md`), authoring guide (**read before writing lessons**), review lens, style guide, review-tooling notes. The content itself lives in the DB, not the repo. |
 | `reviews/2026-09-17/` | The **way-of-working programme**: comparison with the delaware house pattern, Tier 0/1/2 tables, open decisions, the two reference studies. |
 | `reviews/2026-07-31/` | The **pending code/DB work queue**: independent review + master plan + 5 phase plans (A–E, unexecuted). Current until executed, then it moves to the table below. |

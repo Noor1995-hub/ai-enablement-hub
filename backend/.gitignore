@@ -3,3 +3,11 @@
 __pycache__/
 .pytest_cache/
 .coverage
+
+# Interviewer eval variant runs are throwaway unless deliberately committed;
+# baseline/ and _state.json stay tracked (see the design spec, docs/superpowers/specs/
+# 2026-09-27-interviewer-eval-tranche-2-design.md, §4.4).
+evals/interviewer/runs/v*/
+# trajectory/scores.tsv is a report-builder byproduct (build-report-lite.mjs), not part
+# of what gets reviewed - ignore it even under the committed baseline/.
+evals/interviewer/runs/trajectory/

@@ -1,0 +1,155 @@
+# Review: cfo-food
+
+Tags: management, control
+
+## Assessment
+```json
+{
+  "job_title": "Chief Financial Officer",
+  "department": "Finance",
+  "b_freq": "WEEKLY",
+  "b_tools": [
+    "COPILOT"
+  ],
+  "b_setup": [
+    "NONE"
+  ],
+  "b_barriers": [
+    "NO_TIME"
+  ],
+  "q_timesink": "Re-keying the SAP export into Excel every month before the board deck goes out",
+  "q_excitement": "Not having to manually reconcile the same numbers every single month",
+  "c1_code": "HAVE",
+  "c2_code": "PARTIAL",
+  "c3_code": "PARTIAL",
+  "c4_code": "HAVE",
+  "c5_codes": [
+    "APPROVED_PASTE"
+  ],
+  "c6_code": "HAVE",
+  "score_level": "practitioner",
+  "usage_band": "regular",
+  "effective_level": "practitioner",
+  "learning_status": "not_started"
+}
+```
+
+## Persona (simulator brief, not shown to the interviewer)
+Lotte Verbeke is CFO at a mid-size food producer (frozen ready-meals, a few hundred staff). She runs the monthly close herself alongside a small finance team, exporting figures from SAP S/4HANA into Excel to reconcile against the previous month before building the board deck. She is clear, detailed and specific when asked anything about her own work: she names her systems, describes her week concretely, and gives real numbers when she has them. She uses Microsoft Copilot occasionally for drafting emails and summarising documents but has never tried to automate anything in her actual finance workflow. She is warm but direct, answers fully without rambling, and will say plainly when something does not apply to her rather than inventing detail. She stops naturally once she feels she has described her real work and pain points, typically after 6-8 substantive answers.
+
+## Transcript
+**assistant:** Hi Lotte, good to meet you. Here's what I've got: you're CFO in Finance, you use Microsoft Copilot most weeks, and your biggest recurring headache is re-keying the SAP export into Excel every month before the board deck goes out. Does that all still sound right?
+
+**user:** Yes, that's right. Every month I pull the trial balance and a few other reports out of SAP S/4HANA, land them in Excel, and then reconcile against the prior month before I can even start building the board deck. It's the same manual routine each time and it eats up a good chunk of my close.
+
+**assistant:** That's a really concrete starting point, thanks. Walk me through the "landing in Excel" step specifically, once you export the trial balance from S/4HANA, what do you actually do to it before it's ready to reconcile?
+
+**user:** So the export comes out as a raw table—account number, description, debit, credit, that sort of thing—but it's not in the layout I need. I paste it into a template workbook I've built up over the years, which maps SAP accounts to our management reporting lines, because our chart of accounts doesn't line up neatly with how we present to the board.
+
+Then I have to clean it up a bit: strip out subtotal rows SAP inserts, fix formatting on the numbers because they sometimes come through as text, and match everything against last month's tab, which is just a copy of the same template with the prior figures in it. I build a variance column, and anything that moves more than about 5% or €10,000, whichever is bigger, I flag and have to go chase down—usually that means going back into SAP to look at the underlying postings, or emailing one of the plant controllers to ask what happened.
+
+That whole process, start to finish, takes me the better part of a day, sometimes a day and a half if there are a lot of variances to chase.
+
+**assistant:** That's a full day and a half, and a lot of manual matching plus judgment calls on what's material. Roughly how many times a month does that variance-chasing step send you back to a plant controller for an explanation?
+
+**user:** It varies, but a typical month I'd say I'm sending out five or six emails to plant controllers or department heads asking "what happened here." Some months it's only two or three if things were quiet, other months—like when we've had a big raw material price swing or a plant had an unusual maintenance shutdown—it can be closer to ten. And then I'm waiting on their replies, which sometimes takes a day or two if they're busy, so that can hold up the whole deck.
+
+**assistant:** That waiting on replies sounds like it can genuinely stall the whole deck. Beyond this monthly close and board deck routine, what's another part of your week that eats more time than it should?
+
+**user:** Honestly, the other one is just the volume of ad hoc reporting requests—someone on the board or one of the plant GMs wants a cut of numbers outside the normal cycle, like margin by product line for a new customer pitch, and I end up doing another SAP pull and Excel exercise just for that one question. It's not huge each time, maybe an hour or two, but it happens two or three times a week and it's always unplanned, so it interrupts whatever I was actually meant to be doing that day.
+
+**assistant:** That's a real second time-sink then, small each time but constant interruption. When one of those ad hoc requests comes in, do you go back into that same template workbook, or is it a fresh pull each time into a blank sheet?
+
+**user:** It depends what's being asked. If it's something close to what's already in my template—like a variant of the management P&L—I'll pull a fresh export but drop it into a copy of the same structure, so at least the mapping logic is reused. But if it's something like margin by product line, that's a different report out of SAP entirely, often needs data from our costing module too, and I'm building that more from scratch in a blank sheet, pulling in unit costs and volumes separately and stitching it together by hand. Those ones take longer and are more error-prone, honestly, because I'm not working off something I've tested and trust over time.
+
+**assistant:** That distinction is really useful, one is a repeatable pattern, the other is genuinely bespoke and risky. Given all this, where do you think AI could actually help, in your own words?
+
+**user:** Honestly, I think the biggest win would be on that first, repeatable part—the trial balance export and mapping into my template. If something could just do that matching and flag the variances over my threshold automatically, that alone would save me the best part of a day every month, and I could spend that time actually chasing the answers rather than doing the mechanical matching first.
+
+The ad hoc stuff I'm less sure about, because it's different every time and often needs judgement about what the person's actually trying to find out. I don't think I'd trust AI to just build that one from scratch, at least not yet. I use Copilot for drafting emails and summarising the odd long document, but I've never tried pointing it at my actual numbers, and I'd want to see it get the mechanical stuff right first before I trusted it with anything judgement-based.
+
+**assistant:** That's a really clear and sensible read, start with the mechanical, earn trust before judgement calls. You mentioned no time to learn something new, what actually happened last time you thought about trying to set something like this up?
+
+**user:** Honestly, I don't think I've properly sat down to try. I've had the thought—"someone should really automate this"—more than once, usually right when I'm knee-deep in variance-chasing at eleven at night. But then the month closes, the deck goes out, and I'm straight into the next set of priorities, so it never actually gets the time. It's one of those things that's always a bit too urgent to fix and never quite urgent enough to stop and fix properly.
+
+**assistant:** That's such a common trap, the fix never gets prioritized because the fire always needs putting out first. Who else touches this process, besides the plant controllers you email, does anyone downstream use your board deck or reconciled numbers before or after you?
+
+**user:** Yes—once the deck's done, it goes to our CEO and the board, obviously, but also our FP&A analyst uses the reconciled figures afterward to update our rolling forecast, and I share the same base numbers with our external auditors at year-end, so they've seen this template before. Nobody downstream touches the process itself, though—it's really just me doing the export, mapping, and reconciliation end to end.
+
+**assistant:** Good to know the FP&A analyst and auditors both rely on the same output. Now, thinking about what you could try starting today with no IT ticket needed, is Copilot something you can access inside Excel itself, or only separately like in Outlook or Teams?
+
+**user:** I've only ever used it separately—in Outlook for drafting emails, and sometimes in Teams for summarising a long thread or a meeting I missed. I haven't tried it inside Excel itself, so I honestly don't know if it's switched on for me there or not. That's not something I've explored.
+
+**assistant:** Good to flag, that's worth checking. I think I've got a strong picture now: two real time-sinks (the monthly SAP-to-Excel reconciliation eating a day to a day and a half, and the two to three ad hoc reporting requests a week), a clear view from you on where AI should earn trust first (mechanical matching before judgement calls), and a good sense of who's upstream and downstream. One thing worth double-checking before we close, has anyone in Finance already tried using Copilot or any AI tool on this specific reconciliation task, even informally, and if so what happened?
+
+**user:** Not that I'm aware of. My team's small—it's really me and two others doing transactional work—and none of us have tried pointing any AI tool at the reconciliation itself. I'd be the one to know if it had been tried, and it hasn't, as far as I know.
+
+**assistant:** Good to know, that means this would genuinely be starting from zero, which is useful context for the playbook. I've got what I need: your real systems (SAP S/4HANA and your Excel template), two concrete pains with time and frequency attached, your own instinct on where AI should start (mechanical matching before judgement calls), the downstream folks who rely on your numbers (FP&A analyst, auditors, the board), and a genuine blocker (never carved out the time, plus not knowing if Copilot even works inside Excel for you).
+
+Here's what I'd like to offer: a playbook that gives you a quick read on where you stand with AI today, a handful of use-cases matched specifically to your SAP export and Excel reconciliation work (each with a before and after, and roughly how much effort each takes to set up), a few clear next moves, and one thing you could try as soon as today. Sound useful?
+
+**user:** Yes, that sounds genuinely useful—especially if it starts with that reconciliation piece rather than trying to boil the ocean. I'd like to see it.
+
+**assistant:** Great, glad that lands right. I'll get that built for you now, focused on the reconciliation piece first with the ad hoc reporting as the second horizon.
+
+[[READY_TO_BUILD]]
+
+## Ground truth (reconciled against the transcript)
+```json
+{
+  "named_systems": [
+    "SAP S/4HANA",
+    "Excel",
+    "Outlook",
+    "Teams"
+  ],
+  "workstreams": [
+    {
+      "name": "month-end close",
+      "keywords": [
+        "close",
+        "month-end",
+        "reconcil"
+      ]
+    },
+    {
+      "name": "board reporting",
+      "keywords": [
+        "board deck",
+        "board report"
+      ]
+    },
+    {
+      "name": "ad hoc reporting",
+      "keywords": [
+        "ad hoc reporting"
+      ]
+    }
+  ],
+  "hesitations_voiced": [
+    "It's one of those things that's always a bit too urgent to fix and never quite urgent enough to stop and fix properly"
+  ],
+  "hesitations_withdrawn": [],
+  "pronouns_stated": null
+}
+```
+
+Named systems not found in the person's answers (remove at review if really unsaid): none
+
+Possible systems the person named that are not in named_systems (add at review if they are systems): Some, AI, CEO
+
+Workstreams whose keywords never appear in the person's answers (fix keywords or remove at review): none
+
+Empty learner replies replaced with the placeholder: none
+
+Will build at run time: yes (offer present)
+
+## Checklist before approving
+- [ ] No real names, companies or identifying details anywhere above.
+- [ ] Every `named_systems` entry was actually said in the transcript.
+- [ ] Every system the person named in the transcript is listed in named_systems (add any missing).
+- [ ] Every 'possible system' above that really is a system has been added to named_systems (or dismissed as not a system).
+- [ ] Every workstream with no keyword hits above has been fixed or removed.
+- [ ] The transcript reads like this persona, not a generic interview.
+- [ ] The stop point matches the persona's stated stop rule.
+- [ ] The 'Will build at run time' line says yes.

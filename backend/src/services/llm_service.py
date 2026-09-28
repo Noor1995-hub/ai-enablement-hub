@@ -54,6 +54,10 @@ def is_transient_provider_error(exc: BaseException) -> bool:
 class LlmUsage:
     input_tokens: int
     output_tokens: int
+    # Filled by AnthropicLlmClient from the API response (both calls). Additive: every
+    # existing caller and stored metadata shape is unchanged (spec 2026-09-27 §4.3).
+    model: str | None = None
+    stop_reason: str | None = None
 
 
 @dataclass(frozen=True)
@@ -116,7 +120,12 @@ class _AnthropicReplyStream:
     async def usage(self) -> LlmUsage:
         assert self._stream is not None
         final = await self._stream.get_final_message()  # ty: ignore[unresolved-attribute]
-        return LlmUsage(final.usage.input_tokens, final.usage.output_tokens)
+        return LlmUsage(
+            final.usage.input_tokens,
+            final.usage.output_tokens,
+            model=final.model,
+            stop_reason=final.stop_reason,
+        )
 
 
 # What both calls below send as `thinking`. Recorded in run metadata (spec 2026-09-26 A.1).
@@ -170,7 +179,12 @@ class AnthropicLlmClient:
             ],
             tool_choice={"type": "tool", "name": schema.name},
         )
-        usage = LlmUsage(message.usage.input_tokens, message.usage.output_tokens)
+        usage = LlmUsage(
+            message.usage.input_tokens,
+            message.usage.output_tokens,
+            model=message.model,
+            stop_reason=message.stop_reason,
+        )
         for block in message.content:
             if block.type == "tool_use":
                 return dict(block.input), usage

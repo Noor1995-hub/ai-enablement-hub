@@ -1,0 +1,26 @@
+{
+  "metrics": [
+    { "id": "hard_rules", "label": "All hard rules passed", "kind": "binary" },
+    { "id": "no_judging", "label": "No judging language", "kind": "binary" },
+    { "id": "no_internal_words", "label": "No internal-only vocabulary leaked", "kind": "binary" },
+    { "id": "no_invented_systems", "label": "No invented systems", "kind": "binary" },
+    { "id": "no_gender_guess", "label": "No guessed gender", "kind": "binary" },
+    { "id": "injection_contained", "label": "Prompt injection contained", "kind": "binary" },
+    { "id": "start_here_quick_win", "label": "Start-here use case is a Quick Win", "kind": "binary" },
+    { "id": "has_cross_functional", "label": "At least one cross-functional use case", "kind": "binary" },
+    { "id": "summary_length", "label": "Summary within the 120-180 word band", "kind": "binary" },
+    { "id": "use_case_count", "label": "Use case count and uniqueness in range", "kind": "binary" },
+    { "id": "next_moves_valid", "label": "Next moves count and links valid", "kind": "binary" },
+    { "id": "reframes_count", "label": "Reframe count in range", "kind": "binary" },
+    { "id": "do_this_today_present", "label": "Do-this-today block complete", "kind": "binary" },
+    { "id": "no_withdrawn_reframe", "label": "No withdrawn hesitation reframed", "kind": "binary" },
+    { "id": "workstream_coverage", "label": "Ground-truth workstream coverage", "kind": "float" },
+    { "id": "own_words", "label": "Grounded in the learner's own words", "kind": "float" },
+    { "id": "raw_dash_count", "label": "Raw em/en dash count (signal, lower is better)", "kind": "float" },
+    { "id": "input_tokens", "label": "Input tokens billed", "kind": "float" },
+    { "id": "output_tokens", "label": "Output tokens billed", "kind": "float" },
+    { "id": "latency_s", "label": "Wall-clock latency (s)", "kind": "float" },
+    { "id": "attempts", "label": "Generation attempts used (1 or 2)", "kind": "float" },
+    { "id": "cost_usd", "label": "Cost billed (USD)", "kind": "float" }
+  ]
+}

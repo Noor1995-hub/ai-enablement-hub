@@ -152,6 +152,39 @@ async def test_stream_reply_sends_the_recorded_thinking_mode() -> None:
     assert call["thinking"] == {"type": THINKING_MODE}
 
 
+async def test_anthropic_client_records_the_served_model_and_stop_reason_from_streaming() -> None:
+    fake_sdk = FakeAsyncAnthropic(chunks=["hi"], usage=(1, 1))
+    client = AnthropicLlmClient(fake_sdk, model="claude-sonnet-5")  # ty: ignore[invalid-argument-type]
+
+    async with client.stream_reply(
+        system="s", messages=[{"role": "user", "content": "hi"}], max_tokens=10
+    ) as reply:
+        async for _ in reply:
+            pass
+        usage = await reply.usage()
+
+    assert usage.model == "fake-served-model"
+    assert usage.stop_reason == "end_turn"
+
+
+async def test_anthropic_client_records_the_served_model_and_stop_reason_from_structured() -> None:
+    fake_sdk = FakeStructuredAsyncAnthropic(tool_input={"a": "b"})
+    client = AnthropicLlmClient(
+        fake_sdk,  # ty: ignore[invalid-argument-type]
+        model="claude-sonnet-5",
+    )
+    schema = StructuredSchema(
+        name="t", description="d", input_schema={"type": "object", "properties": {}}
+    )
+
+    _, usage = await client.complete_structured(
+        system="s", prompt="p", schema=schema, max_tokens=10
+    )
+
+    assert usage.model == "fake-served-model"
+    assert usage.stop_reason == "end_turn"
+
+
 async def test_complete_structured_sends_the_recorded_thinking_mode() -> None:
     fake_sdk = FakeStructuredAsyncAnthropic(tool_input={"a": "b"})
     client = AnthropicLlmClient(
