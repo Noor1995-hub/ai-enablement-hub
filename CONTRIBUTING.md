@@ -123,11 +123,15 @@ issue links to them.
 
 ## Dependency updates (Dependabot)
 
-`.github/dependabot.yml` opens update PRs every Monday: one grouped PR per area (frontend, backend,
-workflows) for minor and patch releases, and one PR per major release. Releases younger than 7
-days are held back. They run the normal CI but get no Claude review (Dependabot PRs have no access
-to secrets). Merge a green grouped PR as usual; for a major, read the package's changelog first and
-treat it like any behaviour change. Merging does not deploy anything.
+`.github/dependabot.yml` opens update PRs once a month: one grouped PR per area (frontend,
+backend, workflows) for minor and patch releases. Releases younger than 7 days are held back.
+**Major releases are not proposed.** They are planned as deliberate work in a GitHub issue (for
+example #45, the frontend tooling upgrade). Separately, **Dependabot security alerts and security
+updates** are on in the repo settings: a security PR can arrive at any time, and it deserves prompt
+attention. All of these run the normal CI but get no Claude review (Dependabot PRs have no access
+to secrets). Merge a green PR as usual. If one is ever a major, read the package's changelog first
+and treat it like any behaviour change (`docs/superpowers/lessons.md`, 2026-09-24). Merging does
+not deploy anything.
 
 ## Deploying
 

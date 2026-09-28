@@ -1,9 +1,15 @@
 # Dependabot version updates for the frontend (npm), the backend (uv) and the workflows.
 #
-# Shape: one grouped PR per ecosystem per week for minor + patch bumps, one PR per major bump
-# (majors change behaviour and deserve their own review and revert). A 7-day cooldown keeps a
-# release out until it has been public for a week — most malicious or broken releases are
-# yanked within days.
+# Shape (2026-09-28, Matthias): one grouped PR per ecosystem per MONTH, minor + patch only.
+# Major version bumps are NOT proposed: they change behaviour, depend on each other and are
+# planned as deliberate work in a GitHub issue (e.g. #45, the frontend tooling upgrade).
+# A 7-day cooldown keeps a release out until it has been public for a week, since most malicious
+# or broken releases are yanked within days.
+#
+# Security is separate: Dependabot ALERTS + SECURITY UPDATES are enabled in the repo settings
+# (turned on 2026-09-28). A security PR is opened whenever a dependency has a known
+# vulnerability, is not bound by this schedule or open-pull-requests-limit, and usually ships
+# as a patch release (so the major-version ignore below does not block it).
 #
 # Dependabot PRs run the normal CI (it needs no secrets) but are NOT reviewed by Claude: the
 # review workflow has no access to secrets on Dependabot-authored PRs, by design. Merging one is
@@ -15,13 +21,15 @@ updates:
   - package-ecosystem: npm
     directory: /frontend
     schedule:
-      interval: weekly
-      day: monday
+      interval: monthly
     cooldown:
       default-days: 7
     open-pull-requests-limit: 5
     commit-message:
       prefix: "chore(deps)"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       frontend-minor-patch:
         update-types: [minor, patch]
@@ -29,13 +37,15 @@ updates:
   - package-ecosystem: uv
     directory: /backend
     schedule:
-      interval: weekly
-      day: monday
+      interval: monthly
     cooldown:
       default-days: 7
     open-pull-requests-limit: 5
     commit-message:
       prefix: "chore(deps)"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       backend-minor-patch:
         update-types: [minor, patch]
@@ -43,12 +53,14 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
-      day: monday
+      interval: monthly
     cooldown:
       default-days: 7
     commit-message:
       prefix: "chore(ci)"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       actions:
         patterns: ["*"]
