@@ -63,3 +63,31 @@ describe('refreshAccessToken on a 401', () => {
     expect(onLogout).toHaveBeenCalledOnce()
   })
 })
+
+describe('refreshAccessToken on a 429', () => {
+  beforeEach(() => {
+    stubLocalStorage()
+    setTokens('old-access', 'old-refresh')
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('keeps the tokens and does not broadcast a logout (a busy office NAT IP is not a dead session)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve(new Response(null, { status: 429, headers: { 'Retry-After': '120' } }))),
+    )
+    const onLogout = vi.fn()
+    const unsubscribe = subscribe(onLogout)
+
+    const access = await refreshAccessToken()
+    unsubscribe()
+
+    expect(access).toBeNull() // the original 401 propagates to the caller
+    expect(getAccessToken()).toBe('old-access')
+    expect(getRefreshToken()).toBe('old-refresh')
+    expect(onLogout).not.toHaveBeenCalled()
+  })
+})

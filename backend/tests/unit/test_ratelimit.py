@@ -86,6 +86,81 @@ class TestRateLimiter:
         assert limiter._store["k"][0] == 1000.0
 
 
+class TestRetryAfter:
+    def test_counts_down_the_real_remaining_window(self) -> None:
+        clock = FakeClock()
+        limiter = RateLimiter(clock=clock)
+        limiter.is_limited("k", window_seconds=300)
+        clock.now += 100.4
+        assert limiter.retry_after("k", window_seconds=300) == 200
+
+    def test_is_the_full_window_at_first_and_never_zero(self) -> None:
+        clock = FakeClock()
+        limiter = RateLimiter(clock=clock)
+        limiter.is_limited("k", window_seconds=60)
+        assert limiter.retry_after("k", window_seconds=60) == 60
+        clock.now += 60
+        assert limiter.retry_after("k", window_seconds=60) == 1
+
+    def test_unknown_or_stale_key_is_a_full_window(self) -> None:
+        clock = FakeClock()
+        limiter = RateLimiter(clock=clock)
+        assert limiter.retry_after("never-seen", window_seconds=60) == 60
+        limiter.is_limited("k", window_seconds=60)
+        clock.now += 61
+        assert limiter.retry_after("k", window_seconds=60) == 60
+
+
+class TestRefund:
+    """Reserve-then-refund lets a caller count only some outcomes (failed
+    logins) while still counting every attempt at entry, so concurrent
+    requests can't all slip under the limit."""
+
+    def test_charge_reports_the_window_it_counted_against(self) -> None:
+        clock = FakeClock()
+        limiter = RateLimiter(clock=clock)
+        assert limiter.charge("k", max_calls=1) == (False, 1000.0)
+        clock.now += 10
+        assert limiter.charge("k", max_calls=1) == (True, 1000.0)
+        clock.now += 61
+        assert limiter.charge("k", max_calls=1) == (False, 1071.0)
+
+    def test_gives_back_one_attempt(self) -> None:
+        limiter = RateLimiter(clock=FakeClock())
+        for _ in range(4):
+            limiter.is_limited("k")
+        _, window_start = limiter.charge("k")
+        limiter.refund("k", window_start=window_start)
+        assert limiter.is_limited("k") is False
+        assert limiter.is_limited("k") is True
+
+    def test_never_goes_below_zero(self) -> None:
+        limiter = RateLimiter(clock=FakeClock())
+        _, window_start = limiter.charge("k", max_calls=1)
+        limiter.refund("k", window_start=window_start)
+        limiter.refund("k", window_start=window_start)
+        assert limiter.is_limited("k", max_calls=1) is False
+        assert limiter.is_limited("k", max_calls=1) is True
+
+    def test_absent_key_is_a_no_op(self) -> None:
+        limiter = RateLimiter(clock=FakeClock())
+        limiter.refund("never-seen", window_start=1000.0)
+        assert limiter.is_limited("never-seen", max_calls=1) is False
+        assert limiter.is_limited("never-seen", max_calls=1) is True
+
+    def test_refund_after_a_rollover_leaves_the_new_window_alone(self) -> None:
+        """The charge was made in window A; while its request was in flight the
+        window expired and a later request opened window B. The refund belongs
+        to A, so B's count must not move."""
+        clock = FakeClock()
+        limiter = RateLimiter(clock=clock)
+        _, charged_in = limiter.charge("k", window_seconds=60)
+        clock.now += 61
+        limiter.is_limited("k", window_seconds=60)  # rolls over into window B
+        limiter.refund("k", window_start=charged_in)
+        assert limiter._store["k"] == (1061.0, 1, 60)
+
+
 class TestSweep:
     """`sweep` is what keeps the process-global store from growing forever.
     It must be loss-free: a counter is only droppable once its window can no
@@ -252,3 +327,27 @@ class TestCapacityCeiling:
             limiter.is_limited(f"after-{i}")
 
         assert calls == 1  # the batch headroom absorbed these without another scan
+
+
+class TestRefundAndRetryAfterOnTheBoundedStore:
+    """Both read the key's OWN stored window, like is_limited() and sweep()."""
+
+    def test_refund_never_creates_a_key(self) -> None:
+        """A refund for an unknown key must not add an entry: that would be a
+        way to grow the store without passing is_limited()'s ceiling check."""
+        limiter = RateLimiter(clock=FakeClock())
+        limiter.refund("never-seen", window_start=1000.0)
+        assert "never-seen" not in limiter._store
+
+    def test_refund_keeps_the_stored_window(self) -> None:
+        limiter = RateLimiter(clock=FakeClock())
+        _, window_start = limiter.charge("k", window_seconds=86_400)
+        limiter.refund("k", window_start=window_start)
+        assert limiter._store["k"] == (1000.0, 0, 86_400)
+
+    def test_retry_after_uses_the_stored_window(self) -> None:
+        clock = FakeClock()
+        limiter = RateLimiter(clock=clock)
+        limiter.is_limited("k", window_seconds=300)
+        clock.now += 100
+        assert limiter.retry_after("k", window_seconds=60) == 200

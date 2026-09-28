@@ -225,8 +225,9 @@ export default function Login() {
       await login(email, password)
       navigate('/')
     } catch (err) {
-      // 429 = rate limited (5/min per email): show the backend's message and
-      // let the user retry manually — never auto-retry a login.
+      // 429 = rate limited (per email, or per IP after repeated failures — up
+      // to 5 min): show the backend's message, which names the real remaining
+      // wait, and let the user retry manually — never auto-retry a login.
       if (err instanceof LoginError && err.status === 429) setError(err.message)
       else setError('Incorrect email or password.')
       setLoading(false)

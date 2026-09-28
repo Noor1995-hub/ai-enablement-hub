@@ -7,6 +7,7 @@ import jwt
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 
+from src.core.client_ip import client_ip
 from src.core.configs.settings import Settings
 from src.core.dependencies.auth import get_token_service
 from src.core.dependencies.entra import get_entra_service
@@ -59,10 +60,6 @@ _RATE_LIMITED = HTTPException(
 def _redirect_uri(settings: Settings) -> str:
     # Always from configuration, never from request headers.
     return f"{settings.app.url.rstrip('/')}/api/auth/entra/callback"
-
-
-def _client_ip(request: Request) -> str:
-    return request.client.host if request.client is not None else "unknown"
 
 
 def _login_error(settings: Settings, code: str) -> RedirectResponse:
@@ -121,7 +118,7 @@ async def entra_callback(
     (fragments never reach server logs)."""
     # Higher ceiling than the JSON endpoints: the callback triggers an outbound
     # exchange, but legitimate retries after Microsoft round-trips are normal.
-    if limiter.is_limited(f"entra-callback:{_client_ip(request)}", max_calls=10):
+    if limiter.is_limited(f"entra-callback:{client_ip(request)}", max_calls=10):
         return _login_error(settings, "rate_limited")
     if error is not None:
         # The user cancelled or Microsoft refused consent — not a fault.
@@ -166,7 +163,7 @@ async def entra_redeem(
 ) -> TokenPairResponse:
     """Swap the one-time login code for the app's native token pair (same
     response shape as password login)."""
-    if limiter.is_limited(f"entra-redeem:{_client_ip(request)}"):
+    if limiter.is_limited(f"entra-redeem:{client_ip(request)}"):
         raise _RATE_LIMITED
     try:
         _, user = await token_service.consume_login_code(body.code)

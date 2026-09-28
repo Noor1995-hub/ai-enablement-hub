@@ -34,7 +34,11 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Login */
+        /**
+         * Login
+         * @description Exchange email + password for a token pair. Rate-limited per account and,
+         *     for failed attempts, per client.
+         */
         post: operations["login_api_auth_login_post"];
         delete?: never;
         options?: never;
@@ -51,7 +55,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Refresh */
+        /**
+         * Refresh
+         * @description Rotate the refresh token for a new pair. Rate-limited per client.
+         */
         post: operations["refresh_api_auth_refresh_post"];
         delete?: never;
         options?: never;

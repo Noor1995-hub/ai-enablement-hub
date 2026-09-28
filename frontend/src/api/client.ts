@@ -58,6 +58,7 @@ async function doRefresh(): Promise<string | null> {
     clearTokens() // session is dead (revoked/expired) — forced logout broadcast
     return null
   }
+  // 429 (refresh is rate-limited per IP) or 5xx: keep the tokens, surface the original 401.
   if (!res.ok) return null
   const pair = (await res.json()) as { access_token: string; refresh_token: string }
   setTokens(pair.access_token, pair.refresh_token)

@@ -17,6 +17,7 @@ the dict outright.
 from __future__ import annotations
 
 import logging
+import math
 import time
 from collections.abc import Callable
 
@@ -45,6 +46,14 @@ class RateLimiter:
 
     def is_limited(self, key: str, *, max_calls: int = 5, window_seconds: float = 60.0) -> bool:
         """Record one attempt for `key`; True when the attempt exceeds the limit."""
+        limited, _ = self.charge(key, max_calls=max_calls, window_seconds=window_seconds)
+        return limited
+
+    def charge(
+        self, key: str, *, max_calls: int = 5, window_seconds: float = 60.0
+    ) -> tuple[bool, float]:
+        """is_limited() that also returns the `window_start` the attempt was
+        counted in: the token refund() needs to give it back to THAT window."""
         now = self._clock()
         existing = self._store.get(key)
         if existing is None and len(self._store) >= _MAX_KEYS:
@@ -64,7 +73,36 @@ class RateLimiter:
             window_start, count, stored_window = now, 0, window_seconds
         count += 1
         self._store[key] = (window_start, count, stored_window)
-        return count > max_calls
+        return count > max_calls, window_start
+
+    def refund(self, key: str, *, window_start: float) -> None:
+        """Give back one attempt recorded by charge(): count - 1, never below zero,
+        and only if `key` is still in the window that charge() returned. A no-op
+        when the key is absent or its window has rolled over since: a refund
+        must never credit a newer window, which could happen when a request's
+        await straddles the window boundary and a later request opens a fresh
+        one first. Never creates a key, so it can't bypass `_MAX_KEYS`. Lets a
+        caller count every attempt at entry, so concurrent requests can't all
+        slip under the limit, and then refund the outcomes it doesn't want to
+        charge (a successful login)."""
+        entry = self._store.get(key)
+        if entry is None or entry[0] != window_start:
+            return
+        _, count, stored_window = entry
+        self._store[key] = (window_start, max(0, count - 1), stored_window)
+
+    def retry_after(self, key: str, *, window_seconds: float = 60.0) -> int:
+        """Whole seconds until `key`'s current window ends (never 0): the honest
+        Retry-After for a limited key, judged by the key's own stored window. A
+        key with no live window gets the full `window_seconds`. Read-only."""
+        now = self._clock()
+        entry = self._store.get(key)
+        if entry is None:
+            return max(1, math.ceil(window_seconds))
+        window_start, _count, stored_window = entry
+        if now - window_start > stored_window:
+            return max(1, math.ceil(window_seconds))
+        return max(1, math.ceil(window_start + stored_window - now))
 
     def sweep(self, *, older_than: float | None = None) -> int:
         """Drop counters that can no longer affect a decision, return how many went.
