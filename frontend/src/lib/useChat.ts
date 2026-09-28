@@ -123,7 +123,15 @@ export function useChat(kind: ChatKind) {
               const { conversation_id } = parsed.data as { conversation_id: string }
               setConversationId(conversation_id)
             } else if (parsed.event === 'error') {
-              const { message } = parsed.data as { message: string }
+              // Terminal frame for a provider failure after the 200 was sent. Adopt the
+              // conversation id so a failed FIRST turn is continued, not orphaned, and drop
+              // the placeholder bubble if the failure came before any token.
+              const { message, conversation_id } = parsed.data as {
+                message: string
+                conversation_id?: string
+              }
+              if (conversation_id) setConversationId(conversation_id)
+              setMessages(dropTrailingEmptyAssistant)
               setError(message)
             }
           }

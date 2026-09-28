@@ -20,7 +20,7 @@ from evals.interviewer.fakes import (
     InMemoryMessageRepository,
     build_context,
 )
-from src.services.chat_service import ChatService, DoneEvent
+from src.services.chat_service import ChatService, ErrorEvent, TokenEvent
 from src.services.interview_marker import has_ready_marker
 from src.services.interview_service import _MIN_ANSWERS_WITHOUT_OFFER, InterviewService
 from src.services.prompts import prompt_version
@@ -131,8 +131,13 @@ async def simulate_case(
             content=answer,
             system_suffix=await context.build_briefing(user),  # ty: ignore[invalid-argument-type]
         ):
-            if not isinstance(event, DoneEvent):
+            if isinstance(event, TokenEvent):
                 turn_text += event.text
+            elif isinstance(event, ErrorEvent):
+                # ChatService reports a failed turn in-band; a simulation must not carry
+                # on with half a transcript, so fail loudly like any other error.
+                msg = f"interviewer turn failed: {event.message}"
+                raise RuntimeError(msg)
         ready = has_ready_marker(turn_text)
         question = turn_text
 

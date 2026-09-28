@@ -17,11 +17,13 @@ __all__ = [
     "FakeAnthropicStream",
     "FakeAnthropicStreamManager",
     "FakeAnthropicToolMessage",
+    "FailingLlmClient",
     "FakeLlmClient",
     "FakeStructuredAsyncAnthropic",
     "FakeToolUseBlock",
     "RaisingLlmClient",
     "connection_error",
+    "in_stream_error",
     "overloaded_error",
     "status_error",
 ]
@@ -38,6 +40,19 @@ def status_error(cls: Any, status: int) -> Exception:
 def overloaded_error() -> Exception:
     """The 529 a run actually hits when Anthropic is at capacity."""
     return status_error(anthropic.OverloadedError, 529)
+
+
+def in_stream_error(error_type: str = "overloaded_error") -> Exception:
+    """What the SDK raises when the provider fails AFTER the stream started:
+    anthropic 1.8 `_streaming.py` turns an in-stream `event: error` into
+    `_make_status_error(response=self.response)`, and that response is the 200
+    that opened the stream -- so it is a plain `APIStatusError` (not
+    `OverloadedError`) whose only busy signal is `.type`."""
+    request = httpx2.Request("POST", "https://api.anthropic.com/v1/messages")
+    body = {"type": "error", "error": {"type": error_type, "message": "Overloaded"}}
+    return anthropic.APIStatusError(
+        str(body), response=httpx2.Response(200, request=request), body=body
+    )
 
 
 def connection_error() -> Exception:
@@ -169,6 +184,45 @@ class FakeLlmClient:
             {"system": system, "prompt": prompt, "schema": schema, "max_tokens": max_tokens}
         )
         return dict(self.structured), self.usage_value
+
+
+class FailingLlmReplyStream(FakeLlmReplyStream):
+    """Streams `chunks`, then raises `exc` -- or raises it on `__aenter__`
+    (before any token) when `on_enter` is set, which is where a 529 lands."""
+
+    def __init__(self, chunks: list[str], exc: BaseException, *, on_enter: bool) -> None:
+        super().__init__(chunks, LlmUsage(input_tokens=0, output_tokens=0))
+        self._exc = exc
+        self._on_enter = on_enter
+
+    async def __aenter__(self) -> FailingLlmReplyStream:
+        if self._on_enter:
+            raise self._exc
+        return self
+
+    async def __aiter__(self) -> AsyncIterator[str]:
+        for chunk in self._chunks:
+            yield chunk
+        raise self._exc
+
+
+class FailingLlmClient(FakeLlmClient):
+    """A FakeLlmClient whose stream falls over: after `chunks` (mid-stream), or
+    before the first token with `on_enter=True`. Subclasses FakeLlmClient so it
+    drops into every helper typed for one."""
+
+    def __init__(
+        self, exc: BaseException, chunks: list[str] | None = None, *, on_enter: bool = False
+    ) -> None:
+        super().__init__(chunks=chunks or [])
+        self.exc = exc
+        self.on_enter = on_enter
+
+    def stream_reply(
+        self, *, system: str, messages: list[dict[str, str]], max_tokens: int
+    ) -> FailingLlmReplyStream:
+        self.calls.append({"system": system, "messages": messages, "max_tokens": max_tokens})
+        return FailingLlmReplyStream(self.chunks, self.exc, on_enter=self.on_enter)
 
 
 class RaisingLlmClient:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import uuid
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
@@ -8,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 
 from src.services.exceptions import NotFoundError
 from src.services.interview_marker import strip_ready_marker
+from src.services.llm_service import is_provider_busy_error, is_provider_error
 from src.services.prompts import load_prompt, prompt_version
 
 if TYPE_CHECKING:
@@ -15,10 +17,14 @@ if TYPE_CHECKING:
     from src.repositories.base import AbstractConversationRepository, AbstractMessageRepository
     from src.services.llm_service import LlmClient, LlmUsage
 
-__all__ = ["ChatService", "ChatStreamEvent", "DoneEvent", "TokenEvent"]
+__all__ = ["ChatService", "ChatStreamEvent", "DoneEvent", "ErrorEvent", "TokenEvent"]
+
+logger = logging.getLogger(__name__)
 
 _HISTORY_WINDOW = 20
 _MAX_TOKENS = 1024
+_BUSY_MESSAGE = "The assistant is busy right now - please try again in a moment."
+_GENERIC_MESSAGE = "Something went wrong generating the reply - please try again."
 
 
 @dataclass(frozen=True)
@@ -33,7 +39,23 @@ class DoneEvent:
     usage: LlmUsage | None
 
 
-ChatStreamEvent = TokenEvent | DoneEvent
+@dataclass(frozen=True)
+class ErrorEvent:
+    """Terminal frame for a failure the HTTP layer can no longer express.
+
+    By the time the model is streaming, a 200 and the text/event-stream headers
+    are already on the wire, so a provider failure cannot become a 4xx/5xx --
+    the only way to tell the learner anything is in-band. Mutually exclusive
+    with DoneEvent: a `done` frame after this would claim the reply finished.
+    Carries the conversation id so a client whose FIRST turn failed can
+    continue this conversation instead of starting (and orphaning) another.
+    """
+
+    message: str
+    conversation_id: uuid.UUID
+
+
+ChatStreamEvent = TokenEvent | DoneEvent | ErrorEvent
 
 
 class ChatService:
@@ -93,6 +115,7 @@ class ChatService:
         chunks: list[str] = []
         truncated = False
         usage: LlmUsage | None = None
+        failure: str | None = None
         try:
             async with self._llm.stream_reply(
                 system=system_prompt, messages=history, max_tokens=_MAX_TOKENS
@@ -107,6 +130,14 @@ class ChatService:
             # the reply is incomplete -> mark it truncated before persisting.
             truncated = True
             raise
+        except Exception as exc:  # noqa: BLE001 - reported in-band, see ErrorEvent
+            # After the cancellation clause for readability only: GeneratorExit and
+            # CancelledError derive from BaseException, so this can't shadow them.
+            # It also wraps `reply.usage()`: a failure after the full text streamed
+            # is still reported as an error (reply marked truncated) -- accepted.
+            truncated = True
+            failure = _BUSY_MESSAGE if is_provider_busy_error(exc) else _GENERIC_MESSAGE
+            _log_stream_failure(exc, conversation.id)
         finally:
             accumulated = "".join(chunks)
             if accumulated:
@@ -127,7 +158,9 @@ class ChatService:
                 )
                 await asyncio.shield(self._conversations.touch(conversation.id))
 
-        if not truncated:
+        if failure is not None:
+            yield ErrorEvent(message=failure, conversation_id=conversation.id)
+        elif not truncated:
             yield DoneEvent(conversation_id=conversation.id, truncated=False, usage=usage)
 
     async def _history_for(self, conversation_id: uuid.UUID) -> list[dict[str, str]]:
@@ -142,3 +175,28 @@ class ChatService:
             for m in rows
             if m.role in ("user", "assistant")
         ]
+
+
+def _log_stream_failure(exc: Exception, conversation_id: uuid.UUID) -> None:
+    """Same split as interview_service: `warning` with the type name for a
+    failure retrying could fix, `error` with the traceback for anything else (a
+    revoked key, a bad request, a bug). Never the prompt or the learner's text.
+    Keyed on the busy check (a superset of `is_transient_provider_error`) so an
+    in-stream overload -- the common mid-stream case -- isn't paged as an error.
+    """
+    if is_provider_busy_error(exc):
+        logger.warning(
+            "chat stream failed (transient, %s) for conversation %s",
+            type(exc).__name__,
+            conversation_id,
+        )
+    else:
+        # is_provider_error (#76) tells a provider-reported failure (a revoked key,
+        # a 400) apart from a bug in our own code; both deserve the traceback.
+        logger.error(
+            "chat stream failed (%s, %s) for conversation %s",
+            "provider" if is_provider_error(exc) else "unexpected",
+            type(exc).__name__,
+            conversation_id,
+            exc_info=exc,
+        )

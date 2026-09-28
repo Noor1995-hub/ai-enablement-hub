@@ -1,17 +1,32 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import uuid
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
+import anthropic
 import pytest
 
 from src.repositories.base import AbstractConversationRepository, AbstractMessageRepository
-from src.services.chat_service import ChatService, DoneEvent, TokenEvent
+from src.services.chat_service import (
+    ChatService,
+    ChatStreamEvent,
+    DoneEvent,
+    ErrorEvent,
+    TokenEvent,
+)
 from src.services.exceptions import NotFoundError
 from src.services.prompts import load_prompt, prompt_version
-from tests.fixtures.llm import FakeLlmClient
+from tests.fixtures.llm import (
+    FailingLlmClient,
+    FakeLlmClient,
+    connection_error,
+    in_stream_error,
+    overloaded_error,
+    status_error,
+)
 
 
 def _service(llm: FakeLlmClient) -> tuple[ChatService, AsyncMock, AsyncMock]:
@@ -204,3 +219,136 @@ async def test_history_sent_to_the_model_has_no_ready_marker() -> None:
         {"role": "assistant", "content": "Shall I build it?"},
         {"role": "user", "content": "one more thing"},
     ]
+
+
+# --- provider failures: a terminal ErrorEvent instead of a dead stream ------------
+
+_BUSY = "The assistant is busy right now - please try again in a moment."
+_GENERIC = "Something went wrong generating the reply - please try again."
+
+
+async def _collect(
+    llm: FakeLlmClient,
+) -> tuple[list[ChatStreamEvent], AsyncMock, AsyncMock, SimpleNamespace]:
+    service, conversations, messages = _service(llm)
+    conversation = SimpleNamespace(id=uuid.uuid4(), user_id=uuid.uuid4(), kind="chatbot")
+    events = [
+        e
+        async for e in service.send_message(
+            conversation=conversation,  # ty: ignore[invalid-argument-type]
+            content="my secret question",
+        )
+    ]
+    return events, messages, conversations, conversation
+
+
+async def test_provider_failure_mid_stream_yields_a_terminal_error_event() -> None:
+    events, messages, _conversations, conversation = await _collect(
+        FailingLlmClient(overloaded_error(), chunks=["Par"])
+    )
+
+    assert [type(e).__name__ for e in events] == ["TokenEvent", "ErrorEvent"]
+    error = events[1]
+    assert error == ErrorEvent(message=_BUSY, conversation_id=conversation.id)
+    # The partial reply is still persisted and still marked truncated -- a failed
+    # stream persists exactly like a disconnect does.
+    assert messages.create.await_count == 2
+    _user_call, assistant_call = messages.create.await_args_list
+    assert assistant_call.kwargs["content"] == "Par"
+    # #81's provenance rides on the partial reply too, so a failed turn is as
+    # attributable (model, prompt version) as a completed one.
+    assert assistant_call.kwargs["metadata"] == {
+        "truncated": True,
+        "model": "fake-model",
+        "prompt_version": prompt_version("chatbot"),
+    }
+
+
+async def test_in_stream_overload_on_the_200_gets_the_busy_wording() -> None:
+    """The realistic mid-stream overload: the SDK raises a plain APIStatusError
+    carrying the 200 that opened the stream, recognisable only by its `type`."""
+    events, _, _, _ = await _collect(FailingLlmClient(in_stream_error(), chunks=["Par"]))
+
+    assert isinstance(events[-1], ErrorEvent)
+    assert events[-1].message == _BUSY
+
+
+async def test_a_non_busy_in_stream_error_gets_the_generic_wording() -> None:
+    events, _, _, _ = await _collect(
+        FailingLlmClient(in_stream_error("invalid_request_error"), chunks=["Par"])
+    )
+
+    assert isinstance(events[-1], ErrorEvent)
+    assert events[-1].message == _GENERIC
+
+
+async def test_no_done_event_follows_a_failure() -> None:
+    """A `done` frame after an `error` frame would tell the client the reply
+    finished cleanly."""
+    events, _, _, _ = await _collect(FailingLlmClient(RuntimeError("boom"), chunks=["Par"]))
+
+    assert not any(isinstance(e, DoneEvent) for e in events)
+    assert isinstance(events[-1], ErrorEvent)
+    assert events[-1].message == _GENERIC
+
+
+async def test_provider_failure_before_the_first_token_persists_no_assistant_turn() -> None:
+    """The commonest real case: a 529 when the stream opens. Only the learner's
+    turn is on record -- no empty or half assistant message."""
+    events, messages, conversations, conversation = await _collect(
+        FailingLlmClient(overloaded_error(), on_enter=True)
+    )
+
+    assert events == [ErrorEvent(message=_BUSY, conversation_id=conversation.id)]
+    assert messages.create.await_count == 1
+    assert messages.create.await_args.kwargs["role"] == "user"
+    conversations.touch.assert_not_awaited()
+
+
+async def test_a_connection_error_before_the_first_token_is_busy() -> None:
+    events, _, _, _ = await _collect(FailingLlmClient(connection_error(), on_enter=True))
+
+    assert [type(e).__name__ for e in events] == ["ErrorEvent"]
+    assert isinstance(events[0], ErrorEvent)
+    assert events[0].message == _BUSY
+
+
+async def test_a_transient_failure_logs_a_warning_with_the_type_only(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    with caplog.at_level(logging.WARNING, logger="src.services.chat_service"):
+        await _collect(FailingLlmClient(in_stream_error(), chunks=["Par"]))
+
+    [record] = caplog.records
+    assert record.levelno == logging.WARNING
+    assert "APIStatusError" in record.getMessage()
+    assert record.exc_info is None
+    assert "my secret question" not in caplog.text
+    assert "Par" not in caplog.text
+
+
+async def test_a_non_transient_failure_logs_an_error_with_the_traceback(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    with caplog.at_level(logging.WARNING, logger="src.services.chat_service"):
+        await _collect(
+            FailingLlmClient(status_error(anthropic.AuthenticationError, 401), on_enter=True)
+        )
+
+    [record] = caplog.records
+    assert record.levelno == logging.ERROR
+    assert "provider, AuthenticationError" in record.getMessage()
+    assert record.exc_info is not None
+    assert "my secret question" not in caplog.text
+
+
+async def test_a_bug_in_our_own_code_is_logged_as_unexpected(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    with caplog.at_level(logging.WARNING, logger="src.services.chat_service"):
+        await _collect(FailingLlmClient(RuntimeError("boom"), chunks=["Par"]))
+
+    [record] = caplog.records
+    assert record.levelno == logging.ERROR
+    assert "unexpected, RuntimeError" in record.getMessage()
+    assert record.exc_info is not None

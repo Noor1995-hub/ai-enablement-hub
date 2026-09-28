@@ -25,7 +25,7 @@ from src.schemas.chat import (
     ConversationSummary,
     MessageResponse,
 )
-from src.services.chat_service import ChatService, DoneEvent, TokenEvent
+from src.services.chat_service import ChatService, DoneEvent, ErrorEvent, TokenEvent
 from src.services.exceptions import NotFoundError
 from src.services.interview_context import InterviewContextService
 
@@ -153,6 +153,13 @@ async def send_chat_message(chat_request: ChatRequestDep) -> AsyncIterator[Serve
                     "usage": usage,
                 },
                 event="done",
+            )
+        elif isinstance(event, ErrorEvent):
+            # Terminal: the generator yields nothing after this. The 200 is already
+            # on the wire, so this frame is the only way to report the failure.
+            yield ServerSentEvent(
+                data={"message": event.message, "conversation_id": str(event.conversation_id)},
+                event="error",
             )
 
 

@@ -6,7 +6,7 @@ import pytest
 
 from evals.interviewer import cases, simulate
 from src.services.llm_service import LlmUsage
-from tests.fixtures.llm import FakeLlmReplyStream
+from tests.fixtures.llm import FakeLlmReplyStream, RaisingLlmClient
 
 
 class _ScriptedLlmClient:
@@ -101,6 +101,37 @@ async def test_simulate_case_stops_on_the_ready_marker(
     # R10: with no named_systems in ground truth, the reconciliation line reads "none".
     assert "Named systems not found in the person's answers" in review_text
     assert "none" in review_text
+
+
+class _FailsAfterOpenerLlmClient(_ScriptedLlmClient):
+    """Streams the opener, then every later turn fails like a dead provider."""
+
+    def __init__(self) -> None:
+        super().__init__(["Hi, what do you do?"])
+        self._opened = False
+
+    def stream_reply(self, **kwargs: object) -> FakeLlmReplyStream:
+        if self._opened:
+            return RaisingLlmClient().stream_reply(**kwargs)
+        self._opened = True
+        return super().stream_reply(**kwargs)
+
+
+async def test_simulate_case_fails_loudly_when_an_interviewer_turn_fails(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """ChatService reports a failed turn as an in-band ErrorEvent; the simulation must
+    stop with an error rather than record an empty interviewer turn."""
+    monkeypatch.setattr(cases, "CASES_DIR", tmp_path / "cases")
+    monkeypatch.setattr(simulate, "REVIEW_DIR", tmp_path / "review")
+    cases.CASES_DIR.mkdir()
+    cases.write_case(_draft_case("failing-case"))
+    learner = _ScriptedLlmClient(["I run the monthly close."])
+
+    with pytest.raises(RuntimeError, match="interviewer turn failed"):
+        await simulate.simulate_case(
+            "failing-case", interviewer_llm=_FailsAfterOpenerLlmClient(), learner_llm=learner
+        )
 
 
 async def test_simulate_case_stops_at_the_persona_answer_cap(

@@ -8,12 +8,14 @@ from src.services.llm_service import (
     AnthropicLlmClient,
     LlmError,
     StructuredSchema,
+    is_provider_busy_error,
     is_provider_error,
     is_transient_provider_error,
 )
 from tests.fixtures.llm import (
     FakeAsyncAnthropic,
     FakeStructuredAsyncAnthropic,
+    in_stream_error,
     overloaded_error,
     status_error,
 )
@@ -114,6 +116,35 @@ class TestTransientProviderErrors:
 
     def test_an_unknown_error_is_terminal(self) -> None:
         assert is_transient_provider_error(RuntimeError("something else")) is False
+
+
+class TestProviderBusyErrors:
+    """`is_provider_busy_error` picks the learner-facing wording only. It must
+    also recognise the in-stream failure shape -- a plain APIStatusError on the
+    stream's 200, typed only by its body -- WITHOUT widening
+    `is_transient_provider_error`, whose narrowness the content pipeline's
+    re-queue logic depends on."""
+
+    def test_every_transient_error_is_busy(self) -> None:
+        assert is_provider_busy_error(overloaded_error()) is True
+        exc = anthropic.APIConnectionError(request=httpx2.Request("POST", "https://x/y"))
+        assert is_provider_busy_error(exc) is True
+
+    def test_an_in_stream_overload_is_busy_but_not_transient(self) -> None:
+        exc = in_stream_error("overloaded_error")
+        assert is_provider_busy_error(exc) is True
+        assert is_transient_provider_error(exc) is False
+
+    def test_in_stream_rate_limit_and_api_errors_are_busy(self) -> None:
+        assert is_provider_busy_error(in_stream_error("rate_limit_error")) is True
+        assert is_provider_busy_error(in_stream_error("api_error")) is True
+
+    def test_an_in_stream_request_error_is_not_busy(self) -> None:
+        assert is_provider_busy_error(in_stream_error("invalid_request_error")) is False
+
+    def test_an_unknown_error_is_not_busy(self) -> None:
+        assert is_provider_busy_error(RuntimeError("something else")) is False
+        assert is_provider_busy_error(TimeoutError()) is False
 
 
 class TestProviderErrors:

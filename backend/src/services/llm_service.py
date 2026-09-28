@@ -17,6 +17,7 @@ __all__ = [
     "LlmReplyStream",
     "LlmUsage",
     "StructuredSchema",
+    "is_provider_busy_error",
     "is_provider_error",
     "is_transient_provider_error",
 ]
@@ -49,6 +50,27 @@ def is_transient_provider_error(exc: BaseException) -> bool:
     failure re-consumes every future run forever.
     """
     return isinstance(exc, _TRANSIENT_PROVIDER_ERRORS)
+
+
+# Body `error.type`s that mean "busy" when the failure arrives INSIDE a stream.
+# anthropic's `_streaming.py` raises an in-stream `event: error` through
+# `_make_status_error(response=<the stream's 200>)`, so it is a plain
+# `APIStatusError`, not the `OverloadedError` a 529 would map to, and its type is
+# the only signal left.
+_BUSY_IN_STREAM_ERROR_TYPES = frozenset({"overloaded_error", "rate_limit_error", "api_error"})
+
+
+def is_provider_busy_error(exc: BaseException) -> bool:
+    """True when "the assistant is busy, try again" is the honest thing to tell
+    a learner: every transient error, plus the in-stream shape above.
+
+    For wording only. It is deliberately separate from
+    `is_transient_provider_error` rather than a widening of it, because the
+    content pipeline re-queues work on that one and must stay narrow.
+    """
+    if is_transient_provider_error(exc):
+        return True
+    return isinstance(exc, anthropic.APIStatusError) and exc.type in _BUSY_IN_STREAM_ERROR_TYPES
 
 
 def is_provider_error(exc: BaseException) -> bool:

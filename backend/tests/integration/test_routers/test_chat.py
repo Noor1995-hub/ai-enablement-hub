@@ -30,6 +30,7 @@ from src.repositories.conversation_repository import ConversationRepository
 from src.repositories.message_repository import MessageRepository
 from src.repositories.org_repository import OrgRepository
 from src.services.chat_service import ChatService
+from src.services.prompts import prompt_version
 from tests.fixtures.auth import auth_headers
 from tests.fixtures.factories import (
     create_company,
@@ -38,7 +39,7 @@ from tests.fixtures.factories import (
     create_user,
     unlock_component,
 )
-from tests.fixtures.llm import FakeLlmClient
+from tests.fixtures.llm import FailingLlmClient, FakeLlmClient, in_stream_error
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Callable
@@ -176,6 +177,51 @@ class TestSendChatMessage:
         )
         assert response.status_code == 429
         assert response.headers["Retry-After"] == "60"
+
+    async def test_provider_failure_mid_stream_sends_an_error_frame(
+        self,
+        chat_client: Callable[[FakeLlmClient], AsyncClient],
+        db_session: AsyncSession,
+        test_settings: Settings,
+    ) -> None:
+        """End-to-end proof that the frame reaches the wire: the response is
+        still 200 (headers were committed before the failure), the last SSE
+        event is `error`, not `done`, and it names the conversation so the
+        client can continue it instead of orphaning it."""
+        company = await create_company(db_session, "Chat Error Co")
+        project = await create_project(db_session, company, "Chat Error Project")
+        user = await create_user(
+            db_session,
+            email="chat-stream-error@example.com",
+            company_id=company.id,
+            project_id=project.id,
+        )
+        await _enable_ai(db_session, project.id, "chatbot")
+
+        client = chat_client(FailingLlmClient(in_stream_error(), chunks=["Par"]))
+        async with client.stream(
+            "POST",
+            "/api/chat/chatbot",
+            json={"content": "hi"},
+            headers=auth_headers(user, test_settings),
+        ) as response:
+            assert response.status_code == 200
+            raw = "".join([chunk async for chunk in response.aiter_text()])
+
+        events = _parse_sse(raw)
+        assert [e for e, _ in events] == ["token", "error"]
+        error_data = events[1][1]
+        assert error_data["message"] == (
+            "The assistant is busy right now - please try again in a moment."
+        )
+        conversation_id = uuid.UUID(error_data["conversation_id"])
+        stored = await MessageRepository(db_session).list_for_conversation(conversation_id)
+        assert [(m.role, m.content) for m in stored] == [("user", "hi"), ("assistant", "Par")]
+        assert stored[1].metadata_ == {
+            "truncated": True,
+            "model": "fake-model",
+            "prompt_version": prompt_version("chatbot"),
+        }
 
     async def test_403_when_ai_disabled(
         self,
