@@ -280,6 +280,7 @@ _ERROR_CODES = {
     415: "unsupported_media_type",
     422: "validation_error",
     429: "rate_limited",
+    500: "internal_error",
     502: "bad_gateway",
 }
 
@@ -381,6 +382,26 @@ async def validation_exception_handler(
             }
         },
     )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Last resort, so the {"error":{code,message}} contract holds even on a
+    path no domain handler claims -- an Anthropic 529, a bare `LlmError`, a
+    dropped DB connection.
+
+    The message is a fixed sentence on purpose: `exc` can carry a hostname, a
+    SQL fragment or a provider payload, and the frontend renders
+    `error.message` verbatim. The detail goes to the log via
+    `logger.exception` and nowhere else.
+
+    Starlette's ServerErrorMiddleware re-raises after this returns, so uvicorn
+    still records the traceback -- registering this handler suppresses nothing.
+    This response is built outside the CORS/security-headers middleware, so it
+    carries neither set; low risk since it is same-origin JSON to the SPA.
+    """
+    logger.exception("unhandled error on %s %s", request.method, request.url.path)
+    return _error_response(500, "Something went wrong. Please try again.")
 
 
 @app.get("/api/health", response_model=HealthOut)

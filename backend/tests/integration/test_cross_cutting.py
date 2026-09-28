@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import uuid
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Literal
 
@@ -10,6 +11,7 @@ from httpx import ASGITransport, AsyncClient
 
 from src.core.configs.app import AppSettings
 from src.core.dependencies.database import get_session
+from src.core.dependencies.domain import get_feedback_service
 from src.core.dependencies.settings import get_settings
 from src.core.security import hash_token, new_opaque_token
 from src.db.models import AuthSession, AuthToken
@@ -18,6 +20,7 @@ from src.repositories.auth_session_repository import AuthSessionRepository
 from src.repositories.auth_token_repository import AuthTokenRepository
 from src.repositories.user_repository import UserRepository
 from src.services.token_service import TokenService
+from tests.fixtures.auth import auth_headers
 from tests.fixtures.factories import create_user
 from tests.fixtures.media import TEST_STORAGE
 
@@ -233,3 +236,78 @@ class TestContentSecurityPolicy:
         prod_csp = await _csp_for("prod")
         assert prod_csp is not None
         assert "script-src 'self'" in prod_csp
+
+
+class TestUnhandledErrorEnvelope:
+    """A bug no domain handler claims must still answer in the standard shape.
+
+    `raise_app_exceptions=False` is required, not cosmetic: Starlette's
+    ServerErrorMiddleware sends the 500 response and then re-raises so the ASGI
+    server can log it, and httpx's ASGITransport surfaces that re-raise to the
+    caller by default. Uvicorn swallows it after logging, so a real browser sees
+    the JSON body this test asserts on.
+    """
+
+    async def test_unexpected_exception_returns_the_error_envelope(
+        self, db_session: AsyncSession, test_settings: Settings
+    ) -> None:
+        class _ExplodingFeedbackService:
+            async def submit(self, *_args: object, **_kwargs: object) -> None:
+                msg = "database went away"
+                raise RuntimeError(msg)
+
+        async def _override_session() -> AsyncGenerator[AsyncSession]:
+            yield db_session
+
+        user = await create_user(db_session, email="envelope-500@example.com")
+        app.dependency_overrides[get_session] = _override_session
+        app.dependency_overrides[get_settings] = lambda: test_settings
+        app.dependency_overrides[get_feedback_service] = _ExplodingFeedbackService
+        transport = ASGITransport(app=app, raise_app_exceptions=False)
+        try:
+            async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+                response = await client.post(
+                    "/api/feedback",
+                    json={"lesson_id": str(uuid.uuid4()), "message": "boom"},
+                    headers=auth_headers(user, test_settings),
+                )
+        finally:
+            app.dependency_overrides.clear()
+
+        assert response.status_code == 500
+        assert response.json() == {
+            "error": {
+                "code": "internal_error",
+                "message": "Something went wrong. Please try again.",
+            }
+        }
+
+    async def test_the_message_never_leaks_the_exception(
+        self, db_session: AsyncSession, test_settings: Settings
+    ) -> None:
+        """The client gets a fixed sentence; the cause goes to the log only."""
+
+        class _ExplodingFeedbackService:
+            async def submit(self, *_args: object, **_kwargs: object) -> None:
+                msg = "connection to db-secret-host:5432 failed"
+                raise RuntimeError(msg)
+
+        async def _override_session() -> AsyncGenerator[AsyncSession]:
+            yield db_session
+
+        user = await create_user(db_session, email="envelope-500b@example.com")
+        app.dependency_overrides[get_session] = _override_session
+        app.dependency_overrides[get_settings] = lambda: test_settings
+        app.dependency_overrides[get_feedback_service] = _ExplodingFeedbackService
+        transport = ASGITransport(app=app, raise_app_exceptions=False)
+        try:
+            async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+                response = await client.post(
+                    "/api/feedback",
+                    json={"lesson_id": str(uuid.uuid4()), "message": "boom"},
+                    headers=auth_headers(user, test_settings),
+                )
+        finally:
+            app.dependency_overrides.clear()
+
+        assert "db-secret-host" not in response.text
