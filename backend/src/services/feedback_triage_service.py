@@ -107,8 +107,8 @@ class FeedbackTriageService:
             except Exception:
                 # One bad row (model error, timeout, unusable output) must not
                 # abort the batch — same log-and-continue posture as
-                # _auth_cleanup_loop. Stamping the attempt is what stops this
-                # row from re-consuming the oldest-first slot on every rerun.
+                # _daily_maintenance_loop. Stamping the attempt is what stops
+                # this row from re-consuming the oldest-first slot on every rerun.
                 logger.exception("triage suggestion failed for feedback %s", feedback.id)
                 await self._feedback.mark_suggestion_attempted(feedback)
                 failed += 1

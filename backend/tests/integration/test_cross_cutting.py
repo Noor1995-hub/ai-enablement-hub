@@ -13,9 +13,10 @@ from src.core.configs.app import AppSettings
 from src.core.dependencies.database import get_session
 from src.core.dependencies.domain import get_feedback_service
 from src.core.dependencies.settings import get_settings
+from src.core.ratelimit import rate_limiter
 from src.core.security import hash_token, new_opaque_token
 from src.db.models import AuthSession, AuthToken
-from src.main import app
+from src.main import _run_daily_maintenance, app
 from src.repositories.auth_session_repository import AuthSessionRepository
 from src.repositories.auth_token_repository import AuthTokenRepository
 from src.repositories.user_repository import UserRepository
@@ -27,7 +28,7 @@ from tests.fixtures.media import TEST_STORAGE
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
 
-    from sqlalchemy.ext.asyncio import AsyncSession
+    from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
     from src.core.configs.settings import Settings
 
@@ -79,6 +80,33 @@ class TestTokenCleanup:
 
         assert await AuthTokenRepository(db_session).get_by_hash(live_token.token_hash)
         assert await AuthSessionRepository(db_session).get_by_hash(live_session.token_hash)
+
+    async def test_daily_maintenance_purges_tokens_and_sweeps_the_limiter(
+        self, engine: AsyncEngine, test_settings: Settings
+    ) -> None:
+        """The maintenance pass does two jobs now. The limiter half is asserted
+        exactly; the DB half is asserted loosely on purpose — this function
+        opens its OWN AsyncSession on the engine and commits outside the
+        `db_session` fixture's rolled-back transaction, so it must not depend on
+        rows another test planted. Row-level purge behaviour is pinned by
+        test_purge_expired_removes_only_dead_rows above.
+        """
+        rate_limiter.is_limited("maintenance-probe")
+        # Backdate the counter past its own window so the sweep is entitled to
+        # collect it (the store holds monotonic timestamps).
+        window_start, count, window_seconds = rate_limiter._store["maintenance-probe"]
+        rate_limiter._store["maintenance-probe"] = (
+            window_start - window_seconds - 1,
+            count,
+            window_seconds,
+        )
+
+        tokens, sessions, swept = await _run_daily_maintenance(engine, test_settings.auth)
+
+        assert swept >= 1
+        assert "maintenance-probe" not in rate_limiter._store
+        assert tokens >= 0
+        assert sessions >= 0
 
 
 class TestLoginRateLimit:

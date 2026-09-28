@@ -18,6 +18,7 @@ from starlette.middleware.base import RequestResponseEndpoint
 from src.core.configs.database import DatabaseProtocol
 from src.core.configs.settings import Settings
 from src.core.dependencies.settings import get_settings
+from src.core.ratelimit import rate_limiter
 from src.repositories.auth_session_repository import AuthSessionRepository
 from src.repositories.auth_token_repository import AuthTokenRepository
 from src.repositories.user_repository import UserRepository
@@ -105,28 +106,50 @@ _CLEANUP_INTERVAL_SECONDS = 24 * 60 * 60
 _STATIC_DIR = (Path(__file__).resolve().parents[1] / "static").resolve()
 
 
-async def _auth_cleanup_loop(engine: AsyncEngine, auth_settings: AuthSettings) -> None:
-    """Daily purge of expired invite/reset tokens and dead sessions (fixes DB2).
+async def _run_daily_maintenance(
+    engine: AsyncEngine, auth_settings: AuthSettings
+) -> tuple[int, int, int]:
+    """One maintenance pass: purge expired invite/reset tokens and dead refresh
+    sessions (fixes DB2), then drop rate-limiter counters that can no longer
+    affect a decision.
 
-    Runs once at startup, then every 24 h. No pg_cron dependency.
+    Returns (tokens_deleted, sessions_deleted, limiter_keys_swept). Split out
+    of the loop below so it can be tested without waiting 24 hours.
     """
+    # Swept first and independently of the DB half below: in-process and
+    # per-replica by design (see core/ratelimit.py), so it needs no session,
+    # and a DB outage must not also cost the app its one chance that day to
+    # bound the rate-limiter store's memory.
+    swept = rate_limiter.sweep()
+    async with AsyncSession(engine, expire_on_commit=False) as session:
+        token_service = TokenService(
+            UserRepository(session),
+            AuthTokenRepository(session),
+            AuthSessionRepository(session),
+            auth_settings,
+        )
+        tokens_deleted, sessions_deleted = await token_service.purge_expired()
+    return tokens_deleted, sessions_deleted, swept
+
+
+async def _daily_maintenance_loop(engine: AsyncEngine, auth_settings: AuthSettings) -> None:
+    """Runs one maintenance pass at startup, then every 24 h. No pg_cron
+    dependency. A failure is logged and retried next interval — this task must
+    never be the reason the app goes down."""
     while True:
         try:
-            async with AsyncSession(engine, expire_on_commit=False) as session:
-                token_service = TokenService(
-                    UserRepository(session),
-                    AuthTokenRepository(session),
-                    AuthSessionRepository(session),
-                    auth_settings,
-                )
-                tokens_deleted, sessions_deleted = await token_service.purge_expired()
+            tokens_deleted, sessions_deleted, swept = await _run_daily_maintenance(
+                engine, auth_settings
+            )
             logger.info(
-                "auth cleanup: deleted %d expired tokens, %d dead sessions",
+                "daily maintenance: deleted %d expired tokens, %d dead sessions, "
+                "swept %d rate-limiter keys",
                 tokens_deleted,
                 sessions_deleted,
+                swept,
             )
         except Exception:
-            logger.exception("auth cleanup failed; retrying next interval")
+            logger.exception("daily maintenance failed; retrying next interval")
         await asyncio.sleep(_CLEANUP_INTERVAL_SECONDS)
 
 
@@ -145,7 +168,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         )
     engine = create_async_engine(**kwargs)
     app.state.db_engine = engine
-    cleanup_task = asyncio.create_task(_auth_cleanup_loop(engine, settings.auth))
+    cleanup_task = asyncio.create_task(_daily_maintenance_loop(engine, settings.auth))
     yield
     cleanup_task.cancel()
     with suppress(asyncio.CancelledError):

@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+import logging
+
+import pytest
+
+from src.core import ratelimit
 from src.core.ratelimit import RateLimiter
 
 
@@ -59,3 +64,191 @@ class TestRateLimiter:
             limiter.is_limited("k")
         limiter.reset()
         assert limiter.is_limited("k") is False
+
+    def test_a_live_key_keeps_its_stored_window_despite_a_different_argument(self) -> None:
+        """A key's window is fixed for the life of its counter. A later call
+        for the SAME key with a different window_seconds must not reshape a
+        still-live window -- only a fresh key or an actually-expired window
+        may adopt the newly passed value."""
+        clock = FakeClock()
+        limiter = RateLimiter(clock=clock)
+        limiter.is_limited("k", window_seconds=60)
+        clock.now += 10  # still well inside the original 60s window
+        limiter.is_limited("k", window_seconds=5)  # a different window, same live key
+
+        # The stored window (60) wins, not the 5 just passed.
+        assert limiter._store["k"] == (1000.0, 2, 60.0)
+
+        clock.now += 45  # 55s after the window started: past a 5s window, still inside 60s
+        limiter.is_limited("k", window_seconds=5)
+        # Still the original window -- if 5 had won on the earlier call, this
+        # would already have reset (window_start would have moved to 1055).
+        assert limiter._store["k"][0] == 1000.0
+
+
+class TestSweep:
+    """`sweep` is what keeps the process-global store from growing forever.
+    It must be loss-free: a counter is only droppable once its window can no
+    longer affect a decision."""
+
+    def test_sweep_drops_a_counter_once_its_own_window_elapses(self) -> None:
+        """Per-key windows, not one global cutoff: a plain 60s-window key is
+        droppable after 61s, long before a 24h chat-daily counter would be."""
+        clock = FakeClock()
+        limiter = RateLimiter(clock=clock)
+        limiter.is_limited("stale-key")  # default 60s window
+        clock.now += 61
+
+        assert limiter.sweep() == 1
+
+    def test_sweep_keeps_a_counter_that_can_still_bite(self) -> None:
+        """A chat-daily counter is 24h wide; sweeping it early would hand back
+        an AI-spend allowance the caller already used up."""
+        clock = FakeClock()
+        limiter = RateLimiter(clock=clock)
+        for _ in range(200):
+            limiter.is_limited("chat-daily:u1", max_calls=200, window_seconds=86_400)
+        clock.now += 3_600  # an hour later, still inside the daily window
+
+        assert limiter.sweep() == 0
+        assert limiter.is_limited("chat-daily:u1", max_calls=200, window_seconds=86_400) is True
+
+    def test_a_swept_key_starts_from_zero(self) -> None:
+        clock = FakeClock()
+        limiter = RateLimiter(clock=clock)
+        for _ in range(6):
+            limiter.is_limited("k")
+        clock.now += 86_401
+        limiter.sweep()
+
+        assert limiter.is_limited("k") is False
+
+    def test_sweep_honours_an_explicit_window(self) -> None:
+        clock = FakeClock()
+        limiter = RateLimiter(clock=clock)
+        limiter.is_limited("k")
+        clock.now += 120
+
+        assert limiter.sweep(older_than=60) == 1
+
+
+class TestCapacityCeiling:
+    """The store is a plain dict in a single-replica process. A flood of unique
+    keys (spoofed X-Forwarded-For, enumerated emails) is the only realistic way
+    to grow it, and an unbounded dict is a worse failure than a reset counter.
+
+    `limiter._store` is read directly below. That is deliberate: the ceiling is
+    an internal-memory invariant with no public read, and inventing a
+    `__len__`/accessor just for the test would be worse.
+    """
+
+    def test_new_keys_cannot_grow_the_store_without_limit(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(ratelimit, "_MAX_KEYS", 10)
+        monkeypatch.setattr(ratelimit, "_EVICTION_BATCH", 2)
+        clock = FakeClock()
+        limiter = RateLimiter(clock=clock)
+        for i in range(50):
+            clock.now += 1  # distinct window starts, so "oldest" is well-defined
+            limiter.is_limited(f"flood-{i}")
+
+        assert len(limiter._store) <= 10
+
+    def test_stale_counters_are_evicted_before_live_ones(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(ratelimit, "_MAX_KEYS", 3)
+        monkeypatch.setattr(ratelimit, "_EVICTION_BATCH", 1)
+        clock = FakeClock()
+        limiter = RateLimiter(clock=clock)
+        limiter.is_limited("ancient")
+        clock.now += 86_401
+        limiter.is_limited("live-a")
+        limiter.is_limited("live-b")
+        limiter.is_limited("live-c")  # trips the ceiling; "ancient" is the free win
+
+        assert "ancient" not in limiter._store
+        assert {"live-a", "live-b", "live-c"} <= set(limiter._store)
+
+    def test_evicting_a_live_counter_is_logged(
+        self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Reaching this branch means someone is manufacturing keys — it must
+        leave a signal, not silently forgive them."""
+        monkeypatch.setattr(ratelimit, "_MAX_KEYS", 2)
+        monkeypatch.setattr(ratelimit, "_EVICTION_BATCH", 1)
+        clock = FakeClock()
+        limiter = RateLimiter(clock=clock)
+        with caplog.at_level(logging.WARNING, logger="src.core.ratelimit"):
+            for i in range(5):
+                clock.now += 1
+                limiter.is_limited(f"k{i}")
+
+        assert any("ceiling" in record.message for record in caplog.records)
+
+    def test_a_flood_of_short_window_keys_does_not_evict_a_live_chat_daily_counter(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Ruling (review 2.6/7.3 follow-up): eviction must never free
+        AI-spend counters first. A naive "oldest window_start first" policy
+        would pick the chat-daily counter here, because it was created before
+        the flood — even though it still has almost a full day left on its
+        window. Ranking by each key's OWN expiry (window_start +
+        window_seconds) protects it: the flood's 60s keys expire in minutes,
+        long before the daily counter does.
+        """
+        monkeypatch.setattr(ratelimit, "_MAX_KEYS", 5)
+        monkeypatch.setattr(ratelimit, "_EVICTION_BATCH", 1)
+        clock = FakeClock()
+        limiter = RateLimiter(clock=clock)
+        limiter.is_limited("chat-daily:victim", max_calls=200, window_seconds=86_400)
+        for i in range(10):
+            clock.now += 1  # distinct, short-lived window starts
+            limiter.is_limited(f"flood-{i}", max_calls=5, window_seconds=60)
+
+        assert "chat-daily:victim" in limiter._store
+        # Untouched by the flood: still its original window and count, not reset.
+        assert limiter._store["chat-daily:victim"] == (1000.0, 1, 86_400)
+
+    def test_make_room_leaves_batch_headroom_so_the_next_keys_skip_the_scan(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Review Important-1: `_make_room` must land the store at
+        `_MAX_KEYS - _EVICTION_BATCH`, not merely back under `_MAX_KEYS`.
+        Otherwise, near the ceiling with only a trickle of expiring keys, one
+        freed slot is immediately refilled by the next request, which pays
+        another full store scan — the exact per-request O(n) cost
+        `_EVICTION_BATCH`'s own comment says batching avoids. This counts
+        `_make_room` invocations directly (via monkeypatch) rather than
+        inferring them from store size, since a same-sized store before and
+        after is not proof that no scan ran.
+        """
+        monkeypatch.setattr(ratelimit, "_MAX_KEYS", 10)
+        monkeypatch.setattr(ratelimit, "_EVICTION_BATCH", 3)
+        clock = FakeClock()
+        limiter = RateLimiter(clock=clock)
+        for i in range(10):
+            clock.now += 1
+            limiter.is_limited(f"live-{i}")  # fills to the ceiling; none expire on their own
+
+        calls = 0
+        original_make_room = limiter._make_room
+
+        def counting_make_room() -> None:
+            nonlocal calls
+            calls += 1
+            original_make_room()
+
+        monkeypatch.setattr(limiter, "_make_room", counting_make_room)
+
+        clock.now += 1
+        limiter.is_limited("trigger")  # trips the ceiling: exactly one make-room pass
+        assert calls == 1
+        assert len(limiter._store) == ratelimit._MAX_KEYS - ratelimit._EVICTION_BATCH + 1
+
+        for i in range(ratelimit._EVICTION_BATCH - 1):
+            clock.now += 1
+            limiter.is_limited(f"after-{i}")
+
+        assert calls == 1  # the batch headroom absorbed these without another scan
