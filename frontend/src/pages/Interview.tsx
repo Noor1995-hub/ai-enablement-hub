@@ -15,6 +15,7 @@ import Playbook from '../components/interview/Playbook'
 import { useAuth } from '../contexts/AuthContext'
 import { resolveInterviewTile } from '../lib/interviewAccess'
 import { buildPlaybook, getInterviewState, openInterview } from '../lib/interviewApi'
+import { chatToolbarHint } from '../lib/interviewHints'
 import { useChat } from '../lib/useChat'
 import type { InterviewState } from '../types/domain'
 
@@ -36,6 +37,9 @@ const MAX_INPUT = 4000
  *  display; the learner never sees it. Kept in sync with
  *  backend/src/services/interview_marker.py, the backend's single home for the marker. */
 const READY_MARKER = '[[READY_TO_BUILD]]'
+
+/** The toolbar hint doubles as the Build button's description (why it is greyed out). */
+const BUILD_HINT_ID = 'interview-build-hint'
 
 /** Strip the readiness marker from an assistant message for display, and report whether the
  *  full marker has arrived. Also hides a trailing *partial* marker so it never flashes while
@@ -238,6 +242,8 @@ function ChatScreen({ chat, buildError, onBuildPlaybook, opening, openError, onR
   const answerCount = chat.messages.filter(m => m.role === 'user').length
   // Primary: reveal when the interviewer signals it's ready. Fallback: after the floor.
   const canBuild = modelReady || answerCount >= FALLBACK_MIN_ANSWERS
+  const buildDisabled = !canBuild || chat.loading
+  const toolbarHint = chatToolbarHint({ modelReady, canBuild, answerCount })
 
   // Pin the latest turn into view as messages arrive and stream in (keyed on message
   // count + the last message's length so it follows both new turns and streaming growth).
@@ -285,15 +291,7 @@ function ChatScreen({ chat, buildError, onBuildPlaybook, opening, openError, onR
     <div>
       <div style={s.chatShell}>
         <div style={s.chatToolbar}>
-          <p style={s.chatToolbarHint}>
-            {modelReady
-              ? "Your playbook's ready to build whenever you are — or keep chatting to add more."
-              : canBuild
-                ? 'You can build your playbook now, or keep going for a richer result.'
-                : answerCount === 0
-                  ? 'Say hello to get started.'
-                  : 'Keep going — the more you share, the better your playbook.'}
-          </p>
+          <p id={BUILD_HINT_ID} style={s.chatToolbarHint}>{toolbarHint}</p>
         </div>
 
         <div style={s.messages} ref={messagesRef}>
@@ -307,9 +305,6 @@ function ChatScreen({ chat, buildError, onBuildPlaybook, opening, openError, onR
                 Try again
               </button>
             </div>
-          )}
-          {chat.messages.length === 0 && !opening && !openError && (
-            <p style={s.emptyHint}>Say hello to begin the interview.</p>
           )}
           {display.map((m, i) => (
             <div
@@ -349,18 +344,21 @@ function ChatScreen({ chat, buildError, onBuildPlaybook, opening, openError, onR
         </form>
       </div>
 
-      {canBuild && (
-        <div style={s.buildBar}>
-          <button
-            type="button"
-            className="btn-red"
-            style={{ ...s.btnPrimary, ...s.btnSmall }}
-            onClick={onBuildPlaybook}
-          >
-            Build my playbook
-          </button>
-        </div>
-      )}
+      {/* Always rendered, greyed out until the build is available, so nothing below the
+          chat shifts when it unlocks. Also disabled while a reply streams, so a build never
+          misses the interviewer's last turn. */}
+      <div style={s.buildBar}>
+        <button
+          type="button"
+          className="btn-red"
+          style={{ ...s.btnPrimary, ...s.btnSmall, ...(buildDisabled ? s.btnPrimaryDisabled : {}) }}
+          onClick={onBuildPlaybook}
+          disabled={buildDisabled}
+          aria-describedby={BUILD_HINT_ID}
+        >
+          Build my playbook
+        </button>
+      </div>
     </div>
   )
 }
