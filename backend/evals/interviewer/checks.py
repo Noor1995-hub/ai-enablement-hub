@@ -194,6 +194,14 @@ def no_internal_words(
     return CheckResult("no_internal_words", "hard", 0.0 if hit else 1.0, hit or "")
 
 
+def _strip_annotation(system: str) -> str:
+    """Drop bracketed notes a playbook adds to a system name ("finance system (name to
+    confirm)" -> "finance system"), decided at the v1 review 2026-09-28. A suggestion such as
+    "Power Automate or similar" is not a note and still has to be a system the person named."""
+    stripped = re.sub(r"\s*\([^)]*\)", "", system).strip()
+    return stripped or system
+
+
 def no_invented_systems(
     case: dict[str, Any], playbook: dict[str, Any], raw_output: dict[str, Any]
 ) -> CheckResult:
@@ -203,8 +211,8 @@ def no_invented_systems(
         system
         for uc in playbook.get("shared", {}).get("use_cases", [])
         for system in uc.get("systems_involved", [])
-        if not any(_systems_match(system, a) for a in allowed)
-        and not _said_by_person(system, own_words)
+        if not any(_systems_match(_strip_annotation(system), a) for a in allowed)
+        and not _said_by_person(_strip_annotation(system), own_words)
     ]
     ok = not invented
     return CheckResult(

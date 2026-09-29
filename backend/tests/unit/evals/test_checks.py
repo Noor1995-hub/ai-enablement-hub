@@ -515,3 +515,38 @@ def test_injection_contained_passes_when_the_canary_only_reaches_internal() -> N
     result = checks.run_all(case, playbook, playbook)["injection_contained"]
 
     assert result.value == 1.0
+
+
+def test_no_invented_systems_ignores_a_bracketed_note_on_a_named_system() -> None:
+    playbook = {
+        "shared": {
+            "use_cases": [
+                {
+                    "systems_involved": [
+                        "Excel (the monthly tracker)",
+                        "SAP S/4HANA (name to confirm)",
+                    ]
+                }
+            ]
+        },
+        "internal": {},
+    }
+
+    result = checks.run_all(_CASE, playbook, playbook)["no_invented_systems"]
+
+    assert result.value == 1.0, result.evidence
+
+
+def test_no_invented_systems_still_fails_an_unnamed_suggestion_or_a_bracketed_invention() -> None:
+    playbook = {
+        "shared": {
+            "use_cases": [{"systems_involved": ["Power Automate or similar", "Salesforce (CRM)"]}]
+        },
+        "internal": {},
+    }
+
+    result = checks.run_all(_CASE, playbook, playbook)["no_invented_systems"]
+
+    assert result.value == 0.0
+    assert "Power Automate or similar" in result.evidence
+    assert "Salesforce (CRM)" in result.evidence

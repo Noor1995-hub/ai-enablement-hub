@@ -4,6 +4,7 @@ Needs a real LlmClient; only the `simulate` CLI command constructs one."""
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 import uuid
@@ -12,7 +13,9 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
 
-from evals.interviewer import vocabulary
+import anthropic
+
+from evals.interviewer import cases, pricing, vocabulary
 from evals.interviewer.cases import load_case, write_case
 from evals.interviewer.fakes import (
     TOOLS,
@@ -20,23 +23,29 @@ from evals.interviewer.fakes import (
     InMemoryMessageRepository,
     build_context,
 )
+from evals.interviewer.recording import UsageCapturingLlmClient
 from src.services.chat_service import ChatService, ErrorEvent, TokenEvent
+from src.services.exceptions import DomainError
 from src.services.interview_marker import has_ready_marker
 from src.services.interview_service import _MIN_ANSWERS_WITHOUT_OFFER, InterviewService
 from src.services.prompts import prompt_version
 
 if TYPE_CHECKING:
-    from src.services.llm_service import LlmClient
+    from src.services.llm_service import LlmClient, LlmUsage
 
 __all__ = [
     "REVIEW_DIR",
+    "RUNS_DIR",
     "approve_case",
     "ensure_resimulation_allowed",
     "simulate_case",
+    "simulate_variant",
     "write_review_page",
 ]
 
 REVIEW_DIR = Path(__file__).resolve().parent / "review"
+RUNS_DIR = Path(__file__).resolve().parent / "runs"
+_MAX_CONCURRENCY = 4
 _MAX_ANSWERS = 20
 # Same "kind" InterviewService stamps interview_prompt_version with (its _KIND).
 _INTERVIEW_KIND = "interview"
@@ -86,10 +95,14 @@ def ensure_resimulation_allowed(case: dict[str, Any], *, force: bool) -> None:
         raise ValueError(f"case {case['id']!r} is already approved; pass --force to re-simulate")
 
 
-async def simulate_case(
-    case_id: str, *, interviewer_llm: LlmClient, learner_llm: LlmClient
+async def _run_simulation(
+    case: dict[str, Any], *, interviewer_llm: LlmClient, learner_llm: LlmClient
 ) -> dict[str, Any]:
-    case = load_case(case_id)
+    """The interview loop itself (spec §3.3): the real InterviewService/ChatService
+    against a second model call playing the persona. Mutates and returns `case` with
+    `status`/`transcript`/`simulation`/`approval` updated; writes nothing to disk - callers
+    (`simulate_case` for the frozen set, `simulate_variant` for a variant's sims) decide
+    where the result goes."""
     conversations = InMemoryConversationRepository()
     messages = InMemoryMessageRepository()
     context = build_context(case)
@@ -135,9 +148,10 @@ async def simulate_case(
                 turn_text += event.text
             elif isinstance(event, ErrorEvent):
                 # ChatService reports a failed turn in-band; a simulation must not carry
-                # on with half a transcript, so fail loudly like any other error.
+                # on with half a transcript, so fail loudly. A DomainError, so
+                # `simulate --variant` bills and logs it like any other provider failure.
                 msg = f"interviewer turn failed: {event.message}"
-                raise RuntimeError(msg)
+                raise DomainError(msg)
         ready = has_ready_marker(turn_text)
         question = turn_text
 
@@ -151,9 +165,175 @@ async def simulate_case(
     }
     # M2: any prior approval no longer means anything once the transcript has changed.
     case["approval"] = {"approved_at": None, "notes": ""}
+    return case
+
+
+async def simulate_case(
+    case_id: str, *, interviewer_llm: LlmClient, learner_llm: LlmClient
+) -> dict[str, Any]:
+    case = await _run_simulation(
+        load_case(case_id), interviewer_llm=interviewer_llm, learner_llm=learner_llm
+    )
     write_case(case)
     write_review_page(case)
     return case
+
+
+def _price(usages: list[LlmUsage], expected_model: str) -> float:
+    return pricing.cost_usd(
+        model=expected_model,
+        input_tokens=sum(u.input_tokens for u in usages),
+        output_tokens=sum(u.output_tokens for u in usages),
+    )
+
+
+class _SimulationFailed(Exception):
+    """A simulation raised partway through; carries what was already billed so the spend
+    cap still counts it (PR #95 review)."""
+
+    def __init__(self, cost: float, cause: BaseException) -> None:
+        super().__init__(f"{type(cause).__name__}: {cause}")
+        self.cost = cost
+        self.cause = cause
+
+
+async def _simulate_and_cost(
+    case: dict[str, Any],
+    *,
+    interviewer_llm: LlmClient,
+    learner_llm: LlmClient,
+    expected_model: str,
+) -> tuple[dict[str, Any], float]:
+    """Runs one simulation, billing every model call made along the way (both the
+    interviewer's stream calls and the persona's own) against `expected_model` - the same
+    price list `run` uses, so `simulate --variant` fails fast on an unpriced model too.
+    If the simulation raises, the calls already made are still priced and reported via
+    `_SimulationFailed`, so a failed sim never spends money the cap does not see."""
+    usages: list[LlmUsage] = []
+    try:
+        result = await _run_simulation(
+            case,
+            interviewer_llm=UsageCapturingLlmClient(interviewer_llm, usages),
+            learner_llm=UsageCapturingLlmClient(learner_llm, usages),
+        )
+    except Exception as exc:
+        raise _SimulationFailed(_price(usages, expected_model), exc) from exc
+    return result, _price(usages, expected_model)
+
+
+def _sim_path(runs_dir: Path, variant: str, case_id: str, rep: int) -> Path:
+    return runs_dir / variant / "sims" / f"{case_id}_rep{rep}.json"
+
+
+_SIM_ERRORS_FILE = "sim_errors.jsonl"
+
+
+def _committed_sim_spend(variant_dir: Path) -> float:
+    """Every dollar already billed for this variant: finished sims (cost in each sim file)
+    plus failed sims (cost in sim_errors.jsonl), so a fail-and-resume loop cannot spend
+    past the cap unseen."""
+    total = 0.0
+    sims_dir = variant_dir / "sims"
+    if sims_dir.exists():
+        for path in sims_dir.glob("*.json"):
+            data = json.loads(path.read_text(encoding="utf-8"))
+            total += data.get("simulation", {}).get("cost_usd", 0.0)
+    errors = variant_dir / _SIM_ERRORS_FILE
+    if errors.exists():
+        for line in errors.read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                total += json.loads(line).get("cost_usd", 0.0)
+    return total
+
+
+async def simulate_variant(
+    *,
+    variant: str,
+    case_ids: list[str] | None,
+    reps: int,
+    max_usd: float | None,
+    interviewer_llm: LlmClient,
+    learner_llm: LlmClient,
+    expected_model: str,
+    runs_dir: Path = RUNS_DIR,
+) -> None:
+    """Runs the same simulation loop as `simulate_case` for every (case, rep) pair, but
+    writes each result to `runs/<variant>/sims/<case>_rep<k>.json` - never to `cases/` or
+    `review/` (spec 2026-09-28). Resumable (skips a (case, rep) file that already exists);
+    a spend cap stops starting new sims once the running total - every sim already on disk
+    for this variant, plus every sim started this run - reaches it, mirroring `runner.run`."""
+    if expected_model not in pricing.PRICE_PER_MTOK:
+        raise SystemExit(
+            f"no price on file for {expected_model!r}; add it to pricing.PRICE_PER_MTOK "
+            "before simulating (fails fast, before any sim starts, so nothing gets billed "
+            "against a model this eval cannot price)"
+        )
+    ids = case_ids if case_ids is not None else cases.list_case_ids()
+    if not ids:
+        raise SystemExit("no cases to simulate")
+
+    variant_dir = runs_dir / variant
+    pending = [
+        (case_id, rep)
+        for case_id in ids
+        for rep in range(reps)
+        if not _sim_path(runs_dir, variant, case_id, rep).exists()
+    ]
+    if not pending:
+        return
+
+    spend = {"total": _committed_sim_spend(variant_dir)}
+    stop = {"hit": False}
+    spend_lock = asyncio.Lock()
+    semaphore = asyncio.Semaphore(_MAX_CONCURRENCY)
+
+    async def _worker(case_id: str, rep: int) -> None:
+        async with semaphore:
+            async with spend_lock:
+                if stop["hit"]:
+                    return
+                if max_usd is not None and spend["total"] >= max_usd:
+                    stop["hit"] = True
+                    return
+            try:
+                case, cost = await _simulate_and_cost(
+                    load_case(case_id),
+                    interviewer_llm=interviewer_llm,
+                    learner_llm=learner_llm,
+                    expected_model=expected_model,
+                )
+            except _SimulationFailed as failed:
+                # Record the billed cost first, so the cap and a later resume both count it;
+                # the message is the exception type + text only, never interview content.
+                variant_dir.mkdir(parents=True, exist_ok=True)
+                error_row = {
+                    "case_id": case_id,
+                    "rep": rep,
+                    "cost_usd": failed.cost,
+                    "error": type(failed.cause).__name__,
+                    "message": str(failed.cause)[:300],
+                }
+                with (variant_dir / _SIM_ERRORS_FILE).open("a", encoding="utf-8") as f:
+                    f.write(json.dumps(error_row) + "\n")
+                async with spend_lock:
+                    spend["total"] += failed.cost
+                if isinstance(failed.cause, DomainError | anthropic.APIError):
+                    return  # provider/service failure: logged and billed; the rest carry on
+                raise failed.cause from failed
+            case["simulation"]["cost_usd"] = cost
+            case["rep"] = rep
+            path = _sim_path(runs_dir, variant, case_id, rep)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(case, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+            async with spend_lock:
+                spend["total"] += cost
+
+    await asyncio.gather(*(_worker(c, r) for c, r in pending))
+    if stop["hit"]:
+        raise SystemExit(
+            f"spend cap ${max_usd:.2f} reached at ${spend['total']:.2f}; re-run the same "
+            "command to continue (resume skips finished pairs)"
+        )
 
 
 def _missing_named_systems(case: dict[str, Any]) -> list[str]:

@@ -5,6 +5,7 @@ from typing import Any
 import pytest
 
 from evals.interviewer import cases, simulate
+from src.services.exceptions import DomainError
 from src.services.llm_service import LlmUsage
 from tests.fixtures.llm import FakeLlmReplyStream, RaisingLlmClient
 
@@ -128,7 +129,7 @@ async def test_simulate_case_fails_loudly_when_an_interviewer_turn_fails(
     cases.write_case(_draft_case("failing-case"))
     learner = _ScriptedLlmClient(["I run the monthly close."])
 
-    with pytest.raises(RuntimeError, match="interviewer turn failed"):
+    with pytest.raises(DomainError, match="interviewer turn failed"):
         await simulate.simulate_case(
             "failing-case", interviewer_llm=_FailsAfterOpenerLlmClient(), learner_llm=learner
         )

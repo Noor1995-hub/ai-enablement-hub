@@ -8,9 +8,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
     from src.services.llm_service import LlmClient, LlmReplyStream, LlmUsage
 
-__all__ = ["RecordingLlmClient"]
+__all__ = ["RecordingLlmClient", "UsageCapturingLlmClient"]
 
 
 class RecordingLlmClient:
@@ -37,3 +39,64 @@ class RecordingLlmClient:
             {"system": system, "prompt": prompt, "raw_output": result, "usage": usage}
         )
         return result, usage
+
+
+class _UsageCapturingReplyStream:
+    """Wraps one `stream_reply` call's `LlmReplyStream` so its usage lands in `sink`
+    exactly once, whether or not the caller itself calls `.usage()` - `InterviewService.
+    open_interview` never does (it only reads the streamed text), while `ChatService.
+    send_message` and this package's own `_learner_reply` both do. Reads usage as soon as
+    the iterator is fully exhausted, matching the `LlmReplyStream` contract ("call usage()
+    only after the iterator is fully exhausted")."""
+
+    def __init__(self, inner: LlmReplyStream, sink: list[LlmUsage]) -> None:
+        self._inner = inner
+        self._sink = sink
+        self._captured: LlmUsage | None = None
+
+    async def __aenter__(self) -> _UsageCapturingReplyStream:
+        await self._inner.__aenter__()
+        return self
+
+    async def __aexit__(self, *exc: object) -> None:
+        await self._inner.__aexit__(*exc)
+
+    async def __aiter__(self) -> AsyncIterator[str]:
+        async for chunk in self._inner:
+            yield chunk
+        await self._ensure_captured()
+
+    async def usage(self) -> LlmUsage:
+        return await self._ensure_captured()
+
+    async def _ensure_captured(self) -> LlmUsage:
+        if self._captured is None:
+            self._captured = await self._inner.usage()
+            self._sink.append(self._captured)
+        return self._captured
+
+
+class UsageCapturingLlmClient:
+    """Wraps a real LlmClient so every `stream_reply` call's usage lands in `usages`, in
+    call order - used by `simulate --variant` to cost a simulation (spec 2026-09-28): both
+    the interviewer's calls (InterviewService.open_interview, ChatService.send_message)
+    and the persona's own calls (`simulate._learner_reply`) go through this, so a single
+    shared `usages` list on both wrappers captures the full cost of one simulation."""
+
+    def __init__(self, inner: LlmClient, usages: list[LlmUsage]) -> None:
+        self._inner = inner
+        self.usages = usages
+
+    @property
+    def model(self) -> str:
+        return self._inner.model
+
+    def stream_reply(self, **kwargs: Any) -> _UsageCapturingReplyStream:
+        return _UsageCapturingReplyStream(self._inner.stream_reply(**kwargs), self.usages)
+
+    async def complete_structured(
+        self, *, system: str, prompt: str, schema: Any, max_tokens: int
+    ) -> tuple[dict[str, Any], LlmUsage]:
+        return await self._inner.complete_structured(
+            system=system, prompt=prompt, schema=schema, max_tokens=max_tokens
+        )

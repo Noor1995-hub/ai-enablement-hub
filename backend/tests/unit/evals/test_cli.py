@@ -69,7 +69,7 @@ def test_cmd_simulate_wraps_a_valueerror_as_a_systemexit(monkeypatch: pytest.Mon
     monkeypatch.setattr(cli.simulate, "ensure_resimulation_allowed", _boom)
 
     with pytest.raises(SystemExit, match="--force"):
-        cli._cmd_simulate(cli.argparse.Namespace(case="x", force=False))
+        cli._cmd_simulate(cli.argparse.Namespace(case="x", force=False, variant=None))
 
 
 def test_run_parser_strips_whitespace_and_drops_empty_case_ids() -> None:
@@ -173,3 +173,80 @@ def test_cmd_run_strips_whitespace_and_drops_empty_case_ids(
     )
 
     assert captured["case_ids"] == ["a", "b", "c"]
+
+
+def test_simulate_parser_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
+    parser = cli.build_parser()
+
+    args = parser.parse_args(["simulate", "--case", "x"])
+
+    assert args.case == "x"
+    assert args.variant is None
+    assert args.cases is None
+    assert args.reps == 1
+    assert args.max_usd == 10.0
+
+
+def test_cmd_simulate_refuses_both_case_and_variant(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(cli, "_require_llm", lambda _model: (object(), "fake-model"))
+
+    with pytest.raises(SystemExit, match="either --case or --variant"):
+        cli._cmd_simulate(
+            cli.argparse.Namespace(
+                case="x", variant="v1", force=False, cases=None, reps=1, max_usd=10.0
+            )
+        )
+
+
+def test_cmd_simulate_refuses_neither_case_nor_variant() -> None:
+    with pytest.raises(SystemExit, match="either --case"):
+        cli._cmd_simulate(
+            cli.argparse.Namespace(
+                case=None, variant=None, force=False, cases=None, reps=1, max_usd=10.0
+            )
+        )
+
+
+def test_cmd_simulate_dispatches_to_simulate_variant_with_parsed_case_ids(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    async def _fake_simulate_variant(**kwargs: object) -> None:
+        captured.update(kwargs)
+
+    monkeypatch.setattr(cli, "_require_llm", lambda _model: ("the-llm", "fake-model"))
+    monkeypatch.setattr(cli.simulate, "simulate_variant", _fake_simulate_variant)
+
+    cli._cmd_simulate(
+        cli.argparse.Namespace(
+            case=None, variant="v1", force=False, cases=" a, b ", reps=2, max_usd=5.0
+        )
+    )
+
+    assert captured["variant"] == "v1"
+    assert captured["case_ids"] == ["a", "b"]
+    assert captured["reps"] == 2
+    assert captured["max_usd"] == 5.0
+    assert captured["interviewer_llm"] == "the-llm"
+    assert captured["learner_llm"] == "the-llm"
+    assert captured["expected_model"] == "fake-model"
+
+
+def test_cmd_chat_report_refuses_a_variant_with_no_sims(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(cli.runner, "RUNS_DIR", tmp_path)
+
+    with pytest.raises(SystemExit, match="run `simulate --variant` first"):
+        cli._cmd_chat_report(cli.argparse.Namespace(variant="v9"))
+
+
+def test_chat_report_parser_requires_variant() -> None:
+    parser = cli.build_parser()
+
+    with pytest.raises(SystemExit):
+        parser.parse_args(["chat-report"])
+
+    args = parser.parse_args(["chat-report", "--variant", "v1"])
+    assert args.variant == "v1"

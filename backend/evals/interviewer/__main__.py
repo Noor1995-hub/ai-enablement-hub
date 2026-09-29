@@ -28,6 +28,25 @@ def _require_llm(model_override: str | None) -> tuple[AnthropicLlmClient, str]:
 
 
 def _cmd_simulate(args: argparse.Namespace) -> None:
+    if args.variant is not None:
+        if args.case is not None:
+            raise SystemExit("pass either --case or --variant, not both")
+        llm, model = _require_llm(None)
+        asyncio.run(
+            simulate.simulate_variant(
+                variant=args.variant,
+                case_ids=_parse_case_ids(args.cases),
+                reps=args.reps,
+                max_usd=args.max_usd,
+                interviewer_llm=llm,
+                learner_llm=llm,
+                expected_model=model,
+            )
+        )
+        print(f"wrote evals/interviewer/runs/{args.variant}/sims/")
+        return
+    if args.case is None:
+        raise SystemExit("simulate needs either --case <id> or --variant <name>")
     llm, _ = _require_llm(None)
     case = cases.load_case(args.case)
     try:
@@ -86,6 +105,12 @@ def _cmd_report(args: argparse.Namespace) -> None:
     print(f"wrote {report.build_report()}")
 
 
+def _cmd_chat_report(args: argparse.Namespace) -> None:
+    if not (runner.RUNS_DIR / args.variant / "sims").exists():
+        raise SystemExit(f"no sims for variant {args.variant!r}; run `simulate --variant` first")
+    print(f"wrote {report.build_chat_report(args.variant)}")
+
+
 def _cmd_compare(args: argparse.Namespace) -> None:
     print(f"wrote {report.compare(args.variant)}")
 
@@ -103,8 +128,24 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True)
 
     p_sim = sub.add_parser("simulate", help="run one interview through the real code + a persona")
-    p_sim.add_argument("--case", required=True)
+    p_sim.add_argument(
+        "--case", default=None, help="simulate one frozen case (writes cases/+review/)"
+    )
     p_sim.add_argument("--force", action="store_true")
+    p_sim.add_argument(
+        "--variant", default=None, help="simulate a variant's sims (writes runs/<name>/sims/ only)"
+    )
+    p_sim.add_argument("--cases", default=None, help="with --variant: restrict to these case ids")
+    p_sim.add_argument("--reps", type=int, default=1, help="with --variant: repetitions per case")
+    p_sim.add_argument(
+        "--max-usd",
+        type=float,
+        default=10.0,
+        dest="max_usd",
+        help=(
+            "with --variant: stop starting new sims once billed spend reaches this (default: 10.0)"
+        ),
+    )
     p_sim.set_defaults(func=_cmd_simulate)
 
     p_rev = sub.add_parser(
@@ -142,6 +183,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_rep.add_argument("--variant", required=True)
     p_rep.set_defaults(func=_cmd_report)
+
+    p_chat_rep = sub.add_parser(
+        "chat-report",
+        help="writes runs/<name>/chat.md: chat checks over a variant's sims vs. the "
+        "frozen set (no model calls)",
+    )
+    p_chat_rep.add_argument("--variant", required=True)
+    p_chat_rep.set_defaults(func=_cmd_chat_report)
 
     p_cmp = sub.add_parser("compare", help="write the baseline-vs-variant comparison page")
     p_cmp.add_argument("--variant", required=True)
