@@ -1,5 +1,15 @@
 # Plan — Security hardening (CODE-REVIEW-2026-07-31 Batch 2 + Batch 3)
 
+> **Status 2026-09-29: DONE, live since 2026-09-25.** A1+A5 #63 · A2 #64 · A3 #65 · A4 #66 · A6 #67 ·
+> A7+A8 #68 · A9 #69 (with E2 #71) · A10 #70. Deviations from the text below, all in the PRs:
+> - A3 adds a 30 s grace window plus a frontend multi-tab fix in `api/client.ts`, and never re-burns a family-revoked token.
+> - A4 escapes the envelope tag across the whole briefing body.
+> - A6 also gates `kind=interview` on the chat routes.
+> - A7 normalises TAB/LF/CR and control characters and scans overlapping link targets.
+> - A8 was preceded by a prod census: 0 lessons refused.
+> - A10's reasoning was corrected: the worst-case remaining validity drops to about 2 h.
+> - DB prompt-override notes are obsolete (#16).
+
 **Goal:** close the code-side security findings from `CODE-REVIEW-2026-07-31.md` that this plan owns —
 Batch 2 items 2.1, 2.2, 2.3, 2.5, 2.7 (backend half), 2.8, 2.9 (CSP half) — and all of Batch 3
 (lesson access control + the media-SAS consequence). Each task is one independently shippable,

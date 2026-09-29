@@ -216,3 +216,37 @@ simple `--query` paths (`id`, `[].name`) work here too — only filters with `==
 result in PowerShell (`@(& $AZ ... --query '[].name' -o tsv) -contains $name`). Treat any
 `was unexpected at this time` line as a failed command even when the script carries on, and
 read back what a mutating script created before trusting it.
+
+## 2026-09-25 — the per-IP rate limits keyed on an IP the client chose
+
+**What went wrong.** Found by the phase B pre-flight, never exploited as far as we know.
+`startup.py` runs uvicorn with `proxy_headers=True, forwarded_allow_ips="*"`, so
+`request.client.host` is the **leftmost** `X-Forwarded-For` entry, which the client writes. A
+probe on prod (`curl -H "X-Forwarded-For: 203.0.113.77" …/api/health`) was logged as coming from
+`203.0.113.77`. Every per-IP limit (set-password, Entra callback) could be bypassed by rotating
+the header, and anyone could have forged an office's IP to lock that whole office out.
+
+**Why it bites here.** The Container Apps Envoy ingress *appends* the real peer on the right; the
+leftmost hop only looks trustworthy because a normal browser sends no header of its own.
+
+**The rule.** Per-IP keys use `src/core/client_ip.py::client_ip` (rightmost hop across all header
+lines), never `request.client.host` (`backend/CLAUDE.md` convention 8). If a proxy is ever put in
+front of the app (Front Door, App Gateway, the hosting move), re-verify with a forged header: one
+extra trusted hop makes every learner share one key (#79).
+
+## 2026-09-28 — a colleague's merge and a squashed base PR turned ready PRs into conflicts
+
+**What went wrong.** Phase B's #76 and #77 were green and mergeable, with #77 stacked on #76.
+Aaron then merged #81 and #91, which touched the same interviewer files, and #76 conflicted. After
+#76 was squash-merged, #77 conflicted too: a squash commit is a *new* commit, so git no longer
+recognised #76's changes inside #77.
+
+**Why it bites here.** Two people are shipping into `interview_service.py`, `chat_service.py`,
+`llm_service.py` and `tests/fixtures/llm.py` at once, and squash-merge rewrites the base of any
+stacked PR.
+
+**The rule.** Fetch before every merge handoff and re-check `mergeable` on each PR in the queue.
+After a stacked base is squashed, merge `main` into the dependent branch; first confirm
+`git diff <old base tip> origin/main` is empty, and then resolve every conflict to the branch's
+own side (it already contains the base). When a colleague's merged work overlaps, reconcile to
+their design and keep only your delta (#76 kept its opener timeout and 502 on top of #81).

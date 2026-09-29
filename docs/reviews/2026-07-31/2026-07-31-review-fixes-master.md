@@ -170,6 +170,12 @@ deploy, or an out-of-level learner sees a misleading message.
 the dated *Decided* line under each item is binding for the phase plans. Before starting a task,
 re-verify its "verified facts" against today's code, because the plans date from 2026-07-31.
 
+**Execution status 2026-09-29.** **A done and live** (#63–#71, deployed 2026-09-25). **B done and
+live** (#73–#78, deployed 2026-09-28). B gained a task **B0** (a trustworthy client IP, which B5/B6
+needed), and B7/B8 were reconciled with Aaron's #81, which had already built the 180 s playbook
+budget. **E2 done** (#71, it unblocked A9). **C, D and the rest of E are not started.** Each phase
+plan carries a dated status note at its top with the deviations.
+
 ### Blocking — a task cannot start without the answer
 
 **5.1 · The interview slice's service→service dependency (gates D9, D10).**

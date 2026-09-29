@@ -26,12 +26,14 @@ history that used to live here: `docs/history/state-log-2026.md`.
   properties.template.containers[0].image -o tsv`. DB schema: `cd backend && uv run alembic
   current` (code head `1cd2cc2d05a9`, single linear chain).
 - **Backlog = GitHub Issues** (labels `way-of-working`, `fix-programme`, `ops`, `security`).
-  Way-of-working Tier 2 is complete (`docs/reviews/2026-09-17/` §5). Next: the July fix programme
-  (issues #52–#56; plans in `docs/reviews/2026-07-31/`; **phase C owns all new migrations**) —
-  its master plan §5 lists decisions Matthias must take first.
-- **`main` ahead of production (2026-09-25):** live is `2b9ab05`; #57–#61 are not deployed. #58
-  moved the learning-path unlock rule (a pure move); after the next deploy, open the learning
-  path once as a normal user and check the locks look unchanged.
+  Way-of-working Tier 2 is complete (`docs/reviews/2026-09-17/` §5). **July fix programme**
+  (issues #52–#56, plans in `docs/reviews/2026-07-31/`; master plan §5 decisions all taken
+  2026-09-25): **phase A (#52) and phase B (#53) are done and live** (last deploy 2026-09-28,
+  `4758fe4`); **C (#54, owns every new migration), D (#55) and E (#56, only E2 done) are not
+  started**. Follow-ups: #79 (raise the set-password limit **before the re-invite wave**), #80.
+- **Aaron is actively shipping interviewer work** (#81, #91, #95) in the same files as the fix
+  programme (`interview_service.py`, `chat_service.py`, `llm_service.py`, `tests/fixtures/llm.py`,
+  `useChat.ts`): fetch before branching, and expect to merge `main` into open branches.
 - **Scale:** ~85 endpoints, 19 routers (`backend/src/routers/`); ~104 users as of 2026-08-04.
 - **Auth:** password (JWT) live; Entra ID OIDC code-complete but **dark** (no `ENTRA__*` on prod;
   blocked on IT admin consent). Roles: `admin`, `user+` (bypasses locks, no admin powers), `user`.
@@ -184,8 +186,11 @@ history that used to live here: `docs/history/state-log-2026.md`.
   Sev1 alerts (`ai-hub-db-backup-failed`, `-missing`). Restores via the manual restore job —
   **never write a procedure assuming local `pg_restore`**. Runbook: `docs/db-backup-restore.md`.
   Azure PITR stays at the server default 7 days.
-- **Health alerts:** app down (Sev1), 3+ 5xx in 15 min, container restarts (Sev2) → the same
-  action group. What each means and first checks: `docs/app-alerts.md` (`infra/60-app-alerts.ps1`).
+- **Health alerts:** app down (Sev1), 3+ 5xx in 15 min, container restarts (Sev2) → action group
+  `ai-hub-app-alerts` (Matthias only; backup alerts keep `ai-hub-backup-alerts`, Matthias + Aaron).
+  What each means and first checks: `docs/app-alerts.md` (`infra/60-app-alerts.ps1`).
+- **Dependabot:** monthly minor/patch PRs only (majors are planned issues, e.g. #45); **alerts +
+  security updates are ON** (2026-09-28), so a security PR can arrive any time. `CONTRIBUTING.md`.
 - **Verifying without touching live data:** dump production-shaped fixtures via read-only
   service calls, serve from a temporary `frontend/public/__verify/`, stub `window.fetch` in a
   Playwright `addInitScript` (page context — the MCP host has no `fs`/`fetch`). Assert on

@@ -44,6 +44,15 @@ test user or a script that writes rows edits live learner data.
    usage, generated_at). `prompt_version` = first 12 hex of SHA-256 of the shipped prompt file.
 7. `anthropic` is a main dependency, bounded to `~=1.x`; 1.x is built on `httpx2`, so tests that
    build SDK errors use `httpx2.Request/Response`. A major SDK bump is its own PR.
+8. **Client IP:** any per-IP key (rate limits, logs) uses `src/core/client_ip.py::client_ip`, the
+   rightmost X-Forwarded-For hop that the Container Apps ingress appends — **never
+   `request.client.host`**, which uvicorn fills from the client-controlled leftmost hop
+   (`docs/superpowers/lessons.md`, 2026-09-25). Limits that must not punish a shared office NAT
+   count failures only (`RateLimiter.charge` + `refund`, see `routers/auth.py` login).
+9. **Error envelope:** everything answers `{"error":{code,message}}` — domain errors via their
+   handlers, unclaimed exceptions via the catch-all 500 in `main.py`; Anthropic/provider failures
+   raise `AiGenerationError` (502, `llm_service.is_provider_error` tells them from our own bugs);
+   a failed SSE stream ends with an `event: error` frame instead.
 
 ## Prompts are runtime assets
 

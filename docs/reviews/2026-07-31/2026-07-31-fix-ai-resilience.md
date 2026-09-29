@@ -1,5 +1,15 @@
 # AI-layer resilience + rate-limit hardening — Implementation Plan
 
+> **Status 2026-09-29: DONE, live since 2026-09-28.** B1 #73 · B2+B3 #74 · B4 #75 · B7+B8 #76 ·
+> B9 #77 · **B0 (new)** + B5 + B6 #78. Deviations from the text below, all in the PRs:
+> - **B0 was added.** The client IP could be spoofed through the leftmost X-Forwarded-For entry (lessons.md, 2026-09-25).
+> - B2 stores a per-key window and evicts with batch headroom.
+> - B5 allows 300 per 5 min per IP.
+> - B6 counts failed logins only: 100 per 5 min, charged on arrival and refunded on success in the same window.
+> - B7/B8 were reconciled with #81: its single 180 s playbook budget stays, and #76 adds the 45 s opener timeout and 502s.
+> - B9 gives mid-stream overloads the busy wording.
+> Follow-ups: #79, #80.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Make every failure path the AI layer can actually hit produce a useful, bounded, standard-shaped response instead of a hung request or a bare 500 — and close the four rate-limiter gaps (`CODE-REVIEW-2026-07-31.md` items **2.4**, **2.6**, **7.1**, **7.2**, **7.3**).
