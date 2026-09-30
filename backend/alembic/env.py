@@ -34,7 +34,7 @@ def _database_url() -> str:
     if not url:
         from src.core.configs.settings import Settings
 
-        url = Settings().database.url.get_secret_value()  # ty: ignore[missing-argument]
+        url = Settings().database.url.get_secret_value()
     return url
 
 

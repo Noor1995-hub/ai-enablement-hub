@@ -23,12 +23,18 @@ def _base(**overrides):
     return kwargs
 
 
+def _flagged(**overrides) -> tuple[str, str]:
+    result = attention_for(**_base(**overrides))
+    assert result is not None
+    return result
+
+
 def test_healthy_learner_is_none() -> None:
     assert attention_for(**_base()) is None
 
 
 def test_never_activated_after_nudge_window() -> None:
-    kind, reason = attention_for(**_base(activated=False, has_survey=False))
+    kind, reason = _flagged(activated=False, has_survey=False)
     assert kind == "never_activated"
 
 
@@ -42,15 +48,15 @@ def test_fresh_invite_not_flagged() -> None:
 
 
 def test_not_assessed() -> None:
-    kind, reason = attention_for(
-        **_base(has_survey=False, latest_completion=None, assigned_total=0, completed_total=0)
+    kind, reason = _flagged(
+        has_survey=False, latest_completion=None, assigned_total=0, completed_total=0
     )
     assert kind == "not_assessed"
     assert "assessment not started" in reason
 
 
 def test_stalled_with_track_name() -> None:
-    kind, reason = attention_for(**_base(latest_completion=NOW - timedelta(days=16)))
+    kind, reason = _flagged(latest_completion=NOW - timedelta(days=16))
     assert kind == "stalled"
     assert "Copilot" in reason and "16 days" in reason
 

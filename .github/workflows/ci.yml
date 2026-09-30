@@ -205,7 +205,7 @@ jobs:
     timeout-minutes: 15
     env:
       RUFF_SCRIPTS_BASELINE: 30
-      TY_BASELINE: 21
+      TY_BASELINE: 17
     defaults:
       run:
         working-directory: backend

@@ -69,7 +69,8 @@ format = "ruff format ."
 format-check = "ruff format --check ."
 lint = "ruff check ."
 lint-src = "ruff check src tests alembic evals"
-# ty-src is clean and gates CI; ty (whole backend) carries known debt in scripts/ + alembic/.
+# ty-src is clean and gates CI; ty (whole backend) carries known debt in scripts/ only
+# (alembic/ and tests/ are clean apart from one ignore in a golden test).
 ty-src = "ty check src evals"
 ty = "ty check ."
 migrate = "alembic revision --autogenerate -m"
