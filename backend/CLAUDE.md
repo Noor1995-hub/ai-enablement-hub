@@ -37,9 +37,24 @@ test user or a script that writes rows edits live learner data.
    DB happen — rerun before panicking.
 5. **Environment-dependent tests** (anything branching on `CI`, `UPDATE_GOLDEN`, …) set or clear
    every variable they depend on; run such a change once with `CI=true` before the PR.
-6. **Services never call other services** (`admin_user_service.py`, `content_improvement_service.py`
-   say so; `core/attention.py` + `advance_level` exist to avoid it). The interviewer slice is the
-   known exception — decision 5.1 of the July master plan. Run stamps: assistant turns carry
+6. **Services never call other services, with no exception** (decision 5.1 of the July master
+   plan, 2026-09-25; `admin_user_service.py`, `content_improvement_service.py` say so). Logic two
+   use cases share becomes a **pure module** both call (`core/attention.py::attention_for`,
+   `core/constants.py::advance_level` / `module_level_map`). A shared *fetch* becomes a
+   module-level `async` function handed the repository ABCs as arguments, which is not a
+   service dependency. One known violation remains until fix-programme task D10 removes it:
+   `services/interview_context.py` (`InterviewContextService` takes three services). Don't
+   copy it. **When a use case needs two independent services, the router orchestrates**
+   (review 9.3): an invite endpoint in `routers/admin_users.py` gets the user from
+   `AdminUserService` and the link from `TokenService`, then its helper `_email_the_link`
+   renders the email with `EmailTemplateService` and sends it with `EmailService`. Such router
+   code does no data access and branches only on what the services return; domain rules stay
+   in a service. **List
+   responses** (review 9.8): return a wrapped object (`{items, total, limit, offset}`,
+   `{users, total}`, `{templates}`) whenever the response carries pagination or aggregate
+   metadata. A bare array is fine for a small, bounded, unpaginated collection (the two
+   track lists `GET /api/tracks` and `…/{track_id}/modules`). Changing that shape is a
+   wire change, not a refactor. Run stamps: assistant turns carry
    `model` + `prompt_version` in `messages.metadata`; playbooks carry
    `conversations.summary["meta"]` (model, both prompt versions, max_tokens, thinking, attempts,
    usage, generated_at). `prompt_version` = first 12 hex of SHA-256 of the shipped prompt file.

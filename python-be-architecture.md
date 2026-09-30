@@ -97,7 +97,11 @@ first, then write it there.
 ### Non-negotiable rules
 
 - **Calls flow downward only.** Router → service → repository → model. A service never imports a
-  router; a repository never imports a service. Services never import other services.
+  router; a repository never imports a service. Services never import other services. When two
+  use cases need the same composed logic, the shared part becomes a **pure module** (no
+  constructor, no I/O) that both call. Where both also need the same fetch, write it as a
+  module-level `async` function that takes the repository ABCs as arguments. When one use case
+  needs two independent services, the **router** calls both. There is no exception to this rule.
 - **Depend on the abstraction.** Services type their constructor arg as the
   `Abstract<Entity>Repository` ABC (import under `TYPE_CHECKING`), not the concrete class — so they
   can be unit-tested with an `AsyncMock`. The concrete repo is chosen in `core/dependencies/`.
