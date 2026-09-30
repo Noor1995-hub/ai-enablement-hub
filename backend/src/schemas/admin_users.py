@@ -6,6 +6,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
+from src.schemas._validators import require_non_blank
+
 __all__ = [
     "AdminLearningLessonOut",
     "AdminLearningModuleOut",
@@ -33,13 +35,6 @@ __all__ = [
     "TrackLessonProgress",
     "UserSurveyResponse",
 ]
-
-
-def _require_non_blank(value: str) -> str:
-    if not value.strip():
-        msg = "must not be blank"
-        raise ValueError(msg)
-    return value
 
 
 class TrackLessonProgress(BaseModel):
@@ -103,7 +98,7 @@ class InviteRequest(BaseModel):
     project_id: uuid.UUID
     send_email: bool = True
 
-    _non_blank = field_validator("first_name", "last_name")(_require_non_blank)
+    _non_blank = field_validator("first_name", "last_name")(require_non_blank)
 
 
 # "sent" = ACS accepted the message; "failed" = send errored (admin shares the

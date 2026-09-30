@@ -5,6 +5,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from src.schemas._validators import require_non_blank
+
 __all__ = [
     "LessonCreateRequest",
     "LessonOrderRequest",
@@ -17,13 +19,6 @@ __all__ = [
     "TrackModuleOut",
     "TrackOut",
 ]
-
-
-def _require_non_blank(value: str | None) -> str | None:
-    if value is not None and not value.strip():
-        msg = "must not be blank"
-        raise ValueError(msg)
-    return value
 
 
 class TrackOut(BaseModel):
@@ -51,7 +46,7 @@ class TrackCreateRequest(BaseModel):
     track_type: Literal["tool", "general"]
     color: str | None = None
 
-    _non_blank = field_validator("name")(_require_non_blank)
+    _non_blank = field_validator("name")(require_non_blank)
 
 
 class ModuleCreateRequest(BaseModel):
@@ -60,7 +55,7 @@ class ModuleCreateRequest(BaseModel):
     after_module_id: uuid.UUID | None = None
     prerequisite_ids: list[uuid.UUID] = Field(default_factory=list)
 
-    _non_blank = field_validator("title")(_require_non_blank)
+    _non_blank = field_validator("title")(require_non_blank)
 
 
 class ModuleOut(BaseModel):
@@ -76,7 +71,7 @@ class LessonCreateRequest(BaseModel):
     module_id: uuid.UUID
     title: str
 
-    _non_blank = field_validator("title")(_require_non_blank)
+    _non_blank = field_validator("title")(require_non_blank)
 
 
 class LessonSummaryOut(BaseModel):
@@ -91,7 +86,7 @@ class LessonUpdateRequest(BaseModel):
     title: str | None = None
     content_blocks: list[dict[str, Any]] | None = None
 
-    _non_blank = field_validator("title")(_require_non_blank)
+    _non_blank = field_validator("title")(require_non_blank)
 
 
 class LessonOut(BaseModel):

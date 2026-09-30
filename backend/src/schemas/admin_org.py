@@ -5,6 +5,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
+from src.schemas._validators import require_non_blank
 from src.schemas.me import ComponentState
 
 __all__ = [
@@ -20,13 +21,6 @@ __all__ = [
     "ProjectCreateRequest",
     "ProjectOut",
 ]
-
-
-def _require_non_blank(value: str) -> str:
-    if not value.strip():
-        msg = "must not be blank"
-        raise ValueError(msg)
-    return value
 
 
 class ProjectOut(BaseModel):
@@ -51,7 +45,7 @@ class CompaniesResponse(BaseModel):
 class CompanyCreateRequest(BaseModel):
     name: str
 
-    _non_blank = field_validator("name")(_require_non_blank)
+    _non_blank = field_validator("name")(require_non_blank)
 
 
 class CompanyOut(BaseModel):
@@ -65,7 +59,7 @@ class ProjectCreateRequest(BaseModel):
     name: str
     company_id: uuid.UUID
 
-    _non_blank = field_validator("name")(_require_non_blank)
+    _non_blank = field_validator("name")(require_non_blank)
 
 
 class ComponentsResponse(BaseModel):
