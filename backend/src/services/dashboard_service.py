@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from src.core.attention import ACTIVE_DAYS, attention_for
-from src.core.constants import LEVEL_ORDER, advance_level
+from src.core.constants import LEVEL_ORDER, advance_level, module_level_map
 from src.services.exceptions import NotFoundError
 
 if TYPE_CHECKING:
@@ -88,13 +88,8 @@ class DashboardService:
         tracks = await self._content.list_tracks()
         modules = await self._content.list_modules()
         track_name = {track.id: track.name for track in tracks}
-        track_level = {track.id: track.required_level for track in tracks}
         module_track = {module.id: module.track_id for module in modules}
-        module_level = {
-            module.id: track_level[module.track_id]
-            for module in modules
-            if module.track_id in track_level
-        }
+        module_level = module_level_map(tracks, modules)
         modules_by_track: dict[uuid.UUID, list[uuid.UUID]] = {}
         for module in modules:
             modules_by_track.setdefault(module.track_id, []).append(module.id)

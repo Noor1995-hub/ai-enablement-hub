@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Literal
 
 from src.core.attention import attention_for
-from src.core.constants import advance_level
+from src.core.constants import advance_level, module_level_map
 from src.services.exceptions import EmailAlreadyRegisteredError, NotFoundError
 
 if TYPE_CHECKING:
@@ -112,13 +112,8 @@ class AdminUserService:
         tracks = await self._content.list_tracks()
         modules = await self._content.list_modules()
         track_name = {track.id: track.name for track in tracks}
-        track_level = {track.id: track.required_level for track in tracks}
         module_track = {module.id: module.track_id for module in modules}
-        module_level = {
-            module.id: track_level[module.track_id]
-            for module in modules
-            if module.track_id in track_level
-        }
+        module_level = module_level_map(tracks, modules)
         effective = await self._effective_maturity_map(users, counts, module_level)
 
         now = datetime.now(UTC)

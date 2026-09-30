@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
-from src.core.constants import advance_level
+from src.core.constants import advance_level, module_level_map
 from src.services.exceptions import NotFoundError
 
 if TYPE_CHECKING:
@@ -53,14 +53,8 @@ class MaturityService:
         tracks = await self._content.list_tracks()
         modules = await self._content.list_modules()
         counts = await self._assignments.assigned_lesson_counts_by_module(user.id)
-        track_level = {track.id: track.required_level for track in tracks}
-        module_level = {
-            module.id: track_level[module.track_id]
-            for module in modules
-            if module.track_id in track_level
-        }
 
-        return advance_level(base, module_level, counts)
+        return advance_level(base, module_level_map(tracks, modules), counts)
 
     async def set_override(self, user_id: uuid.UUID, level: str | None) -> None:
         """Pin (or clear) the admin maturity override. No assignment side
