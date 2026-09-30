@@ -39,24 +39,23 @@ dev = [
     "pytest>=8.3,<10.0",
     "pytest-asyncio~=1.0",
     "pytest-cov>=6,<8",
-    "httpx~=0.28",
     # anthropic 1.x is built on httpx2; tests that construct SDK errors need httpx2 objects.
     "httpx2~=2.13",
     # tests/unit/test_docs_drift.py parses the workflow YAML.
     "pyyaml~=6.0",
-    "aiosqlite~=0.20",
     "ruff~=0.11",
     # Pinned exactly: ty is pre-1.0 and every release can add diagnostics; `ty check src` is part
     # of the required CI check, so a new version arrives as a Dependabot PR, never by surprise.
     "ty==0.0.83",
     "poethepoet~=0.30",
-    "pytest-xdist>=3.8.0",
+    "pytest-xdist~=3.8",
     # Auto-retry integration tests once on failure — they hit a real remote
     # Postgres and occasionally see a transient blip under parallel load.
-    "pytest-rerunfailures>=15.0",
+    "pytest-rerunfailures~=16.7",
 ]
 prod = [
-    "httptools",
+    # uvicorn's C HTTP parser, used only by the container entrypoint (startup.py).
+    "httptools~=0.8",
 ]
 
 [tool.poe.tasks]

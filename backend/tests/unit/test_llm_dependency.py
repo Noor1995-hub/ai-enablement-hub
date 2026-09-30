@@ -20,8 +20,6 @@ def test_returns_none_when_unconfigured() -> None:
 
 
 def test_returns_client_when_configured() -> None:
-    settings = _settings(
-        LlmSettings(provider="anthropic", model="claude-haiku-4-5", api_key=SecretStr("sk-test"))
-    )
+    settings = _settings(LlmSettings(model="claude-haiku-4-5", api_key=SecretStr("sk-test")))
     service = get_llm_service(settings)
     assert isinstance(service, AnthropicLlmClient)
