@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
 import { client, errorMessage } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
@@ -51,11 +51,22 @@ export default function LessonPage() {
   const completed = lessonId ? completedIds.has(lessonId) : false
 
   // content_blocks crosses the JSONB boundary as unknown[]; this is the one
-  // cast to the hand-written union (design-frontend §2).
-  const blocks  = (lesson?.content_blocks ?? []) as ContentBlock[]
+  // cast to the hand-written union (design-frontend §2). Memoized so the
+  // identity is stable — mdxBlocks below depends on it, and a fresh array
+  // every render would defeat that memo.
+  const blocks = useMemo(
+    () => (lesson?.content_blocks ?? []) as ContentBlock[],
+    [lesson?.content_blocks],
+  )
   const hasQuiz = blocks.some(b => b.type === 'quiz')
 
-  const mdxBlocks = mdxText.trim() ? parseMdxToBlocks(mdxText) : blocks
+  // The MDX parser is a full multi-pass regex scan over the whole document
+  // (lib/mdxParser.ts). Without this memo it re-ran on every render — i.e. on
+  // every keystroke in the MDX pane.
+  const mdxBlocks = useMemo(
+    () => (mdxText.trim() ? parseMdxToBlocks(mdxText) : blocks),
+    [mdxText, blocks],
+  )
 
   const userId = user?.id
   const moduleId = lesson?.module_id

@@ -1,14 +1,15 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import LessonPage from './LessonPage'
+import * as mdxParser from '../lib/mdxParser'
 
 const LESSON_ID = '11111111-1111-1111-1111-111111111111'
 const MODULE_ID = '22222222-2222-2222-2222-222222222222'
 
 // client.GET is hit for two endpoints from this page (lesson detail, module
 // lesson list); route on the templated path openapi-fetch is called with.
-const clientMock = vi.hoisted(() => ({ GET: vi.fn() }))
+const clientMock = vi.hoisted(() => ({ GET: vi.fn(), PATCH: vi.fn() }))
 vi.mock('../api/client', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../api/client')>()
   return { ...actual, client: clientMock }
@@ -153,5 +154,39 @@ describe('LessonPage ?edit=true admin gate', () => {
     renderLessonPage(`/learning/lesson/${LESSON_ID}?edit=true`)
 
     await screen.findByText('✓ Editing')
+  })
+})
+
+describe('LessonPage MDX preview parsing', () => {
+  beforeEach(() => {
+    authState.role = 'admin'
+    clientMock.GET.mockReset()
+    clientMock.PATCH.mockReset()
+    mockLessonResponse({ data: lessonBody() })
+  })
+
+  it('re-parses only when the MDX text changes, not on unrelated re-renders', async () => {
+    const parse = vi.spyOn(mdxParser, 'parseMdxToBlocks')
+    renderLessonPage()
+    fireEvent.click(await screen.findByText('MDX'))
+    const box = screen.getByPlaceholderText(/Lesson heading/)
+
+    fireEvent.change(box, { target: { value: '# Title\n\nBody text' } })
+    expect(await screen.findByText('2 blocks parsed')).toBeInTheDocument()
+    const afterTyping = parse.mock.calls.length
+
+    // Unrelated state changes (mdxSaving, then mdxError) re-render the page.
+    // saveMdx itself parses once to build its payload; the preview must not.
+    clientMock.PATCH.mockResolvedValue({ data: undefined, error: { error: { message: 'nope' } } })
+    fireEvent.click(screen.getByText('Save as blocks'))
+    expect(await screen.findByText('nope')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByText('Save as blocks')).toBeInTheDocument())
+    expect(parse.mock.calls.length).toBe(afterTyping + 1)
+
+    // A real text change does re-parse.
+    fireEvent.change(box, { target: { value: '# Title\n\nBody text\n\n> Callout' } })
+    expect(await screen.findByText('3 blocks parsed')).toBeInTheDocument()
+    expect(parse.mock.calls.length).toBe(afterTyping + 2)
+    parse.mockRestore()
   })
 })
