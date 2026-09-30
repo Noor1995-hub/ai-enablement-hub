@@ -4,16 +4,13 @@
 // await the shared single-flight refresh and retry the upload exactly once.
 
 import { errorMessage, refreshAccessToken } from './client'
+import type { components } from './schema'
 import { getAccessToken } from './tokens'
 
-// Hand-typed to match backend MediaUploadOut (schemas/admin_media.py); gen:api
-// is skipped here because it needs a locally running backend + the shared DB.
-export interface UploadedMedia {
-  blob_path: string
-  url: string           // freshly-stamped SAS for instant preview (not persisted)
-  content_type: string
-  size_bytes: number
-}
+// Aliased onto the generated schema rather than hand-typed: gen:api can't cover
+// the multipart REQUEST, but the RESPONSE body is in schema.d.ts, so a backend
+// rename now breaks the build instead of failing at runtime.
+export type UploadedMedia = components['schemas']['MediaUploadOut']
 
 // Carries the HTTP status so the editors can show a friendly, media-kind-aware
 // message for the two expected rejections: 413 (too large) and 415 (unsupported

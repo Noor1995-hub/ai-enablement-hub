@@ -1,38 +1,18 @@
-// Hand-typed multipart client for POST /api/admin/invites/bulk, mirroring
-// api/upload.ts: attach the Bearer token, and on a 401 await the shared
-// single-flight refresh and retry once. gen:api is skipped for multipart (same
-// reasoning as upload.ts), so the response types are hand-kept in sync with the
-// backend BulkInviteReport (schemas/admin_users.py).
+// Multipart client for POST /api/admin/invites/bulk, mirroring api/upload.ts:
+// attach the Bearer token, and on a 401 await the shared single-flight refresh
+// and retry once. gen:api can't type the multipart request, so the response
+// types are aliased onto schema.d.ts below.
 
 import { errorMessage, refreshAccessToken } from './client'
+import type { components } from './schema'
 import { getAccessToken } from './tokens'
 
-export type BulkInviteStatus = 'valid' | 'duplicate' | 'invalid' | 'created' | 'email_failed'
-
-export interface BulkInviteRow {
-  row_number: number
-  first_name: string
-  last_name: string
-  email: string
-  status: BulkInviteStatus
-  detail: string | null
-}
-
-export interface BulkInviteSummary {
-  total_rows: number
-  valid: number
-  duplicates: number
-  invalid: number
-  created: number
-  email_failed: number
-}
-
-export interface BulkInviteReport {
-  dry_run: boolean
-  project_id: string
-  summary: BulkInviteSummary
-  rows: BulkInviteRow[]
-}
+// Aliased onto the generated schema (same reasoning as api/upload.ts: the
+// multipart request can't be typed by gen:api, the response can).
+export type BulkInviteReport = components['schemas']['BulkInviteReport']
+export type BulkInviteRow = components['schemas']['BulkInviteRow']
+export type BulkInviteSummary = components['schemas']['BulkInviteSummary']
+export type BulkInviteStatus = BulkInviteRow['status']
 
 export class BulkInviteError extends Error {
   readonly status: number
