@@ -31,7 +31,9 @@ history that used to live here: `docs/history/state-log-2026.md`.
   2026-09-25): **A (#52) and B (#53) are done and live; C (#54) done and live 2026-09-30**
   (build `189348d`, five migrations `a1b2c3d4e5f6 → b2c3d4e5f6a7 → d4e5f6a7b8c9 → c3d4e5f6a7b8 →
   e5f6a7b8c9d0`). **Rollback floor `f84fded`:** the `prompts` table is dropped, so images from
-  before PR #16 won't start. E (#56) is in progress; D (#55) not started. Follow-ups: #79 (raise the set-password limit **before the re-invite wave**), #80.
+  before PR #16 won't start. E (#56) is in progress. D (#55) is in progress: D1–D3 and D6–D8
+  are PRs #130–#135, D4 is obsolete, and D5/D9/D10 wait on Aaron. Follow-ups: #79 (raise the
+  set-password limit so one office NAT can't block itself), #80.
 - **Aaron is actively shipping interviewer work** (#81, #91, #95) in the same files as the fix
   programme (`interview_service.py`, `chat_service.py`, `llm_service.py`, `tests/fixtures/llm.py`,
   `useChat.ts`): fetch before branching, and expect to merge `main` into open branches.
@@ -201,8 +203,11 @@ history that used to live here: `docs/history/state-log-2026.md`.
 
 ## Key facts & open items
 
-- **Re-invite pending:** migrated users still have `password_set=false` (all but matthias) —
-  re-invite via the admin UI; sequence AFTER any custom-domain change so links carry the final URL.
+- **Re-invite done:** the migrated users have been re-invited (Matthias, confirmed 2026-09-30).
+  A learner who can't log in (invite link unused after its 14 days, or a forgotten password) gets
+  a fresh link from **Re-send invite / reset** on the admin People page; its **Invited** filter
+  lists everyone who hasn't set a password. A hosting or domain move needs no re-invite, because
+  passwords live in the DB: learners just get the new address.
 - **Entra ID:** blocked on one-time tenant admin consent (in the IT ticket). App registration
   "AI Enablement Hub" `ad61703c-684f-4392-b786-8926ba2ab69d`; client secret 'hub-oidc' expires
   July 2028. After the grant: test on :5173, then wire prod env (`az containerapp secret set` +
