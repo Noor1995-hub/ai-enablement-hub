@@ -42,8 +42,8 @@ a feature ships.
 - **System prompts — git-only** (2026-09-23): `backend/prompts/*.md`, read-only admin page
   `admin2/PromptsPage.tsx`, golden cases in `backend/tests/golden/ai/` —
   `2026-09-23-prompts-git-only-design.md` (supersedes the editor half of
-  `2026-07-29-prompt-editor-design.md`). The `prompts` table is retired (nothing reads it);
-  phase C's C8 is amended to drop it.
+  `2026-07-29-prompt-editor-design.md`). The `prompts` table and its model were dropped in phase C
+  (C8b, migration `e5f6a7b8c9d0`).
 - **Nightly DB backups** — `2026-07-29-database-backups-design.md`; runbook
   `docs/db-backup-restore.md` (job `ai-enablement-hub-db-backup`, 02:30 UTC, 30-day retention,
   log-based alerts; **no Postgres client tools on the dev machine** — restores run via the
