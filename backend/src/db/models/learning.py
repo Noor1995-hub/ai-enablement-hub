@@ -11,6 +11,7 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     Text,
+    UniqueConstraint,
     func,
     text,
 )
@@ -119,6 +120,18 @@ class ModulePrerequisite(Base):
 
 class Lesson(Base):
     __tablename__ = "lessons"
+    __table_args__ = (
+        # DEFERRABLE INITIALLY DEFERRED, not a plain unique index: reordering a
+        # module's lessons (ContentRepository.set_lesson_orders) writes each
+        # lesson's new sort_order in its own statement, so a permutation
+        # passes through intermediate states where two lessons briefly share a
+        # value. Deferring the check to end-of-transaction (or an explicit
+        # `SET CONSTRAINTS ... IMMEDIATE`) makes that safe. Lessons only —
+        # not modules or tracks — because live data has duplicate
+        # (track_id, sort_order) on modules and a duplicate sort_order on
+        # tracks (see progress.md's pre-flight read); lessons had zero.
+        UniqueConstraint("module_id", "sort_order", deferrable=True, initially="DEFERRED"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")

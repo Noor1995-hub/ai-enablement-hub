@@ -61,7 +61,7 @@ class LessonContentProposal(Base):
     )
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     reviewed_by: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
     )
     # Inline-edit + learn-card columns (Plan D). `edited_blocks` is what the
     # admin actually submitted at accept time, stored ONLY when it differed

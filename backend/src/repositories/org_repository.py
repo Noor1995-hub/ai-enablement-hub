@@ -75,7 +75,11 @@ class OrgRepository(AbstractOrgRepository):
         )
         stmt = stmt.on_conflict_do_update(
             index_elements=["project_id", "component"],
-            set_={"hidden": stmt.excluded.hidden, "locked": stmt.excluded.locked},
+            set_={
+                "hidden": stmt.excluded.hidden,
+                "locked": stmt.excluded.locked,
+                "updated_at": func.now(),
+            },
         )
         await self._session.execute(stmt)
         await self._session.commit()
@@ -95,7 +99,8 @@ class OrgRepository(AbstractOrgRepository):
     async def upsert_ai_setting(self, project_id: uuid.UUID, kind: str, *, enabled: bool) -> None:
         stmt = pg_insert(ProjectAiSetting).values(project_id=project_id, kind=kind, enabled=enabled)
         stmt = stmt.on_conflict_do_update(
-            index_elements=["project_id", "kind"], set_={"enabled": stmt.excluded.enabled}
+            index_elements=["project_id", "kind"],
+            set_={"enabled": stmt.excluded.enabled, "updated_at": func.now()},
         )
         await self._session.execute(stmt)
         await self._session.commit()
