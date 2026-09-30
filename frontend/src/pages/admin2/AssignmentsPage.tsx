@@ -37,13 +37,19 @@ export default function AssignmentsPage() {
     () => [...(tracksQuery.data ?? [])].filter(t => !t.is_introduction).sort((a, b) => a.sort_order - b.sort_order),
     [tracksQuery.data],
   )
+  // Depend on the slices, not `learningQuery.data`: the optimistic toggle patch rebuilds
+  // the top-level object (only `users` changes) while structural sharing keeps
+  // `.modules`/`.lessons` stable, so a cell click must not re-sort them and invalidate
+  // Matrix's memoized index, columns and rows.
+  const learningModules = learningQuery.data?.modules
+  const learningLessons = learningQuery.data?.lessons
   const sortedModules = useMemo(
-    () => [...(learningQuery.data?.modules ?? [])].sort((a, b) => a.sort_order - b.sort_order),
-    [learningQuery.data],
+    () => [...(learningModules ?? [])].sort((a, b) => a.sort_order - b.sort_order),
+    [learningModules],
   )
   const sortedLessons = useMemo(
-    () => [...(learningQuery.data?.lessons ?? [])].sort((a, b) => a.sort_order - b.sort_order),
-    [learningQuery.data],
+    () => [...(learningLessons ?? [])].sort((a, b) => a.sort_order - b.sort_order),
+    [learningLessons],
   )
 
   const scopedProject = useMemo(

@@ -1,15 +1,13 @@
-import { useState } from 'react'
+import { memo, useCallback, useMemo, useState } from 'react'
 import { levelByCode } from '../../lib/levels'
 import { resolveTrackColor } from '../../lib/trackColors'
-import type { AdminLearningResponseEnriched, AdminLearningUserEnriched, Track } from '../../types/domain'
+import type { AdminLearningUserEnriched, Track } from '../../types/domain'
 import type { AssignmentKind } from './api'
 import { useApplyDefaults, useSetDefaults, useToggleAssignment } from './api'
 import { EmptyState } from './kit'
 import type { Level } from './AssignmentsPage'
-
-type LearningModule = AdminLearningResponseEnriched['modules'][number]
-type LearningLesson = AdminLearningResponseEnriched['lessons'][number]
-type CellState = 'yes' | 'def' | 'part' | ''
+import type { CellState, ChildIdIndex, LearningLesson, LearningModule } from './matrixCells'
+import { buildChildIdIndex, deriveCellState } from './matrixCells'
 
 const CELL_CLASS: Record<CellState, string> = {
   yes: 'adm-cell-yes',
@@ -23,52 +21,6 @@ const CELL_TITLE: Record<CellState, string> = {
   def: 'Assigned via project default — click to override',
   part: 'Partially assigned — drill in for detail, or click to assign all',
   '': 'Not assigned — click to assign',
-}
-
-/**
- * Cell state for one user × content-item, derived entirely client-side from the
- * enriched assignment/default arrays (spec §3.4):
- * - in `assigned_*` and NOT in `default_*` → `yes` (explicit, solid ✓)
- * - in both → `def` (via project default, tinted ✓)
- * - not assigned itself but SOME-but-not-all children assigned → `part` (◐)
- *   (tracks check their modules, modules check their lessons; lessons have none)
- * - else empty.
- */
-function deriveCellState(
-  kind: AssignmentKind,
-  itemId: string,
-  user: AdminLearningUserEnriched,
-  modules: LearningModule[],
-  lessons: LearningLesson[],
-): CellState {
-  const assigned =
-    kind === 'track'
-      ? user.assigned_track_ids
-      : kind === 'module'
-        ? user.assigned_module_ids
-        : user.assigned_lesson_ids
-  const defaults =
-    kind === 'track'
-      ? user.default_track_ids
-      : kind === 'module'
-        ? user.default_module_ids
-        : user.default_lesson_ids
-
-  if (assigned.includes(itemId)) {
-    return defaults.includes(itemId) ? 'def' : 'yes'
-  }
-
-  // Partial is a coverage signal over the item's direct children.
-  const childIds =
-    kind === 'track'
-      ? modules.filter(m => m.track_id === itemId).map(m => m.id)
-      : kind === 'module'
-        ? lessons.filter(l => l.module_id === itemId).map(l => l.id)
-        : []
-  if (childIds.length === 0) return ''
-  const assignedChildren = new Set(kind === 'track' ? user.assigned_module_ids : user.assigned_lesson_ids)
-  const covered = childIds.filter(id => assignedChildren.has(id)).length
-  return covered > 0 && covered < childIds.length ? 'part' : ''
 }
 
 interface Column {
@@ -106,6 +58,7 @@ export default function Matrix({
   defaultTrackIds,
 }: MatrixProps) {
   const toggle = useToggleAssignment()
+  const toggleMutate = toggle.mutate
   const setDefaults = useSetDefaults()
   const applyDefaults = useApplyDefaults()
   const [showApplyHint, setShowApplyHint] = useState(false)
@@ -113,35 +66,45 @@ export default function Matrix({
   const kind: AssignmentKind =
     level.level === 'tracks' ? 'track' : level.level === 'modules' ? 'module' : 'lesson'
 
+  const childIds = useMemo(() => buildChildIdIndex(modules, lessons), [modules, lessons])
+
   const trackName = 'trackId' in level ? (tracks.find(t => t.id === level.trackId)?.name ?? '—') : ''
   const moduleName =
     level.level === 'lessons' ? (modules.find(m => m.id === level.moduleId)?.title ?? '—') : ''
 
-  const columns: Column[] =
-    level.level === 'tracks'
-      ? tracks.map(track => ({
-          id: track.id,
-          name: track.name,
-          levelName: levelByCode(track.required_level)?.name,
-          dotColor: resolveTrackColor(track),
-        }))
-      : level.level === 'modules'
-        ? modules
-            .filter(module => module.track_id === level.trackId)
-            .map(module => ({ id: module.id, name: module.title }))
-        : lessons
-            .filter(lesson => lesson.module_id === level.moduleId)
-            .map(lesson => ({ id: lesson.id, name: lesson.title }))
+  const columns: Column[] = useMemo(() => {
+    if (level.level === 'tracks') {
+      return tracks.map(track => ({
+        id: track.id,
+        name: track.name,
+        levelName: levelByCode(track.required_level)?.name,
+        dotColor: resolveTrackColor(track),
+      }))
+    }
+    if (level.level === 'modules') {
+      return modules
+        .filter(module => module.track_id === level.trackId)
+        .map(module => ({ id: module.id, name: module.title }))
+    }
+    return lessons
+      .filter(lesson => lesson.module_id === level.moduleId)
+      .map(lesson => ({ id: lesson.id, name: lesson.title }))
+  }, [level, tracks, modules, lessons])
 
   // Defaults are track-level only. At track scope each column toggles its own
   // default; at module/lesson scope the whole row is read-only and tinted iff
   // the (single) parent track is a default.
   const parentTrackIsDefault = 'trackId' in level && defaultTrackIds.includes(level.trackId)
 
-  function handleCellClick(userId: string, itemId: string, state: CellState) {
-    const assigned = !(state === 'yes' || state === 'def')
-    toggle.mutate({ userId, kind, id: itemId, assigned })
-  }
+  // Depend on `toggleMutate`, not `toggle`: TanStack v5 returns a new result object
+  // every render and only `mutate` is stable, so `toggle` would defeat MatrixRow's memo.
+  const handleCellClick = useCallback(
+    (userId: string, itemId: string, state: CellState) => {
+      const assigned = !(state === 'yes' || state === 'def')
+      toggleMutate({ userId, kind, id: itemId, assigned })
+    },
+    [toggleMutate, kind],
+  )
 
   function handleDefaultToggle(trackId: string, isDefault: boolean) {
     const trackIds = isDefault ? defaultTrackIds.filter(id => id !== trackId) : [...defaultTrackIds, trackId]
@@ -295,32 +258,14 @@ export default function Matrix({
               </tr>
 
               {users.map(user => (
-                <tr key={user.id}>
-                  <td className="adm-matrix-rowhead">
-                    <div className="adm-user-cell">
-                      <span className="adm-user-avatar">{initials(`${user.first_name} ${user.last_name}`)}</span>
-                      <span className="adm-user-name">
-                        {user.first_name} {user.last_name}
-                      </span>
-                    </div>
-                  </td>
-                  {columns.map(col => {
-                    const state = deriveCellState(kind, col.id, user, modules, lessons)
-                    return (
-                      <td key={col.id}>
-                        <button
-                          type="button"
-                          className={`adm-cell${CELL_CLASS[state] ? ` ${CELL_CLASS[state]}` : ''}`}
-                          title={CELL_TITLE[state]}
-                          onClick={() => handleCellClick(user.id, col.id, state)}
-                        >
-                          {(state === 'yes' || state === 'def') && <CheckIcon />}
-                          {state === 'part' && '◐'}
-                        </button>
-                      </td>
-                    )
-                  })}
-                </tr>
+                <MatrixRow
+                  key={user.id}
+                  user={user}
+                  columns={columns}
+                  kind={kind}
+                  childIds={childIds}
+                  onCellClick={handleCellClick}
+                />
               ))}
             </tbody>
           </table>
@@ -357,6 +302,50 @@ export default function Matrix({
     </div>
   )
 }
+
+interface MatrixRowProps {
+  user: AdminLearningUserEnriched
+  columns: Column[]
+  kind: AssignmentKind
+  childIds: ChildIdIndex
+  onCellClick: (userId: string, itemId: string, state: CellState) => void
+}
+
+/** One participant row. `memo` is the point: `useToggleAssignment`'s optimistic
+ * patch rebuilds only the toggled user's object (`api.ts` `cascadeToggleUser`
+ * inside `users.map`), so every other row keeps its identity and skips
+ * re-rendering — with `columns`/`childIds`/`onCellClick` all memo-stable above,
+ * a click now re-derives one row instead of the whole grid. */
+const MatrixRow = memo(function MatrixRow({ user, columns, kind, childIds, onCellClick }: MatrixRowProps) {
+  return (
+    <tr>
+      <td className="adm-matrix-rowhead">
+        <div className="adm-user-cell">
+          <span className="adm-user-avatar">{initials(`${user.first_name} ${user.last_name}`)}</span>
+          <span className="adm-user-name">
+            {user.first_name} {user.last_name}
+          </span>
+        </div>
+      </td>
+      {columns.map(col => {
+        const state = deriveCellState(kind, col.id, user, childIds)
+        return (
+          <td key={col.id}>
+            <button
+              type="button"
+              className={`adm-cell${CELL_CLASS[state] ? ` ${CELL_CLASS[state]}` : ''}`}
+              title={CELL_TITLE[state]}
+              onClick={() => onCellClick(user.id, col.id, state)}
+            >
+              {(state === 'yes' || state === 'def') && <CheckIcon />}
+              {state === 'part' && '◐'}
+            </button>
+          </td>
+        )
+      })}
+    </tr>
+  )
+})
 
 function initials(name: string): string {
   return name.trim().split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase()
