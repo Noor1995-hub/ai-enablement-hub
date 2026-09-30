@@ -8,9 +8,27 @@ const DIFFICULTY_BADGE: Record<Difficulty, { bg: string; color: string }> = {
   'Bigger Build':     { bg: '#FFF1E8', color: '#B24A0F' },
 }
 
+/* Sentence-case display labels (house style), next to "Start here". Display only: the
+   values themselves are the backend's fixed difficulty names and stay as they are. */
+const DIFFICULTY_LABEL: Record<Difficulty, string> = {
+  'Quick Win':        'Quick win',
+  'Worth a Session':  'Worth a session',
+  'Bigger Build':     'Bigger build',
+}
+
+/* The accordion headers fill their clipped cards, so the browser's own focus ring would be
+   cut off: an inset ring instead. :focus-visible can't be written inline, hence a local
+   <style> with a `pb-` prefix. */
+const PLAYBOOK_CSS = `.pb-toggle:focus-visible { outline: 2px solid var(--dlw-primary-red); outline-offset: -3px; }`
+
+/* Secondary text. The hub's --dlw-muted (#8A8A8A) is 3.45:1 on white, below the 4.5:1
+   minimum; this is 5.33:1 (4.89:1 on the grey blocks). Local on purpose: the token is
+   hub-wide. The admin panel renders this component too, so it shows the darker grey as well. */
+const MUTED_TEXT = '#6B6B6B'
+
 /* Neutral fallback for a difficulty label outside the three known values —
    degrade gracefully (raw label, neutral colours) instead of crashing. */
-const DIFFICULTY_BADGE_FALLBACK = { bg: 'var(--dlw-surface)', color: 'var(--dlw-muted)' }
+const DIFFICULTY_BADGE_FALLBACK = { bg: 'var(--dlw-surface)', color: MUTED_TEXT }
 
 /* ── Styles — mirrors the JourneyHome idiom: inline styles, hub card
    treatment (1px #E2E2E2 border, 12px radius, hub shadow), Mulish body /
@@ -45,7 +63,7 @@ const s = {
   },
   ucRank: {
     width: 26, height: 26, borderRadius: 8, background: 'var(--dlw-surface)',
-    color: 'var(--dlw-muted)', fontWeight: 700, fontSize: 13,
+    color: MUTED_TEXT, fontWeight: 700, fontSize: 13,
     fontFamily: 'var(--dlw-font-ui)', display: 'flex', alignItems: 'center',
     justifyContent: 'center', flexShrink: 0,
   },
@@ -53,7 +71,7 @@ const s = {
   ucName: {
     fontFamily: 'var(--dlw-font-body)', fontWeight: 700, fontSize: 16, color: 'var(--dlw-black)',
   },
-  ucPain: { fontSize: 13, fontWeight: 300, color: 'var(--dlw-muted)' },
+  ucPain: { fontSize: 13, fontWeight: 300, color: MUTED_TEXT },
   startTag: {
     background: 'var(--dlw-primary-red)', color: '#fff',
     fontFamily: 'var(--dlw-font-ui)', fontWeight: 600, fontSize: 11,
@@ -84,7 +102,7 @@ const s = {
   baLabel: {
     display: 'block', fontFamily: 'var(--dlw-font-ui)', fontWeight: 600,
     fontSize: 10.5, letterSpacing: '0.06em', textTransform: 'uppercase',
-    color: 'var(--dlw-muted)', marginBottom: 4,
+    color: MUTED_TEXT, marginBottom: 4,
   },
   baText: { margin: 0, fontSize: 13, lineHeight: 1.5, color: 'var(--dlw-text)' },
   assumption: {
@@ -106,7 +124,7 @@ const s = {
   },
   moveText: { margin: 0, fontSize: 14, lineHeight: 1.6, color: 'var(--dlw-text)' },
   moveBold: { fontFamily: 'var(--dlw-font-body)', fontWeight: 700, color: 'var(--dlw-black)' },
-  moveWhy: { color: 'var(--dlw-muted)' },
+  moveWhy: { color: MUTED_TEXT },
 
   /* Reframes accordion */
   rf: {
@@ -131,7 +149,7 @@ const s = {
   rfBlockLabel: {
     display: 'block', fontFamily: 'var(--dlw-font-ui)', fontWeight: 700,
     fontSize: 11, letterSpacing: '0.04em', textTransform: 'uppercase',
-    color: 'var(--dlw-muted)', marginBottom: 4,
+    color: MUTED_TEXT, marginBottom: 4,
   },
   rfBlockText: { margin: 0, fontSize: 13.5, lineHeight: 1.55, color: 'var(--dlw-text)' },
 
@@ -160,15 +178,17 @@ function UseCaseCard({ uc, open, onToggle }: { uc: UseCase; open: boolean; onTog
   const badge = DIFFICULTY_BADGE[uc.difficulty] ?? DIFFICULTY_BADGE_FALLBACK
   return (
     <div style={{ ...s.ucCard, ...(uc.start_here ? s.ucCardStartHere : {}) }}>
-      <button type="button" onClick={onToggle} style={s.ucTop} aria-expanded={open}>
+      <button type="button" className="pb-toggle" onClick={onToggle} style={s.ucTop} aria-expanded={open}>
         <span style={s.ucRank}>{uc.rank}</span>
         <span style={s.ucHeading}>
           <span style={s.ucName}>{uc.name}</span>
           {uc.pain_it_kills && <span style={s.ucPain}>{uc.pain_it_kills}</span>}
         </span>
-        {uc.start_here && <span style={s.startTag}>★ Start Here</span>}
-        <span style={{ ...s.badge, background: badge.bg, color: badge.color }}>{uc.difficulty}</span>
-        <span style={{ ...s.chevron, transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}>▾</span>
+        {uc.start_here && <span style={s.startTag}><span aria-hidden="true">★ </span>Start here</span>}
+        <span style={{ ...s.badge, background: badge.bg, color: badge.color }}>
+          {DIFFICULTY_LABEL[uc.difficulty] ?? uc.difficulty}
+        </span>
+        <span aria-hidden="true" style={{ ...s.chevron, transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}>▾</span>
       </button>
       {open && (
         <div style={s.ucBody}>
@@ -205,9 +225,9 @@ function UseCaseCard({ uc, open, onToggle }: { uc: UseCase; open: boolean; onTog
 function ReframeRow({ reframe, open, onToggle }: { reframe: Reframe; open: boolean; onToggle: () => void }) {
   return (
     <div style={s.rf}>
-      <button type="button" onClick={onToggle} style={s.rfQuestion} aria-expanded={open}>
+      <button type="button" className="pb-toggle" onClick={onToggle} style={s.rfQuestion} aria-expanded={open}>
         <span style={s.rfHesitation}>&ldquo;{reframe.their_hesitation}&rdquo;</span>
-        <span style={{ ...s.chevron, transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}>▾</span>
+        <span aria-hidden="true" style={{ ...s.chevron, transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}>▾</span>
       </button>
       {open && (
         <div style={s.rfBody}>
@@ -264,6 +284,7 @@ export default function Playbook({ shared }: { shared: PlaybookShared }) {
 
   return (
     <div style={s.root}>
+      <style>{PLAYBOOK_CSS}</style>
       {shared.where_you_are_today && (
         <section style={s.section}>
           <h2 style={s.h2}>Where you are today</h2>
@@ -275,7 +296,7 @@ export default function Playbook({ shared }: { shared: PlaybookShared }) {
 
       {shared.use_cases.length > 0 && (
         <section style={s.section}>
-          <h2 style={s.h2}>Your AI use-cases</h2>
+          <h2 style={s.h2}>Your AI use cases</h2>
           {shared.use_cases.map(uc => (
             <UseCaseCard
               key={uc.rank}
@@ -329,7 +350,7 @@ export default function Playbook({ shared }: { shared: PlaybookShared }) {
             {(shared.do_this_today.time_required || shared.do_this_today.why_this_one) && (
               <div style={s.ctaMeta}>
                 {shared.do_this_today.time_required && (
-                  <span style={s.ctaTime}>⏱ {shared.do_this_today.time_required}</span>
+                  <span style={s.ctaTime}><span aria-hidden="true">⏱ </span>{shared.do_this_today.time_required}</span>
                 )}
                 {shared.do_this_today.why_this_one && (
                   <span style={s.ctaWhy}>{shared.do_this_today.why_this_one}</span>
