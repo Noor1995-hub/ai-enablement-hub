@@ -27,6 +27,10 @@ export default function ModulePanel({ moduleId, moduleName, onClose, onDeleted }
   const [addError, setAddError]         = useState<string | null>(null)
   const [deletingModule, setDeletingModule]   = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
+  // Which lesson row is armed for deletion (in-app two-step, mirroring the
+  // module danger zone below). Never window.confirm: this panel renders on the
+  // learner-facing /learning route, where the admin kit's CSS isn't loaded.
+  const [confirmingLessonId, setConfirmingLessonId] = useState<string | null>(null)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -60,10 +64,10 @@ export default function ModulePanel({ moduleId, moduleName, onClose, onDeleted }
   }
 
   async function handleDelete(lessonId: string) {
-    if (!window.confirm('Delete this lesson? This cannot be undone.')) return
     const { error } = await client.DELETE('/api/admin/lessons/{lesson_id}', {
       params: { path: { lesson_id: lessonId } },
     })
+    setConfirmingLessonId(null)
     if (error) { setAddError(errorMessage(error, 'Failed to delete lesson.')); return }
     setLessons(ls => ls.filter(l => l.id !== lessonId))
   }
@@ -175,10 +179,23 @@ export default function ModulePanel({ moduleId, moduleName, onClose, onDeleted }
                   style={{ padding: '4px 12px', borderRadius: 6, border: '1.5px solid #3BC9BC', background: 'none', color: '#1D7A52', fontFamily: 'var(--dlw-font-body)', fontWeight: 600, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap' }}>
                   Edit
                 </button>
-                <button type="button" onClick={() => handleDelete(lesson.id)}
-                  style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #FCA5A5', background: '#FEF2F2', color: '#C42828', fontSize: 13, cursor: 'pointer' }}>
-                  ×
-                </button>
+                {confirmingLessonId === lesson.id ? (
+                  <>
+                    <button type="button" onClick={() => handleDelete(lesson.id)}
+                      style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid #FCA5A5', background: '#FEF2F2', color: '#C42828', fontFamily: 'var(--dlw-font-body)', fontWeight: 600, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                      Delete
+                    </button>
+                    <button type="button" onClick={() => setConfirmingLessonId(null)}
+                      style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #E2E2E2', background: '#fff', color: '#8A8A8A', fontFamily: 'var(--dlw-font-body)', fontSize: 12, cursor: 'pointer' }}>
+                      Cancel
+                    </button>
+                  </>
+                ) : (
+                  <button type="button" onClick={() => setConfirmingLessonId(lesson.id)} title="Delete lesson"
+                    style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #FCA5A5', background: '#FEF2F2', color: '#C42828', fontSize: 13, cursor: 'pointer' }}>
+                    ×
+                  </button>
+                )}
               </div>
             ))}
           </div>

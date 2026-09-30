@@ -19,6 +19,10 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
+      // Native dialogs read as out-of-app interruptions; use an in-app two-step
+      // confirm (admin: kit/ConfirmButton; learner routes: an in-file pattern).
+      'no-restricted-globals': ['error', { name: 'confirm', message: 'Use an in-app two-step confirmation, not the native confirm dialog.' }],
+      'no-restricted-properties': ['error', { object: 'window', property: 'confirm', message: 'Use an in-app two-step confirmation, not window.confirm.' }],
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
     },
   },
