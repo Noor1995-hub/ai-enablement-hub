@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { bulkInvite, BulkInviteError, type BulkInviteReport, type BulkInviteRow } from '../../api/bulkInvite'
-import { s } from './adminStyles'
+import { s } from './kit/legacyStyles'
 
 interface Props {
   projectId: string

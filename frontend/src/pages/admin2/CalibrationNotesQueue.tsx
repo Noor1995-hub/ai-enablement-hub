@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { formatDate } from '../admin/adminHelpers'
 import type { CalibrationNoteOut, CalibrationNoteStatus } from '../../types/domain'
 import {
   CALIBRATION_NOTE_PAGE_SIZE,
@@ -7,7 +6,7 @@ import {
   useGraduateCalibrationNote,
   useReviewCalibrationNote,
 } from './api'
-import { Chip, ConfirmButton, EmptyState, ErrorState, Spinner } from './kit'
+import { Chip, ConfirmButton, EmptyState, ErrorState, Spinner, formatDate } from './kit'
 import type { ChipTone } from './kit'
 
 type StatusFilter = CalibrationNoteStatus | undefined

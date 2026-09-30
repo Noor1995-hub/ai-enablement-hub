@@ -13,3 +13,6 @@ export { ConfirmButton } from './ConfirmButton'
 export { EmptyState } from './EmptyState'
 export { ErrorState } from './ErrorState'
 export { Spinner } from './Spinner'
+// Pre-kit helpers, still used by several screens — see kit/legacyStyles.ts.
+export { formatDate, LevelBadge, BandBadge, RungPill } from './legacyHelpers'
+export { COMPONENT_KEYS, COMPONENT_LABELS, s as legacyStyles } from './legacyStyles'

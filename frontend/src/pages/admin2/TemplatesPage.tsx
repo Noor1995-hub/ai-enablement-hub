@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import EmailTemplatesCard from '../admin/EmailTemplatesCard'
+import EmailTemplatesCard from './EmailTemplatesCard'
 import { useCompanies } from './api'
 import { Card, ErrorState, Spinner } from './kit'
 import { useScope } from './useScope'
@@ -14,7 +14,7 @@ import { useScope } from './useScope'
  * so there is nothing new to style.
  *
  * Scoped, this renders the existing `EmailTemplatesCard`
- * (frontend/src/pages/admin/EmailTemplatesCard.tsx) UNCHANGED — it owns its
+ * (frontend/src/pages/admin2/EmailTemplatesCard.tsx) UNCHANGED — it owns its
  * own data fetching (GET/PUT/DELETE/preview against
  * `admin_email_templates`). The wrapping kit `<Card>` plus the
  * `.adm-templates-page` CSS overrides in admin.css only neutralize its own

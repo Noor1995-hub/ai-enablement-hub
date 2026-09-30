@@ -3,11 +3,11 @@
  * shell (removed at the admin-panel cutover) used were pruned along with
  * it — admin2's AdminShell + `adm-` CSS classes (styles/admin.css) own all
  * of that now. What remains here backs the still-reused pieces:
- * SurveyResults, BulkInviteModal, EmailTemplatesCard, SetupView's forms,
- * and adminHelpers.tsx's badge/field components. */
+ * SurveyResults, BulkInviteModal, EmailTemplatesCard, InterviewCard
+ * and legacyHelpers.tsx's badge components. */
 import type { CSSProperties } from 'react'
-import type { ComponentKey } from '../../lib/constants'
-import { levelByCode, type AssignableLevel, type LevelDef } from '../../lib/levels'
+import type { ComponentKey } from '../../../lib/constants'
+import { levelByCode, type AssignableLevel, type LevelDef } from '../../../lib/levels'
 
 export const COMPONENT_KEYS: ComponentKey[] = ['assessment', 'learning', 'interview']
 export const COMPONENT_LABELS: Record<ComponentKey, string> = {
@@ -53,30 +53,12 @@ export const BAND_STYLE: Record<UsageBand, BadgeStyle> = {
 }
 
 export const s = {
-  pageTitle: { fontFamily: 'var(--dlw-font-body)', fontWeight: 700, fontSize: 28, color: '#101820', margin: '0 0 4px' },
-  pageSubtitle: { fontSize: 15, fontWeight: 300, color: '#8A8A8A', margin: '0 0 32px' },
-
-  /* cards */
-  card: {
-    background: '#fff', border: '1px solid #E2E2E2', borderRadius: 12,
-    padding: '28px 28px 24px', marginBottom: 28,
-  },
-  cardTitle: { fontFamily: 'var(--dlw-font-body)', fontWeight: 700, fontSize: 16, color: '#101820', margin: '0 0 20px' },
-
   /* forms */
-  formRow:    { display: 'flex', gap: 14, flexWrap: 'wrap' },
-  fieldWrap:  { display: 'flex', flexDirection: 'column', flex: 1, minWidth: 160 },
   label:      { fontFamily: 'var(--dlw-font-ui)', fontWeight: 600, fontSize: 12, letterSpacing: '0.04em', color: '#3C3C3C', marginBottom: 7 },
   input:      {
     padding: '11px 14px', fontFamily: 'var(--dlw-font-body)', fontWeight: 300, fontSize: 14,
     color: '#101820', border: '1px solid #E2E2E2', borderRadius: 4, outline: 'none',
     transition: 'border-color 180ms', boxSizing: 'border-box', width: '100%',
-  },
-  inputFocus: { borderColor: '#EF463C' },
-  select:     {
-    padding: '11px 14px', fontFamily: 'var(--dlw-font-body)', fontWeight: 300, fontSize: 14,
-    color: '#101820', border: '1px solid #E2E2E2', borderRadius: 4, outline: 'none',
-    background: '#fff', cursor: 'pointer', boxSizing: 'border-box', width: '100%',
   },
   formActions: { display: 'flex', alignItems: 'center', gap: 14, marginTop: 18 },
   submitBtn:   {
@@ -115,9 +97,6 @@ export const s = {
     fontFamily: 'var(--dlw-font-body)', fontWeight: 600, fontSize: 12,
     color: '#C42828', padding: '5px 12px', borderRadius: 999,
   },
-
-  // Still used by SetupView's "existing companies" list under the new-company form.
-  companyLabel:  { fontFamily: 'var(--dlw-font-ui)', fontWeight: 600, fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#8A8A8A', marginBottom: 10 },
 
   /* user detail panel */
   // panelClose is still used by BulkInviteModal.tsx's modal header — kept

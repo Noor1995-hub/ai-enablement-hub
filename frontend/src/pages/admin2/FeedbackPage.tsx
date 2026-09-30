@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react'
-import { formatDate } from '../admin/adminHelpers'
 import { resolveTrackColor } from '../../lib/trackColors'
 import type { AdminFeedbackOut, FeedbackStatus } from '../../types/domain'
 import { FEEDBACK_PAGE_SIZE, useFeedback, usePatchFeedback, useSuggestTriage, useTracks } from './api'
-import { Chip, EmptyState, ErrorState, Spinner } from './kit'
+import { Chip, EmptyState, ErrorState, Spinner, formatDate } from './kit'
 import type { ChipTone } from './kit'
 import { useScope } from './useScope'
 

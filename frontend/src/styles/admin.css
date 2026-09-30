@@ -708,7 +708,7 @@ button.adm-loc-chip:hover .adm-loc-label { color: var(--adm-red-deep); }
 .adm-switch.on::after { left: 16px; }
 .adm-switch:disabled { opacity: .6; cursor: default; }
 
-/* EmailTemplatesCard (pages/admin/EmailTemplatesCard.tsx) is reused
+/* EmailTemplatesCard (pages/admin2/EmailTemplatesCard.tsx) is reused
    UNCHANGED — it renders its own bordered/padded root div via inline
    CSSProperties (adminStyles.ts `s.tableCard`). Wrapping it in the kit
    <Card> would nest two card chromes; inline styles otherwise beat any CSS

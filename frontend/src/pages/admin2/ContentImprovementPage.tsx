@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { formatDate } from '../admin/adminHelpers'
 import { resolveTrackColor } from '../../lib/trackColors'
 import { useUnsavedGuard } from '../../lib/useUnsavedGuard'
 import type {
@@ -21,7 +20,7 @@ import {
   useReviewProposal,
   useRunImprovement,
 } from './api'
-import { Chip, ConfirmButton, EmptyState, ErrorState, Spinner } from './kit'
+import { Chip, ConfirmButton, EmptyState, ErrorState, Spinner, formatDate } from './kit'
 import type { ChipTone } from './kit'
 
 type StatusFilter = ProposalStatus | undefined

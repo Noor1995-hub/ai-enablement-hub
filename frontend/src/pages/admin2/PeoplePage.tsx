@@ -1,8 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { LevelBadge, formatDate } from '../admin/adminHelpers'
-import BulkInviteModal from '../admin/BulkInviteModal'
+import BulkInviteModal from './BulkInviteModal'
 import type { AdminUserEnriched } from '../../types/domain'
 import {
   useAdminUsers,
@@ -14,7 +13,7 @@ import {
   useTracks,
 } from './api'
 import InviteModal from './InviteModal'
-import { BulkBar, Card, Chip, EmptyState, ErrorState, Modal, ProgressBar, Spinner, Table, Toolbar } from './kit'
+import { BulkBar, Card, Chip, EmptyState, ErrorState, Modal, ProgressBar, Spinner, Table, Toolbar, LevelBadge, formatDate } from './kit'
 import type { ChipTone, TableColumn } from './kit'
 import { useScope } from './useScope'
 

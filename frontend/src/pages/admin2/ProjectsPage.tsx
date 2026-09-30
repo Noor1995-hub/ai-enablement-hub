@@ -2,10 +2,9 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { ComponentKey } from '../../lib/constants'
 import type { ComponentState } from '../../types/domain'
-import { COMPONENT_KEYS, COMPONENT_LABELS } from '../admin/adminStyles'
 import type { AiSurfaceKind } from './api'
 import { useAiSettings, useComponents, useCompanies, useToggleAiSetting, useToggleComponent } from './api'
-import { Card, EmptyState, ErrorState, Spinner } from './kit'
+import { Card, EmptyState, ErrorState, Spinner, COMPONENT_KEYS, COMPONENT_LABELS } from './kit'
 import { useScope } from './useScope'
 
 /** AI surfaces that get their own row below the component list. `assessment` and

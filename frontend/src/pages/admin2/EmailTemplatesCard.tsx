@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { client, errorMessage } from '../../api/client'
 import type { EmailTemplate, EmailTemplatePreview, EmailTemplatePurpose } from '../../types/domain'
-import { s } from './adminStyles'
+import { s } from './kit/legacyStyles'
 
 /*
  * Per-project invite/reset email editor. Owns its own data (GET/PUT/DELETE/

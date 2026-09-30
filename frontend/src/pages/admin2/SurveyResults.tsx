@@ -4,8 +4,8 @@ import {
   type CompetencyQA,
 } from '../../lib/surveyOptions'
 import type { AdminSurvey } from '../../types/domain'
-import { s } from './adminStyles'
-import { LevelBadge, BandBadge, RungPill, formatDate } from './adminHelpers'
+import { s } from './kit/legacyStyles'
+import { LevelBadge, BandBadge, RungPill, formatDate } from './kit/legacyHelpers'
 
 // Maps the competency key to its typed rung column so the lookup below stays
 // inside AdminSurvey's keys (no string-index casts).

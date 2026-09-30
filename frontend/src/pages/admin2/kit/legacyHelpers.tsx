@@ -1,6 +1,8 @@
-import { s, LEVEL_STYLE, BAND_STYLE, RUNG_LABELS, RUNG_COLORS, RUNG_TEXT } from './adminStyles'
-import type { UsageBand } from './adminStyles'
-import type { LevelDef } from '../../lib/levels'
+/* Pre-kit badge helpers (level/band badges, rung pill, date format), kept until
+ * the styling convergence lands. Re-exported from the kit barrel. */
+import { s, LEVEL_STYLE, BAND_STYLE, RUNG_LABELS, RUNG_COLORS, RUNG_TEXT } from './legacyStyles'
+import type { UsageBand } from './legacyStyles'
+import type { LevelDef } from '../../../lib/levels'
 
 // eslint-disable-next-line react-refresh/only-export-components -- badge components + tiny helpers, same grouping as the old app
 export function formatDate(iso: string): string {
@@ -32,32 +34,5 @@ export function RungPill({ rung }: { rung: number | null | undefined }) {
     }}>
       {RUNG_LABELS[rung]}
     </span>
-  )
-}
-
-interface FieldProps {
-  id: string
-  label: string
-  type?: string
-  placeholder?: string
-  value: string
-  onChange: (value: string) => void
-  focused?: boolean
-  onFocus?: () => void
-  onBlur?: () => void
-}
-
-export function Field({ id, label, type = 'text', placeholder, value, onChange, focused, onFocus, onBlur }: FieldProps) {
-  return (
-    <div style={s.fieldWrap}>
-      <label htmlFor={id} style={s.label}>{label}</label>
-      <input
-        id={id} type={type} placeholder={placeholder} value={value}
-        onChange={e => onChange(e.target.value)}
-        onFocus={onFocus} onBlur={onBlur}
-        style={{ ...s.input, ...(focused ? s.inputFocus : {}) }}
-        autoComplete="off"
-      />
-    </div>
   )
 }

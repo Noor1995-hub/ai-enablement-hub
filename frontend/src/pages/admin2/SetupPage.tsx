@@ -18,7 +18,7 @@ function formatDeployedAt(iso: string): string {
 }
 
 /** Setup screen (spec §3.6, `/admin/setup`) — ports the old panel's
- * SetupView (frontend/src/pages/admin/SetupView.tsx) two forms onto kit
+ * SetupView (deleted, see git history) two forms onto kit
  * components + the `useCreateCompany`/`useCreateProject` mutations (both
  * invalidate `['admin','companies']`, so the existing-companies list below
  * and the New-project company dropdown pick up a fresh company/project

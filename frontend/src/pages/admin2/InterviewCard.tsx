@@ -1,9 +1,8 @@
 import { useState, type ReactNode } from 'react'
 import Playbook from '../../components/interview/Playbook'
-import { s } from '../admin/adminStyles'
 import type { AdminInterview, PlaybookInternal } from '../../types/domain'
 import { useInterview, useResetInterview } from './api'
-import { Chip, ConfirmButton, EmptyState, ErrorState, Spinner } from './kit'
+import { Chip, ConfirmButton, EmptyState, ErrorState, Spinner, legacyStyles as s } from './kit'
 import type { ChipTone } from './kit'
 
 const TIER_TONE: Record<string, ChipTone> = {

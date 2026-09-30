@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { LevelBadge, formatDate } from '../admin/adminHelpers'
-import SurveyResults from '../admin/SurveyResults'
+import SurveyResults from './SurveyResults'
 import { LEVELS, levelByCode } from '../../lib/levels'
 import type { AdminSurvey, AdminUserEnriched } from '../../types/domain'
 import InterviewCard from './InterviewCard'
@@ -17,7 +16,7 @@ import {
   useTracks,
 } from './api'
 import type { SetMaturityInput, SetRoleInput } from './api'
-import { Card, Chip, ConfirmButton, EmptyState, ErrorState, ProgressBar, Spinner } from './kit'
+import { Card, Chip, ConfirmButton, EmptyState, ErrorState, ProgressBar, Spinner, LevelBadge, formatDate } from './kit'
 import type { ChipTone } from './kit'
 import { useScope } from './useScope'
 
