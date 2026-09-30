@@ -386,7 +386,12 @@ class AbstractContentRepository(ABC):
         """Insert module and its prerequisite links in one transaction."""
 
     @abstractmethod
-    async def next_module_in_track(self, track_id: uuid.UUID, sort_order: int) -> Module | None: ...
+    async def next_module_in_track(
+        self, track_id: uuid.UUID, sort_order: int, module_id: uuid.UUID
+    ) -> Module | None:
+        """First module in the track after (sort_order, module_id) -- a total
+        order, so two modules sharing a sort_order (live data has both) never
+        cause one to be skipped."""
 
     @abstractmethod
     async def list_prerequisites(self) -> list[ModulePrerequisite]: ...
@@ -772,11 +777,12 @@ class AbstractMessageRepository(ABC):
 
     @abstractmethod
     async def list_for_conversation(self, conversation_id: uuid.UUID) -> list[Message]:
-        """Chronological, for the conversation-detail view."""
+        """Chronological — ordered by (created_at, id), a total order — for the
+        conversation-detail view."""
 
     @abstractmethod
     async def list_recent(self, conversation_id: uuid.UUID, *, limit: int) -> list[Message]:
-        """Last `limit` messages, chronological order (window cap sent to the model)."""
+        """Last `limit` messages in the same total order (window cap sent to the model)."""
 
 
 class AbstractProposalRepository(ABC):

@@ -39,3 +39,38 @@ async def test_list_recent_returns_last_n_in_chronological_order(db_session: Asy
     recent = await messages.list_recent(conversation.id, limit=2)
 
     assert [m.content for m in recent] == ["msg 3", "msg 4"]
+
+
+async def test_ties_on_created_at_keep_a_stable_total_order(db_session: AsyncSession) -> None:
+    """created_at alone is not a total order. Rows written with an identical
+    timestamp must still come back in one deterministic order (created_at, id),
+    or a transcript can silently reorder itself between reads."""
+    from datetime import UTC, datetime
+
+    from src.db.models import Message
+
+    user = await create_user(db_session, email="msg-tie@example.com")
+    conversations = ConversationRepository(db_session)
+    conversation = await conversations.create(user_id=user.id, kind="chatbot")
+    stamp = datetime.now(UTC)
+    db_session.add_all(
+        Message(
+            conversation_id=conversation.id,
+            role="user",
+            content=f"tied {i}",
+            metadata_=None,
+            created_at=stamp,
+        )
+        for i in range(6)
+    )
+    await db_session.commit()
+
+    messages = MessageRepository(db_session)
+    first = [(m.created_at, m.id) for m in await messages.list_for_conversation(conversation.id)]
+    second = [(m.created_at, m.id) for m in await messages.list_for_conversation(conversation.id)]
+
+    assert first == second
+    assert first == sorted(first)
+    # list_recent must agree with the tail of the full transcript.
+    recent = await messages.list_recent(conversation.id, limit=3)
+    assert [(m.created_at, m.id) for m in recent] == first[-3:]

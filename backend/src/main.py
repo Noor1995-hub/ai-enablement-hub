@@ -165,6 +165,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
             pool_size=settings.database.pool_size,
             max_overflow=settings.database.max_overflow,
             pool_pre_ping=True,
+            pool_recycle=settings.database.pool_recycle_seconds,
         )
     engine = create_async_engine(**kwargs)
     app.state.db_engine = engine

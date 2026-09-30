@@ -302,7 +302,7 @@ class LearningService:
         )
         if next_lesson is None:
             next_module = await self._content.next_module_in_track(
-                module.track_id, module.sort_order
+                module.track_id, module.sort_order, module.id
             )
             if next_module is not None:
                 next_module_id = next_module.id

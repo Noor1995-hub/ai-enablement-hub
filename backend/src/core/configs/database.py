@@ -30,6 +30,10 @@ class DatabaseSettings(BaseModel):
     ssl_mode: str | None = None
     pool_size: int = 5
     max_overflow: int = 10
+    # Azure Database for PostgreSQL closes idle server-side connections. Recycle
+    # ours first: pool_pre_ping (set in main.py) already recovers from a killed
+    # connection, but only after paying a failed round-trip to discover it.
+    pool_recycle_seconds: int = 1800
 
     @computed_field  # type: ignore[prop-decorator]
     @property

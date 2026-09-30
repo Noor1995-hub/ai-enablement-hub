@@ -447,6 +447,64 @@ class TestReorderLessons:
         assert response.status_code == 404
 
 
+async def test_reorder_lessons_issues_one_update_round_trip(db_session: AsyncSession) -> None:
+    """Reordering used to fire one UPDATE per lesson. Keep it to a single
+    statement so a long module does not cost M round-trips to Azure."""
+    from sqlalchemy import Connection, event
+
+    from src.repositories.content_repository import ContentRepository
+
+    track = await create_track(db_session, "Reorder Track")
+    module = await create_module(db_session, track, "Reorder Module")
+    lessons = [await create_lesson(db_session, module, f"L{i}", sort_order=i) for i in range(5)]
+
+    updates: list[str] = []
+
+    def _record(conn, cursor, statement, parameters, context, executemany) -> None:  # noqa: ANN001
+        if statement.strip().upper().startswith("UPDATE LESSONS"):
+            updates.append(statement)
+
+    repo = ContentRepository(db_session)
+    bind = db_session.get_bind()
+    assert isinstance(bind, Connection)
+    event.listen(bind, "before_cursor_execute", _record)
+    try:
+        await repo.set_lesson_orders(
+            [(lesson.id, index) for index, lesson in enumerate(reversed(lessons))]
+        )
+    finally:
+        event.remove(bind, "before_cursor_execute", _record)
+
+    assert len(updates) == 1, f"expected one UPDATE statement, got {len(updates)}"
+    reordered = await repo.list_lessons(module.id)
+    assert [lesson.title for lesson in reordered] == ["L4", "L3", "L2", "L1", "L0"]
+
+
+async def test_set_lesson_orders_with_no_rows_issues_no_statement(
+    db_session: AsyncSession,
+) -> None:
+    """An empty batch is an explicit no-op: it must not round-trip to the DB at all."""
+    from sqlalchemy import Connection, event
+
+    from src.repositories.content_repository import ContentRepository
+
+    updates: list[str] = []
+
+    def _record(conn, cursor, statement, parameters, context, executemany) -> None:  # noqa: ANN001
+        if statement.strip().upper().startswith("UPDATE LESSONS"):
+            updates.append(statement)
+
+    bind = db_session.get_bind()
+    assert isinstance(bind, Connection)
+    event.listen(bind, "before_cursor_execute", _record)
+    try:
+        await ContentRepository(db_session).set_lesson_orders([])
+    finally:
+        event.remove(bind, "before_cursor_execute", _record)
+
+    assert updates == []
+
+
 class TestLessonUpdateLinkSchemes:
     """PATCH deliberately skips the full structural validator (most live lessons
     predate it), but the url-scheme allowlist is narrow enough to apply here --

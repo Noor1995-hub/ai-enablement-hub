@@ -42,18 +42,24 @@ class MessageRepository(AbstractMessageRepository):
         return message
 
     async def list_for_conversation(self, conversation_id: uuid.UUID) -> list[Message]:
+        # `id` is the tiebreaker and it is load-bearing: created_at alone is not
+        # a total order, and two turns written in the same microsecond would
+        # otherwise be free to swap places between reads — silently reordering a
+        # transcript that the playbook generator and the admin view both read.
         result = await self._session.execute(
             select(Message)
             .where(Message.conversation_id == conversation_id)
-            .order_by(Message.created_at.asc())
+            .order_by(Message.created_at.asc(), Message.id.asc())
         )
         return list(result.scalars().all())
 
     async def list_recent(self, conversation_id: uuid.UUID, *, limit: int) -> list[Message]:
+        # Mirror image of list_for_conversation's order, so the window this sends
+        # to the model is exactly the tail of the stored transcript.
         result = await self._session.execute(
             select(Message)
             .where(Message.conversation_id == conversation_id)
-            .order_by(Message.created_at.desc())
+            .order_by(Message.created_at.desc(), Message.id.desc())
             .limit(limit)
         )
         rows = list(result.scalars().all())

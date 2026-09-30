@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select, tuple_, update
 from sqlalchemy.orm import load_only
 
 from src.db.models import Lesson, Module, ModulePrerequisite, Track
@@ -87,10 +87,20 @@ class ContentRepository(AbstractContentRepository):
         await self._session.refresh(module)
         return module
 
-    async def next_module_in_track(self, track_id: uuid.UUID, sort_order: int) -> Module | None:
+    async def next_module_in_track(
+        self, track_id: uuid.UUID, sort_order: int, module_id: uuid.UUID
+    ) -> Module | None:
+        # `sort_order` alone is not a total order: live data holds tracks with
+        # two modules sharing a sort_order. Comparing the full (sort_order, id)
+        # tuple against the current module's own tuple makes "next" well
+        # defined even for a tie, instead of skipping whichever tied module
+        # happens to sort first.
         result = await self._session.execute(
             select(Module)
-            .where(Module.track_id == track_id, Module.sort_order > sort_order)
+            .where(
+                Module.track_id == track_id,
+                tuple_(Module.sort_order, Module.id) > (sort_order, module_id),
+            )
             .order_by(Module.sort_order, Module.id)
             .limit(1)
         )
@@ -174,10 +184,17 @@ class ContentRepository(AbstractContentRepository):
         await self._session.commit()
 
     async def set_lesson_orders(self, orders: list[tuple[uuid.UUID, int]]) -> None:
-        for lesson_id, sort_order in orders:
-            await self._session.execute(
-                update(Lesson).where(Lesson.id == lesson_id).values(sort_order=sort_order)
-            )
+        if not orders:
+            return
+        # One executemany round-trip, not M sequential UPDATEs: SQLAlchemy's ORM
+        # bulk-update-by-primary-key takes a list of dicts that each carry the pk
+        # plus the columns to set. `sort_order` has no uniqueness constraint, so
+        # the intermediate states of a permutation are never a problem -- and a
+        # single statement has no intermediate states to begin with.
+        await self._session.execute(
+            update(Lesson),
+            [{"id": lesson_id, "sort_order": sort_order} for lesson_id, sort_order in orders],
+        )
         await self._session.commit()
 
     async def lesson_context(
