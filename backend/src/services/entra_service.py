@@ -133,23 +133,34 @@ class EntraService:
                 raise EntraUserNotFoundError
             if email and user.email != email:
                 # Informational only — oid wins, an Entra email change never locks out.
-                logger.info("entra email drift: hub=%s entra=%s (oid=%s)", user.email, email, oid)
+                # Neither address is logged (review 9.12): the oid is enough to look
+                # both up.
+                logger.info("entra email differs from the hub record (oid=%s)", oid)
             return user
         user = await self._users.get_by_email(email) if email else None
         if user is None or not user.is_active:
-            logger.warning("entra sign-in rejected: no invited user (oid=%s email=%s)", oid, email)
+            # Domain only (review 9.12): separates "wrong tenant" from "not invited"
+            # without identifying anyone. partition, not rpartition, so a claim with
+            # no "@" logs "unknown" rather than the whole value.
+            logger.warning(
+                "entra sign-in rejected: no invited user (oid=%s email_domain=%s)",
+                oid,
+                email.partition("@")[2] or "unknown",
+            )
             raise EntraUserNotFoundError
         if user.external_id is not None:
             # Same email, different oid — the linked-oid lookup above already
             # missed, so this is a conflicting account. Never relink silently.
             logger.error(
-                "entra sign-in rejected: email %s already linked to another oid (got %s)",
-                email,
+                "entra sign-in rejected: this hub user is already linked to another oid "
+                "(hub_user=%s linked_oid=%s incoming_oid=%s)",
+                user.id,
+                user.external_id,
                 oid,
             )
             raise EntraUserNotFoundError
         await self._users.link_external_id(user, oid)
-        logger.info("entra first-login link: %s ← oid=%s", user.email, oid)
+        logger.info("entra first-login link: user=%s ← oid=%s", user.id, oid)
         return user
 
     @staticmethod

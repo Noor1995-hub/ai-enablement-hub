@@ -50,6 +50,9 @@ class EmailService:
             # The SDK client is sync (requests) — never run it on the event loop.
             await run_in_threadpool(self._sender.begin_send, message)
         except Exception:
-            logger.exception("email %r to %s failed", content.subject, to)
+            # Deliberately no recipient (review 9.12): this line lands in Log
+            # Analytics; the caller knows who it was sending to and reports
+            # email_status="failed" per recipient. The subject says WHICH email failed.
+            logger.exception("email %r could not be sent", content.subject)
             return False
         return True

@@ -86,6 +86,11 @@ def _login_url(settings: Settings) -> str | None:
     return f"{settings.app.url.rstrip('/')}/login"
 
 
+def _log_email_failed(user_id: uuid.UUID, purpose: str) -> None:
+    """Trace which learner's email failed, by id only (never the address)."""
+    logger.warning("email send failed: purpose=%s user=%s", purpose, user_id)
+
+
 async def _email_the_link(
     email_service: EmailService | None,
     email_template_service: EmailTemplateService,
@@ -185,6 +190,8 @@ async def create_invite(
         if body.send_email
         else "skipped"
     )
+    if email_status == "failed":
+        _log_email_failed(user.id, "invite")
     return LinkResponse(link=link, email_status=email_status)
 
 
@@ -248,6 +255,7 @@ async def create_bulk_invites(
                 login_url=_login_url(settings),
             )
             if email_status == "failed":
+                _log_email_failed(user.id, "invite")
                 p.status, p.detail = "email_failed", "user created — email could not be sent"
             else:
                 p.status, p.detail = "created", None
@@ -314,6 +322,8 @@ async def create_reset_link(
         if send_email
         else "skipped"
     )
+    if email_status == "failed":
+        _log_email_failed(user.id, "reset")
     return LinkResponse(link=link, email_status=email_status)
 
 
@@ -344,6 +354,8 @@ async def send_reminder(
         ),
     )
     sent = await email_service.send(user.email, content)
+    if not sent:
+        _log_email_failed(user.id, "reminder")
     return ReminderResponse(email_status="sent" if sent else "failed")
 
 

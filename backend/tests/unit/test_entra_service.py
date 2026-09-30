@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -276,3 +277,97 @@ class TestResolveUser:
         with pytest.raises(EntraUserNotFoundError):
             await service.resolve_user(self.claims())
         users.link_external_id.assert_not_awaited()
+
+
+class TestLogHygiene:
+    """Review item 9.12: these records go to Log Analytics, whose retention and
+    access are separate from the database's. The oid is the opaque identifier the
+    flow is debugged from and stays; no email address may appear."""
+
+    OID = "0000-oid-1234"
+    ADDRESSES = ("sarah.jones@example.com", "old.sarah@example.com", "sarah.jones")
+
+    def _rendered(self, caplog: pytest.LogCaptureFixture) -> str:
+        return "\n".join(record.getMessage() for record in caplog.records)
+
+    def _assert_clean(self, caplog: pytest.LogCaptureFixture) -> str:
+        rendered = self._rendered(caplog)
+        assert rendered
+        for fragment in self.ADDRESSES:
+            assert fragment not in rendered
+        return rendered
+
+    async def test_rejected_signin_logs_the_oid_and_domain_not_the_email(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        service, users = make_service()
+        users.get_by_external_id.return_value = None
+        users.get_by_email.return_value = None
+        claims = {"oid": self.OID, "email": "sarah.jones@example.com"}
+
+        with (
+            caplog.at_level(logging.WARNING, logger="src.services.entra_service"),
+            pytest.raises(EntraUserNotFoundError),
+        ):
+            await service.resolve_user(claims)
+
+        rendered = self._assert_clean(caplog)
+        assert self.OID in rendered
+        assert "example.com" in rendered
+
+    async def test_a_claim_without_an_at_sign_does_not_leak_through_the_domain(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        service, users = make_service()
+        users.get_by_external_id.return_value = None
+        users.get_by_email.return_value = None
+        claims = {"oid": self.OID, "preferred_username": "sarah.jones"}
+
+        with (
+            caplog.at_level(logging.WARNING, logger="src.services.entra_service"),
+            pytest.raises(EntraUserNotFoundError),
+        ):
+            await service.resolve_user(claims)
+
+        self._assert_clean(caplog)
+
+    async def test_email_drift_logs_no_address(self, caplog: pytest.LogCaptureFixture) -> None:
+        service, users = make_service()
+        users.get_by_external_id.return_value = make_user(
+            external_id=self.OID, email="old.sarah@example.com"
+        )
+        claims = {"oid": self.OID, "email": "sarah.jones@example.com"}
+
+        with caplog.at_level(logging.INFO, logger="src.services.entra_service"):
+            await service.resolve_user(claims)
+
+        assert self.OID in self._assert_clean(caplog)
+
+    async def test_conflicting_oid_logs_no_address(self, caplog: pytest.LogCaptureFixture) -> None:
+        service, users = make_service()
+        users.get_by_external_id.return_value = None
+        users.get_by_email.return_value = make_user(
+            external_id="some-other-oid", email="sarah.jones@example.com"
+        )
+        claims = {"oid": self.OID, "email": "sarah.jones@example.com"}
+
+        with (
+            caplog.at_level(logging.ERROR, logger="src.services.entra_service"),
+            pytest.raises(EntraUserNotFoundError),
+        ):
+            await service.resolve_user(claims)
+
+        rendered = self._assert_clean(caplog)
+        assert self.OID in rendered
+        assert "some-other-oid" in rendered
+
+    async def test_first_login_link_logs_no_address(self, caplog: pytest.LogCaptureFixture) -> None:
+        service, users = make_service()
+        users.get_by_external_id.return_value = None
+        users.get_by_email.return_value = make_user(email="sarah.jones@example.com")
+        claims = {"oid": self.OID, "email": "sarah.jones@example.com"}
+
+        with caplog.at_level(logging.INFO, logger="src.services.entra_service"):
+            await service.resolve_user(claims)
+
+        assert self.OID in self._assert_clean(caplog)

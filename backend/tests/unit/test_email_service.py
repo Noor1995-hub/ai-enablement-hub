@@ -4,6 +4,9 @@ test_email_templates.py / test_email_template_service.py."""
 
 from __future__ import annotations
 
+import logging
+
+import pytest
 from pydantic import SecretStr
 
 from src.core.configs.auth import AuthSettings
@@ -55,3 +58,22 @@ class TestProvider:
         settings = Settings(auth=self._AUTH, email=TEST_EMAIL)
         service = get_email_service(settings)
         assert isinstance(service, EmailService)
+
+
+class TestLogHygiene:
+    """Review item 9.12: these records go to Log Analytics, whose retention and
+    access are separate from the database's. The subject is fine; the recipient
+    is not."""
+
+    async def test_a_failed_send_does_not_log_the_recipient(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        with caplog.at_level(logging.ERROR, logger="src.services.email_service"):
+            ok = await _service(RaisingSender()).send("sarah.jones@example.com", CONTENT)
+
+        assert ok is False
+        rendered = "\n".join(record.getMessage() for record in caplog.records)
+        assert "sarah.jones@example.com" not in rendered
+        assert "sarah.jones" not in rendered
+        # Still diagnosable: which email failed, and that it failed at all.
+        assert "Hello" in rendered

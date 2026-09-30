@@ -7,14 +7,17 @@ conftest client.
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import select
 
 from src.core.dependencies.database import get_session
 from src.core.dependencies.email import get_email_service
 from src.core.dependencies.settings import get_settings
+from src.db.models import User
 from src.main import app
 from src.services.email_service import EmailSender, EmailService
 from tests.fixtures.auth import auth_headers
@@ -24,6 +27,7 @@ from tests.fixtures.factories import create_company, create_project, create_user
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Awaitable, Callable
 
+    import pytest
     from sqlalchemy.ext.asyncio import AsyncSession
 
     from src.core.configs.settings import Settings
@@ -110,21 +114,29 @@ class TestInviteEmails:
         make_client: Callable[[EmailSender], Awaitable[AsyncClient]],
         project: Project,
         headers: dict[str, str],
+        db_session: AsyncSession,
+        caplog: pytest.LogCaptureFixture,
     ) -> None:
         client = await make_client(RaisingSender())
-        response = await client.post(
-            "/api/admin/invites",
-            json={
-                "email": "unlucky@example.com",
-                "first_name": "Un",
-                "last_name": "Lucky",
-                "project_id": str(project.id),
-            },
-            headers=headers,
-        )
+        with caplog.at_level(logging.WARNING, logger="src.routers.admin_users"):
+            response = await client.post(
+                "/api/admin/invites",
+                json={
+                    "email": "unlucky@example.com",
+                    "first_name": "Un",
+                    "last_name": "Lucky",
+                    "project_id": str(project.id),
+                },
+                headers=headers,
+            )
         assert response.status_code == 201
         data = response.json()
         assert data["email_status"] == "failed"
+        # The failure is traceable by user id, never by address.
+        user = await db_session.scalar(select(User).where(User.email == "unlucky@example.com"))
+        assert user is not None
+        assert f"purpose=invite user={user.id}" in caplog.text
+        assert "unlucky@example.com" not in caplog.text
         # The manual copy-the-link fallback must remain fully usable.
         info = await client.get(f"/api/auth/invite/{_extract_token(data['link'])}")
         assert info.status_code == 200
