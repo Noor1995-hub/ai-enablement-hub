@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 
 from src.services.exceptions import NotFoundError
 from src.services.interview_marker import strip_ready_marker
+from src.services.interview_stop import QuestionCut
 from src.services.llm_service import is_provider_busy_error, is_provider_error
 from src.services.prompts import load_prompt, prompt_version
 
@@ -71,10 +72,13 @@ class ChatService:
         conversations: AbstractConversationRepository,
         messages: AbstractMessageRepository,
         llm: LlmClient,
+        *,
+        interview_hard_stop: bool = False,
     ) -> None:
         self._conversations = conversations
         self._messages = messages
         self._llm = llm
+        self.interview_hard_stop = interview_hard_stop
 
     async def resolve_conversation(
         self, *, user_id: uuid.UUID, kind: str, conversation_id: uuid.UUID | None
@@ -132,14 +136,33 @@ class ChatService:
         truncated = False
         usage: LlmUsage | None = None
         failure: str | None = None
+        # #96: interview chat turns end at the first question that ends a paragraph. Chat
+        # turns only: the opener (InterviewService.open_interview) is never cut, or "Sound
+        # right? / If so, walk me through..." would lose its real first question.
+        cut = (
+            QuestionCut() if self.interview_hard_stop and conversation.kind == "interview" else None
+        )
         try:
             async with self._llm.stream_reply(
                 system=system_prompt, messages=history, max_tokens=_MAX_TOKENS
             ) as reply:
                 async for text in reply:
-                    chunks.append(text)
-                    yield TokenEvent(text)
+                    # After a cut the rest is still read (never shown), so usage stays exact.
+                    shown = cut.feed(text) if cut is not None else text
+                    if shown:
+                        chunks.append(shown)
+                        yield TokenEvent(shown)
+                if cut is not None and (tail := cut.finish()):
+                    chunks.append(tail)
+                    yield TokenEvent(tail)
                 usage = await reply.usage()
+            if cut is not None and cut.cut:
+                # Ids and a count only. Firing often means the prompt is drifting.
+                logger.info(
+                    "interview hard stop removed %d chars for conversation %s",
+                    len(cut.removed),
+                    conversation.id,
+                )
         except (GeneratorExit, asyncio.CancelledError):
             # Both a client disconnect (GeneratorExit, injected by aclose()) and an
             # ASGI-level task cancellation (asyncio.CancelledError) mid-stream mean
@@ -162,6 +185,9 @@ class ChatService:
                     "model": self._llm.model,
                     "prompt_version": prompt_version(conversation.kind),
                 }
+                if cut is not None and cut.cut:
+                    metadata["stopped_at_question"] = True
+                    metadata["removed_chars"] = len(cut.removed)
                 if usage is not None:
                     metadata["usage"] = {
                         "input_tokens": usage.input_tokens,

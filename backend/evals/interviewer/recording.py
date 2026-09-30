@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 
     from src.services.llm_service import LlmClient, LlmReplyStream, LlmUsage
 
-__all__ = ["RecordingLlmClient", "UsageCapturingLlmClient"]
+__all__ = ["RawTextRecordingLlmClient", "RecordingLlmClient", "UsageCapturingLlmClient"]
 
 
 class RecordingLlmClient:
@@ -93,6 +93,56 @@ class UsageCapturingLlmClient:
 
     def stream_reply(self, **kwargs: Any) -> _UsageCapturingReplyStream:
         return _UsageCapturingReplyStream(self._inner.stream_reply(**kwargs), self.usages)
+
+    async def complete_structured(
+        self, *, system: str, prompt: str, schema: Any, max_tokens: int
+    ) -> tuple[dict[str, Any], LlmUsage]:
+        return await self._inner.complete_structured(
+            system=system, prompt=prompt, schema=schema, max_tokens=max_tokens
+        )
+
+
+class _RawTextReplyStream:
+    """Passes every chunk through untouched and, once the stream is exhausted, appends
+    the whole raw reply to `sink`."""
+
+    def __init__(self, inner: LlmReplyStream, sink: list[str]) -> None:
+        self._inner = inner
+        self._sink = sink
+
+    async def __aenter__(self) -> _RawTextReplyStream:
+        await self._inner.__aenter__()
+        return self
+
+    async def __aexit__(self, *exc: object) -> None:
+        await self._inner.__aexit__(*exc)
+
+    async def __aiter__(self) -> AsyncIterator[str]:
+        chunks: list[str] = []
+        async for chunk in self._inner:
+            chunks.append(chunk)
+            yield chunk
+        self._sink.append("".join(chunks))
+
+    async def usage(self) -> LlmUsage:
+        return await self._inner.usage()
+
+
+class RawTextRecordingLlmClient:
+    """Keeps the interviewer's raw reply for every `stream_reply` call, in call order,
+    before the hub's hard stop (#96) cuts anything, so `simulate` can show a reviewer
+    exactly what each cut removed."""
+
+    def __init__(self, inner: LlmClient) -> None:
+        self._inner = inner
+        self.texts: list[str] = []
+
+    @property
+    def model(self) -> str:
+        return self._inner.model
+
+    def stream_reply(self, **kwargs: Any) -> _RawTextReplyStream:
+        return _RawTextReplyStream(self._inner.stream_reply(**kwargs), self.texts)
 
     async def complete_structured(
         self, *, system: str, prompt: str, schema: Any, max_tokens: int

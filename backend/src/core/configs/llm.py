@@ -23,3 +23,8 @@ class LlmSettings(BaseModel):
 
     model: str
     api_key: SecretStr
+    # #96: end each interview chat turn at the interviewer's first question that ends a
+    # paragraph (services/interview_stop.py), so it can't go on to write the learner's
+    # answer. Off until the eval shows it cuts only what it should;
+    # LLM__INTERVIEW_HARD_STOP=true turns it on.
+    interview_hard_stop: bool = False

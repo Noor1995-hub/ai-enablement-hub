@@ -236,4 +236,57 @@ def test_run_all_returns_every_check_by_id() -> None:
         "chat_self_answer_suspect",
         "chat_one_question_per_turn",
         "chat_dash_count",
+        "chat_offer_reached",
+        "chat_hard_stop_fired",
+        "chat_stop_short_question",
     }
+
+
+# --- #96: the hard stop ---------------------------------------------------------------
+
+
+def _stopped(content: str) -> dict[str, object]:
+    return {"role": "assistant", "content": content, "stopped": True}
+
+
+def test_chat_hard_stop_fired_counts_the_turns_the_stop_cut() -> None:
+    transcript = [
+        {"role": "assistant", "content": "Hi, sound right?"},
+        {"role": "user", "content": "Yes."},
+        _stopped("Which system do you type it into?"),
+        {"role": "user", "content": "SAP."},
+        _stopped("That helps. How long does it take you each week?"),
+    ]
+
+    result = chat_checks.chat_hard_stop_fired(_plain_case(), transcript)
+
+    assert result.kind == "signal"
+    assert result.value == 2.0
+
+
+def test_chat_stop_short_question_flags_a_cut_that_kept_only_a_throwaway_question() -> None:
+    # The guard's own failure mode: "Really?" on its own paragraph, the real question lost.
+    transcript = [
+        _stopped("Two hours every Monday. Really?"),
+        {"role": "user", "content": "Yes."},
+        _stopped("Got it.\n\nWhich system do you type the report into?"),
+    ]
+
+    result = chat_checks.chat_stop_short_question(_plain_case(), transcript)
+
+    assert result.value == 1.0
+    assert "Really?" in result.evidence
+
+
+def test_chat_stop_short_question_ignores_turns_the_stop_did_not_cut() -> None:
+    transcript = [{"role": "assistant", "content": "Really?"}]
+
+    assert chat_checks.chat_stop_short_question(_plain_case(), transcript).value == 0.0
+
+
+def test_chat_offer_reached_needs_the_marker_somewhere() -> None:
+    with_offer = _turns(("assistant", "Hi?"), ("assistant", "[[READY_TO_BUILD]]\nBuild it?"))
+    without = _turns(("assistant", "Hi?"), ("assistant", "Build it?"))
+
+    assert chat_checks.chat_offer_reached(_plain_case(), with_offer).value == 1.0
+    assert chat_checks.chat_offer_reached(_plain_case(), without).value == 0.0

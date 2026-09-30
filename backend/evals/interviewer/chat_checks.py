@@ -18,9 +18,13 @@ __all__ = [
     "CHAT_HARD_CHECK_IDS",
     "chat_canary_absent",
     "chat_dash_count",
+    "chat_hard_stop_fired",
+    "chat_offer_reached",
     "chat_one_question_per_turn",
     "chat_self_answer_suspect",
+    "chat_stop_short_question",
     "run_all",
+    "stopped_turns",
 ]
 
 _DASH_CHARS = ("—", "–")  # em dash, en dash
@@ -34,6 +38,10 @@ _ACCEPTANCE_PHRASES = ("let's do it", "sounds good", "go ahead")
 _MAX_ACCEPTANCE_WORDS = 8
 
 _PARAGRAPH_SPLIT_RE = re.compile(r"\n\s*\n")
+_SENTENCE_END_RE = re.compile(r"(?<=[.!?])\s+")
+# A cut turn whose final question is this short ("Really?", "Sound right?") may have kept a
+# throwaway question and lost the real one: the hard stop's own failure mode (#96).
+_SHORT_QUESTION_MAX_WORDS = 3
 
 
 def _excerpt(text: str) -> str:
@@ -120,6 +128,40 @@ def chat_one_question_per_turn(
     return CheckResult("chat_one_question_per_turn", "rate", value, evidence)
 
 
+def stopped_turns(transcript: list[dict[str, Any]]) -> list[tuple[int, dict[str, Any]]]:
+    """(1-based position in the transcript, turn) for every turn the hard stop cut."""
+    return [(i, t) for i, t in enumerate(transcript, start=1) if t.get("stopped")]
+
+
+def _final_question(text: str) -> str:
+    return _SENTENCE_END_RE.split(text.strip())[-1]
+
+
+def is_short_question_cut(turn: dict[str, Any]) -> bool:
+    return len(_final_question(turn.get("content", "")).split()) <= _SHORT_QUESTION_MAX_WORDS
+
+
+def chat_hard_stop_fired(case: dict[str, Any], transcript: list[dict[str, Any]]) -> CheckResult:
+    """Signal: turns where the hard stop removed real text after the first question (#96).
+    Each one is listed in chat-report with what it removed; many means the prompt drifts."""
+    return CheckResult("chat_hard_stop_fired", "signal", float(len(stopped_turns(transcript))), "")
+
+
+def chat_stop_short_question(case: dict[str, Any], transcript: list[dict[str, Any]]) -> CheckResult:
+    """Signal: cut turns that end on a very short question ("Really?"), where the stop
+    may have kept a throwaway question and dropped the real one."""
+    suspects = [t for _, t in stopped_turns(transcript) if is_short_question_cut(t)]
+    evidence = "; ".join(_excerpt(t["content"]) for t in suspects)
+    return CheckResult("chat_stop_short_question", "signal", float(len(suspects)), evidence)
+
+
+def chat_offer_reached(case: dict[str, Any], transcript: list[dict[str, Any]]) -> CheckResult:
+    """Rate: the interviewer made the build offer with the marker intact, so the learner
+    would have seen the Build button (the stop must never cost the offer)."""
+    offered = any(has_ready_marker(t) for t in _assistant_turns(transcript))
+    return CheckResult("chat_offer_reached", "rate", 1.0 if offered else 0.0, "")
+
+
 def chat_dash_count(case: dict[str, Any], transcript: list[dict[str, Any]]) -> CheckResult:
     """Signal: em/en dashes in the interviewer's own turns (the prompt bans them)."""
     text = "\n".join(_assistant_turns(transcript))
@@ -132,6 +174,9 @@ ALL_CHECKS: tuple[Any, ...] = (
     chat_self_answer_suspect,
     chat_one_question_per_turn,
     chat_dash_count,
+    chat_offer_reached,
+    chat_hard_stop_fired,
+    chat_stop_short_question,
 )
 CHAT_HARD_CHECK_IDS: tuple[str, ...] = ("chat_canary_absent",)
 

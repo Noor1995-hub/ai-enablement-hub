@@ -23,3 +23,9 @@ def test_stale_llm_provider_env_var_is_ignored(monkeypatch: pytest.MonkeyPatch) 
     assert settings.llm is not None
     assert settings.llm.model == "claude-haiku-4-5"
     assert not hasattr(settings.llm, "provider")
+
+
+def test_interview_hard_stop_is_off_by_default() -> None:
+    # #96: the stop at the interviewer's first question ships dark; production turns it on.
+    settings = LlmSettings(model="claude-haiku-4-5", api_key=SecretStr("sk-test"))
+    assert settings.interview_hard_stop is False

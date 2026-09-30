@@ -410,3 +410,91 @@ async def test_a_bug_in_our_own_code_is_logged_as_unexpected(
     assert record.levelno == logging.ERROR
     assert "unexpected, RuntimeError" in record.getMessage()
     assert record.exc_info is not None
+
+
+# --- #96: the hard stop at the interviewer's first question ----------------------------
+
+
+def _interview() -> SimpleNamespace:
+    return SimpleNamespace(id=uuid.uuid4(), user_id=uuid.uuid4(), kind="interview")
+
+
+async def _drain(service: ChatService, conversation: SimpleNamespace) -> list[ChatStreamEvent]:
+    return [
+        e
+        async for e in service.send_message(
+            conversation=conversation,  # ty: ignore[invalid-argument-type]
+            content="We use Excel.",
+        )
+    ]
+
+
+def _hard_stop_service(llm: FakeLlmClient) -> tuple[ChatService, AsyncMock]:
+    conversations = AsyncMock(spec=AbstractConversationRepository)
+    messages = AsyncMock(spec=AbstractMessageRepository)
+    messages.list_recent.return_value = []
+    return ChatService(conversations, messages, llm, interview_hard_stop=True), messages
+
+
+def _shown(events: list[ChatStreamEvent]) -> str:
+    return "".join(e.text for e in events if isinstance(e, TokenEvent))
+
+
+async def test_hard_stop_cuts_real_text_after_the_question_and_a_blank_line() -> None:
+    llm = FakeLlmClient(chunks=["That helps. Which file is it?", "\n\nI'd guess Excel."])
+    service, messages = _hard_stop_service(llm)
+
+    events = await _drain(service, _interview())
+
+    assert _shown(events) == "That helps. Which file is it?"
+    assert isinstance(events[-1], DoneEvent)
+    assistant_call = messages.create.await_args_list[-1]
+    assert assistant_call.kwargs["content"] == "That helps. Which file is it?"
+    metadata = assistant_call.kwargs["metadata"]
+    assert metadata["stopped_at_question"] is True
+    assert metadata["removed_chars"] == len("\n\nI'd guess Excel.")
+    assert "usage" in metadata  # the whole reply was still read, so usage stays exact
+
+
+async def test_hard_stop_leaves_a_normal_ending_alone() -> None:
+    llm = FakeLlmClient(chunks=["Which file is it?", "\n\n"])
+    service, messages = _hard_stop_service(llm)
+
+    events = await _drain(service, _interview())
+
+    assert _shown(events) == "Which file is it?"
+    metadata = messages.create.await_args_list[-1].kwargs["metadata"]
+    assert "stopped_at_question" not in metadata
+
+
+async def test_hard_stop_logs_ids_and_a_count_only(caplog: pytest.LogCaptureFixture) -> None:
+    llm = FakeLlmClient(chunks=["Which file is it?\n\nSecret invented answer."])
+    service, _ = _hard_stop_service(llm)
+    conversation = _interview()
+
+    with caplog.at_level(logging.INFO, logger="src.services.chat_service"):
+        await _drain(service, conversation)
+
+    [record] = [r for r in caplog.records if "hard stop" in r.getMessage()]
+    assert str(conversation.id) in record.getMessage()
+    assert "Secret" not in record.getMessage()
+
+
+async def test_hard_stop_is_interview_only() -> None:
+    llm = FakeLlmClient(chunks=["Sure?\n\nMore text."])
+    service, _ = _hard_stop_service(llm)
+
+    events = await _drain(
+        service, SimpleNamespace(id=uuid.uuid4(), user_id=uuid.uuid4(), kind="chatbot")
+    )
+
+    assert _shown(events) == "Sure?\n\nMore text."
+
+
+async def test_interview_turns_are_not_cut_when_the_setting_is_off() -> None:
+    llm = FakeLlmClient(chunks=["Which file is it?\n\nMore text."])
+    service, _, _ = _service(llm)
+
+    events = await _drain(service, _interview())
+
+    assert _shown(events) == "Which file is it?\n\nMore text."

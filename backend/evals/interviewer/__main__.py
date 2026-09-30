@@ -41,6 +41,7 @@ def _cmd_simulate(args: argparse.Namespace) -> None:
                 interviewer_llm=llm,
                 learner_llm=llm,
                 expected_model=model,
+                hard_stop=args.hard_stop,
             )
         )
         print(f"wrote evals/interviewer/runs/{args.variant}/sims/")
@@ -144,6 +145,15 @@ def build_parser() -> argparse.ArgumentParser:
         dest="max_usd",
         help=(
             "with --variant: stop starting new sims once billed spend reaches this (default: 10.0)"
+        ),
+    )
+    p_sim.add_argument(
+        "--hard-stop",
+        action="store_true",
+        dest="hard_stop",
+        help=(
+            "with --variant: end each interviewer chat turn at its first question, as "
+            "LLM__INTERVIEW_HARD_STOP does in the hub (#96)"
         ),
     )
     p_sim.set_defaults(func=_cmd_simulate)

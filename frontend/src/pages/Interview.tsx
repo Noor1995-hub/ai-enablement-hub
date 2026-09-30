@@ -16,6 +16,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { resolveInterviewTile } from '../lib/interviewAccess'
 import { buildPlaybook, getInterviewState, openInterview } from '../lib/interviewApi'
 import { chatToolbarHint } from '../lib/interviewHints'
+import { parseReadySignal } from '../lib/interviewReady'
 import { useChat } from '../lib/useChat'
 import type { InterviewState } from '../types/domain'
 
@@ -23,7 +24,7 @@ type Phase = 'loading' | 'welcome' | 'chat' | 'building' | 'done' | 'needs_asses
 
 /** Fallback floor: if the interviewer never signals readiness, the manual build still
  *  unlocks once the learner has sent this many answers, so no one is ever stuck. The
- *  primary path is the model's own readiness signal (READY_MARKER). The server enforces the
+ *  primary path is the model's own readiness signal (lib/interviewReady.ts READY_MARKER). The server enforces the
  *  same floor (backend/src/services/interview_service.py _MIN_ANSWERS_WITHOUT_OFFER): keep
  *  the two numbers equal. */
 const FALLBACK_MIN_ANSWERS = 6
@@ -32,30 +33,8 @@ const FALLBACK_MIN_ANSWERS = 6
  *  a 422. Guard the input so it can't be exceeded. */
 const MAX_INPUT = 4000
 
-/** The interviewer appends this marker (backend/prompts/interview.md) to the turn where it
- *  offers to build the playbook — the signal to reveal the button. Always stripped from
- *  display; the learner never sees it. Kept in sync with
- *  backend/src/services/interview_marker.py, the backend's single home for the marker. */
-const READY_MARKER = '[[READY_TO_BUILD]]'
-
 /** The toolbar hint doubles as the Build button's description (why it is greyed out). */
 const BUILD_HINT_ID = 'interview-build-hint'
-
-/** Strip the readiness marker from an assistant message for display, and report whether the
- *  full marker has arrived. Also hides a trailing *partial* marker so it never flashes while
- *  the message streams in a few characters at a time. */
-function parseReadySignal(content: string): { text: string; ready: boolean } {
-  if (content.includes(READY_MARKER)) {
-    return { text: content.split(READY_MARKER).join('').trimEnd(), ready: true }
-  }
-  const max = Math.min(content.length, READY_MARKER.length - 1)
-  for (let n = max; n > 0; n--) {
-    if (READY_MARKER.startsWith(content.slice(content.length - n))) {
-      return { text: content.slice(0, content.length - n).trimEnd(), ready: false }
-    }
-  }
-  return { text: content, ready: false }
-}
 
 const s = {
   page: { minHeight: '100vh', background: '#fff', display: 'flex', flexDirection: 'column' },

@@ -168,6 +168,41 @@ def _format_chat_column(results: list[CheckResult]) -> str:
     return f"{passed / len(results):.0%} ({passed:.0f}/{len(results)})"
 
 
+def _stopped_turn_lines(sim_rows: list[dict[str, Any]]) -> list[str]:
+    """Every turn the hard stop cut (#96), each with the learner's next reply: read them
+    to check the stop never cut before the real question and the conversation still made
+    sense. SHORT QUESTION marks the guard's own failure mode (chat_stop_short_question)."""
+    lines = [
+        "## Turns the hard stop cut (variant)",
+        "",
+        "What the learner saw, what the stop removed after it, then the learner's next reply.",
+        "",
+    ]
+    found = False
+    for row in sim_rows:
+        transcript = row.get("transcript", [])
+        for position, turn in chat_checks.stopped_turns(transcript):
+            found = True
+            flag = " **SHORT QUESTION**" if chat_checks.is_short_question_cut(turn) else ""
+            reply = next(
+                (t.get("content", "") for t in transcript[position:] if t.get("role") == "user"),
+                "(no reply: the conversation ended here)",
+            )
+            lines += [
+                f"- `{row.get('id', '?')}` rep {row.get('rep', 0)}, turn {position}{flag}",
+                f"  - interviewer: {_one_line(turn.get('content', ''))}",
+                f"  - removed: {_one_line(turn.get('removed', '')) or '(not recorded)'}",
+                f"  - learner next: {_one_line(reply)}",
+            ]
+    if not found:
+        lines.append("None.")
+    return lines
+
+
+def _one_line(text: str) -> str:
+    return " / ".join(p.strip() for p in text.strip().splitlines() if p.strip())
+
+
 def build_chat_report(variant: str, runs_dir: Path = RUNS_DIR) -> Path:
     """Writes runs/<variant>/chat.md: the chat-level checks (chat_checks.py) computed
     over every sim `simulate --variant` wrote for this variant, next to the same checks
@@ -229,6 +264,9 @@ def build_chat_report(variant: str, runs_dir: Path = RUNS_DIR) -> Path:
             lines.append(f"- `{case_id}` rep {rep}: {result.evidence}")
     else:
         lines.append("None.")
+    lines.append("")
+
+    lines += _stopped_turn_lines(sim_rows)
 
     out = variant_dir / "chat.md"
     out.parent.mkdir(parents=True, exist_ok=True)

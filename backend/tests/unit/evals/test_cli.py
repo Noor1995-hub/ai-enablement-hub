@@ -220,7 +220,13 @@ def test_cmd_simulate_dispatches_to_simulate_variant_with_parsed_case_ids(
 
     cli._cmd_simulate(
         cli.argparse.Namespace(
-            case=None, variant="v1", force=False, cases=" a, b ", reps=2, max_usd=5.0
+            case=None,
+            variant="v1",
+            force=False,
+            cases=" a, b ",
+            reps=2,
+            max_usd=5.0,
+            hard_stop=True,
         )
     )
 
@@ -231,6 +237,7 @@ def test_cmd_simulate_dispatches_to_simulate_variant_with_parsed_case_ids(
     assert captured["interviewer_llm"] == "the-llm"
     assert captured["learner_llm"] == "the-llm"
     assert captured["expected_model"] == "fake-model"
+    assert captured["hard_stop"] is True
 
 
 def test_cmd_chat_report_refuses_a_variant_with_no_sims(
@@ -250,3 +257,9 @@ def test_chat_report_parser_requires_variant() -> None:
 
     args = parser.parse_args(["chat-report", "--variant", "v1"])
     assert args.variant == "v1"
+
+
+def test_simulate_accepts_a_hard_stop_flag() -> None:
+    args = cli.build_parser().parse_args(["simulate", "--variant", "v5", "--hard-stop"])
+    assert args.hard_stop is True
+    assert cli.build_parser().parse_args(["simulate", "--variant", "v5"]).hard_stop is False

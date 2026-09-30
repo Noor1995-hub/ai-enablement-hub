@@ -572,3 +572,42 @@ async def test_review_page_flags_a_missing_canary_for_an_assessment_adversarial_
 
     text_b = (simulate.REVIEW_DIR / "canary-missing.md").read_text(encoding="utf-8")
     assert "Canary present where planted: NO" in text_b
+
+
+async def test_a_hard_stop_simulation_records_each_real_cut_with_the_text_removed() -> None:
+    interviewer = _ScriptedLlmClient(
+        [
+            "Hi Lotte, sound right?\n\nIf so, walk me through your week?",
+            "Which system is it?\n\nSAP, I'd guess.",
+            "Got it.\n\nHow long does it take?\n\n",
+            "[[READY_TO_BUILD]]\nShall I build it?",
+        ]
+    )
+    learner = _ScriptedLlmClient(["Yes.", "Excel.", "An hour."])
+
+    result = await simulate._run_simulation(
+        _draft_case("hs-case"), interviewer_llm=interviewer, learner_llm=learner, hard_stop=True
+    )
+
+    turns = [t for t in result["transcript"] if t["role"] == "assistant"]
+    # The opener is never cut, and a blank line at the very end is not a cut.
+    assert turns[0]["content"].endswith("walk me through your week?")
+    assert [t.get("stopped", False) for t in turns] == [False, True, False, False]
+    assert turns[1]["content"] == "Which system is it?"
+    assert turns[1]["removed"] == "\n\nSAP, I'd guess."
+    assert result["simulation"]["hard_stop"] is True
+
+
+async def test_a_default_simulation_cuts_nothing() -> None:
+    interviewer = _ScriptedLlmClient(
+        ["Hi?", "Which system?\n\nSAP.", "[[READY_TO_BUILD]]\nShall I build it?"]
+    )
+    learner = _ScriptedLlmClient(["Yes.", "Excel."])
+
+    result = await simulate._run_simulation(
+        _draft_case("plain"), interviewer_llm=interviewer, learner_llm=learner
+    )
+
+    assert not any(t.get("stopped") for t in result["transcript"])
+    assert result["transcript"][2]["content"] == "Which system?\n\nSAP."
+    assert result["simulation"]["hard_stop"] is False

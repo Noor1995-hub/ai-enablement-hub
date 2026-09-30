@@ -5,10 +5,12 @@ from typing import Annotated, Literal
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.core.configs.settings import Settings
 from src.core.dependencies.auth import get_current_user
 from src.core.dependencies.database import get_session
 from src.core.dependencies.domain import get_org_service
 from src.core.dependencies.llm import get_llm_service
+from src.core.dependencies.settings import get_settings
 from src.db.models import User
 from src.repositories.conversation_repository import ConversationRepository
 from src.repositories.message_repository import MessageRepository
@@ -42,11 +44,14 @@ def get_chat_service(
     conversations: Annotated[ConversationRepository, Depends(get_conversation_repository)],
     messages: Annotated[MessageRepository, Depends(get_message_repository)],
     llm: Annotated[AnthropicLlmClient | None, Depends(get_llm_service)],
+    settings: Annotated[Settings, Depends(get_settings)],
 ) -> ChatService | None:
     """None when LLM__* is unconfigured — the router 404s (see get_llm_service)."""
-    if llm is None:
+    if llm is None or settings.llm is None:
         return None
-    return ChatService(conversations, messages, llm)
+    return ChatService(
+        conversations, messages, llm, interview_hard_stop=settings.llm.interview_hard_stop
+    )
 
 
 async def require_ai_surface(

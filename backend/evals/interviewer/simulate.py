@@ -23,11 +23,12 @@ from evals.interviewer.fakes import (
     InMemoryMessageRepository,
     build_context,
 )
-from evals.interviewer.recording import UsageCapturingLlmClient
+from evals.interviewer.recording import RawTextRecordingLlmClient, UsageCapturingLlmClient
 from src.services.chat_service import ChatService, ErrorEvent, TokenEvent
 from src.services.exceptions import DomainError
 from src.services.interview_marker import has_ready_marker
 from src.services.interview_service import _MIN_ANSWERS_WITHOUT_OFFER, InterviewService
+from src.services.interview_stop import QuestionCut
 from src.services.prompts import prompt_version
 
 if TYPE_CHECKING:
@@ -96,7 +97,11 @@ def ensure_resimulation_allowed(case: dict[str, Any], *, force: bool) -> None:
 
 
 async def _run_simulation(
-    case: dict[str, Any], *, interviewer_llm: LlmClient, learner_llm: LlmClient
+    case: dict[str, Any],
+    *,
+    interviewer_llm: LlmClient,
+    learner_llm: LlmClient,
+    hard_stop: bool = False,
 ) -> dict[str, Any]:
     """The interview loop itself (spec §3.3): the real InterviewService/ChatService
     against a second model call playing the persona. Mutates and returns `case` with
@@ -106,8 +111,10 @@ async def _run_simulation(
     conversations = InMemoryConversationRepository()
     messages = InMemoryMessageRepository()
     context = build_context(case)
-    interview_service = InterviewService(conversations, messages, interviewer_llm, context)
-    chat_service = ChatService(conversations, messages, interviewer_llm)
+    # Raw replies in call order (opener first), so each cut turn can show what it lost.
+    raw = RawTextRecordingLlmClient(interviewer_llm)
+    interview_service = InterviewService(conversations, messages, raw, context)
+    chat_service = ChatService(conversations, messages, raw, interview_hard_stop=hard_stop)
     user = SimpleNamespace(
         id=uuid.uuid4(), first_name=case["user"]["first_name"], last_name=case["user"]["last_name"]
     )
@@ -157,15 +164,33 @@ async def _run_simulation(
 
     rows = await messages.list_for_conversation(conversation.id)
     case["status"] = "draft"
-    case["transcript"] = [{"role": r.role, "content": r.content} for r in rows]
+    raw_replies = iter(raw.texts)
+    case["transcript"] = [
+        _transcript_turn(r, next(raw_replies, "") if r.role == "assistant" else "") for r in rows
+    ]
     case["simulation"] = {
         "model": interviewer_llm.model,
         "interview_prompt_version": prompt_version(_INTERVIEW_KIND),
         "simulated_at": datetime.now(UTC).isoformat(),
+        "hard_stop": hard_stop,
     }
     # M2: any prior approval no longer means anything once the transcript has changed.
     case["approval"] = {"approved_at": None, "notes": ""}
     return case
+
+
+def _transcript_turn(row: Any, raw_reply: str) -> dict[str, Any]:
+    """One stored message as a transcript turn. A turn the hard stop cut (#96) is marked
+    `stopped` and carries `removed`, the text the learner never saw (recomputed from the
+    raw reply with the same QuestionCut the hub uses), for chat-report to list."""
+    turn: dict[str, Any] = {"role": row.role, "content": row.content}
+    if (row.metadata_ or {}).get("stopped_at_question"):
+        cut = QuestionCut()
+        cut.feed(raw_reply)
+        cut.finish()
+        turn["stopped"] = True
+        turn["removed"] = cut.removed
+    return turn
 
 
 async def simulate_case(
@@ -203,6 +228,7 @@ async def _simulate_and_cost(
     interviewer_llm: LlmClient,
     learner_llm: LlmClient,
     expected_model: str,
+    hard_stop: bool = False,
 ) -> tuple[dict[str, Any], float]:
     """Runs one simulation, billing every model call made along the way (both the
     interviewer's stream calls and the persona's own) against `expected_model` - the same
@@ -215,6 +241,7 @@ async def _simulate_and_cost(
             case,
             interviewer_llm=UsageCapturingLlmClient(interviewer_llm, usages),
             learner_llm=UsageCapturingLlmClient(learner_llm, usages),
+            hard_stop=hard_stop,
         )
     except Exception as exc:
         raise _SimulationFailed(_price(usages, expected_model), exc) from exc
@@ -256,6 +283,7 @@ async def simulate_variant(
     learner_llm: LlmClient,
     expected_model: str,
     runs_dir: Path = RUNS_DIR,
+    hard_stop: bool = False,
 ) -> None:
     """Runs the same simulation loop as `simulate_case` for every (case, rep) pair, but
     writes each result to `runs/<variant>/sims/<case>_rep<k>.json` - never to `cases/` or
@@ -301,6 +329,7 @@ async def simulate_variant(
                     interviewer_llm=interviewer_llm,
                     learner_llm=learner_llm,
                     expected_model=expected_model,
+                    hard_stop=hard_stop,
                 )
             except _SimulationFailed as failed:
                 # Record the billed cost first, so the cap and a later resume both count it;

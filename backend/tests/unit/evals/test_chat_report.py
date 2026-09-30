@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -21,7 +22,7 @@ def _write_sim(
     variant: str,
     case_id: str,
     rep: int,
-    transcript: list[dict[str, str]],
+    transcript: list[dict[str, Any]],
     *,
     adversarial: dict[str, str] | None = None,
 ) -> None:
@@ -129,3 +130,39 @@ def test_build_chat_report_works_with_no_sims_for_the_variant(
     assert "0 sims for this variant; 1 frozen cases." in text
     assert "n/a" in text
     assert "None." in text
+
+
+def test_build_chat_report_lists_each_cut_turn_with_the_learners_next_reply(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # #96: Aaron reads every cut turn to check the stop never cut too early, and the
+    # learner's next reply shows whether the conversation still made sense.
+    _setup_frozen_cases(tmp_path, monkeypatch)
+    runs_dir = tmp_path / "runs"
+    _write_sim(
+        runs_dir,
+        "v5",
+        "case-a",
+        1,
+        [
+            {"role": "assistant", "content": "Hi, sound right?"},
+            {"role": "user", "content": "Yes."},
+            {
+                "role": "assistant",
+                "content": "Which system is it?",
+                "stopped": True,
+                "removed": "SAP, I'd guess.",
+            },
+            {"role": "user", "content": "SAP, mostly."},
+        ],
+    )
+
+    text = report.build_chat_report("v5", runs_dir=runs_dir).read_text(encoding="utf-8")
+
+    assert "## Turns the hard stop cut (variant)" in text
+    section = text.split("## Turns the hard stop cut (variant)")[1]
+    assert "`case-a` rep 1, turn 3" in section
+    assert "Which system is it?" in section
+    assert "SAP, mostly." in section
+    assert "SAP, I'd guess." in section  # what the stop removed, for Aaron to judge
+    assert "chat_offer_reached" in text
