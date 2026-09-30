@@ -124,6 +124,74 @@ jobs:
       - run: npm test
       - run: npm run build
 
+  migrations:
+    # Not required by the ruleset (adding it needs no ruleset edit; renaming backend/frontend
+    # would — see the header). CI never executed Alembic before this job: integration tests build
+    # their schema straight from Base.metadata, and the Deploy workflow's migrate job was the
+    # first place any migration ever ran, against the live DB. This proves upgrade/check/downgrade
+    # on a throwaway Postgres first. Phase C (fix programme #54) is the first migration set it covers.
+    name: migrations (alembic upgrade + check + round-trip) — not required
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: hub
+          POSTGRES_PASSWORD: hub
+          POSTGRES_DB: hub-migrations-ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U hub -d hub-migrations-ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # A database of its own (not ai-enablement-hub-test, which the backend job's tests own) on
+      # a container this job starts itself — never point this at a real server (see the guard step).
+      ALEMBIC_DATABASE_URL: postgresql+asyncpg://hub:hub@localhost:5432/hub-migrations-ci
+      # A migration file contains a non-ASCII arrow; without this alembic crashes with
+      # UnicodeEncodeError on this runner's default encoding.
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - name: Install (locked, all extras — llm_service imports anthropic at module level)
+        run: uv sync --frozen --all-extras
+      # First alembic-adjacent step, before any command that could touch a database: refuses to
+      # proceed unless ALEMBIC_DATABASE_URL points at this job's own container.
+      - name: Guard - refuse anything but localhost/127.0.0.1
+        run: |
+          python3 - <<'PY'
+          import os
+          import sys
+          from urllib.parse import urlsplit
+
+          url = os.environ["ALEMBIC_DATABASE_URL"]
+          host = urlsplit(url).hostname
+          if host not in ("localhost", "127.0.0.1"):
+              print(f"::error::ALEMBIC_DATABASE_URL host is {host!r}, not localhost/127.0.0.1 - refusing to run alembic against it")
+              sys.exit(1)
+          print(f"ALEMBIC_DATABASE_URL host is {host!r} - proceeding")
+          PY
+      - name: Alembic upgrade head
+        run: uv run alembic upgrade head
+      - name: Alembic check (autogenerate diff — fails if models and migrations disagree)
+        # Clean on main as of 2026-09-29 (this job's first CI run). A red here means a model and
+        # its migration disagree.
+        run: uv run alembic check
+      - name: Round-trip the newest revision (downgrade -1, then back to head)
+        run: uv run alembic downgrade -1 && uv run alembic upgrade head
+
   staged:
     # Not required by the ruleset. A ratchet on the known debt: ruff on backend/scripts and ty on
     # the whole backend (src/ itself is clean and type-checked by the backend job). Green while the
