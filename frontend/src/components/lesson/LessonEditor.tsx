@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, Fragment, type ComponentType } from 'react'
 import { client, errorMessage } from '../../api/client'
 import { BLOCK_TYPES, BLOCK_LABELS, BLOCK_FACTORIES } from '../../lib/contentBlocks'
+import { useUnsavedGuard } from '../../lib/useUnsavedGuard'
 import type { ContentBlock } from '../../types/contentBlocks'
 import HeadingEditor   from './editors/HeadingEditor'
 import ParagraphEditor from './editors/ParagraphEditor'
@@ -186,6 +187,10 @@ export default function LessonEditor({ lesson, onSave, onLiveChange, embedded = 
   const mounted = useRef(false)
   // Which block types the picker offers — see EMBEDDED_TYPE_ORDER above.
   const pickerTypes = embedded ? EMBEDDED_TYPE_ORDER : TYPE_ORDER
+  // `dirty` tracks every block/title edit and clears only on a successful save.
+  // Embedded instances have no Save, so their `dirty` never clears — guarding
+  // them would nag even after the host has saved. The host guards instead.
+  useUnsavedGuard(dirty && !embedded)
 
   useEffect(() => {
     if (!mounted.current) { mounted.current = true; return }

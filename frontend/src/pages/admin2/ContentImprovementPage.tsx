@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { formatDate } from '../admin/adminHelpers'
 import { resolveTrackColor } from '../../lib/trackColors'
+import { useUnsavedGuard } from '../../lib/useUnsavedGuard'
 import type {
   CalibrationNoteBrief,
   ImprovementRunResponse,
@@ -272,6 +273,21 @@ function ProposalRow({ item, learnCard }: ProposalRowProps) {
     }
   }, [expanded])
 
+  // Whether the working copy differs from the agent's draft — i.e. whether
+  // Accept would submit the admin's own edits. Compared by value: the editor
+  // hands back fresh arrays even when nothing changed.
+  const draftEdited = useMemo(
+    () =>
+      workingBlocks !== null &&
+      JSON.stringify(workingBlocks) !== JSON.stringify(detail.data?.proposed_blocks),
+    [workingBlocks, detail.data?.proposed_blocks],
+  )
+
+  // Edits live only in `workingBlocks` until Accept, so they are losable in
+  // either mode — "Back to comparison" keeps them. Once the proposal is no
+  // longer pending (Accept succeeded, or it was discarded) nothing is left to lose.
+  useUnsavedGuard(item.status === 'pending' && draftEdited)
+
   return (
     <div className={`adm-ci-card${done ? ' adm-ci-card-done' : ''}`}>
       <div className="adm-ci-head">
@@ -408,11 +424,7 @@ function ProposalRow({ item, learnCard }: ProposalRowProps) {
               confirmLabel="Yes, accept"
               busy={review.isPending}
               onConfirm={() => {
-                const edited =
-                  workingBlocks !== null &&
-                  JSON.stringify(workingBlocks) !== JSON.stringify(detail.data?.proposed_blocks)
-                    ? workingBlocks
-                    : undefined
+                const edited = draftEdited && workingBlocks !== null ? workingBlocks : undefined
                 review.mutate(
                   { proposalId: item.id, decision: 'approve', editedBlocks: edited },
                   // Only ask for a learn card when there is actually a

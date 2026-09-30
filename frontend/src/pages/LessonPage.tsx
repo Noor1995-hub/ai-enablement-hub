@@ -6,6 +6,7 @@ import AppNav from '../components/AppNav'
 import { parseMdxToBlocks } from '../lib/mdxParser'
 import { blocksToMdx } from '../lib/blocksToMdx'
 import { classifyLessonLoadError, type LessonLoadError } from '../lib/lessonLoadError'
+import { useUnsavedGuard } from '../lib/useUnsavedGuard'
 import LessonView from '../components/lesson/LessonView'
 import LessonEditor, { type EditedLesson } from '../components/lesson/LessonEditor'
 import LessonFeedback from '../components/LessonFeedback'
@@ -34,6 +35,9 @@ export default function LessonPage() {
   const [editMode, setEditMode]   = useState(isAdmin && searchParams.get('edit') === 'true')
   const [mdxMode, setMdxMode]     = useState(false)
   const [mdxText, setMdxText]     = useState('')
+  // What the pane was seeded with on opening (blocksToMdx of the lesson), so an
+  // untouched pane does not count as unsaved work.
+  const [mdxSeed, setMdxSeed]     = useState('')
   const [mdxSaving, setMdxSaving] = useState(false)
   const [mdxError, setMdxError]   = useState<string | null>(null)
   const [quizDone, setQuizDone]           = useState(false)
@@ -68,6 +72,10 @@ export default function LessonPage() {
     [mdxText, blocks],
   )
 
+  // The MDX pane is an editor too: pasted or edited MDX is lost on reload until
+  // "Save as blocks". Above the early returns below — hooks can't be conditional.
+  useUnsavedGuard(mdxMode && mdxText.trim() !== '' && mdxText !== mdxSeed)
+
   const userId = user?.id
   const moduleId = lesson?.module_id
 
@@ -84,6 +92,12 @@ export default function LessonPage() {
     setQuizDone(false)
     setCompleting(false)
     setMarkError(null)
+    // The MDX pane holds the previous lesson's text: left open, "Save as
+    // blocks" would PATCH it into this lesson, and the unsaved guard would
+    // compare against a stale seed. Close it on every lesson change.
+    setMdxMode(false)
+    setMdxText('')
+    setMdxSeed('')
     // Start each lesson at the top (fresh open and lesson→lesson navigation).
     contentRef.current?.scrollTo(0, 0)
     window.scrollTo(0, 0)
@@ -275,7 +289,10 @@ export default function LessonPage() {
         rightExtra={isAdmin && (
           <div style={{ display: 'flex', gap: 8 }}>
             <button type="button"
-              onClick={() => { if (!mdxMode) setMdxText(blocksToMdx(blocks)); setMdxMode(m => !m); setEditMode(false) }}
+              onClick={() => {
+                if (!mdxMode) { const seed = blocksToMdx(blocks); setMdxText(seed); setMdxSeed(seed) }
+                setMdxMode(m => !m); setEditMode(false)
+              }}
               style={{ padding: '7px 18px', borderRadius: 999, background: activeMode === 'mdx' ? '#F5F3FF' : '#fff', border: activeMode === 'mdx' ? '1.5px solid #7C3AED' : '1.5px solid #E2E2E2', color: activeMode === 'mdx' ? '#5B21B6' : '#3C3C3C', fontFamily: 'var(--dlw-font-body)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}
             >
               MDX

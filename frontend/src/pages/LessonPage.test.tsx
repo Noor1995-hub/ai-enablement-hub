@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { Link, MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import LessonPage from './LessonPage'
 import * as mdxParser from '../lib/mdxParser'
@@ -188,5 +188,98 @@ describe('LessonPage MDX preview parsing', () => {
     expect(await screen.findByText('3 blocks parsed')).toBeInTheDocument()
     expect(parse.mock.calls.length).toBe(afterTyping + 2)
     parse.mockRestore()
+  })
+})
+
+/** True when a beforeunload listener asks the browser to keep the page. */
+function unloadBlocked(): boolean {
+  const event = new Event('beforeunload', { cancelable: true })
+  window.dispatchEvent(event)
+  return event.defaultPrevented
+}
+
+describe('LessonPage MDX pane unsaved-changes guard', () => {
+  beforeEach(() => {
+    authState.role = 'admin'
+    clientMock.GET.mockReset()
+    clientMock.PATCH.mockReset()
+    mockLessonResponse({ data: lessonBody() })
+  })
+
+  it('does not guard a freshly opened pane, only once the MDX is edited', async () => {
+    renderLessonPage()
+    fireEvent.click(await screen.findByText('MDX'))
+    const box = screen.getByPlaceholderText(/Lesson heading/) as HTMLTextAreaElement
+    // Opening seeds the pane from the lesson; nothing is lost by leaving yet.
+    expect(box.value).toContain('Hello world')
+    expect(unloadBlocked()).toBe(false)
+
+    fireEvent.change(box, { target: { value: '# Title\n\nBody text' } })
+    expect(unloadBlocked()).toBe(true)
+  })
+
+  it('releases the guard after "Save as blocks" succeeds', async () => {
+    clientMock.PATCH.mockResolvedValue({
+      data: { content_blocks: [{ id: 'h1', type: 'heading', text: 'Title', level: 1 }] },
+      error: undefined,
+    })
+    renderLessonPage()
+    fireEvent.click(await screen.findByText('MDX'))
+    fireEvent.change(screen.getByPlaceholderText(/Lesson heading/), { target: { value: '# Title' } })
+    expect(unloadBlocked()).toBe(true)
+
+    fireEvent.click(screen.getByText('Save as blocks'))
+    expect(await screen.findByText('✓ Editing')).toBeInTheDocument()
+    expect(unloadBlocked()).toBe(false)
+  })
+
+  it('keeps guarding when the save fails', async () => {
+    clientMock.PATCH.mockResolvedValue({ data: undefined, error: { error: { message: 'nope' } } })
+    renderLessonPage()
+    fireEvent.click(await screen.findByText('MDX'))
+    fireEvent.change(screen.getByPlaceholderText(/Lesson heading/), { target: { value: '# Title' } })
+    fireEvent.click(screen.getByText('Save as blocks'))
+    expect(await screen.findByText('nope')).toBeInTheDocument()
+    expect(unloadBlocked()).toBe(true)
+  })
+
+  it('releases the guard on Clear and on leaving the pane', async () => {
+    renderLessonPage()
+    fireEvent.click(await screen.findByText('MDX'))
+    const box = screen.getByPlaceholderText(/Lesson heading/)
+    fireEvent.change(box, { target: { value: '# Title' } })
+    fireEvent.click(screen.getByText('Clear'))
+    expect(unloadBlocked()).toBe(false)
+
+    fireEvent.change(box, { target: { value: '# Title' } })
+    expect(unloadBlocked()).toBe(true)
+    fireEvent.click(screen.getByText('MDX'))
+    expect(unloadBlocked()).toBe(false)
+  })
+
+  it('closes the pane when navigating to another lesson, so lesson A MDX cannot be saved into B', async () => {
+    const OTHER_ID = '55555555-5555-5555-5555-555555555555'
+    render(
+      <MemoryRouter initialEntries={[`/learning/lesson/${LESSON_ID}`]}>
+        <Link to={`/learning/lesson/${OTHER_ID}`}>Go to lesson B</Link>
+        <Routes>
+          <Route path="/learning/lesson/:lessonId" element={<LessonPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    fireEvent.click(await screen.findByText('MDX'))
+    fireEvent.change(screen.getByPlaceholderText(/Lesson heading/), { target: { value: '# Lesson A draft' } })
+    expect(unloadBlocked()).toBe(true)
+
+    fireEvent.click(screen.getByText('Go to lesson B'))
+    await waitFor(() =>
+      expect(clientMock.GET).toHaveBeenCalledWith('/api/lessons/{lesson_id}', expect.objectContaining({
+        params: { path: { lesson_id: OTHER_ID } },
+      })),
+    )
+    expect(screen.queryByPlaceholderText(/Lesson heading/)).not.toBeInTheDocument()
+    expect(screen.queryByText('Save as blocks')).not.toBeInTheDocument()
+    expect(unloadBlocked()).toBe(false)
+    expect(clientMock.PATCH).not.toHaveBeenCalled()
   })
 })
