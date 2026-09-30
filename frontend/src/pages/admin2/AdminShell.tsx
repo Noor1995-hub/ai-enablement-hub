@@ -1,9 +1,10 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { Suspense, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, NavLink, Outlet, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import '../../styles/admin.css'
 import { useFeedback, useProposals } from './api'
+import { Spinner } from './kit'
 import { NAV_ITEMS, type NavIconKey } from './nav'
 import ScopeSwitcher from './ScopeSwitcher'
 import { useScope } from './useScope'
@@ -63,7 +64,11 @@ export default function AdminShell() {
         </nav>
         <main className="adm-main">
           <div className="adm-container">
-            <Outlet />
+            {/* Each section is its own lazy chunk; suspending here keeps the
+                topbar and sidebar on screen while one loads. */}
+            <Suspense fallback={<div className="adm-loading"><Spinner /></div>}>
+              <Outlet />
+            </Suspense>
           </div>
         </main>
       </div>

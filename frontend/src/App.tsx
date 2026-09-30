@@ -1,22 +1,10 @@
-import { useLayoutEffect } from 'react'
+import { lazy, Suspense, useLayoutEffect } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { RoutedErrorBoundary } from './components/ErrorBoundary'
 import Spinner from './components/Spinner'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
-import AdminShell from './pages/admin2/AdminShell'
-import AssignmentsPage from './pages/admin2/AssignmentsPage'
-import ContentImprovementPage from './pages/admin2/ContentImprovementPage'
-import DashboardPage from './pages/admin2/DashboardPage'
-import FeedbackPage from './pages/admin2/FeedbackPage'
-import PeoplePage from './pages/admin2/PeoplePage'
-import ProjectsPage from './pages/admin2/ProjectsPage'
-import PromptsPage from './pages/admin2/PromptsPage'
-import SetupPage from './pages/admin2/SetupPage'
-import TemplatesPage from './pages/admin2/TemplatesPage'
-import UserDetailPage from './pages/admin2/UserDetailPage'
 import Assessment from './pages/Assessment'
 import AuthCallback from './pages/AuthCallback'
-import DevChat from './pages/DevChat'
 import Interview from './pages/Interview'
 import InviteRedirect from './pages/InviteRedirect'
 import JourneyHome from './pages/JourneyHome'
@@ -24,6 +12,26 @@ import LearningPathNew from './pages/LearningPathNew'
 import LessonPage from './pages/LessonPage'
 import Login from './pages/Login'
 import SetPassword from './pages/SetPassword'
+
+// The admin panel is admin-only and pulls in @tanstack/react-query plus
+// styles/admin.css. Loading it lazily keeps all of that out of the bundle every
+// LEARNER downloads to read a lesson. AdminShell renders its own <Suspense>
+// around <Outlet/>, so switching admin sections swaps only the content area;
+// this outer boundary covers the shell chunk itself. A chunk that fails to load
+// throws into RoutedErrorBoundary, which reloads the page (chunkLoadError.ts).
+const AdminShell = lazy(() => import('./pages/admin2/AdminShell'))
+const AssignmentsPage = lazy(() => import('./pages/admin2/AssignmentsPage'))
+const ContentImprovementPage = lazy(() => import('./pages/admin2/ContentImprovementPage'))
+const DashboardPage = lazy(() => import('./pages/admin2/DashboardPage'))
+const FeedbackPage = lazy(() => import('./pages/admin2/FeedbackPage'))
+const PeoplePage = lazy(() => import('./pages/admin2/PeoplePage'))
+const ProjectsPage = lazy(() => import('./pages/admin2/ProjectsPage'))
+const PromptsPage = lazy(() => import('./pages/admin2/PromptsPage'))
+const SetupPage = lazy(() => import('./pages/admin2/SetupPage'))
+const TemplatesPage = lazy(() => import('./pages/admin2/TemplatesPage'))
+const UserDetailPage = lazy(() => import('./pages/admin2/UserDetailPage'))
+// Admin-only ChatPanel harness (see the route comment below).
+const DevChat = lazy(() => import('./pages/DevChat'))
 
 // React Router v6 keeps the window scroll offset across navigations, so a route
 // like /learning could open mid-page (whatever you'd scrolled to before). Reset
@@ -58,7 +66,7 @@ function AppRoutes() {
       <Route path="/admin" element={
         !session ? <Navigate to="/login" replace />
           : role !== 'admin' ? <Navigate to="/" replace />
-          : <AdminShell />
+          : <Suspense fallback={<Spinner fullPage />}><AdminShell /></Suspense>
       }>
         <Route index element={<DashboardPage />} />
         <Route path="people" element={<PeoplePage />} />
@@ -83,7 +91,7 @@ function AppRoutes() {
       <Route path="/dev-chat" element={
         !session ? <Navigate to="/login" replace />
           : role !== 'admin' ? <Navigate to="/" replace />
-          : <DevChat />
+          : <Suspense fallback={<Spinner fullPage />}><DevChat /></Suspense>
       } />
       <Route path="/invite/:id" element={<InviteRedirect />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
