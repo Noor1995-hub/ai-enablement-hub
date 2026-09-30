@@ -16,8 +16,9 @@ test user or a script that writes rows edits live learner data.
 - **Never start `uv run poe dev` to "just check something"** — it connects to the live DB and its
   lifespan cleanup loop deletes expired sessions. Swagger at `/docs` if you really run it.
 - Migrations: `uv run poe upgrade` — against the live DB; the normal path is the Deploy
-  workflow's migrate job. New migrations belong to fix-programme phase C (#54), chained off the
-  current head, expand-first (the old image must keep working on the new schema).
+  workflow's migrate job. Phase C (#54) is done; new migrations chain off the current head via the
+  normal flow, expand-first (the old image must keep working on the new schema). CI's `migrations`
+  job (upgrade → `alembic check` → round-trip) is how a migration gets executed before prod.
 
 ## Conventions
 

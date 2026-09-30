@@ -88,6 +88,7 @@ reuse it four times. This is why the effort is modest.
 - **Upgrade path, only if live-tweaking becomes a real need** (e.g. admins adjusting the
   interviewer weekly without a dev): promote prompts to a DB table + a small admin edit screen.
   The service seam makes that a contained later feature — do NOT build it up front.
+  *Superseded 2026-09-23: prompts are git-only; the `prompts` table was dropped 2026-09-30.*
 - **Do not manage prompts in the Foundry portal** — it splits the bot's brain across two places,
   has no review trail tied to the code, and drifts toward the server-managed model we rejected (§7).
 

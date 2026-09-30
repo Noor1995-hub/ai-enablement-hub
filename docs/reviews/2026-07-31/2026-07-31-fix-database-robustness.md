@@ -1,5 +1,11 @@
 # Plan — Database robustness (Batch 6 of CODE-REVIEW-2026-07-31.md)
 
+> **Status 2026-09-30: DONE, live since 2026-09-30** (build `189348d`, PRs #103–#124). Deviations
+> from the text below, all in the PRs:
+> - **C0, C5b and C15 were added.** C8 was split into C8a and C8b.
+> - **C12 was dropped:** its premise was false. Cross-track prerequisites are the documented design (at least 7 exist).
+> - The migration order was re-parented (five migrations ending at head `e5f6a7b8c9d0`).
+
 **Goal:** close every database-layer finding in Batch 6 of `CODE-REVIEW-2026-07-31.md`: make the
 survey seed repairable instead of permanently half-written, introduce a real unit-of-work seam for the
 two multi-write flows that need atomicity, add the missing FK index and the missing DB-level guards,

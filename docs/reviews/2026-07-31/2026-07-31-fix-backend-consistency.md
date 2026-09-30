@@ -1,5 +1,22 @@
 # Backend consistency & cleanup (Batch 9 code items) — Implementation Plan
 
+> **Status 2026-09-30: NOT STARTED. Re-verify before Task 1; phase C changed the ground.**
+> - **Task 1 is decided: option (a)** (master plan §5.1, 2026-09-25). Tasks 9–10 go ahead.
+> - **Task 3:** `module_level_map` already exists in `src/core/constants.py` (added by phase C task C4, PR #105,
+>   with `tests/unit/test_module_level_map.py`). Task 3 only replaces the three remaining inline copies (in
+>   `maturity_service.py`, `admin_user_service.py` and `dashboard_service.py`). Don't re-create the helper.
+> - **Task 4 is probably obsolete:** prompts are git-only since PR #16, `src/repositories/prompt_repository.py` no longer
+>   exists, and the `prompts` table was dropped (phase C, migration `e5f6a7b8c9d0`). Confirm, then close it with a note.
+> - **Task 8:** the stated baselines are stale. Today `ty check .` = **21** (the CI staged ratchet), and the real gate is
+>   `poe format-check && lint-src && ty-src && test`.
+> - **Tasks 5, 9 and 10 rework Aaron's interview files:** `interview_service.py`, `interview_context.py`
+>   (deleted by Task 10), `core/dependencies/interview.py`, `routers/chat.py`, and possibly `evals/interviewer/`.
+>   **Before starting them, Matthias asks Aaron** for (1) a quiet window in those files, (2) whether `evals/interviewer/`
+>   depends on `InterviewContextService`, and who adapts it, (3) anything about the briefing text beyond the golden
+>   snapshots that must stay identical, and (4) whether he reviews those PRs. Tasks 2, 3, 6, 7 and 8 don't need him and can run first.
+> - The repository layer gained `UnitOfWork` + `stage_*` methods (C13) and `create_interview_if_absent` /
+>   `list_for_user(..., limit=)` (C10, C15). Line numbers in this plan predate all of that.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Close the Batch 9 *code* items from `CODE-REVIEW-2026-07-31.md` — resolve the one live contradiction between the code and its own architecture spec (**9.2**), de-duplicate the three copy-defined helpers (**9.4**), restore the abstract-repository contract in the prompt slice (**9.5**), align two divergent conventions (**9.7**), stop logging email addresses (**9.12**), fix the dependency/config nits (**9.9**), and make `ruff` + `ty` genuinely clean repo-wide (**9.10**). Two items get written decisions rather than code: **9.3** and **9.8**.

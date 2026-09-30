@@ -188,9 +188,9 @@ class ContentRepository(AbstractContentRepository):
             return
         # One executemany round-trip, not M sequential UPDATEs: SQLAlchemy's ORM
         # bulk-update-by-primary-key takes a list of dicts that each carry the pk
-        # plus the columns to set. `sort_order` has no uniqueness constraint, so
-        # the intermediate states of a permutation are never a problem -- and a
-        # single statement has no intermediate states to begin with.
+        # plus the columns to set. asyncpg's executemany runs one UPDATE per row, so a
+        # permutation passes through duplicate sort_orders; that is safe only because
+        # uq_lessons_module_id_sort_order is DEFERRABLE INITIALLY DEFERRED (checked at commit).
         await self._session.execute(
             update(Lesson),
             [{"id": lesson_id, "sort_order": sort_order} for lesson_id, sort_order in orders],

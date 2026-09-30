@@ -250,3 +250,26 @@ After a stacked base is squashed, merge `main` into the dependent branch; first 
 `git diff <old base tip> origin/main` is empty, and then resolve every conflict to the branch's
 own side (it already contains the base). When a colleague's merged work overlaps, reconcile to
 their design and keep only your delta (#76 kept its opener timeout and 502 on top of #81).
+
+## 2026-09-30 — `git stash` is shared by every worktree
+
+**What went wrong.** Two sessions worked in separate worktrees of this repo. One popped or dropped
+the other's stash, and an agent's RED/GREEN proof silently lost its `src/` edits.
+
+**Why it bites here.** A stash lives in the repository, not the worktree, so parallel sessions
+(fix-programme phases, Aaron's branches) see and can consume each other's entries.
+
+**The rule.** Never use `git stash` while another worktree is active. To prove RED, copy the file
+aside, `git checkout -- <file>`, run the test, then copy it back.
+
+## 2026-09-30 — off-VPN, every integration test times out
+
+**What went wrong.** On a phone hotspot (or any network off the VPN) the whole integration suite
+failed with `WinError 121` connect timeouts, even though it only targets the test database. It
+looked like a mass test failure.
+
+**Why it bites here.** The laptop's egress IP is not on the Azure PG firewall allowlist, so nothing
+reaches port 5432, whichever database is named.
+
+**The rule.** Check with `Test-NetConnection <pg host> -Port 5432` before debugging tests. If it
+fails, fall back to CI (it has its own postgres). Never add a firewall rule without asking.

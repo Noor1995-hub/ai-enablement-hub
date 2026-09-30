@@ -24,13 +24,14 @@ history that used to live here: `docs/history/state-log-2026.md`.
   commit) and `build_time`; the admin Setup page shows the same as a Deployment card. Running
   image (read-only): `az containerapp show -n ai-enablement-hub -g imaginemore-playground --query
   properties.template.containers[0].image -o tsv`. DB schema: `cd backend && uv run alembic
-  current` (code head `1cd2cc2d05a9`, single linear chain).
+  current` (code head `e5f6a7b8c9d0`, single linear chain).
 - **Backlog = GitHub Issues** (labels `way-of-working`, `fix-programme`, `ops`, `security`).
   Way-of-working Tier 2 is complete (`docs/reviews/2026-09-17/` §5). **July fix programme**
   (issues #52–#56, plans in `docs/reviews/2026-07-31/`; master plan §5 decisions all taken
-  2026-09-25): **phase A (#52) and phase B (#53) are done and live** (last deploy 2026-09-28,
-  `4758fe4`); **C (#54, owns every new migration), D (#55) and E (#56, only E2 done) are not
-  started**. Follow-ups: #79 (raise the set-password limit **before the re-invite wave**), #80.
+  2026-09-25): **A (#52) and B (#53) are done and live; C (#54) done and live 2026-09-30**
+  (build `189348d`, five migrations `a1b2c3d4e5f6 → b2c3d4e5f6a7 → d4e5f6a7b8c9 → c3d4e5f6a7b8 →
+  e5f6a7b8c9d0`). **Rollback floor `f84fded`:** the `prompts` table is dropped, so images from
+  before PR #16 won't start. E (#56) is in progress; D (#55) not started. Follow-ups: #79 (raise the set-password limit **before the re-invite wave**), #80.
 - **Aaron is actively shipping interviewer work** (#81, #91, #95) in the same files as the fix
   programme (`interview_service.py`, `chat_service.py`, `llm_service.py`, `tests/fixtures/llm.py`,
   `useChat.ts`): fetch before branching, and expect to merge `main` into open branches.
@@ -55,7 +56,8 @@ history that used to live here: `docs/history/state-log-2026.md`.
   by Matthias's choice) — hand an admin the merge-ready PRs, in order.
 - **Checks:** backend `uv run poe format-check && uv run poe lint-src && uv run poe ty-src &&
   uv run poe test`; frontend `npm run typecheck && npm run lint && npm test && npm run build`
-  (details in the scoped guides). CI also enforces coverage ≥ 90%, fresh API types, and the
+  (details in the scoped guides). A non-required CI `migrations` job runs every migration on a
+  throwaway Postgres. CI also enforces coverage ≥ 90%, fresh API types, and the
   docs-drift test (`backend/tests/unit/test_docs_drift.py`: paths named in the maintained docs
   must exist).
 - **Claude review** runs on every non-docs PR: advice, not a required check; a red
