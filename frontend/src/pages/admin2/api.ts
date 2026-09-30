@@ -24,9 +24,7 @@ import type {
   ComponentState,
   DashboardResponse,
   DefaultsResponse,
-  DefaultsUpdateRequest,
   FeedbackStatus,
-  FeedbackStatusUpdateRequest,
   ImprovementQueueResponse,
   ImprovementRunResponse,
   LearnCardOut,
@@ -46,29 +44,6 @@ import type {
 // `HealthOut` has no `types/domain.ts` alias yet (Task 2 only regenerated the schema) — pull it
 // straight off the generated `components['schemas']` map, same aliasing pattern domain.ts uses.
 type HealthOut = components['schemas']['HealthOut']
-
-// ── Interim raw-fetch escape hatch ─────────────────────────────────────────────────────────
-// openapi-fetch's client.GET/PUT/POST/PATCH are typed strictly against the generated `paths`
-// map (src/api/schema.d.ts). Endpoints not yet regenerated into that schema — defaults,
-// defaults/apply, the multi-user bulk-assignment endpoint, feedback, and the reminder/dashboard
-// routes (see the INTERIM block atop src/types/domain.ts) — fail to typecheck through it. This
-// is the ONE `as` cast for all of them; every hook below that needs one of these routes calls
-// through `rawRequest` instead of casting at its own call site.
-interface RawInit {
-  params?: { query?: Record<string, string | number | boolean | undefined> }
-  body?: unknown
-}
-interface RawResult<T> {
-  data?: T
-  error?: unknown
-}
-type RawMethod = 'GET' | 'PUT' | 'POST' | 'PATCH'
-type RawClient = Record<RawMethod, (url: string, init?: RawInit) => Promise<RawResult<unknown>>>
-
-async function rawRequest<T>(method: RawMethod, url: string, init?: RawInit): Promise<RawResult<T>> {
-  const raw = client as unknown as RawClient
-  return (await raw[method](url, init)) as RawResult<T>
-}
 
 // ── Queries ─────────────────────────────────────────────────────────────────────────────────
 
@@ -193,7 +168,7 @@ export function useTracks() {
 }
 
 async function fetchDashboard(projectId: string | null): Promise<DashboardResponse> {
-  const { data, error } = await rawRequest<DashboardResponse>('GET', '/api/admin/dashboard', {
+  const { data, error } = await client.GET('/api/admin/dashboard', {
     params: { query: { project_id: projectId ?? undefined } },
   })
   if (!data) throw new Error(errorMessage(error, 'Failed to load the dashboard.'))
@@ -223,7 +198,7 @@ export const FEEDBACK_PAGE_SIZE = 50
 async function fetchFeedback(params: FeedbackParams): Promise<AdminFeedbackListResponse> {
   const limit = params.limit ?? FEEDBACK_PAGE_SIZE
   const offset = ((params.page ?? 1) - 1) * limit
-  const { data, error } = await rawRequest<AdminFeedbackListResponse>('GET', '/api/admin/feedback', {
+  const { data, error } = await client.GET('/api/admin/feedback', {
     params: {
       query: {
         status: params.status,
@@ -250,7 +225,9 @@ export function useFeedback(params: FeedbackParams) {
 }
 
 async function fetchDefaults(projectId: string): Promise<DefaultsResponse> {
-  const { data, error } = await rawRequest<DefaultsResponse>('GET', `/api/admin/projects/${projectId}/defaults`)
+  const { data, error } = await client.GET('/api/admin/projects/{project_id}/defaults', {
+    params: { path: { project_id: projectId } },
+  })
   if (!data) throw new Error(errorMessage(error, 'Failed to load default tracks.'))
   return data
 }
@@ -314,7 +291,9 @@ export function useSurvey(userId: string | null) {
 }
 
 async function fetchInterview(userId: string): Promise<AdminInterview> {
-  const { data, error } = await rawRequest<AdminInterview>('GET', `/api/admin/interviews/${userId}`)
+  const { data, error } = await client.GET('/api/admin/interviews/{user_id}', {
+    params: { path: { user_id: userId } },
+  })
   if (!data) throw new Error(errorMessage(error, "Failed to load the user's interview."))
   return data
 }
@@ -461,7 +440,7 @@ export function useToggleAssignment() {
 }
 
 async function bulkAssignUsers(body: BulkAssignmentRequest): Promise<void> {
-  const { error } = await rawRequest<void>('POST', '/api/admin/assignments/bulk', { body })
+  const { error } = await client.POST('/api/admin/assignments/bulk', { body })
   if (error) throw new Error(errorMessage(error, 'Failed to update assignments.'))
 }
 
@@ -485,8 +464,10 @@ export interface SetDefaultsInput {
 }
 
 async function setDefaults({ projectId, trackIds }: SetDefaultsInput): Promise<void> {
-  const body: DefaultsUpdateRequest = { track_ids: trackIds }
-  const { error } = await rawRequest<void>('PUT', `/api/admin/projects/${projectId}/defaults`, { body })
+  const { error } = await client.PUT('/api/admin/projects/{project_id}/defaults', {
+    params: { path: { project_id: projectId } },
+    body: { track_ids: trackIds },
+  })
   if (error) throw new Error(errorMessage(error, 'Failed to save default tracks.'))
 }
 
@@ -518,10 +499,9 @@ export function useSetDefaults() {
 }
 
 async function applyDefaults(projectId: string): Promise<ApplyDefaultsResponse> {
-  const { data, error } = await rawRequest<ApplyDefaultsResponse>(
-    'POST',
-    `/api/admin/projects/${projectId}/defaults/apply`,
-  )
+  const { data, error } = await client.POST('/api/admin/projects/{project_id}/defaults/apply', {
+    params: { path: { project_id: projectId } },
+  })
   if (!data) throw new Error(errorMessage(error, 'Failed to apply default tracks.'))
   return data
 }
@@ -541,7 +521,9 @@ export function useApplyDefaults() {
 }
 
 async function sendReminder(userId: string): Promise<ReminderResponse> {
-  const { data, error } = await rawRequest<ReminderResponse>('POST', `/api/admin/users/${userId}/reminder`)
+  const { data, error } = await client.POST('/api/admin/users/{user_id}/reminder', {
+    params: { path: { user_id: userId } },
+  })
   if (!data) throw new Error(errorMessage(error, 'Failed to send the reminder.'))
   return data
 }
@@ -557,8 +539,10 @@ export interface PatchFeedbackInput {
 }
 
 async function patchFeedback({ id, status }: PatchFeedbackInput): Promise<void> {
-  const body: FeedbackStatusUpdateRequest = { status }
-  const { error } = await rawRequest<void>('PATCH', `/api/admin/feedback/${id}`, { body })
+  const { error } = await client.PATCH('/api/admin/feedback/{feedback_id}', {
+    params: { path: { feedback_id: id } },
+    body: { status },
+  })
   if (error) throw new Error(errorMessage(error, 'Failed to update the feedback status.'))
 }
 
@@ -604,7 +588,7 @@ export interface SuggestTriageInput {
 }
 
 async function suggestTriage({ project, limit }: SuggestTriageInput): Promise<SuggestTriageResponse> {
-  const { data, error } = await rawRequest<SuggestTriageResponse>('POST', '/api/admin/feedback/suggest-triage', {
+  const { data, error } = await client.POST('/api/admin/feedback/suggest-triage', {
     params: { query: { project_id: project ?? undefined, limit } },
   })
   if (!data) throw new Error(errorMessage(error, 'Failed to generate triage suggestions.'))
@@ -910,7 +894,7 @@ export interface ProposalsParams {
 async function fetchProposals(params: ProposalsParams): Promise<ProposalListResponse> {
   const limit = params.limit ?? PROPOSAL_PAGE_SIZE
   const offset = ((params.page ?? 1) - 1) * limit
-  const { data, error } = await rawRequest<ProposalListResponse>('GET', '/api/admin/content-improvement', {
+  const { data, error } = await client.GET('/api/admin/content-improvement', {
     params: { query: { status: params.status, limit, offset } },
   })
   if (!data) throw new Error(errorMessage(error, 'Failed to load content proposals.'))
@@ -925,7 +909,9 @@ export function useProposals(params: ProposalsParams) {
 }
 
 async function fetchProposal(proposalId: string): Promise<ProposalDetailOut> {
-  const { data, error } = await rawRequest<ProposalDetailOut>('GET', `/api/admin/content-improvement/${proposalId}`)
+  const { data, error } = await client.GET('/api/admin/content-improvement/{proposal_id}', {
+    params: { path: { proposal_id: proposalId } },
+  })
   if (!data) throw new Error(errorMessage(error, 'Failed to load the proposal.'))
   return data
 }
@@ -946,7 +932,7 @@ export function useProposal(proposalId: string | null) {
 export const MAX_LESSONS_PER_RUN = 3
 
 async function fetchImprovementQueue(): Promise<ImprovementQueueResponse> {
-  const { data, error } = await rawRequest<ImprovementQueueResponse>('GET', '/api/admin/content-improvement/queue')
+  const { data, error } = await client.GET('/api/admin/content-improvement/queue')
   if (!data) throw new Error(errorMessage(error, 'Failed to load the draft queue.'))
   return data
 }
@@ -962,7 +948,7 @@ export function useImprovementQueue(enabled: boolean) {
 }
 
 async function runImprovement(lessonIds: string[]): Promise<ImprovementRunResponse> {
-  const { data, error } = await rawRequest<ImprovementRunResponse>('POST', '/api/admin/content-improvement/run', {
+  const { data, error } = await client.POST('/api/admin/content-improvement/run', {
     body: { lesson_ids: lessonIds },
   })
   if (!data) throw new Error(errorMessage(error, 'Failed to run the improvement pass.'))
@@ -994,11 +980,17 @@ export interface ReviewProposalInput {
 }
 
 async function reviewProposal({ proposalId, decision, editedBlocks }: ReviewProposalInput): Promise<ProposalReviewResponse> {
-  const { data, error } = await rawRequest<ProposalReviewResponse>(
-    'POST',
-    `/api/admin/content-improvement/${proposalId}/review`,
-    { body: { decision, edited_blocks: editedBlocks ?? null } },
-  )
+  const { data, error } = await client.POST('/api/admin/content-improvement/{proposal_id}/review', {
+    params: { path: { proposal_id: proposalId } },
+    body: {
+      decision,
+      // The generated request type says `Record<string, unknown>[]` while every block-carrying
+      // surface in the app (and ProposalDetailOut itself) says `unknown[]`. Blocks ARE objects by
+      // contract — validate_content_blocks rejects anything else server-side — so this is the
+      // single narrowing cast, kept at the API boundary instead of pushed into three components.
+      edited_blocks: (editedBlocks ?? null) as Record<string, unknown>[] | null,
+    },
+  })
   if (!data) throw new Error(errorMessage(error, 'Failed to review the proposal.'))
   return data
 }
@@ -1019,7 +1011,9 @@ export function useReviewProposal() {
 }
 
 async function generateLearnCard(proposalId: string): Promise<LearnCardOut> {
-  const { data, error } = await rawRequest<LearnCardOut>('POST', `/api/admin/content-improvement/${proposalId}/critique`)
+  const { data, error } = await client.POST('/api/admin/content-improvement/{proposal_id}/critique', {
+    params: { path: { proposal_id: proposalId } },
+  })
   if (!data) throw new Error(errorMessage(error, 'Failed to generate the learn card.'))
   return data
 }
@@ -1058,7 +1052,7 @@ export interface CalibrationNotesParams {
 async function fetchCalibrationNotes(params: CalibrationNotesParams): Promise<CalibrationNoteListResponse> {
   const limit = params.limit ?? CALIBRATION_NOTE_PAGE_SIZE
   const offset = ((params.page ?? 1) - 1) * limit
-  const { data, error } = await rawRequest<CalibrationNoteListResponse>('GET', '/api/admin/calibration-notes', {
+  const { data, error } = await client.GET('/api/admin/calibration-notes', {
     params: { query: { status: params.status, limit, offset } },
   })
   if (!data) throw new Error(errorMessage(error, 'Failed to load calibration notes.'))
@@ -1078,7 +1072,8 @@ export interface ReviewCalibrationNoteInput {
 }
 
 async function reviewCalibrationNote({ noteId, decision }: ReviewCalibrationNoteInput): Promise<void> {
-  const { error } = await rawRequest<unknown>('POST', `/api/admin/calibration-notes/${noteId}/review`, {
+  const { error } = await client.POST('/api/admin/calibration-notes/{note_id}/review', {
+    params: { path: { note_id: noteId } },
     body: { decision },
   })
   if (error) throw new Error(errorMessage(error, 'Failed to review the note.'))
@@ -1097,10 +1092,9 @@ export function useReviewCalibrationNote() {
 }
 
 async function graduateCalibrationNote(noteId: string): Promise<CalibrationNoteGraduateResponse> {
-  const { data, error } = await rawRequest<CalibrationNoteGraduateResponse>(
-    'POST',
-    `/api/admin/calibration-notes/${noteId}/graduate`,
-  )
+  const { data, error } = await client.POST('/api/admin/calibration-notes/{note_id}/graduate', {
+    params: { path: { note_id: noteId } },
+  })
   if (!data) throw new Error(errorMessage(error, 'Failed to graduate the note.'))
   return data
 }

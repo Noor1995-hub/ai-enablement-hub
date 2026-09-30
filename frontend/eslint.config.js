@@ -24,6 +24,20 @@ export default tseslint.config(
       'no-restricted-globals': ['error', { name: 'confirm', message: 'Use an in-app two-step confirmation, not the native confirm dialog.' }],
       'no-restricted-properties': ['error', { object: 'window', property: 'confirm', message: 'Use an in-app two-step confirmation, not window.confirm.' }],
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
+      // Every API call is typed against the generated schema (src/api/schema.d.ts); a double cast
+      // through `unknown` is how the old rawRequest hatch hid a path/verb/param typo from tsc.
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "TSAsExpression > TSAsExpression[typeAnnotation.type='TSUnknownKeyword']",
+          message: 'No `as unknown as` casts: type the call against the generated schema instead.',
+        },
+      ],
     },
+  },
+  {
+    // removed by E18 (the last rawRequest hatch; it goes when interviewApi is typed against the schema)
+    files: ['src/lib/interviewApi.ts'],
+    rules: { 'no-restricted-syntax': 'off' },
   },
 )
