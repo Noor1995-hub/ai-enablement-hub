@@ -53,6 +53,11 @@ test user or a script that writes rows edits live learner data.
    handlers, unclaimed exceptions via the catch-all 500 in `main.py`; Anthropic/provider failures
    raise `AiGenerationError` (502, `llm_service.is_provider_error` tells them from our own bugs);
    a failed SSE stream ends with an `event: error` frame instead.
+10. **Admin lesson saves (`PATCH /api/admin/lessons/{id}`):** `ContentService.update_lesson` runs
+    A8's `check_link_schemes` and strips ephemeral SAS urls, then enforces a 1 MiB ceiling
+    (`MAX_LESSON_BLOCKS_BYTES`) on the serialized `content_blocks` — scheme-checked and size-capped,
+    not structurally validated (decision 5.2 option A: 66/91 live lessons predate
+    `validate_content_blocks`'s nested-id rule; option B follows the backfill).
 
 ## Prompts are runtime assets
 

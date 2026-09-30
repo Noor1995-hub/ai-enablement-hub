@@ -157,10 +157,11 @@ class UnsupportedMediaTypeError(DomainError):
 
 
 class PayloadTooLargeError(DomainError):
-    """Uploaded file exceeds the max size allowed for its media kind. → 413"""
+    """Uploaded file (or, with `what="Lesson content"`, a lesson save) exceeds
+    the max size allowed. → 413"""
 
-    def __init__(self, max_bytes: int) -> None:
-        super().__init__(f"File exceeds the maximum allowed size of {max_bytes} bytes")
+    def __init__(self, max_bytes: int, *, what: str = "File") -> None:
+        super().__init__(f"{what} exceeds the maximum allowed size of {max_bytes} bytes")
 
 
 class AiGenerationError(DomainError):

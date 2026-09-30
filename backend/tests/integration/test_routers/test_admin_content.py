@@ -562,3 +562,32 @@ class TestLessonUpdateLinkSchemes:
         assert response.status_code == 200
         await db_session.refresh(lesson)
         assert lesson.content_blocks == blocks
+
+
+class TestLessonSizeCeiling:
+    """Decision 5.2 option A (2026-09-25): human lesson saves stay structurally
+    *unvalidated* (most of the live corpus predates `validate_content_blocks`'s
+    nested-id rule) but get a 1 MiB size ceiling on the serialized
+    `content_blocks`."""
+
+    async def test_oversized_content_blocks_is_413_and_lesson_unchanged(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        admin_headers: dict[str, str],
+    ) -> None:
+        track = await create_track(db_session, "Size Track")
+        module = await create_module(db_session, track, "Size Module")
+        lesson = await create_lesson(db_session, module, "Size Lesson")
+
+        blocks = [{"id": "b1", "type": "paragraph", "text": "a" * 1_100_000}]
+        response = await client.patch(
+            f"/api/admin/lessons/{lesson.id}",
+            json={"content_blocks": blocks},
+            headers=admin_headers,
+        )
+
+        assert response.status_code == 413
+        assert "maximum allowed size" in response.json()["error"]["message"]
+        await db_session.refresh(lesson)
+        assert lesson.content_blocks == []

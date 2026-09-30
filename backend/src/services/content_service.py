@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import uuid
 from typing import TYPE_CHECKING, Any
 
@@ -8,6 +9,7 @@ from src.services.exceptions import (
     InvalidRequestError,
     LessonSetMismatchError,
     NotFoundError,
+    PayloadTooLargeError,
 )
 from src.services.media_blocks import strip_ephemeral
 
@@ -16,6 +18,13 @@ if TYPE_CHECKING:
     from src.repositories.base import AbstractContentRepository
 
 __all__ = ["ContentService"]
+
+# Decision 5.2 option A (2026-09-25): 66/91 live lessons predate
+# `validate_content_blocks`'s nested-id rule, so a structural gate would make
+# them unsavable. Human saves get a size ceiling only, not structural
+# validation; option B (reject only regressions) follows the nested-id
+# backfill as a separate future task.
+MAX_LESSON_BLOCKS_BYTES = 1_048_576
 
 
 class ContentService:
@@ -113,7 +122,15 @@ class ContentService:
             # Ephemeral SAS urls (stamped on read) must never persist, even
             # when storage is unconfigured — the editor may echo a stale one
             # back verbatim, and stale urls in the JSONB would go stale forever.
-            values = {**values, "content_blocks": strip_ephemeral(values["content_blocks"])}
+            blocks = strip_ephemeral(values["content_blocks"])
+            values = {**values, "content_blocks": blocks}
+            # Size ceiling only, not structural validation (see
+            # MAX_LESSON_BLOCKS_BYTES above) — measured on what will actually
+            # be persisted, after the scheme check and the SAS strip so an
+            # echoed url never counts against the caller.
+            size = len(json.dumps(blocks, ensure_ascii=False, separators=(",", ":")).encode())
+            if size > MAX_LESSON_BLOCKS_BYTES:
+                raise PayloadTooLargeError(MAX_LESSON_BLOCKS_BYTES, what="Lesson content")
         return await self._content.update_lesson(lesson, values)
 
     async def delete_lesson(self, lesson_id: uuid.UUID) -> None:
