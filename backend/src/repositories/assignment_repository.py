@@ -164,7 +164,7 @@ class AssignmentRepository(AbstractAssignmentRepository):
             )
         await self._session.commit()
 
-    async def set_user_tracks(
+    async def stage_user_tracks(
         self,
         user_id: uuid.UUID,
         track_ids: list[uuid.UUID],
@@ -190,9 +190,19 @@ class AssignmentRepository(AbstractAssignmentRepository):
                     UserTrack.user_id == user_id, UserTrack.track_id.in_(track_ids)
                 )
             )
+
+    async def set_user_tracks(
+        self,
+        user_id: uuid.UUID,
+        track_ids: list[uuid.UUID],
+        assigned: bool,
+        *,
+        assigned_via: str = "manual",
+    ) -> None:
+        await self.stage_user_tracks(user_id, track_ids, assigned, assigned_via=assigned_via)
         await self._session.commit()
 
-    async def set_user_modules(
+    async def stage_user_modules(
         self,
         user_id: uuid.UUID,
         module_ids: list[uuid.UUID],
@@ -218,9 +228,19 @@ class AssignmentRepository(AbstractAssignmentRepository):
                     UserModule.user_id == user_id, UserModule.module_id.in_(module_ids)
                 )
             )
+
+    async def set_user_modules(
+        self,
+        user_id: uuid.UUID,
+        module_ids: list[uuid.UUID],
+        assigned: bool,
+        *,
+        assigned_via: str = "manual",
+    ) -> None:
+        await self.stage_user_modules(user_id, module_ids, assigned, assigned_via=assigned_via)
         await self._session.commit()
 
-    async def set_user_lessons(
+    async def stage_user_lessons(
         self,
         user_id: uuid.UUID,
         lesson_ids: list[uuid.UUID],
@@ -246,4 +266,14 @@ class AssignmentRepository(AbstractAssignmentRepository):
                     UserLesson.user_id == user_id, UserLesson.lesson_id.in_(lesson_ids)
                 )
             )
+
+    async def set_user_lessons(
+        self,
+        user_id: uuid.UUID,
+        lesson_ids: list[uuid.UUID],
+        assigned: bool,
+        *,
+        assigned_via: str = "manual",
+    ) -> None:
+        await self.stage_user_lessons(user_id, lesson_ids, assigned, assigned_via=assigned_via)
         await self._session.commit()

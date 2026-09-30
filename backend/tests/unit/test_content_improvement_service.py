@@ -15,6 +15,7 @@ from src.repositories.base import (
     AbstractContentRepository,
     AbstractFeedbackRepository,
     AbstractProposalRepository,
+    AbstractUnitOfWork,
 )
 from src.services import content_improvement_service
 from src.services.calibration_prompt import MAX_INJECTED_NOTES
@@ -98,6 +99,7 @@ def _service(
         content,
         llm or _ScriptedLlm([]),  # ty: ignore[invalid-argument-type]
         notes if notes is not None else _notes_repo(),
+        AsyncMock(spec=AbstractUnitOfWork),
     )
     return service, proposals, content
 
@@ -123,7 +125,7 @@ async def test_drafts_one_proposal_per_lesson_with_provenance() -> None:
     assert kwargs["summary"] == "Added an example."
     assert kwargs.get("status", "pending") == "pending"
     # Drafting NEVER writes the live lesson.
-    content.update_lesson.assert_not_awaited()
+    content.stage_lesson_update.assert_not_awaited()
 
 
 async def test_only_the_selected_lessons_are_drafted() -> None:
@@ -180,7 +182,7 @@ async def test_a_transient_provider_error_leaves_the_lesson_queued() -> None:
 
     assert (outcome.proposed, outcome.skipped, outcome.deferred) == (0, 0, 1)
     proposals.create.assert_not_awaited()
-    content.update_lesson.assert_not_awaited()
+    content.stage_lesson_update.assert_not_awaited()
 
 
 async def test_a_transient_error_on_one_lesson_does_not_abort_the_others() -> None:
@@ -301,7 +303,7 @@ async def test_invalid_blocks_are_never_stored_as_a_pending_proposal() -> None:
     outcome = await service.run(lesson_ids=[lesson.id])
 
     assert (outcome.proposed, outcome.skipped, outcome.deferred) == (0, 1, 0)
-    content.update_lesson.assert_not_awaited()
+    content.stage_lesson_update.assert_not_awaited()
     # Recorded as a `failed` proposal so this lesson stops re-consuming runs.
     assert proposals.create.await_args.kwargs["status"] == "failed"
     assert "banner" in proposals.create.await_args.kwargs["summary"]
@@ -333,7 +335,7 @@ async def test_a_card_missing_a_nested_id_is_repaired_not_rejected() -> None:
     outcome = await service.run(lesson_ids=[lesson.id])
 
     assert (outcome.proposed, outcome.skipped) == (1, 0)
-    content.update_lesson.assert_not_awaited()
+    content.stage_lesson_update.assert_not_awaited()
     kwargs = proposals.create.await_args.kwargs
     assert kwargs.get("status", "pending") == "pending"
     assert kwargs["proposed_blocks"][0]["cards"][0]["id"] == "b1-cards0"
@@ -359,7 +361,7 @@ async def test_duplicate_block_ids_are_still_rejected() -> None:
     outcome = await service.run(lesson_ids=[lesson.id])
 
     assert (outcome.proposed, outcome.skipped) == (0, 1)
-    content.update_lesson.assert_not_awaited()
+    content.stage_lesson_update.assert_not_awaited()
     assert proposals.create.await_args.kwargs["status"] == "failed"
     assert "duplicate id" in proposals.create.await_args.kwargs["summary"]
 
@@ -400,7 +402,7 @@ async def test_a_changed_block_with_an_em_dash_produces_a_failed_proposal_not_pe
     outcome = await service.run(lesson_ids=[lesson.id])
 
     assert (outcome.proposed, outcome.skipped) == (0, 1)
-    content.update_lesson.assert_not_awaited()
+    content.stage_lesson_update.assert_not_awaited()
     kwargs = proposals.create.await_args.kwargs
     assert kwargs["status"] == "failed"
     assert "dash" in kwargs["summary"].lower()
@@ -472,6 +474,7 @@ async def test_a_hanging_call_times_out_and_counts_as_skipped() -> None:
         AsyncMock(spec=AbstractContentRepository),
         _HangingLlm(),  # ty: ignore[invalid-argument-type]
         _notes_repo(),
+        AsyncMock(spec=AbstractUnitOfWork),
     )
 
     with mock.patch.object(content_improvement_service, "_PER_LESSON_TIMEOUT_SECONDS", 0.01):

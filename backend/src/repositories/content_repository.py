@@ -157,9 +157,14 @@ class ContentRepository(AbstractContentRepository):
         await self._session.refresh(lesson)
         return lesson
 
-    async def update_lesson(self, lesson: Lesson, values: dict[str, Any]) -> Lesson:
+    async def stage_lesson_update(self, lesson: Lesson, values: dict[str, Any]) -> Lesson:
         for field, value in values.items():
             setattr(lesson, field, value)
+        await self._session.flush()
+        return lesson
+
+    async def update_lesson(self, lesson: Lesson, values: dict[str, Any]) -> Lesson:
+        await self.stage_lesson_update(lesson, values)
         await self._session.commit()
         await self._session.refresh(lesson)
         return lesson

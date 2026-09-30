@@ -14,6 +14,7 @@ from src.repositories.base import (
     AbstractContentRepository,
     AbstractFeedbackRepository,
     AbstractProposalRepository,
+    AbstractUnitOfWork,
 )
 from src.services import content_improvement_service
 from src.services.content_improvement_service import ContentImprovementService
@@ -77,6 +78,7 @@ def _service(
         AsyncMock(spec=AbstractContentRepository),
         llm,
         notes,
+        AsyncMock(spec=AbstractUnitOfWork),
     )
     return service, proposals, notes
 

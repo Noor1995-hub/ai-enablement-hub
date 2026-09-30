@@ -28,6 +28,7 @@ from src.repositories.calibration_note_repository import CalibrationNoteReposito
 from src.repositories.content_repository import ContentRepository
 from src.repositories.feedback_repository import FeedbackRepository
 from src.repositories.proposal_repository import ProposalRepository
+from src.repositories.unit_of_work import UnitOfWork
 from src.schemas.admin_proposals import MAX_LESSONS_PER_RUN
 from src.services.content_improvement_service import ContentImprovementService
 from src.services.llm_service import LlmUsage
@@ -104,6 +105,7 @@ async def improvement_client(
             ContentRepository(db_session),
             fake_llm,  # ty: ignore[invalid-argument-type]
             CalibrationNoteRepository(db_session),
+            UnitOfWork(db_session),
         )
         app.dependency_overrides[get_session] = _override_session
         app.dependency_overrides[get_settings] = lambda: test_settings

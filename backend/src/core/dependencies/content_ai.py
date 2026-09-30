@@ -13,12 +13,17 @@ from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.dependencies.database import get_session
-from src.core.dependencies.domain import get_content_repository, get_feedback_repository
+from src.core.dependencies.domain import (
+    get_content_repository,
+    get_feedback_repository,
+    get_unit_of_work,
+)
 from src.core.dependencies.llm import get_llm_service
 from src.repositories.calibration_note_repository import CalibrationNoteRepository
 from src.repositories.content_repository import ContentRepository
 from src.repositories.feedback_repository import FeedbackRepository
 from src.repositories.proposal_repository import ProposalRepository
+from src.repositories.unit_of_work import UnitOfWork
 from src.services.calibration_note_service import CalibrationNoteService
 from src.services.content_improvement_service import ContentImprovementService
 from src.services.feedback_triage_service import FeedbackTriageService
@@ -72,10 +77,11 @@ def get_content_improvement_service(
     calibration_notes: Annotated[
         CalibrationNoteRepository, Depends(get_calibration_note_repository)
     ],
+    uow: Annotated[UnitOfWork, Depends(get_unit_of_work)],
 ) -> ContentImprovementService | None:
     """None when LLM__* is unconfigured, so the whole section 404s — the design
     doc's "the whole feature no-ops / 404s when Settings.llm is unconfigured".
     With no model there is nothing to draft, so there is nothing to review."""
     if llm is None:
         return None
-    return ContentImprovementService(proposals, feedback, content, llm, calibration_notes)
+    return ContentImprovementService(proposals, feedback, content, llm, calibration_notes, uow)

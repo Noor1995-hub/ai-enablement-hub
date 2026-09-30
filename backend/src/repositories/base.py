@@ -49,8 +49,23 @@ __all__ = [
     "AbstractProgressRepository",
     "AbstractProposalRepository",
     "AbstractSurveyRepository",
+    "AbstractUnitOfWork",
     "AbstractUserRepository",
 ]
+
+
+class AbstractUnitOfWork(ABC):
+    """Commit boundary handed to services that must write atomically.
+
+    Wraps the same request-scoped session the repositories use. A service
+    stages its writes through the repositories' flush-only `stage_*` methods
+    and ends the transaction with one `commit()`; an exception before that
+    leaves nothing committed (the request's session is rolled back on close).
+    """
+
+    @abstractmethod
+    async def commit(self) -> None:
+        """Commit everything staged on this request's session."""
 
 
 class AbstractUserRepository(ABC):
@@ -294,6 +309,26 @@ class AbstractSurveyRepository(ABC):
     async def update(self, row: SurveyResponse, values: dict[str, Any]) -> SurveyResponse: ...
 
     @abstractmethod
+    async def stage_update(self, row: SurveyResponse, values: dict[str, Any]) -> SurveyResponse:
+        """Flush-only twin of `update`: same write, NO commit and no refresh, so
+        a service can compose it with other writes and commit once via
+        AbstractUnitOfWork. The returned row is not re-read from the DB."""
+
+    @abstractmethod
+    async def create_or_update(
+        self, user_id: uuid.UUID, values: dict[str, Any]
+    ) -> SurveyResponse | None:
+        """Insert the user's draft or update the existing one, in ONE
+        statement. The table has UNIQUE(user_id), so a get-then-create pair
+        loses the race between two concurrent first saves; ON CONFLICT makes
+        the second an update instead of an IntegrityError.
+
+        The update side is guarded by `WHERE status <> 'complete'`, closing a
+        second race between a save and a complete: if the existing row is
+        already complete, no row is touched and this returns None — the
+        caller raises SurveyAlreadyCompleteError."""
+
+    @abstractmethod
     async def get_complete_levels(self, user_ids: list[uuid.UUID]) -> dict[uuid.UUID, str]:
         """user_id → score_level for complete surveys among the given users."""
 
@@ -407,6 +442,12 @@ class AbstractContentRepository(ABC):
 
     @abstractmethod
     async def update_lesson(self, lesson: Lesson, values: dict[str, Any]) -> Lesson: ...
+
+    @abstractmethod
+    async def stage_lesson_update(self, lesson: Lesson, values: dict[str, Any]) -> Lesson:
+        """Flush-only twin of `update_lesson`: same write, NO commit and no
+        refresh, so a service can compose it with other writes and commit once
+        via AbstractUnitOfWork."""
 
     @abstractmethod
     async def delete_lesson(self, lesson: Lesson) -> None: ...
@@ -586,6 +627,19 @@ class AbstractAssignmentRepository(ABC):
         """Bulk variant of set_user_track, one statement + commit."""
 
     @abstractmethod
+    async def stage_user_tracks(
+        self,
+        user_id: uuid.UUID,
+        track_ids: list[uuid.UUID],
+        assigned: bool,
+        *,
+        assigned_via: str = "manual",
+    ) -> None:
+        """Flush-only twin of set_user_tracks: same statement, NO commit, so a
+        service can compose several writes into one transaction and commit once
+        via AbstractUnitOfWork."""
+
+    @abstractmethod
     async def set_user_modules(
         self,
         user_id: uuid.UUID,
@@ -597,6 +651,19 @@ class AbstractAssignmentRepository(ABC):
         """Bulk variant of set_user_module, one statement + commit."""
 
     @abstractmethod
+    async def stage_user_modules(
+        self,
+        user_id: uuid.UUID,
+        module_ids: list[uuid.UUID],
+        assigned: bool,
+        *,
+        assigned_via: str = "manual",
+    ) -> None:
+        """Flush-only twin of set_user_modules: same statement, NO commit, so a
+        service can compose several writes into one transaction and commit once
+        via AbstractUnitOfWork."""
+
+    @abstractmethod
     async def set_user_lessons(
         self,
         user_id: uuid.UUID,
@@ -606,6 +673,19 @@ class AbstractAssignmentRepository(ABC):
         assigned_via: str = "manual",
     ) -> None:
         """Bulk variant of set_user_lesson, one statement + commit."""
+
+    @abstractmethod
+    async def stage_user_lessons(
+        self,
+        user_id: uuid.UUID,
+        lesson_ids: list[uuid.UUID],
+        assigned: bool,
+        *,
+        assigned_via: str = "manual",
+    ) -> None:
+        """Flush-only twin of set_user_lessons: same statement, NO commit, so a
+        service can compose several writes into one transaction and commit once
+        via AbstractUnitOfWork."""
 
 
 class AbstractProgressRepository(ABC):
@@ -750,6 +830,18 @@ class AbstractProposalRepository(ABC):
         `proposed_blocks` — passing None keeps the column NULL, which is the
         signal that the draft was accepted exactly as written and there is
         nothing to learn from it. `proposed_blocks` is never overwritten."""
+
+    @abstractmethod
+    async def stage_approved(
+        self,
+        proposal: LessonContentProposal,
+        *,
+        edited_blocks: list[Any] | None,
+        reviewed_by: uuid.UUID,
+    ) -> None:
+        """Flush-only twin of `set_approved` (same fields, same `edited_blocks`
+        rule), NO commit, so the approval can land in the same transaction as
+        the lesson rewrite via AbstractUnitOfWork."""
 
     @abstractmethod
     async def set_critique(

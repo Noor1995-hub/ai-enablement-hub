@@ -19,6 +19,7 @@ from src.repositories.base import (
     AbstractContentRepository,
     AbstractFeedbackRepository,
     AbstractProposalRepository,
+    AbstractUnitOfWork,
 )
 from src.services.content_improvement_service import ContentImprovementService
 from tests.golden.ai.harness import RecordingLlm, assert_golden, render_calls
@@ -74,6 +75,7 @@ def _content_improvement_service(
         content,
         llm,
         notes,
+        AsyncMock(spec=AbstractUnitOfWork),
     )
     return service, lesson
 
@@ -154,6 +156,7 @@ def _critique_service(llm: RecordingLlm) -> tuple[ContentImprovementService, Any
         AsyncMock(spec=AbstractContentRepository),
         llm,
         notes,
+        AsyncMock(spec=AbstractUnitOfWork),
     )
     return service, proposal
 

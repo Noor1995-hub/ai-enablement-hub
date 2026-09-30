@@ -23,6 +23,7 @@ from src.repositories.feedback_repository import FeedbackRepository
 from src.repositories.org_repository import OrgRepository
 from src.repositories.progress_repository import ProgressRepository
 from src.repositories.survey_repository import SurveyRepository
+from src.repositories.unit_of_work import UnitOfWork
 from src.repositories.user_repository import UserRepository
 from src.services.admin_user_service import AdminUserService
 from src.services.content_service import ContentService
@@ -51,6 +52,7 @@ __all__ = [
     "get_progress_repository",
     "get_survey_repository",
     "get_survey_service",
+    "get_unit_of_work",
 ]
 
 
@@ -82,12 +84,18 @@ def get_progress_repository(
     return ProgressRepository(session)
 
 
+def get_unit_of_work(session: Annotated[AsyncSession, Depends(get_session)]) -> UnitOfWork:
+    """One commit boundary per request, on the same session the repositories use."""
+    return UnitOfWork(session)
+
+
 def get_survey_service(
     surveys: Annotated[SurveyRepository, Depends(get_survey_repository)],
     content: Annotated[ContentRepository, Depends(get_content_repository)],
     assignments: Annotated[AssignmentRepository, Depends(get_assignment_repository)],
+    uow: Annotated[UnitOfWork, Depends(get_unit_of_work)],
 ) -> SurveyService:
-    return SurveyService(surveys, content, assignments)
+    return SurveyService(surveys, content, assignments, uow)
 
 
 def get_org_service(org: Annotated[OrgRepository, Depends(get_org_repository)]) -> OrgService:

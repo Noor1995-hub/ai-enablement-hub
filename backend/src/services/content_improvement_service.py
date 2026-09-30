@@ -51,6 +51,7 @@ if TYPE_CHECKING:
         AbstractContentRepository,
         AbstractFeedbackRepository,
         AbstractProposalRepository,
+        AbstractUnitOfWork,
     )
     from src.services.llm_service import LlmClient
 
@@ -215,12 +216,14 @@ class ContentImprovementService:
         content: AbstractContentRepository,
         llm: LlmClient,
         calibration_notes: AbstractCalibrationNoteRepository,
+        uow: AbstractUnitOfWork,
     ) -> None:
         self._proposals = proposals
         self._feedback = feedback
         self._content = content  # used by _apply, the review path below
         self._llm = llm
         self._calibration_notes = calibration_notes
+        self._uow = uow  # the commit boundary for _apply's two writes
 
     async def list_queue(self) -> list[dict[str, Any]]:
         """The lessons an admin can pick from: accepted feedback that no
@@ -598,13 +601,22 @@ class ContentImprovementService:
             msg = "the proposed blocks are not valid: " + "; ".join(errors[:5])
             raise ConflictError(msg)
 
-        # Same write path as ContentService.update_lesson — whole-array overwrite
+        # Same write as ContentService.update_lesson — whole-array overwrite
         # with the ephemeral SAS urls stripped. Called at the repository layer
         # because services never call other services (python-be-architecture.md).
-        await self._content.update_lesson(lesson, {"content_blocks": strip_ephemeral(list(blocks))})
-        await self._proposals.set_approved(
+        #
+        # ONE transaction: the lesson rewrite and the proposal's approved stamp
+        # must land together. Committing them separately left a window where the
+        # lesson was already rewritten while the proposal still read `pending`,
+        # so re-approving compared the new lesson against the old base_blocks and
+        # mis-reported "superseded".
+        await self._content.stage_lesson_update(
+            lesson, {"content_blocks": strip_ephemeral(list(blocks))}
+        )
+        await self._proposals.stage_approved(
             proposal, edited_blocks=admin_edits, reviewed_by=reviewer_id
         )
+        await self._uow.commit()
 
     async def _lessons_awaiting_draft(self) -> list[tuple[Lesson, list[Feedback]]]:
         """Lessons with accepted feedback that no pending/approved/failed

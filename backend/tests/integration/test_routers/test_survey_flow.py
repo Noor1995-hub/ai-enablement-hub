@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 import pytest_asyncio
+from sqlalchemy import text
 
 from src.repositories.assignment_repository import AssignmentRepository
 from src.services.scoring import score_response
@@ -14,6 +16,7 @@ from tests.fixtures.factories import (
     assign_track,
     create_lesson,
     create_module,
+    create_survey,
     create_track,
     create_user,
 )
@@ -292,3 +295,106 @@ class TestAutoAssignOnComplete:
         await client.put("/api/survey/me", json=VALID_ANSWERS, headers=headers)
         assert (await client.post("/api/survey/complete", headers=headers)).status_code == 200
         assert await AssignmentRepository(db_session).track_ids_for_user(learner.id) == set()
+
+
+class TestDraftUpsert:
+    """C9 (review finding 6.5): save_draft is now a single ON CONFLICT DO
+    UPDATE statement instead of get-then-create, so two concurrent first
+    saves for the same user can no longer race on
+    `uq_survey_responses_user_id` and 500 the loser."""
+
+    async def test_sequential_first_saves_do_not_500(
+        self, client: AsyncClient, learner: User, test_settings: Settings
+    ) -> None:
+        """A regression net for the create-or-update path, not a race test:
+        the old get-then-create bug only ever showed up when two first saves
+        for the same user landed concurrently and both saw no row. Forcing
+        the same code path sequentially (no row -> row -> update) must stay a
+        clean 200 either way; the ON CONFLICT statement is what removes the
+        race itself (proven at the repository level below)."""
+        headers = auth_headers(learner, test_settings)
+
+        first = await client.put("/api/survey/me", json={"job_title": "A"}, headers=headers)
+        second = await client.put("/api/survey/me", json={"job_title": "B"}, headers=headers)
+
+        assert first.status_code == 200
+        assert second.status_code == 200
+        assert second.json()["job_title"] == "B"
+
+    async def test_second_save_advances_updated_at(
+        self,
+        client: AsyncClient,
+        learner: User,
+        test_settings: Settings,
+        db_session: AsyncSession,
+    ) -> None:
+        """ON CONFLICT DO UPDATE does not fire the column's `onupdate=`; the
+        repository must put `updated_at` explicitly in `set_`.
+
+        Postgres `now()` is fixed at transaction start, and this harness runs
+        a whole test inside one outer transaction, so two real `PUT`s a
+        moment apart get the IDENTICAL `now()` — asserting
+        `second >= first` on the two responses alone would pass even with the
+        `set_` fix removed (both would just carry the row's original,
+        untouched `updated_at`). Backdating the stored value directly with a
+        literal timestamp (not `now()`) gives the second save something
+        concrete only the fix can move past."""
+        headers = auth_headers(learner, test_settings)
+        await client.put("/api/survey/me", json={"job_title": "A"}, headers=headers)
+
+        backdated = datetime.now(UTC) - timedelta(days=1)
+        await db_session.execute(
+            text("UPDATE survey_responses SET updated_at = :backdated WHERE user_id = :user_id"),
+            {"backdated": backdated, "user_id": learner.id},
+        )
+
+        second = await client.put("/api/survey/me", json={"job_title": "B"}, headers=headers)
+
+        second_updated_at = datetime.fromisoformat(second.json()["updated_at"])
+        assert second_updated_at > backdated
+
+    async def test_repository_upsert_is_idempotent_for_one_user(
+        self, db_session: AsyncSession, learner: User
+    ) -> None:
+        from sqlalchemy import func, select
+
+        from src.db.models import SurveyResponse
+        from src.repositories.survey_repository import SurveyRepository
+
+        surveys = SurveyRepository(db_session)
+
+        first = await surveys.create_or_update(
+            learner.id, {"status": "in_progress", "job_title": "One"}
+        )
+        assert first is not None
+        second = await surveys.create_or_update(
+            learner.id, {"status": "in_progress", "job_title": "Two"}
+        )
+
+        assert second is not None
+        assert second.job_title == "Two"
+        count = await db_session.execute(
+            select(func.count())
+            .select_from(SurveyResponse)
+            .where(SurveyResponse.user_id == learner.id)
+        )
+        assert count.scalar_one() == 1
+
+    async def test_repository_upsert_does_not_reopen_a_completed_survey(
+        self, db_session: AsyncSession, learner: User
+    ) -> None:
+        """Closes the save-vs-complete race the upsert would otherwise
+        introduce: if a concurrent request completes the survey between
+        save_draft's pre-check and the upsert statement, the WHERE guard on
+        the ON CONFLICT DO UPDATE must leave the completed row untouched
+        rather than silently flipping it back to in_progress."""
+        from src.repositories.survey_repository import SurveyRepository
+
+        await create_survey(db_session, learner, status="complete")
+        surveys = SurveyRepository(db_session)
+
+        result = await surveys.create_or_update(
+            learner.id, {"status": "in_progress", "job_title": "Reopened"}
+        )
+
+        assert result is None

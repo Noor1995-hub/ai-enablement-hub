@@ -12,6 +12,7 @@ from src.repositories.base import (
     AbstractContentRepository,
     AbstractFeedbackRepository,
     AbstractProposalRepository,
+    AbstractUnitOfWork,
 )
 from src.services.content_improvement_service import ContentImprovementService
 from src.services.exceptions import ConflictError, InvalidRequestError, NotFoundError
@@ -41,7 +42,7 @@ def _lesson(blocks: list[Any]) -> Any:
 
 
 def _service(
-    proposal: Any | None, lesson: Any | None
+    proposal: Any | None, lesson: Any | None, *, uow: AsyncMock | None = None
 ) -> tuple[ContentImprovementService, AsyncMock, AsyncMock]:
     proposals = AsyncMock(spec=AbstractProposalRepository)
     proposals.get_by_id.return_value = proposal
@@ -53,6 +54,7 @@ def _service(
         content,
         AsyncMock(),
         AsyncMock(spec=AbstractCalibrationNoteRepository),
+        uow if uow is not None else AsyncMock(spec=AbstractUnitOfWork),
     )
     return service, proposals, content
 
@@ -68,10 +70,44 @@ async def test_approve_writes_the_lesson_and_stamps_the_proposal() -> None:
     )
 
     assert result == "approved"
-    content.update_lesson.assert_awaited_once_with(lesson, {"content_blocks": _PROPOSED})
-    proposals.set_approved.assert_awaited_once_with(
+    content.stage_lesson_update.assert_awaited_once_with(lesson, {"content_blocks": _PROPOSED})
+    proposals.stage_approved.assert_awaited_once_with(
         proposal, edited_blocks=None, reviewed_by=reviewer_id
     )
+
+
+async def test_approve_commits_the_rewrite_and_the_stamp_together() -> None:
+    """The lesson rewrite and the approved stamp are ONE transaction: both are
+    staged (flush-only), then the unit of work commits once, last. The
+    committing twins would each end the transaction early, reopening the
+    "lesson rewritten, proposal still pending" window."""
+    proposal = _proposal()
+    uow = AsyncMock(spec=AbstractUnitOfWork)
+    service, proposals, content = _service(proposal, _lesson(list(_BASE)), uow=uow)
+    order: list[str] = []
+    content.stage_lesson_update.side_effect = lambda *a, **k: order.append("lesson")
+    proposals.stage_approved.side_effect = lambda *a, **k: order.append("stamp")
+    uow.commit.side_effect = lambda: order.append("commit")
+
+    await service.review(proposal_id=proposal.id, decision="approve", reviewer_id=uuid.uuid4())
+
+    assert order == ["lesson", "stamp", "commit"]
+    content.update_lesson.assert_not_awaited()
+    proposals.set_approved.assert_not_awaited()
+
+
+async def test_a_refused_approval_commits_nothing() -> None:
+    """A validation refusal happens before anything is staged, so the unit of
+    work is never asked to commit."""
+    proposal = _proposal(proposed_blocks=[])
+    uow = AsyncMock(spec=AbstractUnitOfWork)
+    service, _proposals, content = _service(proposal, _lesson(list(_BASE)), uow=uow)
+
+    with pytest.raises(ConflictError):
+        await service.review(proposal_id=proposal.id, decision="approve", reviewer_id=uuid.uuid4())
+
+    content.stage_lesson_update.assert_not_awaited()
+    uow.commit.assert_not_awaited()
 
 
 async def test_approve_strips_an_ephemeral_media_url_before_writing() -> None:
@@ -90,7 +126,7 @@ async def test_approve_strips_an_ephemeral_media_url_before_writing() -> None:
 
     await service.review(proposal_id=proposal.id, decision="approve", reviewer_id=uuid.uuid4())
 
-    written = content.update_lesson.await_args.args[1]["content_blocks"]
+    written = content.stage_lesson_update.await_args.args[1]["content_blocks"]
     assert "url" not in written[0]
     assert written[0]["blob_path"] == "images/a.png"
 
@@ -105,7 +141,7 @@ async def test_reject_discards_without_touching_the_lesson() -> None:
     )
 
     assert result == "rejected"
-    content.update_lesson.assert_not_awaited()
+    content.stage_lesson_update.assert_not_awaited()
     proposals.set_status.assert_awaited_once_with(proposal, "rejected", reviewer_id)
 
 
@@ -118,7 +154,7 @@ async def test_a_lesson_that_moved_supersedes_the_proposal_and_refuses() -> None
     with pytest.raises(ConflictError):
         await service.review(proposal_id=proposal.id, decision="approve", reviewer_id=reviewer_id)
 
-    content.update_lesson.assert_not_awaited()
+    content.stage_lesson_update.assert_not_awaited()
     proposals.set_status.assert_awaited_once_with(proposal, "superseded", reviewer_id)
 
 
@@ -129,7 +165,7 @@ async def test_blocks_that_no_longer_validate_are_refused_at_apply_time() -> Non
     with pytest.raises(ConflictError):
         await service.review(proposal_id=proposal.id, decision="approve", reviewer_id=uuid.uuid4())
 
-    content.update_lesson.assert_not_awaited()
+    content.stage_lesson_update.assert_not_awaited()
     proposals.set_status.assert_not_awaited()
 
 
@@ -144,7 +180,7 @@ async def test_a_media_locator_snuck_in_is_refused_at_apply_time() -> None:
     with pytest.raises(ConflictError):
         await service.review(proposal_id=proposal.id, decision="approve", reviewer_id=uuid.uuid4())
 
-    content.update_lesson.assert_not_awaited()
+    content.stage_lesson_update.assert_not_awaited()
 
 
 async def test_an_already_reviewed_proposal_is_refused() -> None:
@@ -154,7 +190,7 @@ async def test_an_already_reviewed_proposal_is_refused() -> None:
     with pytest.raises(ConflictError):
         await service.review(proposal_id=proposal.id, decision="approve", reviewer_id=uuid.uuid4())
 
-    content.update_lesson.assert_not_awaited()
+    content.stage_lesson_update.assert_not_awaited()
 
 
 @pytest.mark.parametrize("status", ["rejected", "superseded"])
@@ -167,7 +203,7 @@ async def test_a_decided_proposal_is_refused_regardless_of_which_decision(status
     with pytest.raises(ConflictError):
         await service.review(proposal_id=proposal.id, decision="reject", reviewer_id=uuid.uuid4())
 
-    content.update_lesson.assert_not_awaited()
+    content.stage_lesson_update.assert_not_awaited()
 
 
 async def test_a_failed_proposal_can_be_rejected_but_not_approved() -> None:
@@ -176,7 +212,7 @@ async def test_a_failed_proposal_can_be_rejected_but_not_approved() -> None:
 
     with pytest.raises(ConflictError):
         await service.review(proposal_id=proposal.id, decision="approve", reviewer_id=uuid.uuid4())
-    content.update_lesson.assert_not_awaited()
+    content.stage_lesson_update.assert_not_awaited()
 
     reviewer_id = uuid.uuid4()
     assert (
@@ -207,7 +243,7 @@ async def test_an_unknown_decision_never_applies_anything() -> None:
                 proposal_id=proposal.id, decision=decision, reviewer_id=uuid.uuid4()
             )
 
-    content.update_lesson.assert_not_awaited()
+    content.stage_lesson_update.assert_not_awaited()
     proposals.set_status.assert_not_awaited()
 
 
@@ -229,8 +265,8 @@ async def test_approving_without_edits_is_unchanged_behaviour() -> None:
         == "approved"
     )
 
-    content.update_lesson.assert_awaited_once_with(lesson, {"content_blocks": _PROPOSED})
-    proposals.set_approved.assert_awaited_once_with(
+    content.stage_lesson_update.assert_awaited_once_with(lesson, {"content_blocks": _PROPOSED})
+    proposals.stage_approved.assert_awaited_once_with(
         proposal, edited_blocks=None, reviewed_by=reviewer_id
     )
 
@@ -246,8 +282,8 @@ async def test_edits_identical_to_the_draft_count_as_unchanged() -> None:
         edited_blocks=list(_PROPOSED),
     )
 
-    content.update_lesson.assert_awaited_once()
-    assert proposals.set_approved.await_args.kwargs["edited_blocks"] is None
+    content.stage_lesson_update.assert_awaited_once()
+    assert proposals.stage_approved.await_args.kwargs["edited_blocks"] is None
 
 
 async def test_edits_apply_the_admin_array_and_store_the_delta() -> None:
@@ -264,8 +300,8 @@ async def test_edits_apply_the_admin_array_and_store_the_delta() -> None:
     )
 
     # The ADMIN's text reaches the lesson, not the agent's.
-    content.update_lesson.assert_awaited_once_with(lesson, {"content_blocks": _ADMIN_EDITED})
-    proposals.set_approved.assert_awaited_once_with(
+    content.stage_lesson_update.assert_awaited_once_with(lesson, {"content_blocks": _ADMIN_EDITED})
+    proposals.stage_approved.assert_awaited_once_with(
         proposal, edited_blocks=_ADMIN_EDITED, reviewed_by=reviewer_id
     )
 
@@ -282,8 +318,8 @@ async def test_admin_edits_are_structurally_validated() -> None:
             edited_blocks=[{"id": "b1", "type": "banner", "text": "x"}],
         )
 
-    content.update_lesson.assert_not_awaited()
-    proposals.set_approved.assert_not_awaited()
+    content.stage_lesson_update.assert_not_awaited()
+    proposals.stage_approved.assert_not_awaited()
 
 
 async def test_admin_edits_cannot_invent_a_media_locator() -> None:
@@ -300,7 +336,7 @@ async def test_admin_edits_cannot_invent_a_media_locator() -> None:
             ],
         )
 
-    content.update_lesson.assert_not_awaited()
+    content.stage_lesson_update.assert_not_awaited()
 
 
 async def test_admin_edits_are_NOT_house_style_checked() -> None:
@@ -319,7 +355,7 @@ async def test_admin_edits_are_NOT_house_style_checked() -> None:
         ],
     )
 
-    content.update_lesson.assert_awaited_once()
+    content.stage_lesson_update.assert_awaited_once()
 
 
 async def test_an_unchanged_agent_draft_is_still_house_style_checked() -> None:
@@ -334,8 +370,8 @@ async def test_an_unchanged_agent_draft_is_still_house_style_checked() -> None:
     with pytest.raises(ConflictError):
         await service.review(proposal_id=proposal.id, decision="approve", reviewer_id=uuid.uuid4())
 
-    content.update_lesson.assert_not_awaited()
-    proposals.set_approved.assert_not_awaited()
+    content.stage_lesson_update.assert_not_awaited()
+    proposals.stage_approved.assert_not_awaited()
 
 
 async def test_edits_missing_only_nested_ids_normalise_to_the_same_draft() -> None:
@@ -370,8 +406,8 @@ async def test_edits_missing_only_nested_ids_normalise_to_the_same_draft() -> No
         edited_blocks=edited_blocks,
     )
 
-    content.update_lesson.assert_awaited_once_with(lesson, {"content_blocks": proposed})
-    proposals.set_approved.assert_awaited_once_with(
+    content.stage_lesson_update.assert_awaited_once_with(lesson, {"content_blocks": proposed})
+    proposals.stage_approved.assert_awaited_once_with(
         proposal, edited_blocks=None, reviewed_by=reviewer_id
     )
 
@@ -392,8 +428,8 @@ async def test_deleting_every_block_is_refused_rather_than_blanking_the_lesson()
             edited_blocks=[],
         )
 
-    content.update_lesson.assert_not_awaited()
-    proposals.set_approved.assert_not_awaited()
+    content.stage_lesson_update.assert_not_awaited()
+    proposals.stage_approved.assert_not_awaited()
 
 
 async def test_a_stale_base_still_supersedes_even_with_edits() -> None:
@@ -410,7 +446,7 @@ async def test_a_stale_base_still_supersedes_even_with_edits() -> None:
             edited_blocks=list(_ADMIN_EDITED),
         )
 
-    content.update_lesson.assert_not_awaited()
+    content.stage_lesson_update.assert_not_awaited()
     proposals.set_status.assert_awaited_once_with(proposal, "superseded", reviewer_id)
 
 
@@ -429,5 +465,5 @@ async def test_edited_blocks_are_ignored_on_reject() -> None:
         == "rejected"
     )
 
-    content.update_lesson.assert_not_awaited()
+    content.stage_lesson_update.assert_not_awaited()
     proposals.set_status.assert_awaited_once_with(proposal, "rejected", reviewer_id)
