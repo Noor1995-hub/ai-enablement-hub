@@ -39,13 +39,12 @@ MediaServiceDep = Annotated[MediaService | None, Depends(get_media_service)]
 async def get_learning_graph(
     user: CurrentUserDep,
     learning_service: LearningServiceDep,
-    maturity_service: MaturityServiceDep,
 ) -> LearningGraphResponse:
     """One aggregate replacing LearningPath's legacy 7-query chain; `assigned`
     flags are computed for the caller only. Per-track maturity locks come from
-    the caller's effective level (override + live progression)."""
-    effective = await maturity_service.effective_level(user)
-    return LearningGraphResponse(**await learning_service.graph(user.id, effective))
+    the caller's effective level (override + live progression), which the
+    service derives from the rows it already reads."""
+    return LearningGraphResponse(**await learning_service.graph(user))
 
 
 @router.get("/modules/{module_id}/lessons", response_model=ModuleLessonsResponse)

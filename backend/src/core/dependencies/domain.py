@@ -119,8 +119,9 @@ def get_learning_service(
     content: Annotated[ContentRepository, Depends(get_content_repository)],
     assignments: Annotated[AssignmentRepository, Depends(get_assignment_repository)],
     progress: Annotated[ProgressRepository, Depends(get_progress_repository)],
+    surveys: Annotated[SurveyRepository, Depends(get_survey_repository)],
 ) -> LearningService:
-    return LearningService(content, assignments, progress)
+    return LearningService(content, assignments, progress, surveys)
 
 
 def get_content_service(

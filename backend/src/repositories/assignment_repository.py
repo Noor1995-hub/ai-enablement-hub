@@ -24,10 +24,15 @@ class AssignmentRepository(AbstractAssignmentRepository):
         )
         return set(result.scalars().all())
 
-    async def lesson_ids_for_user(self, user_id: uuid.UUID) -> set[uuid.UUID]:
-        result = await self._session.execute(
-            select(UserLesson.lesson_id).where(UserLesson.user_id == user_id)
-        )
+    async def lesson_ids_for_user(
+        self, user_id: uuid.UUID, lesson_ids: list[uuid.UUID] | None = None
+    ) -> set[uuid.UUID]:
+        if lesson_ids is not None and not lesson_ids:
+            return set()
+        stmt = select(UserLesson.lesson_id).where(UserLesson.user_id == user_id)
+        if lesson_ids is not None:
+            stmt = stmt.where(UserLesson.lesson_id.in_(lesson_ids))
+        result = await self._session.execute(stmt)
         return set(result.scalars().all())
 
     async def user_tracks_for_users(self, user_ids: list[uuid.UUID]) -> list[UserTrack]:

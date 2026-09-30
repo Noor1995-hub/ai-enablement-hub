@@ -288,7 +288,8 @@ export interface paths {
          * Get Learning Graph
          * @description One aggregate replacing LearningPath's legacy 7-query chain; `assigned`
          *     flags are computed for the caller only. Per-track maturity locks come from
-         *     the caller's effective level (override + live progression).
+         *     the caller's effective level (override + live progression), which the
+         *     service derives from the rows it already reads.
          */
         get: operations["get_learning_graph_api_learning_graph_get"];
         put?: never;

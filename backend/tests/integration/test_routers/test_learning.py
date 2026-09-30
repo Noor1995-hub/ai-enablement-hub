@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import pytest_asyncio
+from sqlalchemy import event
+from sqlalchemy.engine import Connection
 
 from tests.fixtures.auth import auth_headers
 from tests.fixtures.factories import (
@@ -132,6 +134,37 @@ class TestGraph:
         a1 = next(m for m in graph["modules"] if m["id"] == str(world.module_a1.id))
         assert a1["lesson_count"] == 2
         assert a1["completed_lesson_count"] == 1
+
+    async def test_graph_does_not_run_its_shared_reads_twice(
+        self, client: AsyncClient, world: World, db_session: AsyncSession, test_settings: Settings
+    ) -> None:
+        """/learning/graph used to compute maturity and the graph independently, so
+        list_tracks / list_modules / assigned_lesson_counts_by_module each ran twice
+        per request. A learner with no survey/override short-circuits effective_level
+        before any read, so give this one a completed survey first — otherwise the
+        duplication never happens and this test would pass even unfixed."""
+        await create_survey(db_session, world.learner, status="complete", score_level="explore")
+
+        seen: list[str] = []
+
+        def _record(conn, cursor, statement, parameters, context, executemany) -> None:  # noqa: ANN001
+            seen.append(" ".join(statement.split()))
+
+        bind = db_session.get_bind()
+        assert isinstance(bind, Connection)
+        event.listen(bind, "before_cursor_execute", _record)
+        try:
+            response = await client.get(
+                "/api/learning/graph", headers=auth_headers(world.learner, test_settings)
+            )
+        finally:
+            event.remove(bind, "before_cursor_execute", _record)
+
+        assert response.status_code == 200
+        tracks_selects = [s for s in seen if s.startswith("SELECT tracks.")]
+        modules_selects = [s for s in seen if s.startswith("SELECT modules.")]
+        assert len(tracks_selects) == 1, f"tracks read {len(tracks_selects)}x: {tracks_selects}"
+        assert len(modules_selects) == 1, f"modules read {len(modules_selects)}x: {modules_selects}"
 
 
 class TestModuleLessons:
@@ -444,11 +477,14 @@ class TestLessonAccessControl:
         high_module = await create_module(db_session, high_track, "Granted Module")
         high_lesson = await create_lesson(db_session, high_module, "Granted Lesson")
         await assign_lesson(db_session, world.learner, high_lesson)
+        headers = auth_headers(world.learner, test_settings)
 
-        response = await client.get(
-            f"/api/lessons/{high_lesson.id}", headers=auth_headers(world.learner, test_settings)
-        )
+        response = await client.get(f"/api/lessons/{high_lesson.id}", headers=headers)
         assert response.status_code == 200
+        put = await client.put(
+            f"/api/lessons/{high_lesson.id}/progress", json={"answers": {}}, headers=headers
+        )
+        assert put.status_code == 204
 
     async def test_maturity_alone_grants_access_to_an_unassigned_lesson(
         self, client: AsyncClient, world: World, db_session: AsyncSession, test_settings: Settings
@@ -481,11 +517,14 @@ class TestLessonAccessControl:
         newcomer = await create_user(
             db_session, email="intro-newcomer@example.com", project_id=world.project_id
         )
+        headers = auth_headers(newcomer, test_settings)
 
-        response = await client.get(
-            f"/api/lessons/{intro_lesson.id}", headers=auth_headers(newcomer, test_settings)
-        )
+        response = await client.get(f"/api/lessons/{intro_lesson.id}", headers=headers)
         assert response.status_code == 200
+        put = await client.put(
+            f"/api/lessons/{intro_lesson.id}/progress", json={"answers": {}}, headers=headers
+        )
+        assert put.status_code == 204
 
     async def test_admin_and_user_plus_bypass_the_gate(
         self, client: AsyncClient, world: World, db_session: AsyncSession, test_settings: Settings
@@ -540,3 +579,87 @@ class TestLessonAccessControl:
             headers=auth_headers(world.learner, test_settings),
         )
         assert response.status_code == 200
+
+
+class TestScopedAssignmentsAndTotalOrder:
+    """lesson_ids_for_user takes an optional candidate set so a caller testing
+    one module's membership does not read every lesson the user owns; "next
+    lesson" follows list_lessons' (sort_order, id) total order."""
+
+    async def test_lesson_ids_for_user_can_be_scoped_to_a_candidate_set(
+        self, world: World, db_session: AsyncSession
+    ) -> None:
+        from src.repositories.assignment_repository import AssignmentRepository
+
+        track = await create_track(db_session, "Scope Track", sort_order=30)
+        module = await create_module(db_session, track, "Scope Module")
+        wanted = await create_lesson(db_session, module, "Wanted", sort_order=0)
+        other = await create_lesson(db_session, module, "Other", sort_order=1)
+        await assign_lesson(db_session, world.learner, wanted)
+        await assign_lesson(db_session, world.learner, other)
+        unassigned = await create_lesson(db_session, module, "Unassigned", sort_order=2)
+
+        assignments = AssignmentRepository(db_session)
+        everything = {lesson.id for lesson in [*world.lessons, world.lesson_a2, wanted, other]}
+
+        assert await assignments.lesson_ids_for_user(world.learner.id) == everything
+        assert await assignments.lesson_ids_for_user(world.learner.id, [wanted.id]) == {wanted.id}
+        assert await assignments.lesson_ids_for_user(
+            world.learner.id, [wanted.id, unassigned.id]
+        ) == {wanted.id}
+        assert await assignments.lesson_ids_for_user(world.learner.id, []) == set()
+
+    async def test_next_lesson_does_not_skip_a_tied_sort_order(
+        self, client: AsyncClient, world: World, db_session: AsyncSession, test_settings: Settings
+    ) -> None:
+        """sort_order is not unique in legacy data. Two lessons sharing one must
+        still form a sequence -- the strict `>` comparison skipped the tied
+        sibling entirely. (The harness never commits, so C11's deferred unique
+        constraint never fires here.)"""
+        track = await create_track(db_session, "Tie Track", sort_order=31)
+        module = await create_module(db_session, track, "Tie Module")
+        first = await create_lesson(db_session, module, "First", sort_order=1)
+        tied = await create_lesson(db_session, module, "Tied", sort_order=1)
+        await assign_lesson(db_session, world.learner, first)
+        await assign_lesson(db_session, world.learner, tied)
+        earlier, later = sorted([first, tied], key=lambda lesson: (lesson.sort_order, lesson.id))
+
+        response = await client.get(
+            f"/api/lessons/{earlier.id}", headers=auth_headers(world.learner, test_settings)
+        )
+
+        assert response.status_code == 200
+        assert response.json()["next_lesson_id"] == str(later.id)
+
+    async def test_lesson_endpoints_read_assignments_scoped_not_unbounded(
+        self, client: AsyncClient, world: World, db_session: AsyncSession, test_settings: Settings
+    ) -> None:
+        """Every user_lessons read on the three learner lesson paths carries an
+        IN (...) candidate filter instead of pulling the caller's whole set."""
+        seen: list[str] = []
+
+        def _record(conn, cursor, statement, parameters, context, executemany) -> None:  # noqa: ANN001
+            seen.append(" ".join(statement.split()))
+
+        headers = auth_headers(world.learner, test_settings)
+        bind = db_session.get_bind()
+        assert isinstance(bind, Connection)
+        event.listen(bind, "before_cursor_execute", _record)
+        try:
+            responses = [
+                await client.get(f"/api/modules/{world.module_a1.id}/lessons", headers=headers),
+                await client.get(f"/api/lessons/{world.lessons[2].id}", headers=headers),
+                await client.put(
+                    f"/api/lessons/{world.lessons[1].id}/progress",
+                    json={"answers": {}},
+                    headers=headers,
+                ),
+            ]
+        finally:
+            event.remove(bind, "before_cursor_execute", _record)
+
+        assert [r.status_code for r in responses] == [200, 200, 204]
+        reads = [s for s in seen if s.startswith("SELECT user_lessons.lesson_id")]
+        assert reads, "expected user_lessons reads"
+        unbounded = [s for s in reads if "user_lessons.lesson_id IN" not in s]
+        assert not unbounded, f"unscoped user_lessons reads: {unbounded}"

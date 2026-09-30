@@ -3,15 +3,16 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING, Any, Literal
 
-from src.core.constants import LEVEL_RANK
+from src.core.constants import LEVEL_RANK, advance_level, module_level_map
 from src.services.exceptions import LessonNotAccessibleError, NotFoundError
 
 if TYPE_CHECKING:
-    from src.db.models import Lesson, Track
+    from src.db.models import Lesson, Track, User
     from src.repositories.base import (
         AbstractAssignmentRepository,
         AbstractContentRepository,
         AbstractProgressRepository,
+        AbstractSurveyRepository,
     )
 
 __all__ = ["LearningService", "LearningStatus"]
@@ -28,12 +29,14 @@ class LearningService:
         content: AbstractContentRepository,
         assignments: AbstractAssignmentRepository,
         progress: AbstractProgressRepository,
+        surveys: AbstractSurveyRepository,
     ) -> None:
         self._content = content
         self._assignments = assignments
         self._progress = progress
+        self._surveys = surveys
 
-    async def graph(self, user_id: uuid.UUID, effective_level: str | None = None) -> dict[str, Any]:
+    async def graph(self, user: User) -> dict[str, Any]:
         """The one aggregate replacing LearningPath's legacy 7-query chain.
 
         lesson_count / completed_lesson_count only cover lessons ASSIGNED to
@@ -41,16 +44,31 @@ class LearningService:
         curriculum, not the module's full inventory. The Introduction track is
         the one exception (see below): its counts cover ALL its lessons.
 
-        `effective_level` is the caller's maturity (from MaturityService). Each
-        track gets `unlocked_by_maturity = effective_level covers required_level`;
-        modules inherit their track's flag. Maturity gates whole tracks;
-        prerequisites still gate modules *within* an unlocked track (frontend)."""
+        The caller's effective maturity is computed HERE, from the very rows
+        this method already reads, via the shared `advance_level` ladder walk —
+        not by calling MaturityService (services never call services), which
+        would re-run list_tracks/list_modules/assigned_lesson_counts_by_module
+        a second time. Same pattern AdminUserService and DashboardService use.
+        Each track then gets `unlocked_by_maturity = effective_level covers
+        required_level`; modules inherit their track's flag. Maturity gates
+        whole tracks; prerequisites still gate modules *within* an unlocked
+        track (frontend)."""
+        user_id = user.id
         tracks = await self._content.list_tracks()
         modules = await self._content.list_modules()
         prerequisites = await self._content.list_prerequisites()
         assigned_tracks = await self._assignments.track_ids_for_user(user_id)
         assigned_modules = await self._assignments.module_ids_for_user(user_id)
         lesson_counts = await self._assignments.assigned_lesson_counts_by_module(user_id)
+
+        base = user.maturity_override or (await self._surveys.get_complete_levels([user_id])).get(
+            user_id
+        )
+        effective_level = (
+            advance_level(base, module_level_map(tracks, modules), lesson_counts)
+            if base is not None
+            else None
+        )
 
         caller_rank = LEVEL_RANK[effective_level] if effective_level is not None else None
 
@@ -155,8 +173,9 @@ class LearningService:
         if module is None:
             raise NotFoundError("Module")
         lessons = await self._content.list_lessons(module_id)
-        completed = await self._progress.completed_lesson_ids(user_id, [le.id for le in lessons])
-        assigned = await self._assignments.lesson_ids_for_user(user_id)
+        lesson_ids = [le.id for le in lessons]
+        completed = await self._progress.completed_lesson_ids(user_id, lesson_ids)
+        assigned = await self._assignments.lesson_ids_for_user(user_id, lesson_ids)
         track = await self._content.get_track(module.track_id)
         intro = track is not None and track.is_introduction
 
@@ -245,7 +264,13 @@ class LearningService:
         if module is None:  # pragma: no cover - FK guarantees the module exists
             raise NotFoundError("Module")
 
-        assigned = await self._assignments.lesson_ids_for_user(user_id)
+        # Scoped to this module's lessons, which always include lesson_id itself,
+        # so the access gate below gets exactly the answer the unbounded read
+        # gave for lesson_id; the same list then serves "next lesson".
+        module_lessons = await self._content.list_lessons(lesson.module_id)
+        assigned = await self._assignments.lesson_ids_for_user(
+            user_id, [le.id for le in module_lessons]
+        )
         track = await self._content.get_track(module.track_id)
         if not self._is_accessible(
             lesson_id=lesson_id,
@@ -259,15 +284,19 @@ class LearningService:
         progress = await self._progress.get(user_id, lesson_id)
         intro = track is not None and track.is_introduction
 
-        def is_assigned(lesson_id_: uuid.UUID) -> bool:
-            return intro or lesson_id_ in assigned
+        def is_assigned(lesson_id_: uuid.UUID, assigned_ids: set[uuid.UUID]) -> bool:
+            return intro or lesson_id_ in assigned_ids
 
+        # (sort_order, id) -- the same total order list_lessons returns. A strict
+        # `sort_order >` skipped a tied sibling entirely, and legacy sort_order
+        # values are not unique.
+        here = (lesson.sort_order, lesson.id)
         next_module_id: uuid.UUID | None = None
         next_lesson: Lesson | None = next(
             (
                 le
-                for le in await self._content.list_lessons(lesson.module_id)
-                if le.sort_order > lesson.sort_order and is_assigned(le.id)
+                for le in module_lessons
+                if (le.sort_order, le.id) > here and is_assigned(le.id, assigned)
             ),
             None,
         )
@@ -277,12 +306,12 @@ class LearningService:
             )
             if next_module is not None:
                 next_module_id = next_module.id
+                next_module_lessons = await self._content.list_lessons(next_module.id)
+                next_assigned = await self._assignments.lesson_ids_for_user(
+                    user_id, [le.id for le in next_module_lessons]
+                )
                 next_lesson = next(
-                    (
-                        le
-                        for le in await self._content.list_lessons(next_module.id)
-                        if is_assigned(le.id)
-                    ),
+                    (le for le in next_module_lessons if is_assigned(le.id, next_assigned)),
                     None,
                 )
 
@@ -322,7 +351,7 @@ class LearningService:
         if not self._is_accessible(
             lesson_id=lesson_id,
             track=track,
-            assigned=await self._assignments.lesson_ids_for_user(user_id),
+            assigned=await self._assignments.lesson_ids_for_user(user_id, [lesson_id]),
             effective_level=effective_level,
             bypass_locks=bypass_locks,
         ):

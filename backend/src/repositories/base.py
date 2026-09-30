@@ -555,7 +555,13 @@ class AbstractAssignmentRepository(ABC):
     async def module_ids_for_user(self, user_id: uuid.UUID) -> set[uuid.UUID]: ...
 
     @abstractmethod
-    async def lesson_ids_for_user(self, user_id: uuid.UUID) -> set[uuid.UUID]: ...
+    async def lesson_ids_for_user(
+        self, user_id: uuid.UUID, lesson_ids: list[uuid.UUID] | None = None
+    ) -> set[uuid.UUID]:
+        """The user's assigned lesson ids, optionally restricted to a candidate
+        set (so a caller testing one module's membership does not read every
+        lesson the user owns). An empty list reads nothing and returns empty;
+        None keeps the unbounded read."""
 
     @abstractmethod
     async def user_tracks_for_users(self, user_ids: list[uuid.UUID]) -> list[UserTrack]:
