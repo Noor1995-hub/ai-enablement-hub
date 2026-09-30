@@ -101,3 +101,17 @@ async def test_build_context_feeds_the_case_assessment_into_the_briefing() -> No
 
     assert "CFO" in briefing
     assert "the month end close" in briefing
+
+
+async def test_create_interview_if_absent_mirrors_the_one_interview_rule() -> None:
+    conversations = InMemoryConversationRepository()
+    user_id = uuid.uuid4()
+    conversations.seed(user_id=user_id, kind="chatbot")
+
+    first = await conversations.create_interview_if_absent(user_id)
+    second = await conversations.create_interview_if_absent(user_id)
+
+    assert first is not None
+    assert first.kind == "interview"
+    assert second is None
+    assert await conversations.list_for_user(user_id, "interview") == [first]

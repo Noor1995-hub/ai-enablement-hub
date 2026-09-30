@@ -446,6 +446,34 @@ class TestInterviewKindComponentGate:
             raw = "".join([chunk async for chunk in response.aiter_text()])
         assert [e for e, _ in _parse_sse(raw)] == ["token", "done"]
 
+    async def test_post_interview_without_id_continues_the_existing_interview(
+        self,
+        chat_client: Callable[[FakeLlmClient], AsyncClient],
+        db_session: AsyncSession,
+        test_settings: Settings,
+    ) -> None:
+        """One interview per user (uq_conversations_interview_user_id): a turn
+        posted without a conversation_id joins the learner's interview rather
+        than trying to insert a second one (which the index would turn into a 500)."""
+        user, project = await self._learner(db_session, "post-no-id")
+        await unlock_component(db_session, project, "interview")
+        await create_survey(db_session, user, status="complete")
+        conversations = ConversationRepository(db_session)
+        existing = await conversations.create(user_id=user.id, kind="interview")
+        client = chat_client(FakeLlmClient(chunks=["Hello"]))
+        async with client.stream(
+            "POST",
+            "/api/chat/interview",
+            json={"content": "hi"},
+            headers=auth_headers(user, test_settings),
+        ) as response:
+            assert response.status_code == 200
+            raw = "".join([chunk async for chunk in response.aiter_text()])
+        done = [data for event, data in _parse_sse(raw) if event == "done"]
+        assert done[0]["conversation_id"] == str(existing.id)
+        rows = await conversations.list_for_user(user.id, "interview")
+        assert [c.id for c in rows] == [existing.id]
+
     async def test_list_interview_403_when_locked(
         self,
         chat_client: Callable[[FakeLlmClient], AsyncClient],

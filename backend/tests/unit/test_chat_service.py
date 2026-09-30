@@ -49,6 +49,52 @@ async def test_resolve_conversation_creates_new_when_no_id() -> None:
     assert conversation is conversations.create.return_value
 
 
+async def test_resolve_conversation_creates_the_first_interview_race_safely() -> None:
+    service, conversations, _ = _service(FakeLlmClient(chunks=[]))
+    created = SimpleNamespace(id=uuid.uuid4(), user_id=uuid.uuid4(), kind="interview")
+    conversations.create_interview_if_absent.return_value = created
+    user_id = uuid.uuid4()
+
+    conversation = await service.resolve_conversation(
+        user_id=user_id, kind="interview", conversation_id=None
+    )
+
+    conversations.create_interview_if_absent.assert_awaited_once_with(user_id)
+    conversations.create.assert_not_awaited()
+    assert conversation is created
+
+
+async def test_resolve_conversation_reuses_the_existing_interview() -> None:
+    """One interview per user (uq_conversations_interview_user_id): no id means
+    "my interview", never a second row (which the index would turn into a 500)."""
+    service, conversations, _ = _service(FakeLlmClient(chunks=[]))
+    user_id = uuid.uuid4()
+    existing = SimpleNamespace(id=uuid.uuid4(), user_id=user_id, kind="interview")
+    conversations.create_interview_if_absent.return_value = None
+    conversations.list_for_user.return_value = [existing]
+
+    conversation = await service.resolve_conversation(
+        user_id=user_id, kind="interview", conversation_id=None
+    )
+
+    assert conversation is existing
+    conversations.list_for_user.assert_awaited_once_with(user_id, "interview")
+    conversations.create.assert_not_awaited()
+
+
+async def test_resolve_conversation_404s_if_the_interview_vanishes_mid_race() -> None:
+    """Lost the insert race, then the winner was reset before the re-read."""
+    service, conversations, _ = _service(FakeLlmClient(chunks=[]))
+    conversations.create_interview_if_absent.return_value = None
+    conversations.list_for_user.return_value = []
+
+    with pytest.raises(NotFoundError):
+        await service.resolve_conversation(
+            user_id=uuid.uuid4(), kind="interview", conversation_id=None
+        )
+    conversations.create.assert_not_awaited()
+
+
 async def test_resolve_conversation_rejects_someone_elses() -> None:
     service, conversations, _ = _service(FakeLlmClient(chunks=[]))
     other_user_id = uuid.uuid4()

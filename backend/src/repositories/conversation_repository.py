@@ -5,7 +5,8 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, select, text, update
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from src.db.models import Conversation
 from src.repositories.base import AbstractConversationRepository
@@ -35,6 +36,28 @@ class ConversationRepository(AbstractConversationRepository):
         await self._session.commit()
         await self._session.refresh(conversation)
         return conversation
+
+    async def create_interview_if_absent(self, user_id: uuid.UUID) -> Conversation | None:
+        # ON CONFLICT DO NOTHING against the partial unique index
+        # uq_conversations_interview_user_id (the index_where must match its
+        # predicate for Postgres to infer it as the arbiter). The loser of a
+        # concurrent insert gets no row back instead of an IntegrityError, so the
+        # session never enters the failed-flush state. Timestamps set here for the
+        # same reason as in create().
+        now = datetime.now(UTC)
+        result = await self._session.execute(
+            pg_insert(Conversation)
+            .values(user_id=user_id, kind="interview", created_at=now, updated_at=now)
+            .on_conflict_do_nothing(
+                index_elements=["user_id"], index_where=text("kind = 'interview'")
+            )
+            .returning(Conversation.id)
+        )
+        conversation_id = result.scalar_one_or_none()
+        await self._session.commit()
+        if conversation_id is None:
+            return None
+        return await self.get_by_id(conversation_id)
 
     async def get_by_id(self, conversation_id: uuid.UUID) -> Conversation | None:
         result = await self._session.execute(

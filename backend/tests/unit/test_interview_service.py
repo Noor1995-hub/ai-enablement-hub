@@ -433,7 +433,7 @@ async def test_open_interview_fresh_generates_persists_and_returns_greeting() ->
     context.build_briefing.return_value = "BRIEFING"
     conversations.list_for_user.return_value = []
     new_conv = _conversation(summary=None)
-    conversations.create.return_value = new_conv
+    conversations.create_interview_if_absent.return_value = new_conv
     user = _user()
 
     result = await service.open_interview(user=user)  # ty: ignore[invalid-argument-type]
@@ -468,7 +468,62 @@ async def test_open_interview_idempotent_returns_existing_greeting() -> None:
     assert result.conversation_id == existing.id
     assert result.greeting == "Hi Aaron, welcome back."
     assert llm.calls == []
-    conversations.create.assert_not_awaited()
+    conversations.create_interview_if_absent.assert_not_awaited()
+    messages.create.assert_not_awaited()
+
+
+async def test_open_interview_losing_the_race_returns_the_winners_conversation() -> None:
+    """Two concurrent openers both pass the "no interview yet" check; the partial
+    unique index lets only one insert through. The loser returns the winner's
+    conversation and greeting, persisting nothing of its own."""
+    llm = FakeLlmClient(chunks=["Hi Aaron, ", "shall we begin?"])
+    service, conversations, messages, context = _service(llm)
+    context.build_briefing.return_value = "BRIEFING"
+    winner = _conversation(summary=None)
+    conversations.list_for_user.side_effect = [[], [winner]]
+    conversations.create_interview_if_absent.return_value = None
+    messages.list_for_conversation.return_value = [
+        SimpleNamespace(role="assistant", content="Hi Aaron, the winner's greeting."),
+    ]
+    user = _user()
+
+    result = await service.open_interview(user=user)  # ty: ignore[invalid-argument-type]
+
+    assert result.conversation_id == winner.id
+    assert result.greeting == "Hi Aaron, the winner's greeting."
+    conversations.create_interview_if_absent.assert_awaited_once_with(user.id)
+    messages.create.assert_not_awaited()
+    conversations.touch.assert_not_awaited()
+
+
+async def test_open_interview_losing_before_the_winners_greeting_lands_is_empty() -> None:
+    """The winner inserts the conversation before its greeting row: a loser that
+    reads in between gets the conversation with an empty greeting (the page
+    re-reads it via GET /api/interview/me)."""
+    service, conversations, messages, context = _service(FakeLlmClient(chunks=["Hi"]))
+    context.build_briefing.return_value = "BRIEFING"
+    winner = _conversation(summary=None)
+    conversations.list_for_user.side_effect = [[], [winner]]
+    conversations.create_interview_if_absent.return_value = None
+    messages.list_for_conversation.return_value = []
+
+    result = await service.open_interview(user=_user())  # ty: ignore[invalid-argument-type]
+
+    assert result.conversation_id == winner.id
+    assert result.greeting == ""
+    messages.create.assert_not_awaited()
+
+
+async def test_open_interview_winner_reset_mid_race_is_a_retryable_conflict() -> None:
+    """Lost the insert race, then the winner's interview was reset before the
+    re-read: nothing to return, so a 409 the page can retry."""
+    service, conversations, messages, context = _service(FakeLlmClient(chunks=["Hi"]))
+    context.build_briefing.return_value = "BRIEFING"
+    conversations.list_for_user.side_effect = [[], []]
+    conversations.create_interview_if_absent.return_value = None
+
+    with pytest.raises(ConflictError):
+        await service.open_interview(user=_user())  # ty: ignore[invalid-argument-type]
     messages.create.assert_not_awaited()
 
 
@@ -485,7 +540,7 @@ async def test_open_interview_llm_failure_creates_no_conversation() -> None:
     # A rejected key is a provider failure but not a transient one: a neutral 502,
     # never "busy, try again".
     assert "busy" not in str(exc_info.value).lower()
-    conversations.create.assert_not_awaited()
+    conversations.create_interview_if_absent.assert_not_awaited()
     messages.create.assert_not_awaited()
 
 
@@ -499,7 +554,7 @@ async def test_open_interview_lets_an_unknown_error_propagate() -> None:
     with pytest.raises(RuntimeError, match="unreachable"):
         await service.open_interview(user=user)  # ty: ignore[invalid-argument-type]
 
-    conversations.create.assert_not_awaited()
+    conversations.create_interview_if_absent.assert_not_awaited()
     messages.create.assert_not_awaited()
 
 
@@ -715,7 +770,7 @@ async def test_opener_is_bounded_by_its_own_timeout(monkeypatch: pytest.MonkeyPa
     with pytest.raises(AiGenerationError):
         await service.open_interview(user=_user())  # ty: ignore[invalid-argument-type]
 
-    conversations.create.assert_not_awaited()
+    conversations.create_interview_if_absent.assert_not_awaited()
     messages.create.assert_not_awaited()
 
 
@@ -752,5 +807,5 @@ async def test_opener_transient_provider_failure_is_a_busy_502(
     with pytest.raises(AiGenerationError, match="busy"):
         await service.open_interview(user=_user())  # ty: ignore[invalid-argument-type]
 
-    conversations.create.assert_not_awaited()
+    conversations.create_interview_if_absent.assert_not_awaited()
     messages.create.assert_not_awaited()

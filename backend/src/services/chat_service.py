@@ -83,6 +83,17 @@ class ChatService:
         NotFoundError becomes a plain 404 through the existing exception
         handler, not a mid-stream error event."""
         if conversation_id is None:
+            if kind == "interview":
+                # One interview per user (partial unique index
+                # uq_conversations_interview_user_id): no id means "my interview".
+                # Continue it rather than insert a second row (an IntegrityError/500).
+                created = await self._conversations.create_interview_if_absent(user_id)
+                if created is not None:
+                    return created
+                existing = await self._conversations.list_for_user(user_id, kind)
+                if existing:
+                    return existing[0]
+                raise NotFoundError("Conversation")  # reset in between: the caller retries
             return await self._conversations.create(user_id=user_id, kind=kind)
         conversation = await self._conversations.get_by_id(conversation_id)
         # kind must match the PATH segment, not just ownership: require_ai_surface

@@ -190,7 +190,19 @@ class InterviewService:
             logger.warning("interview opener failed for user %s: empty greeting", user.id)
             raise DomainError("Could not start the interview - please try again.")
 
-        conversation = await self._conversations.create(user_id=user.id, kind=_KIND)
+        conversation = await self._conversations.create_interview_if_absent(user.id)
+        if conversation is None:
+            # Lost the race to a concurrent opener (partial unique index
+            # uq_conversations_interview_user_id): return the winner's conversation
+            # and drop our greeting. The winner inserts its greeting only after the
+            # conversation, so it may not exist yet: the greeting is then "" and the
+            # page re-reads it via GET /api/interview/me.
+            winner = await self._interview_conversation(user.id)
+            if winner is None:  # the winner was reset in between: let the caller retry
+                raise ConflictError("Could not start the interview - please try again.")
+            rows = await self._messages.list_for_conversation(winner.id)
+            greeting = next((m.content for m in rows if m.role == "assistant"), "")
+            return InterviewOpenerResponse(conversation_id=winner.id, greeting=greeting)
         await self._messages.create(
             conversation.id,
             role="assistant",

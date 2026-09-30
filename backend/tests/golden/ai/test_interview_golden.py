@@ -178,7 +178,7 @@ async def test_interview_golden() -> None:
     new_conversation = SimpleNamespace(
         id=_CONVERSATION_ID, user_id=_USER_ID, kind="interview", summary=None
     )
-    conversations.create.return_value = new_conversation
+    conversations.create_interview_if_absent.return_value = new_conversation
     service = InterviewService(conversations, messages, llm, _context())
     user = _user()
 
@@ -191,7 +191,7 @@ async def test_interview_golden() -> None:
     conversations2 = AsyncMock(spec=AbstractConversationRepository)
     messages2 = AsyncMock(spec=AbstractMessageRepository)
     conversations2.list_for_user.return_value = []
-    conversations2.create.return_value = SimpleNamespace(
+    conversations2.create_interview_if_absent.return_value = SimpleNamespace(
         id=_CONVERSATION_ID, user_id=_USER_ID, kind="interview", summary=None
     )
     service2 = InterviewService(conversations2, messages2, llm2, _context())

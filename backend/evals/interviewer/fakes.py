@@ -50,6 +50,11 @@ class InMemoryConversationRepository(AbstractConversationRepository):
     ) -> Conversation:
         return self.seed(user_id=user_id, kind=kind)
 
+    async def create_interview_if_absent(self, user_id: uuid.UUID) -> Conversation | None:
+        if await self.list_for_user(user_id, "interview"):
+            return None
+        return self.seed(user_id=user_id, kind="interview")
+
     async def get_by_id(self, conversation_id: uuid.UUID) -> Conversation | None:
         return self._rows.get(conversation_id)
 
