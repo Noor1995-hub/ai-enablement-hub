@@ -261,6 +261,7 @@
 .adm-table tr:last-child td { border-bottom: none; }
 .adm-table-row-clickable { cursor: pointer; }
 .adm-table-row-clickable:hover td { background: #FAFAF8; }
+.adm-table-row-clickable:focus-visible { outline: 2px solid var(--adm-red-deep); outline-offset: -2px; }
 .adm-table-row-selected td { background: var(--adm-red-tint); }
 .adm-table-check { width: 34px; }
 .adm-table input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--adm-red-deep); cursor: pointer; }

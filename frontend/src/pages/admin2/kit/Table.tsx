@@ -80,7 +80,23 @@ export function Table<T,>({
               ]
                 .filter(Boolean)
                 .join(' ')}
+              // Clickable rows were mouse-only. tabIndex + Enter/Space makes them
+              // reachable; the row keeps its native `row` role (an added
+              // role="button" would break the table semantics screen readers use
+              // to announce column headers).
+              tabIndex={onRowClick ? 0 : undefined}
               onClick={onRowClick ? () => onRowClick(row) : undefined}
+              onKeyDown={
+                onRowClick
+                  ? e => {
+                      if (e.target !== e.currentTarget) return // let checkboxes/buttons handle their own keys
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        onRowClick(row)
+                      }
+                    }
+                  : undefined
+              }
             >
               {selectable && (
                 <td className="adm-table-check" onClick={e => e.stopPropagation()}>
