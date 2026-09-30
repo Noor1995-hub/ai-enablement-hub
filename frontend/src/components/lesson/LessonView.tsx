@@ -1,5 +1,6 @@
 import type { ComponentType } from 'react'
 import type { ContentBlock } from '../../types/contentBlocks'
+import ErrorBoundary from '../ErrorBoundary'
 import HeadingBlock   from './blocks/HeadingBlock'
 import ParagraphBlock from './blocks/ParagraphBlock'
 import CalloutBlock   from './blocks/CalloutBlock'
@@ -62,13 +63,29 @@ export default function LessonView({ blocks = [], onQuizComplete, answers, onAns
         const Component = RENDERERS[block.type] as ComponentType<{ block: ContentBlock } & BlockExtraProps>
         if (!Component) return null // content_blocks is JSONB — tolerate unknown types
         return (
-          <Component
+          // Per-block: a single malformed block (JSONB content, now also written
+          // by the AI proposal pipeline) degrades to one inline notice instead of
+          // taking the lesson — or the app — down with it.
+          <ErrorBoundary
             key={block.id}
-            block={block}
-            onComplete={block.type === 'quiz' ? onQuizComplete : undefined}
-            answer={block.type === 'question' ? answers?.[block.id] : undefined}
-            onAnswerChange={block.type === 'question' ? onAnswerChange : undefined}
-          />
+            resetKey={block.id}
+            fallback={() => (
+              <p style={{
+                fontFamily: 'var(--dlw-font-body)', fontWeight: 300, fontSize: 14,
+                color: '#8A8A8A', fontStyle: 'italic',
+                border: '1px dashed #E2E2E2', borderRadius: 8, padding: '12px 14px',
+              }}>
+                This part of the lesson couldn't be displayed.
+              </p>
+            )}
+          >
+            <Component
+              block={block}
+              onComplete={block.type === 'quiz' ? onQuizComplete : undefined}
+              answer={block.type === 'question' ? answers?.[block.id] : undefined}
+              onAnswerChange={block.type === 'question' ? onAnswerChange : undefined}
+            />
+          </ErrorBoundary>
         )
       })}
     </div>

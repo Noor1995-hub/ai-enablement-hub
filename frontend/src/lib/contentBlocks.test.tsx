@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import LessonView from '../components/lesson/LessonView'
 import type { ContentBlock } from '../types/contentBlocks'
@@ -36,5 +36,8 @@ describe('content-block registration', () => {
     const { container } = render(<LessonView blocks={[block]} />)
     // LessonView wraps the blocks in one <div>; a type with no renderer yields an empty wrapper.
     expect(container.firstElementChild?.childElementCount).toBeGreaterThan(0)
+    // Each block sits in its own error boundary, so a renderer that throws on its factory
+    // default would still fill the wrapper, with the fallback notice. Rule that out.
+    expect(screen.queryByText("This part of the lesson couldn't be displayed.")).not.toBeInTheDocument()
   })
 })

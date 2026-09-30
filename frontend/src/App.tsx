@@ -1,5 +1,6 @@
 import { useLayoutEffect } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { RoutedErrorBoundary } from './components/ErrorBoundary'
 import Spinner from './components/Spinner'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import AdminShell from './pages/admin2/AdminShell'
@@ -96,7 +97,9 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <ScrollToTop />
-        <AppRoutes />
+        <RoutedErrorBoundary>
+          <AppRoutes />
+        </RoutedErrorBoundary>
       </BrowserRouter>
     </AuthProvider>
   )
