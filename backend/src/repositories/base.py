@@ -743,8 +743,12 @@ class AbstractConversationRepository(ABC):
     async def get_by_id(self, conversation_id: uuid.UUID) -> Conversation | None: ...
 
     @abstractmethod
-    async def list_for_user(self, user_id: uuid.UUID, kind: str) -> list[Conversation]:
-        """Newest-first, for the history list."""
+    async def list_for_user(
+        self, user_id: uuid.UUID, kind: str, *, limit: int | None = None
+    ) -> list[Conversation]:
+        """Newest-first (updated_at desc, id desc as tiebreak), for the history
+        list. `limit=None` (the default) returns every row -- callers that must
+        see the complete history (e.g. interview reset) rely on this."""
 
     @abstractmethod
     async def touch(self, conversation_id: uuid.UUID) -> None:

@@ -42,12 +42,17 @@ class ConversationRepository(AbstractConversationRepository):
         )
         return result.scalar_one_or_none()
 
-    async def list_for_user(self, user_id: uuid.UUID, kind: str) -> list[Conversation]:
-        result = await self._session.execute(
+    async def list_for_user(
+        self, user_id: uuid.UUID, kind: str, *, limit: int | None = None
+    ) -> list[Conversation]:
+        query = (
             select(Conversation)
             .where(Conversation.user_id == user_id, Conversation.kind == kind)
-            .order_by(Conversation.updated_at.desc())
+            .order_by(Conversation.updated_at.desc(), Conversation.id.desc())
         )
+        if limit is not None:
+            query = query.limit(limit)
+        result = await self._session.execute(query)
         return list(result.scalars().all())
 
     async def touch(self, conversation_id: uuid.UUID) -> None:

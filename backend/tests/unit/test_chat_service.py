@@ -76,6 +76,18 @@ async def test_resolve_conversation_rejects_a_different_kind() -> None:
         )
 
 
+async def test_list_conversations_caps_the_repository_read_at_fifty() -> None:
+    """Decision 5.11: cap the dialogue-history read now; the retention window
+    (deleting old rows) is a separate, still-open decision."""
+    service, conversations, _ = _service(FakeLlmClient(chunks=[]))
+    conversations.list_for_user.return_value = []
+    user_id = uuid.uuid4()
+
+    await service.list_conversations(user_id=user_id, kind="chatbot")
+
+    conversations.list_for_user.assert_awaited_once_with(user_id, "chatbot", limit=50)
+
+
 async def test_send_message_streams_tokens_then_done_and_persists() -> None:
     llm = FakeLlmClient(chunks=["Hel", "lo!"])
     service, _, messages = _service(llm)

@@ -53,8 +53,12 @@ class InMemoryConversationRepository(AbstractConversationRepository):
     async def get_by_id(self, conversation_id: uuid.UUID) -> Conversation | None:
         return self._rows.get(conversation_id)
 
-    async def list_for_user(self, user_id: uuid.UUID, kind: str) -> list[Conversation]:
-        return [c for c in self._rows.values() if c.user_id == user_id and c.kind == kind]
+    async def list_for_user(
+        self, user_id: uuid.UUID, kind: str, *, limit: int | None = None
+    ) -> list[Conversation]:
+        matches = [c for c in self._rows.values() if c.user_id == user_id and c.kind == kind]
+        matches.sort(key=lambda c: (c.updated_at, c.id), reverse=True)
+        return matches[:limit] if limit is not None else matches
 
     async def touch(self, conversation_id: uuid.UUID) -> None:
         pass  # nothing in the eval reads updated_at

@@ -23,6 +23,9 @@ logger = logging.getLogger(__name__)
 
 _HISTORY_WINDOW = 20
 _MAX_TOKENS = 1024
+# Decision 5.11 (2026-09-25): cap the conversation-list read; the retention window
+# (deleting old rows) is a separate decision, still open.
+_CONVERSATION_LIST_LIMIT = 50
 _BUSY_MESSAGE = "The assistant is busy right now - please try again in a moment."
 _GENERIC_MESSAGE = "Something went wrong generating the reply - please try again."
 
@@ -92,7 +95,9 @@ class ChatService:
         return conversation
 
     async def list_conversations(self, *, user_id: uuid.UUID, kind: str) -> list[Conversation]:
-        return await self._conversations.list_for_user(user_id, kind)
+        return await self._conversations.list_for_user(
+            user_id, kind, limit=_CONVERSATION_LIST_LIMIT
+        )
 
     async def get_conversation_detail(
         self, *, user_id: uuid.UUID, conversation_id: uuid.UUID
