@@ -45,3 +45,11 @@ describe('chatToolbarHint', () => {
     for (const st of states) expect(chatToolbarHint(st)).not.toMatch(/[—–…]/)
   })
 })
+
+describe('chatToolbarHint in Dutch (#83)', () => {
+  it('speaks the learner\'s chosen language', () => {
+    expect(chatToolbarHint({ ...base, answerCount: 1 }, 'nl')).toBe(
+      'Ga gerust verder: hoe meer u vertelt, hoe beter uw playbook.',
+    )
+  })
+})

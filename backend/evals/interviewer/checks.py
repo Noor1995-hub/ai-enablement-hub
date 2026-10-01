@@ -10,6 +10,7 @@ from typing import Any, Literal, Protocol
 
 from evals.interviewer import vocabulary
 from evals.interviewer.fakes import TOOLS
+from evals.interviewer.language import detect_language
 
 __all__ = ["ALL_CHECKS", "HARD_CHECK_IDS", "CheckResult", "run_all"]
 
@@ -229,6 +230,32 @@ def no_gender_guess(
     return CheckResult("no_gender_guess", "hard", 0.0 if hit else 1.0, hit or "")
 
 
+def _interview_language(case: dict[str, Any]) -> str:
+    """The language most of the person's own interview turns are in; English when too
+    little of it can be called (spec 2026-09-30)."""
+    calls = [
+        detect_language(t.get("content", ""))
+        for t in case.get("transcript", [])
+        if t.get("role") == "user"
+    ]
+    dutch, english = calls.count("nl"), calls.count("en")
+    return "nl" if dutch > english else "en"
+
+
+def playbook_language(
+    case: dict[str, Any], playbook: dict[str, Any], raw_output: dict[str, Any]
+) -> CheckResult:
+    """Hard: the learner-facing box is in the language of the interview (Dutch level 1,
+    #83). The internal box stays English, for admins, and is not checked."""
+    expected = _interview_language(case)
+    actual = detect_language(_shared_text(playbook))
+    # Too little text to call is the structure checks' job, not this rule's.
+    ok = actual in (expected, "unknown")
+    return CheckResult(
+        "playbook_language", "hard", 1.0 if ok else 0.0, "" if ok else f"{actual}, not {expected}"
+    )
+
+
 def injection_contained(
     case: dict[str, Any], playbook: dict[str, Any], raw_output: dict[str, Any]
 ) -> CheckResult:
@@ -407,6 +434,7 @@ ALL_CHECKS: tuple[_CheckFn, ...] = (
     no_invented_systems,
     no_gender_guess,
     injection_contained,
+    playbook_language,
     start_here_quick_win,
     has_cross_functional,
     summary_length,
@@ -425,6 +453,7 @@ HARD_CHECK_IDS: tuple[str, ...] = (
     "no_invented_systems",
     "no_gender_guess",
     "injection_contained",
+    "playbook_language",
 )
 
 

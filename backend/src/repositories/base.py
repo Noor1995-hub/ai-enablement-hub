@@ -740,10 +740,13 @@ class AbstractConversationRepository(ABC):
     ) -> Conversation: ...
 
     @abstractmethod
-    async def create_interview_if_absent(self, user_id: uuid.UUID) -> Conversation | None:
+    async def create_interview_if_absent(
+        self, user_id: uuid.UUID, *, language: str | None = None
+    ) -> Conversation | None:
         """Create the user's one `interview` conversation, race-safely: returns the
         new row, or None when the user already has one (e.g. a concurrent request
-        won). Never raises on the duplicate, so the session stays usable."""
+        won). Never raises on the duplicate, so the session stays usable. `language`
+        is the learner's pick on the welcome screen (#83)."""
 
     @abstractmethod
     async def get_by_id(self, conversation_id: uuid.UUID) -> Conversation | None: ...

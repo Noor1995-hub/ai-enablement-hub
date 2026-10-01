@@ -101,7 +101,10 @@ async def _run_one(
     when nothing was billed (build_playbook raised ConflictError before any LLM call)."""
     conversations = InMemoryConversationRepository()
     messages = InMemoryMessageRepository()
-    conversation = conversations.seed(user_id=uuid.uuid4(), kind="interview")
+    # The case's chosen interview language (#83); a case without one is English.
+    conversation = conversations.seed(
+        user_id=uuid.uuid4(), kind="interview", language=case.get("language", "en")
+    )
     messages.seed(conversation.id, case["transcript"])
     context = build_context(case)
     recorder = RecordingLlmClient(inner_llm)

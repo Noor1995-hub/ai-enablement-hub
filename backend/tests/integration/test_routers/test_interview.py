@@ -235,6 +235,28 @@ class TestAssessmentGate:
         assert response.status_code == 404
         assert "not configured" in response.json()["error"]["message"]
 
+    async def test_the_opener_accepts_a_language_choice(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        project: Project,
+        test_settings: Settings,
+    ) -> None:
+        """#83: the welcome screen posts the learner's pick. Past validation the route
+        reaches the (unconfigured) service, so 404, not 422; an unknown language is 422."""
+        await self._open_project(db_session, project)
+        user = await create_user(db_session, email="gate-lang@example.com", project_id=project.id)
+        await create_survey(db_session, user, status="complete")
+        headers = auth_headers(user, test_settings)
+
+        dutch = await client.post("/api/interview/opener", headers=headers, json={"language": "nl"})
+        french = await client.post(
+            "/api/interview/opener", headers=headers, json={"language": "fr"}
+        )
+
+        assert dutch.status_code == 404
+        assert french.status_code == 422
+
     async def test_admin_without_assessment_passes(
         self,
         client: AsyncClient,

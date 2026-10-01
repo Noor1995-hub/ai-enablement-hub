@@ -1,3 +1,5 @@
+import { DEFAULT_INTERVIEW_LANGUAGE, INTERVIEW_STRINGS, type InterviewLanguage } from './interviewStrings'
+
 /** A chat message as the interview page displays it: the ready marker already stripped. */
 export interface DisplayMessage {
   role: 'user' | 'assistant'
@@ -23,8 +25,6 @@ export function bubbleView(messages: DisplayMessage[], index: number, loading: b
   return isLiveReply ? 'streaming' : 'text'
 }
 
-const TYPING = 'The interviewer is typing.'
-
 /** Text for the page's screen-reader live region during the chat. It stays the same while a
  *  reply streams, so screen readers never read out half-written fragments, then carries the
  *  finished reply. Silent after an error (the error's own alert speaks) and when the learner
@@ -32,8 +32,9 @@ const TYPING = 'The interviewer is typing.'
 export function liveAnnouncement(
   messages: DisplayMessage[],
   { loading, opening, error }: { loading: boolean; opening: boolean; error: string | null },
+  language: InterviewLanguage = DEFAULT_INTERVIEW_LANGUAGE,
 ): string {
-  if (loading || opening) return TYPING
+  if (loading || opening) return INTERVIEW_STRINGS[language].typingAnnouncement
   if (error) return ''
   const last = messages[messages.length - 1]
   return last?.role === 'assistant' ? last.text.trim() : ''
@@ -41,8 +42,11 @@ export function liveAnnouncement(
 
 /** The Build button's own screen-reader description while it is greyed out (why, and what
  *  unlocks it), or null once it can be used. */
-export function buildButtonStatus({ canBuild, loading }: { canBuild: boolean; loading: boolean }): string | null {
-  if (!canBuild) return 'Unlocks once the interviewer has enough to go on.'
-  if (loading) return 'Available once the interviewer finishes replying.'
+export function buildButtonStatus(
+  { canBuild, loading }: { canBuild: boolean; loading: boolean },
+  language: InterviewLanguage = DEFAULT_INTERVIEW_LANGUAGE,
+): string | null {
+  if (!canBuild) return INTERVIEW_STRINGS[language].buildLocked
+  if (loading) return INTERVIEW_STRINGS[language].buildWaiting
   return null
 }

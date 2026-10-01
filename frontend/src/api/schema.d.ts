@@ -1710,6 +1710,12 @@ export interface components {
              * @enum {string}
              */
             status: "not_started" | "in_progress" | "complete";
+            /**
+             * Language
+             * @default en
+             * @enum {string}
+             */
+            language: "en" | "nl";
             /** Tier */
             tier?: string | null;
             internal?: components["schemas"]["PlaybookInternal"] | null;
@@ -2515,6 +2521,19 @@ export interface components {
             /** What To Probe Next */
             what_to_probe_next: string[];
         };
+        /**
+         * InterviewOpenerRequest
+         * @description The learner's pick on the welcome screen. Optional body: an older frontend that
+         *     posts nothing gets English.
+         */
+        InterviewOpenerRequest: {
+            /**
+             * Language
+             * @default en
+             * @enum {string}
+             */
+            language: "en" | "nl";
+        };
         /** InterviewOpenerResponse */
         InterviewOpenerResponse: {
             /**
@@ -2524,6 +2543,12 @@ export interface components {
             conversation_id: string;
             /** Greeting */
             greeting: string;
+            /**
+             * Language
+             * @default en
+             * @enum {string}
+             */
+            language: "en" | "nl";
         };
         /** InterviewStateResponse */
         InterviewStateResponse: {
@@ -2535,6 +2560,12 @@ export interface components {
             /** Conversation Id */
             conversation_id?: string | null;
             playbook?: components["schemas"]["PlaybookShared"] | null;
+            /**
+             * Language
+             * @default en
+             * @enum {string}
+             */
+            language: "en" | "nl";
         };
         /** InviteInfoResponse */
         InviteInfoResponse: {
@@ -5548,7 +5579,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["InterviewOpenerRequest"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -5557,6 +5592,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InterviewOpenerResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

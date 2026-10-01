@@ -31,7 +31,7 @@ class InMemoryConversationRepository(AbstractConversationRepository):
     def __init__(self) -> None:
         self._rows: dict[uuid.UUID, Conversation] = {}
 
-    def seed(self, *, user_id: uuid.UUID, kind: str) -> Conversation:
+    def seed(self, *, user_id: uuid.UUID, kind: str, language: str | None = None) -> Conversation:
         now = datetime.now(UTC)
         conversation = Conversation(
             id=uuid.uuid4(),
@@ -39,6 +39,7 @@ class InMemoryConversationRepository(AbstractConversationRepository):
             kind=kind,
             context_ref=None,
             summary=None,
+            language=language,
             created_at=now,
             updated_at=now,
         )
@@ -50,10 +51,12 @@ class InMemoryConversationRepository(AbstractConversationRepository):
     ) -> Conversation:
         return self.seed(user_id=user_id, kind=kind)
 
-    async def create_interview_if_absent(self, user_id: uuid.UUID) -> Conversation | None:
+    async def create_interview_if_absent(
+        self, user_id: uuid.UUID, *, language: str | None = None
+    ) -> Conversation | None:
         if await self.list_for_user(user_id, "interview"):
             return None
-        return self.seed(user_id=user_id, kind="interview")
+        return self.seed(user_id=user_id, kind="interview", language=language)
 
     async def get_by_id(self, conversation_id: uuid.UUID) -> Conversation | None:
         return self._rows.get(conversation_id)

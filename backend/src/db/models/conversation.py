@@ -44,6 +44,9 @@ class Conversation(Base):
     context_ref: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Interviewer's structured extraction (Batch C) — unused by this batch.
     summary: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    # The interview language the learner picked on the welcome screen ("en" | "nl", #83);
+    # NULL for every other kind and for interviews started before the picker (= English).
+    language: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

@@ -18,6 +18,12 @@ from src.schemas.interview import (
     TranscriptMessage,
 )
 from src.services.exceptions import AiGenerationError, ConflictError, DomainError, NotFoundError
+from src.services.interview_language import (
+    DEFAULT_LANGUAGE,
+    InterviewLanguage,
+    language_directive,
+    resolve_language,
+)
 from src.services.interview_marker import has_ready_marker, strip_ready_marker
 from src.services.interview_schema import PLAYBOOK_SCHEMA
 from src.services.llm_service import (
@@ -41,7 +47,10 @@ logger = logging.getLogger(__name__)
 __all__ = ["InterviewService"]
 
 _KIND = "interview"
-_MAX_TOKENS = 8192
+# A ceiling, not a target: playbooks are typically ~6k tokens in English and ~7k in Dutch,
+# and long Dutch interviews ran into 8192 and failed twice (eval v9, #83). 12288 still
+# fits a full generation inside _GENERATION_TIMEOUT_SECONDS.
+_MAX_TOKENS = 12288
 _GENERATE_PROMPT = "Produce the playbook now by calling the record_playbook tool."
 _OPENER_MAX_TOKENS = 1024
 _KICKOFF = "[Begin the interview now: greet me and ask your first question.]"
@@ -135,12 +144,16 @@ class InterviewService:
         conversation = await self._interview_conversation(user.id)
         if conversation is None:
             return InterviewStateResponse(status="not_started")
+        language = resolve_language(conversation.language)
         if conversation.summary is None:
-            return InterviewStateResponse(status="in_progress", conversation_id=conversation.id)
+            return InterviewStateResponse(
+                status="in_progress", conversation_id=conversation.id, language=language
+            )
         return InterviewStateResponse(
             status="complete",
             conversation_id=conversation.id,
             playbook=PlaybookShared.model_validate(conversation.summary["shared"]),
+            language=language,
         )
 
     async def status_for(self, *, user: User) -> Literal["not_started", "in_progress", "complete"]:
@@ -151,19 +164,30 @@ class InterviewService:
             return "not_started"
         return "in_progress" if conversation.summary is None else "complete"
 
-    async def open_interview(self, *, user: User) -> InterviewOpenerResponse:
+    async def open_interview(
+        self, *, user: User, language: InterviewLanguage = DEFAULT_LANGUAGE
+    ) -> InterviewOpenerResponse:
         """Generate the AI's opening greeting for a fresh interview. Idempotent:
         if a conversation already exists, return its first assistant message
         (no LLM call, no new conversation). Otherwise generate the greeting from
         a synthetic, non-persisted kickoff user turn and persist only the
-        assistant turn, so the stored transcript starts with the assistant."""
+        assistant turn, so the stored transcript starts with the assistant.
+        `language` is the learner's pick (#83): chosen once, so an existing
+        conversation keeps its own."""
         existing = await self._interview_conversation(user.id)
         if existing is not None:
             rows = await self._messages.list_for_conversation(existing.id)
             greeting = next((m.content for m in rows if m.role == "assistant"), "")
-            return InterviewOpenerResponse(conversation_id=existing.id, greeting=greeting)
+            return InterviewOpenerResponse(
+                conversation_id=existing.id,
+                greeting=greeting,
+                language=resolve_language(existing.language),
+            )
 
-        system = f"{load_prompt(_KIND)}\n\n{await self._context.build_briefing(user)}"
+        system = (
+            f"{load_prompt(_KIND)}\n\n{await self._context.build_briefing(user)}"
+            f"\n\n{language_directive(language)}"
+        )
         try:
             chunks: list[str] = []
             async with (
@@ -190,7 +214,9 @@ class InterviewService:
             logger.warning("interview opener failed for user %s: empty greeting", user.id)
             raise DomainError("Could not start the interview - please try again.")
 
-        conversation = await self._conversations.create_interview_if_absent(user.id)
+        conversation = await self._conversations.create_interview_if_absent(
+            user.id, language=language
+        )
         if conversation is None:
             # Lost the race to a concurrent opener (partial unique index
             # uq_conversations_interview_user_id): return the winner's conversation
@@ -202,7 +228,11 @@ class InterviewService:
                 raise ConflictError("Could not start the interview - please try again.")
             rows = await self._messages.list_for_conversation(winner.id)
             greeting = next((m.content for m in rows if m.role == "assistant"), "")
-            return InterviewOpenerResponse(conversation_id=winner.id, greeting=greeting)
+            return InterviewOpenerResponse(
+                conversation_id=winner.id,
+                greeting=greeting,
+                language=resolve_language(winner.language),
+            )
         await self._messages.create(
             conversation.id,
             role="assistant",
@@ -210,7 +240,9 @@ class InterviewService:
             metadata={"model": self._llm.model, "prompt_version": prompt_version(_KIND)},
         )
         await self._conversations.touch(conversation.id)
-        return InterviewOpenerResponse(conversation_id=conversation.id, greeting=greeting)
+        return InterviewOpenerResponse(
+            conversation_id=conversation.id, greeting=greeting, language=language
+        )
 
     async def build_playbook(self, *, user: User) -> PlaybookShared:
         conversation = await self._interview_conversation(user.id)
@@ -239,7 +271,7 @@ class InterviewService:
             .replace("{assessment_json}", assessment)
             .replace("{company_context}", "")
             .replace("{transcript}", transcript)
-        )
+        ) + f"\n\n{language_directive(conversation.language)}"
 
         extraction, usage, attempts = await self._generate(system, conversation_id=conversation.id)
         summary = cast("dict[str, Any]", _sanitize_dashes(extraction.model_dump(mode="json")))
@@ -336,13 +368,17 @@ class InterviewService:
             TranscriptMessage(role=m.role, content=strip_ready_marker(m.content)) for m in rows
         ]
 
+        language = resolve_language(conversation.language)
         if conversation.summary is None:
-            return AdminInterviewResponse(status="in_progress", transcript=transcript)
+            return AdminInterviewResponse(
+                status="in_progress", language=language, transcript=transcript
+            )
 
         internal = PlaybookInternal.model_validate(conversation.summary["internal"])
         shared = PlaybookShared.model_validate(conversation.summary["shared"])
         return AdminInterviewResponse(
             status="complete",
+            language=language,
             tier=internal.input_quality.tier,
             internal=internal,
             shared=shared,

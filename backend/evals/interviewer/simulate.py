@@ -119,7 +119,11 @@ async def _run_simulation(
         id=uuid.uuid4(), first_name=case["user"]["first_name"], last_name=case["user"]["last_name"]
     )
 
-    opener = await interview_service.open_interview(user=user)  # ty: ignore[invalid-argument-type]
+    # The language the learner would pick on the welcome screen (#83); English if unset.
+    opener = await interview_service.open_interview(
+        user=user,  # ty: ignore[invalid-argument-type]
+        language=case.get("language", "en"),
+    )
     conversation = await conversations.get_by_id(opener.conversation_id)
     assert conversation is not None
 
@@ -194,10 +198,17 @@ def _transcript_turn(row: Any, raw_reply: str) -> dict[str, Any]:
 
 
 async def simulate_case(
-    case_id: str, *, interviewer_llm: LlmClient, learner_llm: LlmClient
+    case_id: str,
+    *,
+    interviewer_llm: LlmClient,
+    learner_llm: LlmClient,
+    hard_stop: bool = False,
 ) -> dict[str, Any]:
     case = await _run_simulation(
-        load_case(case_id), interviewer_llm=interviewer_llm, learner_llm=learner_llm
+        load_case(case_id),
+        interviewer_llm=interviewer_llm,
+        learner_llm=learner_llm,
+        hard_stop=hard_stop,
     )
     write_case(case)
     write_review_page(case)

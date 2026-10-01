@@ -140,8 +140,12 @@ def _user() -> SimpleNamespace:
     return SimpleNamespace(id=uuid.uuid4(), first_name="Aaron", last_name="Neuville")
 
 
-def _conversation(*, summary: dict[str, object] | None = None) -> SimpleNamespace:
-    return SimpleNamespace(id=uuid.uuid4(), user_id=uuid.uuid4(), kind="interview", summary=summary)
+def _conversation(
+    *, summary: dict[str, object] | None = None, language: str | None = None
+) -> SimpleNamespace:
+    return SimpleNamespace(
+        id=uuid.uuid4(), user_id=uuid.uuid4(), kind="interview", summary=summary, language=language
+    )
 
 
 def _ready_rows() -> list[SimpleNamespace]:
@@ -201,7 +205,7 @@ async def test_build_playbook_persists_and_returns_shared_only() -> None:
     assert meta["thinking"] == "disabled"
     assert meta["attempts"] == 1
     assert meta["usage"] == {"input_tokens": 10, "output_tokens": 0}
-    assert meta["max_tokens"] == 8192
+    assert meta["max_tokens"] == 12288  # #83: Dutch playbooks ran into 8192
 
 
 async def test_build_playbook_idempotent() -> None:
@@ -491,7 +495,7 @@ async def test_open_interview_losing_the_race_returns_the_winners_conversation()
 
     assert result.conversation_id == winner.id
     assert result.greeting == "Hi Aaron, the winner's greeting."
-    conversations.create_interview_if_absent.assert_awaited_once_with(user.id)
+    conversations.create_interview_if_absent.assert_awaited_once_with(user.id, language="en")
     messages.create.assert_not_awaited()
     conversations.touch.assert_not_awaited()
 
@@ -809,3 +813,75 @@ async def test_opener_transient_provider_failure_is_a_busy_502(
 
     conversations.create_interview_if_absent.assert_not_awaited()
     messages.create.assert_not_awaited()
+
+
+# --- the chosen interview language (#83 picker) ------------------------------------------
+
+
+async def test_open_interview_uses_and_stores_the_chosen_language() -> None:
+    llm = FakeLlmClient(chunks=["Dag Aaron, klopt dat?"])
+    service, conversations, _messages, context = _service(llm)
+    context.build_briefing.return_value = "BRIEFING"
+    conversations.list_for_user.return_value = []
+    conversations.create_interview_if_absent.return_value = _conversation(language="nl")
+
+    result = await service.open_interview(user=_user(), language="nl")  # ty: ignore[invalid-argument-type]
+
+    assert "<interview_language>nl</interview_language>" in llm.calls[0]["system"]  # ty: ignore[unsupported-operator]
+    assert conversations.create_interview_if_absent.await_args.kwargs["language"] == "nl"
+    assert result.language == "nl"
+
+
+async def test_open_interview_defaults_to_english() -> None:
+    llm = FakeLlmClient(chunks=["Hi Aaron, right?"])
+    service, conversations, _messages, context = _service(llm)
+    context.build_briefing.return_value = "BRIEFING"
+    conversations.list_for_user.return_value = []
+    conversations.create_interview_if_absent.return_value = _conversation(language="en")
+
+    result = await service.open_interview(user=_user())  # ty: ignore[invalid-argument-type]
+
+    assert "<interview_language>en</interview_language>" in llm.calls[0]["system"]  # ty: ignore[unsupported-operator]
+    assert result.language == "en"
+
+
+async def test_open_interview_returns_the_existing_conversations_language() -> None:
+    service, conversations, messages, _context = _service(FakeLlmClient(chunks=[]))
+    conversations.list_for_user.return_value = [_conversation(language="nl")]
+    messages.list_for_conversation.return_value = [
+        SimpleNamespace(role="assistant", content="Dag Aaron, klopt dat?")
+    ]
+
+    result = await service.open_interview(user=_user(), language="en")  # ty: ignore[invalid-argument-type]
+
+    # The choice is made once, at the start: a second opener call cannot change it.
+    assert result.language == "nl"
+
+
+async def test_build_playbook_is_told_the_interview_language() -> None:
+    llm = FakeLlmClient(chunks=[], structured=_EXTRACTION)
+    service, conversations, messages, _context = _service(llm)
+    conversations.list_for_user.return_value = [_conversation(summary=None, language="nl")]
+    messages.list_for_conversation.return_value = _ready_rows()
+
+    await service.build_playbook(user=_user())  # ty: ignore[invalid-argument-type]
+
+    assert "<interview_language>nl</interview_language>" in llm.structured_calls[0]["system"]  # ty: ignore[unsupported-operator]
+
+
+async def test_get_state_reports_the_interview_language() -> None:
+    service, conversations, _messages, _context = _service(FakeLlmClient(chunks=[]))
+    conversations.list_for_user.return_value = [_conversation(summary=None, language="nl")]
+
+    state = await service.get_state(user=_user())  # ty: ignore[invalid-argument-type]
+
+    assert state.language == "nl"
+
+
+async def test_a_conversation_from_before_the_picker_counts_as_english() -> None:
+    service, conversations, _messages, _context = _service(FakeLlmClient(chunks=[]))
+    conversations.list_for_user.return_value = [_conversation(summary=None, language=None)]
+
+    state = await service.get_state(user=_user())  # ty: ignore[invalid-argument-type]
+
+    assert state.language == "en"

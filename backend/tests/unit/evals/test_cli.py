@@ -263,3 +263,23 @@ def test_simulate_accepts_a_hard_stop_flag() -> None:
     args = cli.build_parser().parse_args(["simulate", "--variant", "v5", "--hard-stop"])
     assert args.hard_stop is True
     assert cli.build_parser().parse_args(["simulate", "--variant", "v5"]).hard_stop is False
+
+
+def test_cmd_simulate_passes_the_hard_stop_to_a_frozen_case(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # A frozen case's transcript becomes playbook input, so it must be simulated the way
+    # production will run: with the hard stop, or an invented answer ends up in it.
+    captured: dict[str, object] = {}
+
+    async def _fake_simulate_case(case_id: str, **kwargs: object) -> None:
+        captured.update(kwargs, case_id=case_id)
+
+    monkeypatch.setattr(cli, "_require_llm", lambda _model: ("the-llm", "fake-model"))
+    monkeypatch.setattr(cli.cases, "load_case", lambda _case_id: {"id": "x", "status": "draft"})
+    monkeypatch.setattr(cli.simulate, "simulate_case", _fake_simulate_case)
+
+    cli._cmd_simulate(cli.argparse.Namespace(case="x", force=False, variant=None, hard_stop=True))
+
+    assert captured["case_id"] == "x"
+    assert captured["hard_stop"] is True

@@ -237,6 +237,7 @@ def test_run_all_returns_every_check_by_id() -> None:
         "chat_one_question_per_turn",
         "chat_dash_count",
         "chat_offer_reached",
+        "chat_language_match",
         "chat_hard_stop_fired",
         "chat_stop_short_question",
     }
@@ -290,3 +291,107 @@ def test_chat_offer_reached_needs_the_marker_somewhere() -> None:
 
     assert chat_checks.chat_offer_reached(_plain_case(), with_offer).value == 1.0
     assert chat_checks.chat_offer_reached(_plain_case(), without).value == 0.0
+
+
+# --- Dutch (spec 2026-09-30, #83 level 1) ------------------------------------------------
+
+
+def test_chat_self_answer_suspect_catches_a_dutch_self_answer() -> None:
+    turn = (
+        "Welk systeem gebruikt u daarvoor?\n\nEerlijk gezegd vooral Excel, dat is het makkelijkst."
+    )
+    result = chat_checks.chat_self_answer_suspect(_plain_case(), _turns(("assistant", turn)))
+    assert result.value == 1.0
+
+
+def test_chat_self_answer_suspect_catches_a_dutch_acceptance_mid_turn() -> None:
+    turn = "Zal ik uw playbook opbouwen?\n\nKlinkt goed.\n\nPrima, ik zet het voor u klaar."
+    result = chat_checks.chat_self_answer_suspect(_plain_case(), _turns(("assistant", turn)))
+    assert result.value == 1.0
+
+
+def _case_with_assessment(timesink: str, excitement: str = "") -> dict[str, object]:
+    return {
+        "id": "lang-case",
+        "adversarial": None,
+        "assessment": {"q_timesink": timesink, "q_excitement": excitement},
+    }
+
+
+_EN_TIMESINK = "Rebuilding the same weekly report in Excel from the SAP export every Monday"
+_NL_TIMESINK = "Elke maandag hetzelfde rapport opnieuw maken in Excel vanuit de SAP-export"
+
+
+def test_chat_language_match_follows_a_switch_to_dutch() -> None:
+    transcript = _turns(
+        ("assistant", "Hi Pieter, I've got you as a planner who works in SAP, is that right?"),
+        ("user", "Ja, dat klopt. Ik maak elke week de planning in SAP en dan in Excel."),
+        ("assistant", "Dank u, dat is duidelijk. Hoe lang duurt dat elke week voor u?"),
+    )
+    result = chat_checks.chat_language_match(_case_with_assessment(_EN_TIMESINK), transcript)
+    assert result.kind == "rate"
+    assert result.value == 1.0
+
+
+def test_chat_language_match_flags_an_interviewer_that_stays_english() -> None:
+    transcript = _turns(
+        ("assistant", "Hi Pieter, I've got you as a planner who works in SAP, is that right?"),
+        ("user", "Ja, dat klopt. Ik maak elke week de planning in SAP en dan in Excel."),
+        ("assistant", "Thanks, that's clear. How long does that take you every week?"),
+    )
+    result = chat_checks.chat_language_match(_case_with_assessment(_EN_TIMESINK), transcript)
+    assert result.value == 0.5
+    assert "How long does that take" in result.evidence
+
+
+def test_chat_language_match_ignores_the_assessment_language_when_nothing_was_picked() -> None:
+    # #83 picker: the opener follows the learner's pick, not the language they typed the
+    # assessment in; no pick means English.
+    english_opener = _turns(("assistant", "Hi Pieter, I've got you as a planner, is that right?"))
+    case = _case_with_assessment(_NL_TIMESINK)
+    assert chat_checks.chat_language_match(case, english_opener).value == 1.0
+
+
+def test_chat_language_match_skips_turns_it_cannot_call() -> None:
+    transcript = _turns(
+        ("assistant", "Hi Pieter, I've got you as a planner who works in SAP, is that right?"),
+        ("user", "Yes."),
+        ("assistant", "Which system do you use for the weekly plan, and how long does it take?"),
+    )
+    result = chat_checks.chat_language_match(_case_with_assessment(_EN_TIMESINK), transcript)
+    assert result.value == 1.0
+
+
+def test_chat_language_match_keeps_dutch_after_a_mostly_english_message() -> None:
+    # PR #139 review: the prompt keeps Dutch until the learner writes a WHOLE message in
+    # English; a mostly-English message with some Dutch in it does not switch back.
+    transcript = _turns(
+        ("assistant", "Hi Pieter, I've got you as a planner who works in SAP, is that right?"),
+        ("user", "Ja, dat klopt. Ik maak elke week de planning in SAP en dan in Excel."),
+        ("assistant", "Dank u, dat is duidelijk. Hoe lang duurt dat elke week voor u?"),
+        ("user", "Usually about two hours, because the export is slow, eigenlijk altijd."),
+        ("assistant", "Twee uur elke week, dat is veel. Wie gebruikt die planning daarna?"),
+    )
+    result = chat_checks.chat_language_match(_case_with_assessment(_EN_TIMESINK), transcript)
+    assert result.value == 1.0, result.evidence
+
+
+def test_chat_language_match_switches_back_on_a_whole_english_message() -> None:
+    transcript = _turns(
+        ("assistant", "Hi Pieter, I've got you as a planner who works in SAP, is that right?"),
+        ("user", "Ja, dat klopt. Ik maak elke week de planning in SAP en dan in Excel."),
+        ("assistant", "Dank u, dat is duidelijk. Hoe lang duurt dat elke week voor u?"),
+        ("user", "Sorry, could we switch to English? It takes about two hours every week."),
+        ("assistant", "Of course. Who uses that plan once you have finished it?"),
+    )
+    result = chat_checks.chat_language_match(_case_with_assessment(_EN_TIMESINK), transcript)
+    assert result.value == 1.0, result.evidence
+
+
+def test_chat_language_match_expects_the_opener_in_the_cases_chosen_language() -> None:
+    # #83 picker: the learner chose Dutch, so even an English assessment gets a Dutch opener.
+    case = {**_case_with_assessment(_EN_TIMESINK), "language": "nl"}
+    english_opener = _turns(("assistant", "Hi Pieter, I've got you as a planner, is that right?"))
+    dutch_opener = _turns(("assistant", "Dag Pieter, ik heb u genoteerd als planner, klopt dat?"))
+    assert chat_checks.chat_language_match(case, english_opener).value == 0.0
+    assert chat_checks.chat_language_match(case, dutch_opener).value == 1.0

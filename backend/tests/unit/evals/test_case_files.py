@@ -18,8 +18,18 @@ _EXPECTED_IDS = {
     "adv-midinterview-injection",
     "adv-transcript-tag",
     "plant-manager-dutch",
+    # Dutch interviews (spec 2026-09-30, #83 level 1)
+    "cfo-construction-dutch",
+    "hr-director-services-dutch",
+    "maintenance-tech-utility-dutch",
+    "adv-assessment-injection-dutch",
 }
-_ADVERSARIAL_IDS = {"adv-assessment-injection", "adv-midinterview-injection", "adv-transcript-tag"}
+_ADVERSARIAL_IDS = {
+    "adv-assessment-injection",
+    "adv-midinterview-injection",
+    "adv-transcript-tag",
+    "adv-assessment-injection-dutch",
+}
 _BANNED_INDUSTRY_WORDS = ("bank", "banking")
 _SCORE_LEVELS = {"explore", "practitioner", "integrator"}
 _USAGE_BANDS = {"dormant", "occasional", "regular", "embedded"}
@@ -27,7 +37,7 @@ _COMPETENCY_CODES = {"MISSING", "PARTIAL", "HAVE", "ADV_D", "ADV_E"}
 _C5_CODES = {"PUBLIC_PASTE", "APPROVED_PASTE", "UNSURE", "KEPT_OUT", "NO_USE"}
 
 
-def test_exactly_the_fourteen_expected_cases_exist() -> None:
+def test_exactly_the_expected_cases_exist() -> None:
     assert set(list_case_ids()) == _EXPECTED_IDS
 
 

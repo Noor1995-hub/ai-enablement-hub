@@ -37,7 +37,9 @@ class ConversationRepository(AbstractConversationRepository):
         await self._session.refresh(conversation)
         return conversation
 
-    async def create_interview_if_absent(self, user_id: uuid.UUID) -> Conversation | None:
+    async def create_interview_if_absent(
+        self, user_id: uuid.UUID, *, language: str | None = None
+    ) -> Conversation | None:
         # ON CONFLICT DO NOTHING against the partial unique index
         # uq_conversations_interview_user_id (the index_where must match its
         # predicate for Postgres to infer it as the arbiter). The loser of a
@@ -47,7 +49,13 @@ class ConversationRepository(AbstractConversationRepository):
         now = datetime.now(UTC)
         result = await self._session.execute(
             pg_insert(Conversation)
-            .values(user_id=user_id, kind="interview", created_at=now, updated_at=now)
+            .values(
+                user_id=user_id,
+                kind="interview",
+                language=language,
+                created_at=now,
+                updated_at=now,
+            )
             .on_conflict_do_nothing(
                 index_elements=["user_id"], index_where=text("kind = 'interview'")
             )

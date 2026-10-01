@@ -1,5 +1,6 @@
 import { useState, type CSSProperties } from 'react'
 import type { PlaybookShared, UseCase, Reframe, Difficulty } from '../../types/domain'
+import { DEFAULT_INTERVIEW_LANGUAGE, PLAYBOOK_STRINGS, type InterviewLanguage, type PlaybookStrings } from '../../lib/interviewStrings'
 
 /* ── Difficulty badge palette (semantic, not the mockup's blue) ── */
 const DIFFICULTY_BADGE: Record<Difficulty, { bg: string; color: string }> = {
@@ -10,10 +11,13 @@ const DIFFICULTY_BADGE: Record<Difficulty, { bg: string; color: string }> = {
 
 /* Sentence-case display labels (house style), next to "Start here". Display only: the
    values themselves are the backend's fixed difficulty names and stay as they are. */
-const DIFFICULTY_LABEL: Record<Difficulty, string> = {
-  'Quick Win':        'Quick win',
-  'Worth a Session':  'Worth a session',
-  'Bigger Build':     'Bigger build',
+function difficultyLabel(difficulty: Difficulty, t: PlaybookStrings): string | undefined {
+  const labels: Record<Difficulty, string> = {
+    'Quick Win':        t.difficultyQuickWin,
+    'Worth a Session':  t.difficultyWorthASession,
+    'Bigger Build':     t.difficultyBiggerBuild,
+  }
+  return labels[difficulty]
 }
 
 /* The accordion headers fill their clipped cards, so the browser's own focus ring would be
@@ -174,7 +178,7 @@ const s = {
 } satisfies Record<string, CSSProperties>
 
 /* ── Use-case card (collapsed header + expandable body) ── */
-function UseCaseCard({ uc, open, onToggle }: { uc: UseCase; open: boolean; onToggle: () => void }) {
+function UseCaseCard({ uc, open, onToggle, t }: { uc: UseCase; open: boolean; onToggle: () => void; t: PlaybookStrings }) {
   const badge = DIFFICULTY_BADGE[uc.difficulty] ?? DIFFICULTY_BADGE_FALLBACK
   return (
     <div style={{ ...s.ucCard, ...(uc.start_here ? s.ucCardStartHere : {}) }}>
@@ -184,35 +188,35 @@ function UseCaseCard({ uc, open, onToggle }: { uc: UseCase; open: boolean; onTog
           <span style={s.ucName}>{uc.name}</span>
           {uc.pain_it_kills && <span style={s.ucPain}>{uc.pain_it_kills}</span>}
         </span>
-        {uc.start_here && <span style={s.startTag}><span aria-hidden="true">★ </span>Start here</span>}
+        {uc.start_here && <span style={s.startTag}><span aria-hidden="true">★ </span>{t.startHere}</span>}
         <span style={{ ...s.badge, background: badge.bg, color: badge.color }}>
-          {DIFFICULTY_LABEL[uc.difficulty] ?? uc.difficulty}
+          {difficultyLabel(uc.difficulty, t) ?? uc.difficulty}
         </span>
         <span aria-hidden="true" style={{ ...s.chevron, transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}>▾</span>
       </button>
       {open && (
         <div style={s.ucBody}>
           {uc.in_practice && (
-            <p style={s.ucParagraph}><span style={s.label}>In practice: </span>{uc.in_practice}</p>
+            <p style={s.ucParagraph}><span style={s.label}>{t.inPractice}</span>{uc.in_practice}</p>
           )}
           {(uc.before || uc.after) && (
             <div style={s.baGrid}>
               <div style={s.baBlock}>
-                <span style={s.baLabel}>Before</span>
+                <span style={s.baLabel}>{t.before}</span>
                 <p style={s.baText}>{uc.before}</p>
               </div>
               <div style={s.baBlock}>
-                <span style={s.baLabel}>After</span>
+                <span style={s.baLabel}>{t.after}</span>
                 <p style={s.baText}>{uc.after}</p>
               </div>
             </div>
           )}
           {uc.impact && (
-            <p style={s.ucParagraph}><span style={s.label}>Impact: </span>{uc.impact}</p>
+            <p style={s.ucParagraph}><span style={s.label}>{t.impact}</span>{uc.impact}</p>
           )}
           {uc.assumption_to_check != null && (
             <p style={s.assumption}>
-              <span style={s.label}>Assumption to check: </span>{uc.assumption_to_check}
+              <span style={s.label}>{t.assumptionToCheck}</span>{uc.assumption_to_check}
             </p>
           )}
         </div>
@@ -222,7 +226,7 @@ function UseCaseCard({ uc, open, onToggle }: { uc: UseCase; open: boolean; onTog
 }
 
 /* ── Reframe accordion row ── */
-function ReframeRow({ reframe, open, onToggle }: { reframe: Reframe; open: boolean; onToggle: () => void }) {
+function ReframeRow({ reframe, open, onToggle, t }: { reframe: Reframe; open: boolean; onToggle: () => void; t: PlaybookStrings }) {
   return (
     <div style={s.rf}>
       <button type="button" className="pb-toggle" onClick={onToggle} style={s.rfQuestion} aria-expanded={open}>
@@ -232,15 +236,15 @@ function ReframeRow({ reframe, open, onToggle }: { reframe: Reframe; open: boole
       {open && (
         <div style={s.rfBody}>
           <div style={s.rfBlock}>
-            <span style={s.rfBlockLabel}>The real concern</span>
+            <span style={s.rfBlockLabel}>{t.realConcern}</span>
             <p style={s.rfBlockText}>{reframe.the_concern}</p>
           </div>
           <div style={s.rfBlock}>
-            <span style={s.rfBlockLabel}>Reframe</span>
+            <span style={s.rfBlockLabel}>{t.reframe}</span>
             <p style={s.rfBlockText}>{reframe.reframe}</p>
           </div>
           <div style={s.rfBlock}>
-            <span style={s.rfBlockLabel}>First proof</span>
+            <span style={s.rfBlockLabel}>{t.firstProof}</span>
             <p style={s.rfBlockText}>{reframe.first_proof}</p>
           </div>
         </div>
@@ -254,7 +258,15 @@ function ReframeRow({ reframe, open, onToggle }: { reframe: Reframe; open: boole
  *  `PlaybookShared` (fetched separately). Layout/copy follow
  *  docs/design-prototypes/ai-interviewer/mockup.html's "Playbook" tab,
  *  restyled onto the hub's real design system (see index.css --dlw-* tokens). */
-export default function Playbook({ shared }: { shared: PlaybookShared }) {
+export default function Playbook({
+  shared,
+  language = DEFAULT_INTERVIEW_LANGUAGE,
+}: {
+  shared: PlaybookShared
+  /** The interview's language (#83): the headings and labels follow it. */
+  language?: InterviewLanguage
+}) {
+  const t = PLAYBOOK_STRINGS[language]
   // Ranks whose card is expanded; the start_here use-case begins open.
   const [openRanks, setOpenRanks] = useState<Set<number>>(
     () => new Set(shared.use_cases.filter(uc => uc.start_here).map(uc => uc.rank)),
@@ -287,7 +299,7 @@ export default function Playbook({ shared }: { shared: PlaybookShared }) {
       <style>{PLAYBOOK_CSS}</style>
       {shared.where_you_are_today && (
         <section style={s.section}>
-          <h2 style={s.h2}>Where you are today</h2>
+          <h2 style={s.h2}>{t.whereYouAreToday}</h2>
           <div style={s.card}>
             <p style={s.paragraph}>{shared.where_you_are_today}</p>
           </div>
@@ -296,13 +308,14 @@ export default function Playbook({ shared }: { shared: PlaybookShared }) {
 
       {shared.use_cases.length > 0 && (
         <section style={s.section}>
-          <h2 style={s.h2}>Your AI use cases</h2>
+          <h2 style={s.h2}>{t.useCases}</h2>
           {shared.use_cases.map(uc => (
             <UseCaseCard
               key={uc.rank}
               uc={uc}
               open={openRanks.has(uc.rank)}
               onToggle={() => toggleRank(uc.rank)}
+              t={t}
             />
           ))}
         </section>
@@ -310,7 +323,7 @@ export default function Playbook({ shared }: { shared: PlaybookShared }) {
 
       {sortedMoves.length > 0 && (
         <section style={s.section}>
-          <h2 style={s.h2}>Your next moves</h2>
+          <h2 style={s.h2}>{t.nextMoves}</h2>
           <div style={s.card}>
             {sortedMoves.map((move, i) => (
               <div
@@ -330,13 +343,14 @@ export default function Playbook({ shared }: { shared: PlaybookShared }) {
 
       {shared.reframes.length > 0 && (
         <section style={s.section}>
-          <h2 style={s.h2}>What might be holding you back</h2>
+          <h2 style={s.h2}>{t.holdingYouBack}</h2>
           {shared.reframes.map((rf, idx) => (
             <ReframeRow
               key={idx}
               reframe={rf}
               open={openReframes.has(idx)}
               onToggle={() => toggleReframe(idx)}
+              t={t}
             />
           ))}
         </section>
@@ -344,7 +358,7 @@ export default function Playbook({ shared }: { shared: PlaybookShared }) {
 
       {hasToday && (
         <section style={s.section}>
-          <h2 style={s.h2}>Do this today</h2>
+          <h2 style={s.h2}>{t.doThisToday}</h2>
           <div style={s.cta}>
             <p style={s.ctaAction}>{shared.do_this_today.action}</p>
             {(shared.do_this_today.time_required || shared.do_this_today.why_this_one) && (

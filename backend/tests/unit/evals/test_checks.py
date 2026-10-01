@@ -550,3 +550,63 @@ def test_no_invented_systems_still_fails_an_unnamed_suggestion_or_a_bracketed_in
     assert result.value == 0.0
     assert "Power Automate or similar" in result.evidence
     assert "Salesforce (CRM)" in result.evidence
+
+
+# --- Dutch (spec 2026-09-30, #83 level 1) ------------------------------------------------
+
+_DUTCH_TRANSCRIPT = [
+    {
+        "role": "user",
+        "content": "Ik exporteer elke maand de cijfers uit SAP en dan zet ik ze in Excel.",
+    },
+    {"role": "user", "content": "Eerlijk gezegd heb ik geen tijd om nog een nieuwe tool te leren."},
+]
+_DUTCH_CASE: dict[str, Any] = {**_CASE, "transcript": _DUTCH_TRANSCRIPT}
+
+
+def _shared(text: str) -> dict[str, Any]:
+    return {"shared": {"where_you_are_today": text}, "internal": {}}
+
+
+def test_no_judging_catches_dutch_judging_language() -> None:
+    playbook = _shared("Uw maturiteit ligt al hoger dan bij de meeste mensen in uw team.")
+    result = checks.run_all(_DUTCH_CASE, playbook, playbook)["no_judging"]
+    assert result.value == 0.0
+
+
+def test_no_internal_words_catches_dutch_internal_words() -> None:
+    playbook = _shared("Op basis van uw intake zien we twee duidelijke kansen.")
+    result = checks.run_all(_DUTCH_CASE, playbook, playbook)["no_internal_words"]
+    assert result.value == 0.0
+
+
+def test_no_gender_guess_catches_dutch_hij_but_not_the_verb_zijn() -> None:
+    guessed = _shared("Hij doet de maandafsluiting zelf.")
+    assert checks.run_all(_DUTCH_CASE, guessed, guessed)["no_gender_guess"].value == 0.0
+    verb = _shared("Dat zijn twee systemen die u elke dag gebruikt.")
+    assert checks.run_all(_DUTCH_CASE, verb, verb)["no_gender_guess"].value == 1.0
+
+
+def test_playbook_language_wants_dutch_when_the_person_answered_in_dutch() -> None:
+    english = _shared("You already know which numbers matter and where the export breaks.")
+    dutch = _shared("U weet al welke cijfers tellen en waar de export telkens misloopt.")
+    assert checks.run_all(_DUTCH_CASE, english, english)["playbook_language"].value == 0.0
+    assert checks.run_all(_DUTCH_CASE, dutch, dutch)["playbook_language"].value == 1.0
+
+
+def test_playbook_language_wants_english_for_an_english_interview() -> None:
+    english = _shared("You already know which numbers matter and where the export breaks.")
+    result = checks.run_all(_CASE, english, english)["playbook_language"]
+    assert result.value == 1.0
+    assert result.kind == "hard"
+
+
+def test_playbook_language_is_a_hard_rule() -> None:
+    assert "playbook_language" in checks.HARD_CHECK_IDS
+
+
+def test_playbook_language_does_not_fail_text_too_short_to_call() -> None:
+    # Missing or thin text is the structure checks' job; this rule only catches the
+    # wrong language.
+    playbook = _shared("SAP.")
+    assert checks.run_all(_DUTCH_CASE, playbook, playbook)["playbook_language"].value == 1.0

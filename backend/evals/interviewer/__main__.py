@@ -54,7 +54,11 @@ def _cmd_simulate(args: argparse.Namespace) -> None:
         simulate.ensure_resimulation_allowed(case, force=args.force)
     except ValueError as exc:
         raise SystemExit(str(exc)) from None
-    asyncio.run(simulate.simulate_case(args.case, interviewer_llm=llm, learner_llm=llm))
+    asyncio.run(
+        simulate.simulate_case(
+            args.case, interviewer_llm=llm, learner_llm=llm, hard_stop=args.hard_stop
+        )
+    )
     print(
         f"wrote evals/interviewer/cases/{args.case}.json (status: draft) and review/{args.case}.md"
     )
@@ -152,8 +156,9 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         dest="hard_stop",
         help=(
-            "with --variant: end each interviewer chat turn at its first question, as "
-            "LLM__INTERVIEW_HARD_STOP does in the hub (#96)"
+            "end each interviewer chat turn at its first question, as "
+            "LLM__INTERVIEW_HARD_STOP does in the hub (#96); with --case too, so a frozen "
+            "transcript never carries an invented answer"
         ),
     )
     p_sim.set_defaults(func=_cmd_simulate)

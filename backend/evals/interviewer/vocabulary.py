@@ -52,6 +52,45 @@ _INPUT_QUALITY_PHRASES = (
 # it flagged ordinary statements about data affecting other people) and the bare "ahead
 # of" (flagged plain scheduling language like "ahead of Friday"), replacing the latter
 # with the specific comparison phrases below.
+# Dutch versions (spec 2026-09-30, #83 level 1): Flemish, formal "u", plus the "je" forms
+# in case the model slips out of the register. Every check scans for both languages.
+_DUTCH_LEVEL_NAMES = ("verkenner", "beoefenaar", "vermenigvuldiger")
+_DUTCH_MATURITY_WORDS = (
+    "maturiteit",
+    "volwassenheid",
+    "uw niveau",
+    "je niveau",
+    "uw score",
+    "je score",
+)
+_DUTCH_COMPARISON_PHRASES = (
+    "de meeste mensen",
+    "veel mensen",
+    "uw vakgenoten",
+    "dan de meesten",
+    "dan de meeste collega's",
+    "voorsprong op",
+    "vergeleken met anderen",
+    "in vergelijking met anderen",
+    "verder dan de meeste",
+)
+_DUTCH_CHARACTERISATION_PHRASES = (
+    "u bent sceptisch",
+    "je bent sceptisch",
+    "sceptisch",
+    "terughoudend",
+    "weigerachtig",
+    "defensief",
+)
+_DUTCH_INPUT_QUALITY_PHRASES = (
+    "u deelde weinig",
+    "je deelde weinig",
+    "weinig informatie",
+    "beperkte informatie",
+    "niet veel detail",
+    "weinig detail",
+)
+
 NO_JUDGING_PHRASES = (
     _LEVEL_NAMES
     + _EXPLORE_PHRASES
@@ -59,6 +98,11 @@ NO_JUDGING_PHRASES = (
     + _COMPARISON_PHRASES
     + _CHARACTERISATION_PHRASES
     + _INPUT_QUALITY_PHRASES
+    + _DUTCH_LEVEL_NAMES
+    + _DUTCH_MATURITY_WORDS
+    + _DUTCH_COMPARISON_PHRASES
+    + _DUTCH_CHARACTERISATION_PHRASES
+    + _DUTCH_INPUT_QUALITY_PHRASES
 )
 
 # Tuned at the baseline review (2026-09-27): the bare "intake" flagged ordinary industry
@@ -75,12 +119,42 @@ INTERNAL_WORDS = (
     "input-quality",
     "maturity tier",
     "champion potential",
+    # Dutch (spec 2026-09-30)
+    "uw intake",
+    "je intake",
+    "de intake",
+    "intakeformulier",
+    "intakevragenlijst",
+    "intake-antwoorden",
+    "inputkwaliteit",
+    "kwaliteit van de input",
+    "maturiteitsniveau",
+    "volwassenheidsniveau",
+    "championpotentieel",
+    "champion-potentieel",
 )
 # Whole-word, capitals only: lowercase "rich"/"partial"/"thin" are plain English words used
 # constantly in these industries ("a rich data set", "a partial shipment").
 INTERNAL_TIER_TOKENS = ("RICH", "PARTIAL", "THIN")
 
-GENDERED_PRONOUNS = ("he", "she", "him", "her", "his", "hers", "himself", "herself")
+# Dutch "hij/hem/haar" are added; "zij", "ze" and "zijn" are left out on purpose: they
+# also mean "they" and "to be / are", so they would flag almost every Dutch text. Known
+# limit: a guessed possessive "zijn" (his) is missed (spec 2026-09-30).
+GENDERED_PRONOUNS = (
+    "he",
+    "she",
+    "him",
+    "her",
+    "his",
+    "hers",
+    "himself",
+    "herself",
+    "hij",
+    "hem",
+    "haar",
+    "hijzelf",
+    "haarzelf",
+)
 
 # `no_invented_systems` (checks.py) strips one of these off the front of a system name
 # before comparing it to `ground_truth.named_systems`, so "Microsoft Excel" ~ "Excel" and

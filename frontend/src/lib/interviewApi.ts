@@ -2,6 +2,7 @@
 // generated client: all three paths are in src/api/schema.d.ts.
 import { client, errorMessage } from '../api/client'
 import type { InterviewState, PlaybookShared } from '../types/domain'
+import { DEFAULT_INTERVIEW_LANGUAGE, type InterviewLanguage } from './interviewStrings'
 
 export async function getInterviewState(): Promise<InterviewState> {
   const { data, error } = await client.GET('/api/interview/me')
@@ -15,8 +16,12 @@ export async function buildPlaybook(): Promise<PlaybookShared> {
   return data.playbook
 }
 
-export async function openInterview(): Promise<{ conversation_id: string; greeting: string }> {
-  const { data, error } = await client.POST('/api/interview/opener')
+/** Starts the interview in the language the learner picked on the welcome screen (#83).
+ *  An interview that already exists keeps its own language; the response says which. */
+export async function openInterview(
+  language: InterviewLanguage = DEFAULT_INTERVIEW_LANGUAGE,
+): Promise<{ conversation_id: string; greeting: string; language: InterviewLanguage }> {
+  const { data, error } = await client.POST('/api/interview/opener', { body: { language } })
   if (!data) throw new Error(errorMessage(error, 'Could not start the interview.'))
   return data
 }

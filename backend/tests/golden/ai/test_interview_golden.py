@@ -176,7 +176,7 @@ async def test_interview_golden() -> None:
     messages = AsyncMock(spec=AbstractMessageRepository)
     conversations.list_for_user.return_value = []
     new_conversation = SimpleNamespace(
-        id=_CONVERSATION_ID, user_id=_USER_ID, kind="interview", summary=None
+        id=_CONVERSATION_ID, user_id=_USER_ID, kind="interview", summary=None, language=None
     )
     conversations.create_interview_if_absent.return_value = new_conversation
     service = InterviewService(conversations, messages, llm, _context())
@@ -192,7 +192,7 @@ async def test_interview_golden() -> None:
     messages2 = AsyncMock(spec=AbstractMessageRepository)
     conversations2.list_for_user.return_value = []
     conversations2.create_interview_if_absent.return_value = SimpleNamespace(
-        id=_CONVERSATION_ID, user_id=_USER_ID, kind="interview", summary=None
+        id=_CONVERSATION_ID, user_id=_USER_ID, kind="interview", summary=None, language=None
     )
     service2 = InterviewService(conversations2, messages2, llm2, _context())
     await service2.open_interview(user=_user())  # ty: ignore[invalid-argument-type]
@@ -204,7 +204,7 @@ async def test_interview_playbook_golden() -> None:
     conversations = AsyncMock(spec=AbstractConversationRepository)
     messages = AsyncMock(spec=AbstractMessageRepository)
     conversation = SimpleNamespace(
-        id=_CONVERSATION_ID, user_id=_USER_ID, kind="interview", summary=None
+        id=_CONVERSATION_ID, user_id=_USER_ID, kind="interview", summary=None, language=None
     )
     conversations.list_for_user.return_value = [conversation]
     messages.list_for_conversation.return_value = [
@@ -235,7 +235,7 @@ async def test_interview_playbook_golden() -> None:
     conversations2 = AsyncMock(spec=AbstractConversationRepository)
     messages2 = AsyncMock(spec=AbstractMessageRepository)
     conversation2 = SimpleNamespace(
-        id=_CONVERSATION_ID, user_id=_USER_ID, kind="interview", summary=None
+        id=_CONVERSATION_ID, user_id=_USER_ID, kind="interview", summary=None, language=None
     )
     conversations2.list_for_user.return_value = [conversation2]
     messages2.list_for_conversation.return_value = [

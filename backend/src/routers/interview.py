@@ -18,6 +18,7 @@ from src.core.ratelimit import RateLimiter
 from src.db.models import User
 from src.schemas.interview import (
     AdminInterviewResponse,
+    InterviewOpenerRequest,
     InterviewOpenerResponse,
     InterviewStateResponse,
     PlaybookResponse,
@@ -84,6 +85,7 @@ async def open_my_interview(
     current_user: CurrentUserDep,
     interview_service: InterviewServiceDep,
     limiter: RateLimiterDep,
+    body: InterviewOpenerRequest | None = None,
 ) -> InterviewOpenerResponse:
     if limiter.is_limited(f"interview-opener:{current_user.id}", max_calls=10, window_seconds=600):
         raise HTTPException(
@@ -93,7 +95,9 @@ async def open_my_interview(
         )
     if interview_service is None:
         raise _NOT_CONFIGURED
-    return await interview_service.open_interview(user=current_user)
+    # No body (an older frontend) means English, the language before the picker (#83).
+    language = body.language if body is not None else "en"
+    return await interview_service.open_interview(user=current_user, language=language)
 
 
 @router.post(

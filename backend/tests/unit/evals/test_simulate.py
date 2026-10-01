@@ -611,3 +611,23 @@ async def test_a_default_simulation_cuts_nothing() -> None:
     assert not any(t.get("stopped") for t in result["transcript"])
     assert result["transcript"][2]["content"] == "Which system?\n\nSAP."
     assert result["simulation"]["hard_stop"] is False
+
+
+async def test_simulate_case_can_run_with_the_hard_stop(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(cases, "CASES_DIR", tmp_path / "cases")
+    monkeypatch.setattr(simulate, "REVIEW_DIR", tmp_path / "review")
+    cases.CASES_DIR.mkdir()
+    cases.write_case(_draft_case("hs-frozen"))
+    interviewer = _ScriptedLlmClient(
+        ["Hi, sound right?", "Which system?\n\nSAP, I'd guess.", "[[READY_TO_BUILD]]\nBuild it?"]
+    )
+    learner = _ScriptedLlmClient(["Yes.", "Excel."])
+
+    result = await simulate.simulate_case(
+        "hs-frozen", interviewer_llm=interviewer, learner_llm=learner, hard_stop=True
+    )
+
+    assert result["transcript"][2]["content"] == "Which system?"
+    assert result["simulation"]["hard_stop"] is True

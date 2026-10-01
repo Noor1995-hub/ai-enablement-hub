@@ -11,6 +11,7 @@ import { useNavigate } from 'react-router-dom'
 import { client } from '../api/client'
 import AppNav from '../components/AppNav'
 import Spinner from '../components/Spinner'
+import LanguagePicker from '../components/interview/LanguagePicker'
 import Playbook from '../components/interview/Playbook'
 import { useAuth } from '../contexts/AuthContext'
 import { resolveInterviewTile } from '../lib/interviewAccess'
@@ -18,6 +19,7 @@ import { buildPlaybook, getInterviewState, openInterview } from '../lib/intervie
 import { chatToolbarHint } from '../lib/interviewHints'
 import { parseReadySignal } from '../lib/interviewReady'
 import { useChat } from '../lib/useChat'
+import { DEFAULT_INTERVIEW_LANGUAGE, INTERVIEW_STRINGS, type InterviewLanguage, type InterviewStrings } from '../lib/interviewStrings'
 import { bubbleView, buildButtonStatus, liveAnnouncement } from '../lib/interviewChatView'
 import type { InterviewState } from '../types/domain'
 
@@ -51,6 +53,7 @@ const BUILD_HINT_ID = 'interview-build-hint'
 
 const s = {
   page: { minHeight: '100vh', background: '#fff', display: 'flex', flexDirection: 'column' },
+  languageRow: { display: 'flex', justifyContent: 'flex-end', marginBottom: 18 },
   main: { flex: 1, width: 'min(760px, 100%)', margin: '0 auto', padding: '44px 40px 80px', boxSizing: 'border-box' },
   // Chat phase: the page is pinned to the window so the chat and the Build button always fit.
   // inset:0, not height:100vh: vh units disagree with the baked-in :root zoom (same approach
@@ -178,44 +181,53 @@ const s = {
 
 // ── Welcome screen ──────────────────────────────────────────────────────────
 
-function WelcomeScreen({ onStart }: { onStart: () => void }) {
+function WelcomeScreen({
+  onStart,
+  language,
+  onLanguageChange,
+}: {
+  onStart: () => void
+  language: InterviewLanguage
+  onLanguageChange: (language: InterviewLanguage) => void
+}) {
+  const t = INTERVIEW_STRINGS[language]
   return (
     <div>
-      <p style={s.eyebrow}>AI Opportunity Interview</p>
-      <h1 style={s.heading}>Let&rsquo;s find where AI can actually help you.</h1>
+      {/* The learner's language choice (#83), first thing on the page: the screen switches
+          as soon as one is picked, and the interview runs in it. */}
+      <div style={s.languageRow}>
+        <LanguagePicker value={language} onChange={onLanguageChange} label={t.languagePickerLabel} />
+      </div>
+      <p style={s.eyebrow}>{t.eyebrow}</p>
+      <h1 style={s.heading}>{t.welcomeHeading}</h1>
       <p style={s.body}>
-        A short conversation about your real, everyday work: the systems you're in, the tasks
-        that eat your week, the bits you'd love to hand off. It takes about 15 minutes, and there
-        are no wrong answers; the more concrete you are, the better the result. At the end, you
-        get a{' '}
-        <strong style={{ fontWeight: 600, color: 'var(--dlw-black)' }}>personalised playbook</strong>:
-        practical AI use cases and clear next steps, made for you.
+        {t.welcomeBodyBefore}
+        <strong style={{ fontWeight: 600, color: 'var(--dlw-black)' }}>{t.welcomeBodyStrong}</strong>
+        {t.welcomeBodyAfter}
       </p>
 
       <div style={s.stepsGrid}>
         <div style={s.stepCard}>
-          <span style={s.stepLabel}>1 &middot; Talk</span>
-          <p style={s.stepText}>A few questions about your week and the tools you use.</p>
+          <span style={s.stepLabel}>1 &middot; {t.stepTalkLabel}</span>
+          <p style={s.stepText}>{t.stepTalkText}</p>
         </div>
         <div style={s.stepCard}>
-          <span style={s.stepLabel}>2 &middot; Build</span>
-          <p style={s.stepText}>We turn the conversation into your playbook.</p>
+          <span style={s.stepLabel}>2 &middot; {t.stepBuildLabel}</span>
+          <p style={s.stepText}>{t.stepBuildText}</p>
         </div>
         <div style={s.stepCard}>
-          <span style={s.stepLabel}>3 &middot; Start</span>
-          <p style={s.stepText}>You leave with a first step you can take today.</p>
+          <span style={s.stepLabel}>3 &middot; {t.stepStartLabel}</span>
+          <p style={s.stepText}>{t.stepStartText}</p>
         </div>
       </div>
 
       <div style={s.notice}>
         <span aria-hidden="true">🔒</span>
-        <p style={s.noticeText}>
-          Conversations are stored and may be reviewed by hub admins to improve the hub.
-        </p>
+        <p style={s.noticeText}>{t.privacyNotice}</p>
       </div>
 
       <button type="button" className="btn-red-dark" style={s.btnPrimary} onClick={onStart}>
-        Start the interview <span aria-hidden="true">→</span>
+        {t.startButton} <span aria-hidden="true">→</span>
       </button>
     </div>
   )
@@ -294,9 +306,11 @@ interface ChatScreenProps {
   opening: boolean
   openError: string | null
   onRetryOpen: () => void
+  language: InterviewLanguage
 }
 
-function ChatScreen({ chat, buildError, onBuildPlaybook, opening, openError, onRetryOpen }: ChatScreenProps) {
+function ChatScreen({ chat, buildError, onBuildPlaybook, opening, openError, onRetryOpen, language }: ChatScreenProps) {
+  const t = INTERVIEW_STRINGS[language]
   const [input, setInput] = useState('')
   const messagesRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -310,8 +324,8 @@ function ChatScreen({ chat, buildError, onBuildPlaybook, opening, openError, onR
   // Primary: reveal when the interviewer signals it's ready. Fallback: after the floor.
   const canBuild = modelReady || answerCount >= FALLBACK_MIN_ANSWERS
   const buildDisabled = !canBuild || chat.loading
-  const toolbarHint = chatToolbarHint({ modelReady, canBuild, answerCount, hasMessages: display.length > 0 })
-  const buildStatus = buildButtonStatus({ canBuild, loading: chat.loading })
+  const toolbarHint = chatToolbarHint({ modelReady, canBuild, answerCount, hasMessages: display.length > 0 }, language)
+  const buildStatus = buildButtonStatus({ canBuild, loading: chat.loading }, language)
   const [inputFocused, setInputFocused] = useState(false)
   // Back from a failed build: focus starts on the Build button next to its error (moving
   // it to the answer box could cut the error announcement short). Cleared once the learner
@@ -379,7 +393,7 @@ function ChatScreen({ chat, buildError, onBuildPlaybook, opening, openError, onR
 
   return (
     <div style={s.chatScreen}>
-      <h1 style={s.srOnly}>AI Opportunity Interview</h1>
+      <h1 style={s.srOnly}>{t.eyebrow}</h1>
       <style>{CHAT_CSS}</style>
 
       <div style={s.chatShell}>
@@ -393,13 +407,13 @@ function ChatScreen({ chat, buildError, onBuildPlaybook, opening, openError, onR
           style={s.messages}
           ref={messagesRef}
           role="region"
-          aria-label="Conversation"
+          aria-label={t.conversationLabel}
           tabIndex={0}
           className="iv-conversation"
         >
           {chat.messages.length === 0 && opening && (
             <div style={{ ...s.bubble, ...s.bubbleAssistant }}>
-              <span style={s.srOnly}>The interviewer is typing</span>
+              <span style={s.srOnly}>{t.typing}</span>
               <TypingDots />
             </div>
           )}
@@ -407,7 +421,7 @@ function ChatScreen({ chat, buildError, onBuildPlaybook, opening, openError, onR
             <div style={{ textAlign: 'center', marginTop: 40 }}>
               <p role="alert" style={s.chatError}>{openError}</p>
               <button type="button" className="btn-red-dark" style={{ ...s.btnPrimary, ...s.btnSmall, marginTop: 12 }} onClick={onRetryOpen}>
-                Try again
+                {t.tryAgain}
               </button>
             </div>
           )}
@@ -421,12 +435,12 @@ function ChatScreen({ chat, buildError, onBuildPlaybook, opening, openError, onR
               >
                 {view === 'typing' ? (
                   <>
-                    <span style={s.srOnly}>The interviewer is typing</span>
+                    <span style={s.srOnly}>{t.typing}</span>
                     <TypingDots />
                   </>
                 ) : (
                   <>
-                    <span style={s.srOnly}>{m.role === 'user' ? 'You: ' : 'Interviewer: '}</span>
+                    <span style={s.srOnly}>{m.role === 'user' ? t.speakerYou : t.speakerInterviewer}</span>
                     {m.text}
                     {view === 'streaming' && <TypingDots afterText />}
                   </>
@@ -437,9 +451,7 @@ function ChatScreen({ chat, buildError, onBuildPlaybook, opening, openError, onR
           {chat.error && <p role="alert" style={s.chatError}>{chat.error}</p>}
         </div>
 
-        <p style={s.privacyNotice}>
-          Conversations are stored and may be reviewed by hub admins to improve the hub.
-        </p>
+        <p style={s.privacyNotice}>{t.privacyNotice}</p>
 
         <form onSubmit={onSubmit} style={s.chatForm}>
           <textarea
@@ -449,15 +461,15 @@ function ChatScreen({ chat, buildError, onBuildPlaybook, opening, openError, onR
             onKeyDown={onKeyDown}
             onFocus={() => setInputFocused(true)}
             onBlur={() => setInputFocused(false)}
-            aria-label="Type your answer"
+            aria-label={t.answerLabel}
             aria-describedby={INPUT_HELP_ID}
-            placeholder="Type your answer (Shift+Enter for a new line)"
+            placeholder={t.answerPlaceholder}
             style={{ ...s.chatInput, ...(inputFocused ? s.chatInputFocused : {}) }}
             rows={1}
             maxLength={MAX_INPUT}
           />
           {/* The placeholder's key help disappears once the learner types; keep it available. */}
-          <span id={INPUT_HELP_ID} style={s.srOnly}>Press Enter to send, Shift+Enter for a new line.</span>
+          <span id={INPUT_HELP_ID} style={s.srOnly}>{t.answerHelp}</span>
           {/* Stays "Send" while a reply streams: the typing dots next to the reply show the
               interviewer is still busy until it has finished. */}
           <button
@@ -466,7 +478,7 @@ function ChatScreen({ chat, buildError, onBuildPlaybook, opening, openError, onR
             style={{ ...s.btnPrimary, ...s.chatSend, ...((chat.loading || !input.trim()) ? s.btnPrimaryDisabled : {}) }}
             disabled={chat.loading || !input.trim()}
           >
-            Send
+            {t.send}
           </button>
         </form>
       </div>
@@ -486,7 +498,7 @@ function ChatScreen({ chat, buildError, onBuildPlaybook, opening, openError, onR
           disabled={buildDisabled}
           aria-describedby={buildStatus ? `${BUILD_STATUS_ID} ${BUILD_HINT_ID}` : BUILD_HINT_ID}
         >
-          Build my playbook
+          {t.buildButton}
         </button>
         {buildStatus && <span id={BUILD_STATUS_ID} style={s.srOnly}>{buildStatus}</span>}
       </div>
@@ -496,17 +508,14 @@ function ChatScreen({ chat, buildError, onBuildPlaybook, opening, openError, onR
 
 // ── Building screen ──────────────────────────────────────────────────────────
 
-function BuildingScreen() {
+function BuildingScreen({ t }: { t: InterviewStrings }) {
   return (
     <div style={s.buildingWrap}>
       {/* A plain block wrapper: the shared Spinner stretches (flex: 1) in a flex column,
           which pushed the title far below it. */}
       <div><Spinner /></div>
-      <h1 id={BUILDING_HEADING_ID} tabIndex={-1} style={s.buildingTitle}>Building your playbook</h1>
-      <p style={s.buildingSub}>
-        Turning our conversation into practical use cases and clear next steps. This usually
-        takes a minute or two, so hang tight and keep this tab open. Your playbook will appear here.
-      </p>
+      <h1 id={BUILDING_HEADING_ID} tabIndex={-1} style={s.buildingTitle}>{t.buildingHeading}</h1>
+      <p style={s.buildingSub}>{t.buildingText}</p>
     </div>
   )
 }
@@ -528,6 +537,9 @@ export default function Interview() {
   const [openerSettled, setOpenerSettled] = useState(false)
   // A playbook built during this visit (not one reopened later): its arrival is announced.
   const [builtNow, setBuiltNow] = useState(false)
+  // The interview language (#83): picked on the welcome screen, then the interview's own.
+  const [language, setLanguage] = useState<InterviewLanguage>(DEFAULT_INTERVIEW_LANGUAGE)
+  const t = INTERVIEW_STRINGS[language]
   const openedRef = useRef(false)
 
   useEffect(() => {
@@ -559,6 +571,7 @@ export default function Interview() {
         const data = await getInterviewState()
         if (cancelled) return
         setState(data)
+        if (data.status !== 'not_started') setLanguage(data.language)
 
         if (data.status !== 'complete' && (await needsAssessment(data.status))) {
           if (cancelled) return
@@ -604,8 +617,11 @@ export default function Interview() {
     setOpening(true)
     setOpenError(null)
     setOpenerSettled(false)
-    openInterview()
-      .then(({ conversation_id }) => chat.loadConversation(conversation_id))
+    openInterview(language)
+      .then(({ conversation_id, language: chosen }) => {
+        setLanguage(chosen) // an interview that already existed keeps its own language
+        return chat.loadConversation(conversation_id)
+      })
       .catch((e: unknown) =>
         setOpenError(e instanceof Error ? e.message : 'Could not start the interview.'),
       )
@@ -627,7 +643,7 @@ export default function Interview() {
     setBuildError(null)
     buildPlaybook()
       .then(pb => {
-        setState({ status: 'complete', playbook: pb })
+        setState({ status: 'complete', playbook: pb, language })
         setBuiltNow(true)
         setPhase('done')
       })
@@ -640,14 +656,14 @@ export default function Interview() {
   const chatLayout = phase === 'chat' && !loadError
   const shownOpenError =
     openError ??
-    (openerSettled && chat.messages.length === 0 ? 'Could not start the interview. Please try again.' : null)
+    (openerSettled && chat.messages.length === 0 ? t.openFailed : null)
   const announcement =
     phase === 'chat'
-      ? liveAnnouncement(toDisplay(chat.messages), { loading: chat.loading, opening, error: chat.error })
+      ? liveAnnouncement(toDisplay(chat.messages), { loading: chat.loading, opening, error: chat.error }, language)
       : phase === 'building'
-        ? 'Building your playbook. This usually takes a minute or two.'
+        ? t.buildingAnnouncement
         : phase === 'done' && builtNow
-          ? 'Your playbook is ready.'
+          ? t.readyAnnouncement
           : ''
 
   return (
@@ -657,7 +673,7 @@ export default function Interview() {
       {/* The page's only live region, mounted once for every phase so screen readers pick up
           each change: replies once complete (never half-written fragments), then the build. */}
       <div aria-live="polite" style={s.srOnly}>{announcement}</div>
-      <main style={chatLayout ? { ...s.main, ...s.mainChat } : s.main}>
+      <main lang={language} style={chatLayout ? { ...s.main, ...s.mainChat } : s.main}>
         {loadError ? (
           <p style={s.errorMsg}>{loadError}</p>
         ) : phase === 'loading' ? (
@@ -665,7 +681,7 @@ export default function Interview() {
         ) : phase === 'needs_assessment' ? (
           <NeedsAssessmentScreen onGoToAssessment={() => navigate('/assessment')} />
         ) : phase === 'welcome' ? (
-          <WelcomeScreen onStart={handleStart} />
+          <WelcomeScreen onStart={handleStart} language={language} onLanguageChange={setLanguage} />
         ) : phase === 'chat' ? (
           <ChatScreen
             chat={chat}
@@ -674,19 +690,20 @@ export default function Interview() {
             opening={opening}
             openError={shownOpenError}
             onRetryOpen={runOpener}
+            language={language}
           />
         ) : phase === 'building' ? (
-          <BuildingScreen />
+          <BuildingScreen t={t} />
         ) : state?.playbook ? (
           // The heading lives here, not in Playbook: the admin panel renders Playbook too.
           <div>
-            <p style={s.eyebrow}>AI Opportunity Interview</p>
-            <h1 id={PLAYBOOK_HEADING_ID} tabIndex={-1} style={{ ...s.heading, ...s.focusTarget }}>Your AI playbook</h1>
-            <p style={s.body}>Built from your interview. You can come back to it any time from the hub.</p>
-            <Playbook shared={state.playbook} />
+            <p style={s.eyebrow}>{t.eyebrow}</p>
+            <h1 id={PLAYBOOK_HEADING_ID} tabIndex={-1} style={{ ...s.heading, ...s.focusTarget }}>{t.playbookHeading}</h1>
+            <p style={s.body}>{t.playbookIntro}</p>
+            <Playbook shared={state.playbook} language={language} />
           </div>
         ) : (
-          <p style={s.errorMsg}>Your playbook isn&rsquo;t available right now. Please refresh.</p>
+          <p style={s.errorMsg}>{t.playbookUnavailable}</p>
         )}
       </main>
     </div>

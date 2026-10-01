@@ -28,6 +28,7 @@ from src.schemas.chat import (
 from src.services.chat_service import ChatService, DoneEvent, ErrorEvent, TokenEvent
 from src.services.exceptions import NotFoundError
 from src.services.interview_context import InterviewContextService
+from src.services.interview_language import language_directive
 
 if TYPE_CHECKING:
     from src.db.models import Conversation
@@ -108,7 +109,13 @@ async def _prepare_chat_message(
     conversation = await chat_service.resolve_conversation(
         user_id=user.id, kind=kind, conversation_id=body.conversation_id
     )
-    system_suffix = await interview_context.build_briefing(user) if kind == "interview" else None
+    system_suffix = (
+        # The interview language the learner picked (#83) rides along with the briefing.
+        f"{await interview_context.build_briefing(user)}\n\n"
+        f"{language_directive(conversation.language)}"
+        if kind == "interview"
+        else None
+    )
     return _PreparedChat(
         chat_service=chat_service,
         conversation=conversation,

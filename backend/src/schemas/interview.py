@@ -10,6 +10,7 @@ __all__ = [
     "Blockers",
     "DiagnosedBlocker",
     "DoThisToday",
+    "InterviewOpenerRequest",
     "EngagementNotes",
     "InputQuality",
     "InterviewOpenerResponse",
@@ -162,11 +163,21 @@ class InterviewStateResponse(BaseModel):
     status: Literal["not_started", "in_progress", "complete"]
     conversation_id: uuid.UUID | None = None
     playbook: PlaybookShared | None = None
+    # The language the interview runs in (#83); "en" until one is started.
+    language: Literal["en", "nl"] = "en"
+
+
+class InterviewOpenerRequest(BaseModel):
+    """The learner's pick on the welcome screen. Optional body: an older frontend that
+    posts nothing gets English."""
+
+    language: Literal["en", "nl"] = "en"
 
 
 class InterviewOpenerResponse(BaseModel):
     conversation_id: uuid.UUID
     greeting: str
+    language: Literal["en", "nl"] = "en"
 
 
 class PlaybookResponse(BaseModel):
@@ -175,6 +186,7 @@ class PlaybookResponse(BaseModel):
 
 class AdminInterviewResponse(BaseModel):
     status: Literal["not_started", "in_progress", "complete"]
+    language: Literal["en", "nl"] = "en"
     tier: str | None = None
     internal: PlaybookInternal | None = None
     shared: PlaybookShared | None = None

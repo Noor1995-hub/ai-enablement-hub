@@ -51,7 +51,7 @@ beforeEach(() => {
 
 describe('getInterviewState', () => {
   it('GETs /api/interview/me and resolves the state unchanged', async () => {
-    const state: InterviewState = { status: 'complete', conversation_id: CONVERSATION_ID, playbook: PLAYBOOK }
+    const state: InterviewState = { status: 'complete', conversation_id: CONVERSATION_ID, playbook: PLAYBOOK, language: 'en' }
     clientMock.GET.mockResolvedValueOnce({ data: state })
 
     await expect(getInterviewState()).resolves.toEqual(state)
@@ -96,5 +96,23 @@ describe('openInterview', () => {
   it('throws the server message when there is no data', async () => {
     clientMock.POST.mockResolvedValueOnce({ error: ERROR_BODY })
     await expect(openInterview()).rejects.toThrow('The interview is locked.')
+  })
+})
+
+describe('openInterview with a language (#83)', () => {
+  it('sends the learner\'s pick to the opener', async () => {
+    clientMock.POST.mockResolvedValueOnce({ data: { conversation_id: CONVERSATION_ID, greeting: 'Dag Aaron.', language: 'nl' } })
+
+    await openInterview('nl')
+
+    expect(clientMock.POST.mock.calls[0][1]).toEqual({ body: { language: 'nl' } })
+  })
+
+  it('sends English when no language is given', async () => {
+    clientMock.POST.mockResolvedValueOnce({ data: { conversation_id: CONVERSATION_ID, greeting: 'Hi.', language: 'en' } })
+
+    await openInterview()
+
+    expect(clientMock.POST.mock.calls[0][1]).toEqual({ body: { language: 'en' } })
   })
 })

@@ -100,3 +100,15 @@ async def test_create_interview_if_absent_returns_none_for_the_loser(
     assert await _interview_count(db_session, user.id) == 1
     remaining = await conversations.list_for_user(user.id, "interview")
     assert [c.id for c in remaining] == [winner.id]
+
+
+async def test_create_interview_if_absent_stores_the_chosen_language(
+    db_session: AsyncSession,
+) -> None:
+    user = await create_user(db_session, email="interview-lang@example.com")
+    conversations = ConversationRepository(db_session)
+
+    created = await conversations.create_interview_if_absent(user.id, language="nl")
+
+    assert created is not None
+    assert created.language == "nl"

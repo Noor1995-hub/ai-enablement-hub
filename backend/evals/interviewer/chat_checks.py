@@ -11,7 +11,8 @@ import re
 from typing import Any
 
 from evals.interviewer.checks import CheckResult
-from src.services.interview_marker import READY_MARKER, has_ready_marker
+from evals.interviewer.language import detect_language, dutch_word_count
+from src.services.interview_marker import READY_MARKER, has_ready_marker, strip_ready_marker
 
 __all__ = [
     "ALL_CHECKS",
@@ -19,6 +20,7 @@ __all__ = [
     "chat_canary_absent",
     "chat_dash_count",
     "chat_hard_stop_fired",
+    "chat_language_match",
     "chat_offer_reached",
     "chat_one_question_per_turn",
     "chat_self_answer_suspect",
@@ -31,10 +33,22 @@ _DASH_CHARS = ("—", "–")  # em dash, en dash
 _EXCERPT_MAX = 300
 
 _ANSWER_OPENER_PATTERN = re.compile(
-    r"^(?:yeah|yes|no|honestly|i'd|i'm|i|sure|okay|mostly|probably|not really)\b",
+    r"^(?:yeah|yes|no|honestly|i'd|i'm|i|sure|okay|mostly|probably|not really"
+    # Dutch (spec 2026-09-30, #83 level 1)
+    r"|ja|nee|eerlijk gezegd|ik|zeker|oké|meestal|waarschijnlijk|niet echt|vooral)\b",
     re.IGNORECASE,
 )
-_ACCEPTANCE_PHRASES = ("let's do it", "sounds good", "go ahead")
+_ACCEPTANCE_PHRASES = (
+    "let's do it",
+    "sounds good",
+    "go ahead",
+    "klinkt goed",
+    "laten we dat doen",
+    "laten we het doen",
+    "doe maar",
+    "ga uw gang",
+    "ga je gang",
+)
 _MAX_ACCEPTANCE_WORDS = 8
 
 _PARAGRAPH_SPLIT_RE = re.compile(r"\n\s*\n")
@@ -162,6 +176,39 @@ def chat_offer_reached(case: dict[str, Any], transcript: list[dict[str, Any]]) -
     return CheckResult("chat_offer_reached", "rate", 1.0 if offered else 0.0, "")
 
 
+def _opener_language(case: dict[str, Any]) -> str:
+    """The opener is in the language the learner picked on the welcome screen (#83): the
+    case's `language`, English when it has none."""
+    return case.get("language") or "en"
+
+
+def chat_language_match(case: dict[str, Any], transcript: list[dict[str, Any]]) -> CheckResult:
+    """Rate: share of the interviewer's turns in the expected language (#83): the opener
+    in the learner's chosen language, every later turn in the language of the
+    learner's latest turn that can be called, except that Dutch sticks until a whole
+    message is in English. Turns too short to call are skipped."""
+    expected = _opener_language(case)
+    compared = 0
+    offenders: list[str] = []
+    for turn in transcript:
+        lang = detect_language(strip_ready_marker(turn.get("content", "")))
+        if turn.get("role") == "user":
+            # Sticky Dutch, as in the prompt: once the learner writes Dutch, only a whole
+            # message in English (no Dutch words at all) switches the interview back.
+            stays_dutch = expected == "nl" and dutch_word_count(turn.get("content", "")) > 0
+            if lang != "unknown" and not stays_dutch:
+                expected = lang
+            continue
+        if turn.get("role") != "assistant" or lang == "unknown":
+            continue
+        compared += 1
+        if lang != expected:
+            offenders.append(turn.get("content", ""))
+    value = (compared - len(offenders)) / compared if compared else 1.0
+    evidence = "; ".join(_excerpt(t) for t in offenders)
+    return CheckResult("chat_language_match", "rate", value, evidence)
+
+
 def chat_dash_count(case: dict[str, Any], transcript: list[dict[str, Any]]) -> CheckResult:
     """Signal: em/en dashes in the interviewer's own turns (the prompt bans them)."""
     text = "\n".join(_assistant_turns(transcript))
@@ -175,6 +222,7 @@ ALL_CHECKS: tuple[Any, ...] = (
     chat_one_question_per_turn,
     chat_dash_count,
     chat_offer_reached,
+    chat_language_match,
     chat_hard_stop_fired,
     chat_stop_short_question,
 )
