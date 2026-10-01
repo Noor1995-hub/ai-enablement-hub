@@ -4,7 +4,7 @@
 // only issue GET requests, and POST /api/chat/{kind} carries a JSON body (the message content +
 // optional conversation_id). History loading (conversation list/detail) goes through the typed
 // `openapi-fetch` client instead, since those are plain JSON GET endpoints.
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { client, errorMessage, refreshAccessToken } from '../api/client'
 import { getAccessToken } from '../api/tokens'
 
@@ -25,7 +25,8 @@ interface ConversationSummary {
 
 /** Bearer-auth fetch with the same 401→refresh→retry-once behaviour as the
  * openapi-fetch client's auth middleware (api/client.ts), reimplemented on raw
- * `fetch` because streaming responses can't go through openapi-fetch. */
+ * `fetch` because streaming responses can't go through openapi-fetch.
+ * `init.signal` is forwarded to both attempts, so an abort cancels the retry too. */
 async function fetchWithAuth(input: string, init: RequestInit): Promise<Response> {
   const access = getAccessToken()
   const headers = new Headers(init.headers)
@@ -67,9 +68,19 @@ export function useChat(kind: ChatKind) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [conversations, setConversations] = useState<ConversationSummary[]>([])
+  // One in-flight stream at a time. Aborting on unmount stops a long AI reply
+  // from continuing to read the body (and to call setMessages) after the user
+  // has navigated away; aborting in `send`/`startNew` supersedes a previous
+  // stream rather than letting two write into the same message list.
+  const abortRef = useRef<AbortController | null>(null)
+  useEffect(() => () => abortRef.current?.abort(), [])
 
   const send = useCallback(
     async (content: string) => {
+      abortRef.current?.abort()
+      const controller = new AbortController()
+      abortRef.current = controller
+
       setLoading(true)
       setError(null)
       setMessages((prev) => [...prev, { role: 'user', content }])
@@ -80,9 +91,11 @@ export function useChat(kind: ChatKind) {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ content, conversation_id: conversationId }),
+          signal: controller.signal,
         })
         if (!response.ok || !response.body) {
           const body = await response.json().catch(() => null)
+          if (controller.signal.aborted) return
           setError(errorMessage(body, `Chat request failed (${response.status})`))
           setMessages(dropTrailingEmptyAssistant)
           setLoading(false)
@@ -94,6 +107,12 @@ export function useChat(kind: ChatKind) {
         let currentEvent = 'message'
         for (;;) {
           const { done, value } = await reader.read()
+          // A body that was already buffered can still resolve a read after the abort;
+          // nothing read past that point may reach the (possibly unmounted) state.
+          if (controller.signal.aborted) {
+            void reader.cancel().catch(() => undefined)
+            return
+          }
           if (done) break
           buffer += decoder.decode(value, { stream: true })
           const lines = buffer.split('\n')
@@ -137,10 +156,13 @@ export function useChat(kind: ChatKind) {
           }
         }
       } catch {
+        // An abort is a deliberate cancellation (unmount, startNew, or a superseding send),
+        // not a failure: the component may already be gone, so don't touch state.
+        if (controller.signal.aborted) return
         setError('Connection lost while streaming the reply.')
         setMessages(dropTrailingEmptyAssistant)
       } finally {
-        setLoading(false)
+        if (!controller.signal.aborted) setLoading(false)
       }
     },
     [kind, conversationId],
@@ -162,9 +184,14 @@ export function useChat(kind: ChatKind) {
   }, [])
 
   const startNew = useCallback(() => {
+    // Cancel any stream still writing into the list we're about to clear. The aborted
+    // send skips its own `setLoading(false)`, so reset it here or it stays stuck on.
+    abortRef.current?.abort()
+    abortRef.current = null
     setConversationId(null)
     setMessages([])
     setError(null)
+    setLoading(false)
   }, [])
 
   return { messages, send, loading, error, conversations, loadConversations, loadConversation, startNew }

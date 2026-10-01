@@ -35,9 +35,4 @@ export default tseslint.config(
       ],
     },
   },
-  {
-    // removed by E18 (the last rawRequest hatch; it goes when interviewApi is typed against the schema)
-    files: ['src/lib/interviewApi.ts'],
-    rules: { 'no-restricted-syntax': 'off' },
-  },
 )
