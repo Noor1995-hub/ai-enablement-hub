@@ -96,6 +96,6 @@ describe('buildButtonStatus', () => {
 describe('Dutch screen-reader text (#83)', () => {
   it('announces typing and the Build status in Dutch', () => {
     expect(liveAnnouncement([], { loading: false, opening: true, error: null }, 'nl')).toBe('De interviewer is aan het typen.')
-    expect(buildButtonStatus({ canBuild: false, loading: false }, 'nl')).toBe('Wordt beschikbaar zodra de interviewer genoeg weet.')
+    expect(buildButtonStatus({ canBuild: false, loading: false }, 'nl')).toBe('Wordt actief zodra de interviewer genoeg weet.')
   })
 })

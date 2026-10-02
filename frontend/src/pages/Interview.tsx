@@ -16,10 +16,10 @@ import Playbook from '../components/interview/Playbook'
 import { useAuth } from '../contexts/AuthContext'
 import { resolveInterviewTile } from '../lib/interviewAccess'
 import { buildPlaybook, getInterviewState, openInterview } from '../lib/interviewApi'
-import { chatToolbarHint } from '../lib/interviewHints'
+import { allToolbarHints, chatToolbarHint } from '../lib/interviewHints'
 import { parseReadySignal } from '../lib/interviewReady'
 import { useChat } from '../lib/useChat'
-import { DEFAULT_INTERVIEW_LANGUAGE, INTERVIEW_STRINGS, type InterviewLanguage, type InterviewStrings } from '../lib/interviewStrings'
+import { DEFAULT_INTERVIEW_LANGUAGE, INTERVIEW_STRINGS, interviewError, type InterviewLanguage, type InterviewStrings } from '../lib/interviewStrings'
 import { bubbleView, buildButtonStatus, liveAnnouncement } from '../lib/interviewChatView'
 import type { InterviewState } from '../types/domain'
 
@@ -122,7 +122,12 @@ const s = {
     display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
     padding: '14px 18px', borderBottom: '1px solid var(--dlw-border)', background: 'var(--dlw-surface)',
   },
-  chatToolbarHint: { margin: 0, fontSize: 13, fontWeight: 300, color: MUTED_TEXT },
+  // All hints share one grid cell (only the current one visible), so the cell is as tall as
+  // the longest hint at this width: a hint that wraps to two lines on a narrow window or at
+  // 200% zoom never makes the toolbar jump when the hint changes.
+  chatToolbarHints: { display: 'grid', flex: 1, minWidth: 0 },
+  chatToolbarHint: { gridArea: '1 / 1', margin: 0, fontSize: 13, fontWeight: 300, color: MUTED_TEXT },
+  chatToolbarHintSpacer: { visibility: 'hidden' },
 
   // minHeight: always room for the latest message, however little space the window leaves.
   messages: { flex: '1 1 0', minHeight: 160, overflowY: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 12 },
@@ -198,7 +203,7 @@ function WelcomeScreen({
       <div style={s.languageRow}>
         <LanguagePicker value={language} onChange={onLanguageChange} label={t.languagePickerLabel} />
       </div>
-      <p style={s.eyebrow}>{t.eyebrow}</p>
+      {/* No eyebrow above the heading here: the heading says it on its own. */}
       <h1 style={s.heading}>{t.welcomeHeading}</h1>
       <p style={s.body}>
         {t.welcomeBodyBefore}
@@ -238,16 +243,14 @@ function WelcomeScreen({
 // yet (and isn't an admin): mirrors the backend's assessment gate on the write paths,
 // so a learner never sees a 403 or an un-winnable "Try again" button.
 
-function NeedsAssessmentScreen({ onGoToAssessment }: { onGoToAssessment: () => void }) {
+function NeedsAssessmentScreen({ onGoToAssessment, t }: { onGoToAssessment: () => void; t: InterviewStrings }) {
   return (
     <div>
-      <p style={s.eyebrow}>AI Opportunity Interview</p>
-      <h1 style={s.heading}>Complete your assessment first</h1>
-      <p style={s.body}>
-        The interview builds on your assessment answers, so it opens once your assessment is done.
-      </p>
+      <p style={s.eyebrow}>{t.eyebrow}</p>
+      <h1 style={s.heading}>{t.needsAssessmentHeading}</h1>
+      <p style={s.body}>{t.needsAssessmentText}</p>
       <button type="button" className="btn-red-dark" style={s.btnPrimary} onClick={onGoToAssessment}>
-        Go to your assessment <span aria-hidden="true">→</span>
+        {t.needsAssessmentButton} <span aria-hidden="true">→</span>
       </button>
     </div>
   )
@@ -398,7 +401,13 @@ function ChatScreen({ chat, buildError, onBuildPlaybook, opening, openError, onR
 
       <div style={s.chatShell}>
         <div style={s.chatToolbar}>
-          <p id={BUILD_HINT_ID} style={s.chatToolbarHint}>{toolbarHint}</p>
+          <div style={s.chatToolbarHints}>
+            <p id={BUILD_HINT_ID} style={s.chatToolbarHint}>{toolbarHint}</p>
+            {/* Hidden (to screen readers too): they only hold the toolbar's height. */}
+            {allToolbarHints(language).filter(hint => hint !== toolbarHint).map(hint => (
+              <p key={hint} style={{ ...s.chatToolbarHint, ...s.chatToolbarHintSpacer }}>{hint}</p>
+            ))}
+          </div>
         </div>
 
         {/* Not a live region (the page-level one announces replies once, complete).
@@ -448,7 +457,7 @@ function ChatScreen({ chat, buildError, onBuildPlaybook, opening, openError, onR
               </div>
             )
           })}
-          {chat.error && <p role="alert" style={s.chatError}>{chat.error}</p>}
+          {chat.error && <p role="alert" style={s.chatError}>{interviewError(chat.error, language, 'chatFailed')}</p>}
         </div>
 
         <p style={s.privacyNotice}>{t.privacyNotice}</p>
@@ -591,7 +600,7 @@ export default function Interview() {
         }
       } catch (e) {
         if (cancelled) return
-        setLoadError(e instanceof Error ? e.message : 'Failed to load your interview.')
+        setLoadError(e instanceof Error ? e.message : INTERVIEW_STRINGS.en.loadFailed)
       }
     }
 
@@ -623,7 +632,7 @@ export default function Interview() {
         return chat.loadConversation(conversation_id)
       })
       .catch((e: unknown) =>
-        setOpenError(e instanceof Error ? e.message : 'Could not start the interview.'),
+        setOpenError(e instanceof Error ? e.message : INTERVIEW_STRINGS.en.openFailed),
       )
       .finally(() => {
         setOpening(false)
@@ -648,15 +657,18 @@ export default function Interview() {
         setPhase('done')
       })
       .catch((e: unknown) => {
-        setBuildError(e instanceof Error ? e.message : 'Could not build your playbook.')
+        setBuildError(e instanceof Error ? e.message : INTERVIEW_STRINGS.en.buildFailed)
         setPhase('chat')
       })
   }
 
   const chatLayout = phase === 'chat' && !loadError
+  // Errors in the interview's language (raw server text in English, the dictionary in Dutch).
   const shownOpenError =
-    openError ??
+    interviewError(openError, language, 'openFailed') ??
     (openerSettled && chat.messages.length === 0 ? t.openFailed : null)
+  const shownBuildError = interviewError(buildError, language, 'buildFailed')
+  const shownLoadError = interviewError(loadError, language, 'loadFailed')
   const announcement =
     phase === 'chat'
       ? liveAnnouncement(toDisplay(chat.messages), { loading: chat.loading, opening, error: chat.error }, language)
@@ -671,21 +683,22 @@ export default function Interview() {
       {/* Short on purpose: AppNav's 64px bar can't fit a two-line title. */}
       <AppNav backTo="/" title="Interview" />
       {/* The page's only live region, mounted once for every phase so screen readers pick up
-          each change: replies once complete (never half-written fragments), then the build. */}
-      <div aria-live="polite" style={s.srOnly}>{announcement}</div>
+          each change: replies once complete (never half-written fragments), then the build.
+          It sits outside <main>, so it carries the interview's language itself. */}
+      <div aria-live="polite" lang={language} style={s.srOnly}>{announcement}</div>
       <main lang={language} style={chatLayout ? { ...s.main, ...s.mainChat } : s.main}>
-        {loadError ? (
-          <p style={s.errorMsg}>{loadError}</p>
+        {shownLoadError ? (
+          <p style={s.errorMsg}>{shownLoadError}</p>
         ) : phase === 'loading' ? (
           <div style={s.loadingWrap}><Spinner /></div>
         ) : phase === 'needs_assessment' ? (
-          <NeedsAssessmentScreen onGoToAssessment={() => navigate('/assessment')} />
+          <NeedsAssessmentScreen onGoToAssessment={() => navigate('/assessment')} t={t} />
         ) : phase === 'welcome' ? (
           <WelcomeScreen onStart={handleStart} language={language} onLanguageChange={setLanguage} />
         ) : phase === 'chat' ? (
           <ChatScreen
             chat={chat}
-            buildError={buildError}
+            buildError={shownBuildError}
             onBuildPlaybook={handleBuildPlaybook}
             opening={opening}
             openError={shownOpenError}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { chatToolbarHint } from './interviewHints'
+import { allToolbarHints, chatToolbarHint } from './interviewHints'
 
 const base = { modelReady: false, canBuild: false, answerCount: 0, hasMessages: true }
 
@@ -51,5 +51,22 @@ describe('chatToolbarHint in Dutch (#83)', () => {
     expect(chatToolbarHint({ ...base, answerCount: 1 }, 'nl')).toBe(
       'Ga gerust verder: hoe meer u vertelt, hoe beter uw playbook.',
     )
+  })
+})
+
+describe('allToolbarHints', () => {
+  it('lists every hint chatToolbarHint can return, in both languages', () => {
+    const states = [
+      base,
+      { ...base, hasMessages: false },
+      { ...base, answerCount: 1 },
+      { ...base, canBuild: true, answerCount: 8 },
+      { ...base, modelReady: true, canBuild: true, answerCount: 5 },
+    ]
+    for (const lang of ['en', 'nl'] as const) {
+      const all = allToolbarHints(lang)
+      expect(all).toHaveLength(5)
+      for (const state of states) expect(all).toContain(chatToolbarHint(state, lang))
+    }
   })
 })

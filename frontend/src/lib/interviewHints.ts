@@ -23,3 +23,11 @@ export function chatToolbarHint(
   if (answerCount === 0) return t.hintFirstAnswer
   return t.hintKeepGoing
 }
+
+/** Every hint the toolbar can show, in the interview's language. The page lays them all in one
+ *  spot, only the current one visible, so the toolbar is always as tall as the longest hint at
+ *  the current width: it never grows or shrinks when the hint changes, at any width or zoom. */
+export function allToolbarHints(language: InterviewLanguage = DEFAULT_INTERVIEW_LANGUAGE): string[] {
+  const t = INTERVIEW_STRINGS[language]
+  return [t.hintReady, t.hintCanBuild, t.hintNoMessages, t.hintFirstAnswer, t.hintKeepGoing]
+}

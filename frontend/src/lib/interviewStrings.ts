@@ -45,6 +45,14 @@ const INTERVIEW_EN = {
   buildLocked: 'Unlocks once the interviewer has enough to go on.',
   buildWaiting: 'Available once the interviewer finishes replying.',
   openFailed: 'Could not start the interview. Please try again.',
+  // In English the page shows the server's own message, which can carry useful detail (a rate
+  // limit, say); these are the fallbacks, and the Dutch versions replace it (#83).
+  loadFailed: 'Failed to load your interview.',
+  buildFailed: 'Could not build your playbook. Please try again.',
+  chatFailed: 'Your answer did not get through. Please try again.',
+  needsAssessmentHeading: 'Complete your assessment first',
+  needsAssessmentText: 'The interview builds on your assessment answers, so it opens once your assessment is done.',
+  needsAssessmentButton: 'Go to your assessment',
   buildingHeading: 'Building your playbook',
   buildingText:
     'Turning our conversation into practical use cases and clear next steps. This usually takes a ' +
@@ -66,10 +74,10 @@ const INTERVIEW_NL: InterviewStrings = {
     'opslorpen, de dingen die u graag uit handen zou geven. Het duurt ongeveer 15 minuten en er zijn ' +
     'geen foute antwoorden; hoe concreter u bent, hoe beter het resultaat. Op het einde krijgt u een ',
   welcomeBodyStrong: 'persoonlijk playbook',
-  welcomeBodyAfter: ': praktische AI-toepassingen en duidelijke volgende stappen, op maat van u.',
+  welcomeBodyAfter: ': praktische AI-toepassingen en duidelijke volgende stappen.',
   stepTalkLabel: 'Praten',
   stepTalkText: 'Een paar vragen over uw week en de tools die u gebruikt.',
-  stepBuildLabel: 'Opbouwen',
+  stepBuildLabel: 'Bouwen',
   stepBuildText: 'We zetten het gesprek om in uw playbook.',
   stepStartLabel: 'Starten',
   stepStartText: 'U vertrekt met een eerste stap die u vandaag al kunt zetten.',
@@ -88,28 +96,46 @@ const INTERVIEW_NL: InterviewStrings = {
   answerHelp: 'Druk op Enter om te verzenden, Shift+Enter voor een nieuwe regel.',
   send: 'Verzenden',
   buildButton: 'Bouw mijn playbook',
-  hintReady: 'Uw playbook is klaar om op te bouwen wanneer u wilt, of praat verder om nog iets toe te voegen.',
-  hintCanBuild: 'U kunt uw playbook nu opbouwen, of nog wat verder praten voor een rijker resultaat.',
-  hintNoMessages: 'Bouw mijn playbook wordt beschikbaar zodra de interviewer genoeg weet.',
-  hintFirstAnswer: 'Antwoord in uw eigen woorden. Bouw mijn playbook wordt beschikbaar zodra de interviewer genoeg weet.',
+  hintReady: 'Uw playbook is klaar om te bouwen wanneer u wilt, of praat verder om meer toe te voegen.',
+  hintCanBuild: 'U kunt uw playbook nu bouwen, of verder praten voor een rijker resultaat.',
+  hintNoMessages: 'De knop ‘Bouw mijn playbook’ wordt actief zodra de interviewer genoeg weet.',
+  hintFirstAnswer: 'Antwoord in uw eigen woorden. U kunt uw playbook bouwen zodra de interviewer genoeg weet.',
   hintKeepGoing: 'Ga gerust verder: hoe meer u vertelt, hoe beter uw playbook.',
-  buildLocked: 'Wordt beschikbaar zodra de interviewer genoeg weet.',
+  buildLocked: 'Wordt actief zodra de interviewer genoeg weet.',
   buildWaiting: 'Beschikbaar zodra de interviewer klaar is met antwoorden.',
   openFailed: 'Het gesprek kon niet starten. Probeer het opnieuw.',
-  buildingHeading: 'Uw playbook wordt opgebouwd',
+  loadFailed: 'Uw gesprek kon niet geladen worden.',
+  buildFailed: 'Uw playbook kon niet gebouwd worden. Probeer het opnieuw.',
+  chatFailed: 'Uw antwoord is niet doorgekomen. Probeer het opnieuw.',
+  needsAssessmentHeading: 'Rond eerst uw assessment af',
+  needsAssessmentText: 'Het gesprek vertrekt van uw antwoorden in het assessment, dus het opent zodra u dat hebt afgerond.',
+  needsAssessmentButton: 'Naar uw assessment',
+  buildingHeading: 'Uw playbook wordt gebouwd',
   buildingText:
     'We zetten ons gesprek om in praktische toepassingen en duidelijke volgende stappen. Dat duurt ' +
     'meestal een minuutje of twee, dus even geduld en laat dit tabblad open. Uw playbook verschijnt hier.',
-  buildingAnnouncement: 'Uw playbook wordt opgebouwd. Dat duurt meestal een minuutje of twee.',
+  buildingAnnouncement: 'Uw playbook wordt gebouwd. Dat duurt meestal een minuutje of twee.',
   readyAnnouncement: 'Uw playbook is klaar.',
   playbookHeading: 'Uw AI-playbook',
-  playbookIntro: 'Opgebouwd uit uw gesprek. U kunt er altijd naar terugkeren via de hub.',
+  playbookIntro: 'Gebouwd op basis van uw gesprek. U kunt er altijd naar terugkeren via de hub.',
   playbookUnavailable: 'Uw playbook is nu niet beschikbaar. Vernieuw de pagina.',
 }
 
 export const INTERVIEW_STRINGS: Record<InterviewLanguage, InterviewStrings> = {
   en: INTERVIEW_EN,
   nl: INTERVIEW_NL,
+}
+
+/** An error as the interview page shows it. In English, the server's own message (it can carry
+ *  useful detail, such as a rate limit); in Dutch, the dictionary's, since the server and the
+ *  shared chat hook only speak English. */
+export function interviewError(
+  message: string | null,
+  language: InterviewLanguage,
+  key: 'loadFailed' | 'openFailed' | 'buildFailed' | 'chatFailed',
+): string | null {
+  if (message === null) return null
+  return language === 'en' ? message : INTERVIEW_STRINGS[language][key]
 }
 
 const PLAYBOOK_EN = {
