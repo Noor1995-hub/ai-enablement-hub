@@ -1984,6 +1984,8 @@ export interface components {
             default_module_ids: string[];
             /** Default Lesson Ids */
             default_lesson_ids: string[];
+            /** Admin Project Ids */
+            admin_project_ids: string[];
         };
         /** AdminUsersResponse */
         AdminUsersResponse: {

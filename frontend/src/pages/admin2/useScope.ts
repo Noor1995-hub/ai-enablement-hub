@@ -4,7 +4,9 @@ import { useSearchParams } from 'react-router-dom'
 export interface Scope {
   /** null = "All projects"; otherwise the scoped project's id. */
   projectId: string | null
-  setProject: (id: string | null) => void
+  /** `replace` swaps the current history entry instead of pushing one — for
+   * automatic corrections the back button must not undo. */
+  setProject: (id: string | null, options?: { replace?: boolean }) => void
 }
 
 /** Reads/writes the `?project=` query param so the admin's project scope
@@ -21,13 +23,16 @@ export function useScope(): Scope {
   // the project scope.
   const projectId = searchParams.get('project')
 
-  const setProject = useCallback((id: string | null) => {
-    setSearchParams(prev => {
-      const next = new URLSearchParams(prev)
-      if (id) next.set('project', id)
-      else next.delete('project')
-      return next
-    })
+  const setProject = useCallback((id: string | null, options?: { replace?: boolean }) => {
+    setSearchParams(
+      prev => {
+        const next = new URLSearchParams(prev)
+        if (id) next.set('project', id)
+        else next.delete('project')
+        return next
+      },
+      { replace: options?.replace ?? false },
+    )
   }, [setSearchParams])
 
   return useMemo(() => ({ projectId, setProject }), [projectId, setProject])

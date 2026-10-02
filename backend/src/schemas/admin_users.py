@@ -82,6 +82,10 @@ class AdminUserOut(BaseModel):
     default_track_ids: list[uuid.UUID]
     default_module_ids: list[uuid.UUID]
     default_lesson_ids: list[uuid.UUID]
+    # Projects this user holds project-admin rows for (empty for learners; a power
+    # admin may have rows, which add nothing) — spec 2026-10-01-project-scoped-admin.
+    # The panel uses it to show "Admin of: …" and to hide actions the API refuses.
+    admin_project_ids: list[uuid.UUID]
 
 
 class AdminUsersResponse(BaseModel):

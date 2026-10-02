@@ -36,6 +36,21 @@ class ProjectAdminRepository(AbstractProjectAdminRepository):
         )
         return set(result.scalars().all())
 
+    async def project_ids_by_user(
+        self, user_ids: list[uuid.UUID]
+    ) -> dict[uuid.UUID, list[uuid.UUID]]:
+        if not user_ids:
+            return {}
+        result = await self._session.execute(
+            select(ProjectAdmin.user_id, ProjectAdmin.project_id).where(
+                ProjectAdmin.user_id.in_(user_ids)
+            )
+        )
+        grouped: dict[uuid.UUID, list[uuid.UUID]] = {}
+        for user_id, project_id in result.all():
+            grouped.setdefault(user_id, []).append(project_id)
+        return {user_id: sorted(ids) for user_id, ids in grouped.items()}
+
     async def all_pairs(self) -> set[tuple[uuid.UUID, uuid.UUID]]:
         result = await self._session.execute(select(ProjectAdmin.user_id, ProjectAdmin.project_id))
         return {(user_id, project_id) for user_id, project_id in result.all()}

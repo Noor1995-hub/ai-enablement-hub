@@ -34,6 +34,8 @@ async def test_grant_list_revoke_roundtrip(db_session: AsyncSession) -> None:
     assert await repo.is_project_admin(coach.id)
     assert await repo.admin_ids_for_project(a.id) == {coach.id}
     assert {(coach.id, a.id), (coach.id, b.id)} <= await repo.all_pairs()
+    assert await repo.project_ids_by_user([coach.id, power.id]) == {coach.id: sorted([a.id, b.id])}
+    assert await repo.project_ids_by_user([]) == {}
     listed = await repo.list_for_project(a.id)
     assert [user.id for user, _ in listed] == [coach.id]
 

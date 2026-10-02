@@ -43,7 +43,15 @@ function ScrollToTop() {
 }
 
 function AppRoutes() {
-  const { session, role, passwordSet, externalLogin, loading } = useAuth()
+  const location = useLocation()
+  const { session, role, isPowerAdmin, adminProjectIds, passwordSet, externalLogin, loading } = useAuth()
+  // Power admins and project admins open /admin; the power-only sections send a
+  // project admin back to the dashboard (spec 2026-10-01, #144). Kept inline
+  // rather than importing admin2/adminAccess so the learner bundle never pulls
+  // in admin code.
+  const canOpenAdmin = isPowerAdmin || adminProjectIds.length > 0
+  const powerOnly = (element: JSX.Element) =>
+    isPowerAdmin ? element : <Navigate to={{ pathname: '/admin', search: location.search }} replace />
 
   if (loading) return <Spinner fullPage />
 
@@ -65,19 +73,19 @@ function AppRoutes() {
       } />
       <Route path="/admin" element={
         !session ? <Navigate to="/login" replace />
-          : role !== 'admin' ? <Navigate to="/" replace />
+          : !canOpenAdmin ? <Navigate to="/" replace />
           : <Suspense fallback={<Spinner fullPage />}><AdminShell /></Suspense>
       }>
         <Route index element={<DashboardPage />} />
         <Route path="people" element={<PeoplePage />} />
         <Route path="people/:userId" element={<UserDetailPage />} />
         <Route path="assignments" element={<AssignmentsPage />} />
-        <Route path="feedback" element={<FeedbackPage />} />
-        <Route path="content-improvement" element={<ContentImprovementPage />} />
+        <Route path="feedback" element={powerOnly(<FeedbackPage />)} />
+        <Route path="content-improvement" element={powerOnly(<ContentImprovementPage />)} />
         <Route path="projects" element={<ProjectsPage />} />
         <Route path="templates" element={<TemplatesPage />} />
-        <Route path="prompts" element={<PromptsPage />} />
-        <Route path="setup" element={<SetupPage />} />
+        <Route path="prompts" element={powerOnly(<PromptsPage />)} />
+        <Route path="setup" element={powerOnly(<SetupPage />)} />
       </Route>
       <Route path="/assessment" element={session ? <Assessment /> : <Navigate to="/login" replace />} />
       {/* Redesign is the working page; it carries the admin edit mode too. The

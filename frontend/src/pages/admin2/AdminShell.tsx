@@ -5,7 +5,8 @@ import { useAuth } from '../../contexts/AuthContext'
 import '../../styles/admin.css'
 import { useFeedback, useProposals } from './api'
 import { Spinner } from './kit'
-import { NAV_ITEMS, type NavIconKey } from './nav'
+import { resolveAdminProject, visibleNavItems } from './adminAccess'
+import type { NavIconKey } from './nav'
 import ScopeSwitcher from './ScopeSwitcher'
 import { useScope } from './useScope'
 
@@ -29,6 +30,19 @@ export default function AdminShell() {
   // carry it through every NavLink below.
   const [searchParams] = useSearchParams()
   const search = searchParams.toString()
+  const { isPowerAdmin, adminProjectIds } = useAuth()
+  const viewer = { isPowerAdmin, adminProjectIds }
+  // A project admin always looks at one of their own projects: the API has no
+  // "all projects" view for them (400 with several, 404 for someone else's).
+  // Hold the page until ?project= is pinned so no section fires an unscoped call.
+  const scope = useScope()
+  const pinnedProject = resolveAdminProject(viewer, scope.projectId)
+  const needsPin = !isPowerAdmin && pinnedProject !== scope.projectId
+  useEffect(() => {
+    // replace: a pin pushed as a new entry would make Back land on the
+    // unpinned URL, which pins again — a back-button trap.
+    if (needsPin) scope.setProject(pinnedProject, { replace: true })
+  }, [needsPin, pinnedProject, scope])
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -47,7 +61,7 @@ export default function AdminShell() {
       </header>
       <div className="adm-shell">
         <nav className="adm-sidebar">
-          {NAV_ITEMS.map(item => (
+          {visibleNavItems(viewer).map(item => (
             <SidebarLink
               key={item.key}
               label={item.label}
@@ -67,7 +81,7 @@ export default function AdminShell() {
             {/* Each section is its own lazy chunk; suspending here keeps the
                 topbar and sidebar on screen while one loads. */}
             <Suspense fallback={<div className="adm-loading"><Spinner /></div>}>
-              <Outlet />
+              {needsPin ? <div className="adm-loading"><Spinner /></div> : <Outlet />}
             </Suspense>
           </div>
         </main>

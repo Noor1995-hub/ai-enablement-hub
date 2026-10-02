@@ -32,6 +32,8 @@ async def test_grant_list_revoke(
     listed = (await client.get(base, headers=power_headers)).json()["admins"]
     assert [a["user_id"] for a in listed] == [str(coach.id)]
     assert listed[0]["email"] == "grant-coach@example.com"
+    detail = (await client.get(f"/api/admin/users/{coach.id}", headers=power_headers)).json()
+    assert detail["admin_project_ids"] == [str(project.id)]
 
     # The coach can now read their own project's admin list, but not grant.
     assert (await client.get(base, headers=coach_headers)).status_code == 200

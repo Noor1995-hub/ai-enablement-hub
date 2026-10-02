@@ -67,8 +67,13 @@ class AdminUserService:
         status: Literal["active", "invited", "attention"] | None = None,
         limit: int | None = None,
         offset: int = 0,
+        learners_only: bool = False,
     ) -> tuple[list[dict[str, Any]], int]:
+        """learners_only (project-admin callers): drop power admins and project
+        admins — the people a project admin can't act on (spec 2026-10-01)."""
         rows = await self._users.list_with_org_names(project_id, q)
+        if learners_only:
+            rows = await self._only_learners(rows)
         result = await self._enrich_rows(rows)
 
         # Task 9: status is computed (not a column), so it's filtered here in
@@ -97,6 +102,12 @@ class AdminUserService:
             raise NotFoundError("User")
         return (await self._enrich_rows([row]))[0]
 
+    async def _only_learners(
+        self, rows: list[tuple[User, str | None, str | None]]
+    ) -> list[tuple[User, str | None, str | None]]:
+        staff = await self._project_admins.project_ids_by_user([user.id for user, _, _ in rows])
+        return [row for row in rows if row[0].role != "admin" and row[0].id not in staff]
+
     async def _enrich_rows(
         self, rows: list[tuple[User, str | None, str | None]]
     ) -> list[dict[str, Any]]:
@@ -119,6 +130,7 @@ class AdminUserService:
         last_active = await self._sessions.last_used_by_user(user_ids)
         latest = await self._progress.latest_completion_by_user(user_ids)
         surveyed = await self._surveys.user_ids_with_survey(user_ids)
+        admin_projects = await self._project_admins.project_ids_by_user(user_ids)
         tracks = await self._content.list_tracks()
         modules = await self._content.list_modules()
         track_name = {track.id: track.name for track in tracks}
@@ -198,6 +210,7 @@ class AdminUserService:
                     "default_track_ids": default_track_map.get(user.id, []),
                     "default_module_ids": default_module_map.get(user.id, []),
                     "default_lesson_ids": default_lesson_map.get(user.id, []),
+                    "admin_project_ids": admin_projects.get(user.id, []),
                 }
             )
 
@@ -481,6 +494,7 @@ class AdminUserService:
         project_id: uuid.UUID | None = None,
         limit: int | None = None,
         offset: int = 0,
+        learners_only: bool = False,
     ) -> dict[str, Any]:
         """Modules + lessons + users with their assignments (admin learning
         panel). Only the `users` array is paginated/filtered — modules/lessons
@@ -494,6 +508,8 @@ class AdminUserService:
         rows = await self._users.list_for_learning()
         if project_id is not None:
             rows = [row for row in rows if row[0].project_id == project_id]
+        if learners_only:
+            rows = await self._only_learners(rows)
         (
             track_map,
             module_map,

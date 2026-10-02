@@ -5,7 +5,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 // bundle split depends on: the shell renders through Suspense, and a learner
 // never triggers the admin import.
 const h = vi.hoisted(() => ({
-  auth: { session: true, role: 'admin', passwordSet: true, externalLogin: false, loading: false } as Record<string, unknown>,
+  auth: {
+    session: true,
+    role: 'admin',
+    isPowerAdmin: true,
+    adminProjectIds: [] as string[],
+    passwordSet: true,
+    externalLogin: false,
+    loading: false,
+  } as Record<string, unknown>,
   shellImports: 0,
   releaseShell: () => {},
 }))
@@ -28,6 +36,8 @@ import App from './App'
 beforeEach(() => {
   window.scrollTo = vi.fn() // ScrollToTop; jsdom does not implement it
   h.auth.role = 'admin'
+  h.auth.isPowerAdmin = true
+  h.auth.adminProjectIds = []
 })
 
 describe('lazy admin routes', () => {
@@ -35,6 +45,7 @@ describe('lazy admin routes', () => {
   // this must observe the admin module before any admin render has loaded it.
   it('never loads the admin chunk for a learner sent away from /admin', async () => {
     h.auth.role = 'user'
+    h.auth.isPowerAdmin = false
     window.history.pushState({}, '', '/admin')
     render(<App />)
     expect(await screen.findByText('Learner home')).toBeInTheDocument()
@@ -52,5 +63,28 @@ describe('lazy admin routes', () => {
     h.releaseShell()
     expect(await screen.findByText('Admin shell')).toBeInTheDocument()
     expect(await screen.findByText('Admin dashboard')).toBeInTheDocument()
+  })
+})
+
+describe('project admins (spec 2026-10-01, #144)', () => {
+  it('lets a project admin into the panel', async () => {
+    h.auth.role = 'user'
+    h.auth.isPowerAdmin = false
+    h.auth.adminProjectIds = ['p1']
+    window.history.pushState({}, '', '/admin')
+    render(<App />)
+    h.releaseShell()
+    expect(await screen.findByText('Admin dashboard')).toBeInTheDocument()
+  })
+
+  it('sends a project admin away from a power-only section', async () => {
+    h.auth.role = 'user'
+    h.auth.isPowerAdmin = false
+    h.auth.adminProjectIds = ['p1']
+    window.history.pushState({}, '', '/admin/setup')
+    render(<App />)
+    h.releaseShell()
+    expect(await screen.findByText('Admin dashboard')).toBeInTheDocument()
+    expect(window.location.pathname).toBe('/admin')
   })
 })

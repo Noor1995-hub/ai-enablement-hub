@@ -1,3 +1,4 @@
+import { useAuth } from '../../contexts/AuthContext'
 import { useCompanies } from './api'
 import { useScope } from './useScope'
 
@@ -13,6 +14,9 @@ interface ProjectOption {
  * scoped so it's never ambiguous what's being viewed. */
 export default function ScopeSwitcher() {
   const { projectId, setProject } = useScope()
+  // Project admins only ever get their own projects back from /companies, and
+  // have no "All projects" view (AdminShell pins them to one).
+  const { isPowerAdmin } = useAuth()
   const { data: companies, isLoading, error } = useCompanies()
   const options: ProjectOption[] | undefined = companies?.flatMap(company =>
     company.projects.map(project => ({ id: project.id, label: `${company.name} · ${project.name}` })),
@@ -39,11 +43,11 @@ export default function ScopeSwitcher() {
           disabled={isLoading}
           onChange={e => setProject(e.target.value === 'all' ? null : e.target.value)}
         >
-          <option value="all">All projects</option>
+          {isPowerAdmin && <option value="all">All projects</option>}
           {scoped && !matched && <option value={projectId ?? ''}>{syntheticLabel}</option>}
           {options?.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
         </select>
-        {scoped && (
+        {scoped && isPowerAdmin && (
           <button
             type="button"
             className="adm-scope-clear"

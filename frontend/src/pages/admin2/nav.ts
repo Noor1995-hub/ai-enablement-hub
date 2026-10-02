@@ -12,16 +12,18 @@ export interface NavItem {
   label: string
   icon: NavIconKey
   path: string
+  /** Power admins only — hidden from project admins (spec 2026-10-01). */
+  powerOnly?: boolean
 }
 
 export const NAV_ITEMS: NavItem[] = [
   { key: 'dashboard',   label: 'Dashboard',       icon: 'home',     path: '' },
   { key: 'people',      label: 'People',          icon: 'users',    path: 'people' },
   { key: 'assignments', label: 'Assignments',     icon: 'grid',     path: 'assignments' },
-  { key: 'feedback',    label: 'Feedback',        icon: 'inbox',    path: 'feedback' },
-  { key: 'content-ai',  label: 'Content AI',      icon: 'edit',     path: 'content-improvement' },
+  { key: 'feedback',    label: 'Feedback',        icon: 'inbox',    path: 'feedback', powerOnly: true },
+  { key: 'content-ai',  label: 'Content AI',      icon: 'edit',     path: 'content-improvement', powerOnly: true },
   { key: 'projects',    label: 'Projects',        icon: 'folder',   path: 'projects' },
   { key: 'templates',   label: 'Email templates', icon: 'mail',     path: 'templates' },
-  { key: 'prompts',     label: 'System prompts',  icon: 'terminal', path: 'prompts' },
-  { key: 'setup',       label: 'Setup',           icon: 'settings', path: 'setup' },
+  { key: 'prompts',     label: 'System prompts',  icon: 'terminal', path: 'prompts', powerOnly: true },
+  { key: 'setup',       label: 'Setup',           icon: 'settings', path: 'setup', powerOnly: true },
 ]

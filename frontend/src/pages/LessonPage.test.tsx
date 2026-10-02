@@ -20,6 +20,8 @@ vi.mock('../contexts/AuthContext', () => ({
   useAuth: () => ({
     user: { id: 'learner-1', role: authState.role, first_name: 'Ada', last_name: 'Lovelace' },
     role: authState.role,
+    isPowerAdmin: authState.role === 'admin',
+    adminProjectIds: [],
     logout: vi.fn(),
   }),
 }))

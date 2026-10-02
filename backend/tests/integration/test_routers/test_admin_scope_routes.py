@@ -241,3 +241,33 @@ async def test_project_admins_get_invite_and_reset_links_in_their_project(
     )
     assert invite.status_code == 201
     assert invite.json()["link"].startswith("http")
+
+
+async def test_project_admin_lists_show_only_learners(
+    client: AsyncClient, db_session: AsyncSession, world: World, test_settings: Settings
+) -> None:
+    """A project admin can't act on staff (403), so their People list and
+    learning matrix leave staff out; a power admin still sees everyone."""
+    co_admin = await create_user(db_session, email="scope-co@example.com", project_id=world.a.id)
+    await make_project_admin(db_session, co_admin, world.a)
+    power = await create_user(
+        db_session, email="scope-power-a@example.com", role="admin", project_id=world.a.id
+    )
+    world.coach.project_id = world.a.id
+    await db_session.commit()
+    staff = {str(co_admin.id), str(power.id), str(world.coach.id)}
+
+    coach = auth_headers(world.coach, test_settings)
+    people = {
+        u["id"] for u in (await client.get("/api/admin/users", headers=coach)).json()["users"]
+    }
+    learning = (await client.get("/api/admin/learning", headers=coach)).json()["users"]
+    assert str(world.la.id) in people
+    assert not people & staff
+    assert not {u["id"] for u in learning} & staff
+
+    as_power = auth_headers(power, test_settings)
+    everyone = (
+        await client.get(f"/api/admin/users?project_id={world.a.id}", headers=as_power)
+    ).json()["users"]
+    assert staff <= {u["id"] for u in everyone}

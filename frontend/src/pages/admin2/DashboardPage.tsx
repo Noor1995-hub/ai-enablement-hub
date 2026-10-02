@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { useAuth } from '../../contexts/AuthContext'
 import { LEVELS } from '../../lib/levels'
 import type { AttentionItemOut, FunnelOut, MaturityDistributionOut } from '../../types/domain'
 import { useDashboard, useSendReminder } from './api'
@@ -27,6 +28,7 @@ const FUNNEL_RAMP = ['#EE9089', '#EA6A60', '#EF463C', '#C42828', '#941914']
  * option-b.html `dashboard()` + common.js `tile()` / `funnelHTML()` /
  * `levelRowsHTML()` / `attentionRowsHTML()`. */
 export default function DashboardPage() {
+  const { isPowerAdmin } = useAuth()
   const scope = useScope()
   const { data, isLoading, error, refetch } = useDashboard(scope.projectId)
 
@@ -58,7 +60,8 @@ export default function DashboardPage() {
         <Tile label="Learners" value={data.tiles.learners} />
         <Tile label="Active this week" value={data.tiles.active_week} />
         <Tile label="Need attention" value={data.tiles.attention} alert={data.tiles.attention > 0} />
-        <Tile label="New feedback" value={data.tiles.new_feedback} />
+        {/* Feedback triage is power-admin only. */}
+        {isPowerAdmin && <Tile label="New feedback" value={data.tiles.new_feedback} />}
       </div>
 
       <Card title="Needs attention">

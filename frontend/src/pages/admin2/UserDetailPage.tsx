@@ -1,12 +1,15 @@
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useAuth } from '../../contexts/AuthContext'
+import { canManageUser } from './adminAccess'
 import SurveyResults from './SurveyResults'
 import { LEVELS, levelByCode } from '../../lib/levels'
 import type { AdminSurvey, AdminUserEnriched } from '../../types/domain'
 import InterviewCard from './InterviewCard'
 import {
   useAdminUser,
+  useCompanies,
   useDeleteUser,
   useResetLink,
   useSendReminder,
@@ -231,6 +234,12 @@ function AccountCard({ user, survey, onDeleted }: AccountCardProps) {
   const setMaturity = useSetMaturity()
   const resetLink = useResetLink()
   const deleteUser = useDeleteUser()
+  const { isPowerAdmin, adminProjectIds, user: me } = useAuth()
+  const manageable = canManageUser({ isPowerAdmin, adminProjectIds, userId: me?.id ?? null }, user)
+  const companies = useCompanies()
+  const projectNames = new Map(
+    (companies.data ?? []).flatMap(c => c.projects.map(p => [p.id, `${c.name} · ${p.name}`] as const)),
+  )
 
   const [copied, setCopied] = useState(false)
   const [resetDismissed, setResetDismissed] = useState(false)
@@ -256,17 +265,31 @@ function AccountCard({ user, survey, onDeleted }: AccountCardProps) {
     <Card title="Account">
       <div className="adm-acct-row">
         <span className="adm-acct-label">Role</span>
-        <select
-          className={`adm-select adm-role-select-${roleClass(user.role)}`}
-          disabled={setRole.isPending}
-          value={user.role}
-          onChange={e => setRole.mutate({ userId: user.id, role: e.target.value as SetRoleInput['role'] })}
-        >
-          <option value="user">User</option>
-          <option value="admin">Admin</option>
-        </select>
-        <span className="adm-subtext">user / admin</span>
+        {isPowerAdmin && manageable ? (
+          <>
+            <select
+              className={`adm-select adm-role-select-${roleClass(user.role)}`}
+              disabled={setRole.isPending}
+              value={user.role}
+              onChange={e => setRole.mutate({ userId: user.id, role: e.target.value as SetRoleInput['role'] })}
+            >
+              <option value="user">User</option>
+              <option value="admin">Admin</option>
+            </select>
+            <span className="adm-subtext">user / admin (power admin)</span>
+          </>
+        ) : (
+          <span className="adm-subtext">{user.role === 'admin' ? 'Power admin' : 'User'}</span>
+        )}
       </div>
+      {user.admin_project_ids.length > 0 && (
+        <div className="adm-acct-row">
+          <span className="adm-acct-label">Admin of</span>
+          {user.admin_project_ids.map(id => (
+            <Chip key={id} tone="info">{projectNames.get(id) ?? 'Project'}</Chip>
+          ))}
+        </div>
+      )}
       {setRole.isError && (
         <p className="adm-form-msg adm-form-msg-err">
           {setRole.error instanceof Error ? setRole.error.message : 'Failed to update the role.'}
@@ -367,15 +390,17 @@ function AccountCard({ user, survey, onDeleted }: AccountCardProps) {
         </div>
       )}
 
-      <div className="adm-acct-row">
-        <span className="adm-acct-label">Danger</span>
-        <ConfirmButton
-          label="Remove participant"
-          confirmLabel="Confirm removal"
-          busy={deleteUser.isPending}
-          onConfirm={handleDelete}
-        />
-      </div>
+      {manageable && (
+        <div className="adm-acct-row">
+          <span className="adm-acct-label">Danger</span>
+          <ConfirmButton
+            label="Remove participant"
+            confirmLabel="Confirm removal"
+            busy={deleteUser.isPending}
+            onConfirm={handleDelete}
+          />
+        </div>
+      )}
       {deleteUser.isError && (
         <p className="adm-form-msg adm-form-msg-err">
           {deleteUser.error instanceof Error ? deleteUser.error.message : 'Failed to remove this participant.'}

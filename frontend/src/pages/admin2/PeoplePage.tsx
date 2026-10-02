@@ -1,6 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../../contexts/AuthContext'
 import BulkInviteModal from './BulkInviteModal'
 import type { AdminUserEnriched } from '../../types/domain'
 import {
@@ -37,6 +38,7 @@ const ROLE_LABEL: Record<string, string> = { admin: 'Admin', user: 'User' }
  * Prototype: docs/design-prototypes/admin-redesign option-b.html `people()`
  * + common.js `peopleTableHTML()` / `wirePeopleTable()`. */
 export default function PeoplePage() {
+  const { isPowerAdmin } = useAuth()
   const scope = useScope()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -131,7 +133,12 @@ export default function PeoplePage() {
       {
         key: 'role',
         header: 'Role',
-        render: row => <Chip tone={roleTone(row.role)}>{ROLE_LABEL[row.role] ?? row.role}</Chip>,
+        render: row =>
+          row.role !== 'admin' && row.admin_project_ids.length > 0 ? (
+            <Chip tone="info">Project admin</Chip>
+          ) : (
+            <Chip tone={roleTone(row.role)}>{ROLE_LABEL[row.role] ?? row.role}</Chip>
+          ),
       },
     )
     return cols
@@ -266,9 +273,11 @@ export default function PeoplePage() {
         <button type="button" className="adm-btn adm-btn-ghost adm-btn-sm" disabled={reminderBusy} onClick={() => void handleSendReminder()}>
           {reminderBusy ? <Spinner size="sm" /> : <MailIcon />} Send reminder
         </button>
-        <button type="button" className="adm-btn adm-btn-ghost adm-btn-sm" onClick={() => setRoleOpen(true)}>
-          Change role
-        </button>
+        {isPowerAdmin && (
+          <button type="button" className="adm-btn adm-btn-ghost adm-btn-sm" onClick={() => setRoleOpen(true)}>
+            Change role
+          </button>
+        )}
       </BulkBar>
 
       {assignOpen && (

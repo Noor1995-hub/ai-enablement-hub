@@ -146,7 +146,12 @@ async def list_users(
     params). `total` is additive: count after q/status filtering, before
     limit/offset slicing."""
     users, total = await admin_user_service.list_users(
-        scope.resolve_list_project(project_id), q=q, status=status, limit=limit, offset=offset
+        scope.resolve_list_project(project_id),
+        learners_only=not scope.is_power,
+        q=q,
+        status=status,
+        limit=limit,
+        offset=offset,
     )
     return AdminUsersResponse(
         users=[AdminUserOut.model_validate(user) for user in users], total=total
@@ -545,7 +550,10 @@ async def get_learning_overview(
     complete. limit/offset/project_id are optional, so omitting them
     reproduces the pre-Task-9 full (unscoped) list, plus the additive `total`."""
     overview = await admin_user_service.learning_overview(
-        project_id=scope.resolve_list_project(project_id), limit=limit, offset=offset
+        project_id=scope.resolve_list_project(project_id),
+        limit=limit,
+        offset=offset,
+        learners_only=not scope.is_power,
     )
     return AdminLearningResponse(**overview)
 

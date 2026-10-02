@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../../contexts/AuthContext'
 import type { ComponentKey } from '../../lib/constants'
 import type { ComponentState } from '../../types/domain'
 import type { AiSurfaceKind } from './api'
 import { useAiSettings, useComponents, useCompanies, useToggleAiSetting, useToggleComponent } from './api'
 import { Card, EmptyState, ErrorState, Spinner, COMPONENT_KEYS, COMPONENT_LABELS } from './kit'
+import ProjectAdminsSection from './ProjectAdminsSection'
 import { useScope } from './useScope'
 
 /** AI surfaces that get their own row below the component list. `assessment` and
@@ -33,6 +35,7 @@ export default function ProjectsPage() {
   const companiesQuery = useCompanies()
   const navigate = useNavigate()
   const scope = useScope()
+  const { isPowerAdmin } = useAuth()
 
   if (companiesQuery.isLoading) {
     return (
@@ -63,12 +66,16 @@ export default function ProjectsPage() {
     <div>
       <h1 className="adm-page-title">Projects</h1>
       <p className="adm-page-sub">
-        Project settings live here — day-to-day work happens in People, Assignments and Feedback with the project
-        filter.
+        {isPowerAdmin
+          ? 'Project settings live here — day-to-day work happens in People, Assignments and Feedback with the project filter.'
+          : 'Settings for your project: what learners can see and open, and who runs it. Day-to-day work happens in People and Assignments.'}
       </p>
 
       {rows.length === 0 ? (
-        <EmptyState title="No projects yet" hint="Create one from Setup." />
+        <EmptyState
+          title="No projects yet"
+          hint={isPowerAdmin ? 'Create one from Setup.' : 'Ask a power admin to make you an admin of a project.'}
+        />
       ) : (
         rows.map(({ company, project }) => (
           <Card
@@ -100,7 +107,8 @@ export default function ProjectsPage() {
               </>
             }
           >
-            <ProjectSettingsToggles projectId={project.id} />
+            <ProjectSettingsToggles projectId={project.id} showUnreleasedAi={isPowerAdmin} />
+            <ProjectAdminsSection projectId={project.id} canEdit={isPowerAdmin} />
           </Card>
         ))
       )}
@@ -114,7 +122,10 @@ export default function ProjectsPage() {
  * pattern; c.f. Matrix.tsx at a different grain). The `assessment` and `interview` AI
  * surfaces each ride as a third toggle on their own component row; `chatbot`/`lesson`
  * get their own rows (AI_ROWS). */
-function ProjectSettingsToggles({ projectId }: { projectId: string }) {
+/** `showUnreleasedAi`: the Chatbot and Lesson helper switches only change the
+ * admin-only /dev-chat page today (no learner screen mounts them), so project
+ * admins don't see them. */
+function ProjectSettingsToggles({ projectId, showUnreleasedAi }: { projectId: string; showUnreleasedAi: boolean }) {
   const componentsQuery = useComponents(projectId)
   const aiQuery = useAiSettings(projectId)
   const toggleComponent = useToggleComponent()
@@ -223,7 +234,7 @@ function ProjectSettingsToggles({ projectId }: { projectId: string }) {
           </div>
         )
       })}
-      {AI_ROWS.map(({ kind, label }) => {
+      {(showUnreleasedAi ? AI_ROWS : []).map(({ kind, label }) => {
         const enabled = aiData[kind]?.enabled ?? false
         return (
           <div className="adm-comp-row" key={kind}>

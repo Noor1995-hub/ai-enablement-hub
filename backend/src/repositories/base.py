@@ -172,6 +172,12 @@ class AbstractProjectAdminRepository(ABC):
     async def admin_ids_for_project(self, project_id: uuid.UUID) -> set[uuid.UUID]: ...
 
     @abstractmethod
+    async def project_ids_by_user(
+        self, user_ids: list[uuid.UUID]
+    ) -> dict[uuid.UUID, list[uuid.UUID]]:
+        """user id -> administered project ids (sorted), only for users with grants."""
+
+    @abstractmethod
     async def all_pairs(self) -> set[tuple[uuid.UUID, uuid.UUID]]:
         """Every (user_id, project_id) grant (dashboard staff exclusion)."""
 

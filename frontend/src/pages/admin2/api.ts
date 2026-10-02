@@ -1146,3 +1146,63 @@ export function usePrompt(kind: string | null) {
     enabled: kind !== null,
   })
 }
+
+// ── Project admins (spec 2026-10-01-project-scoped-admin, #144) ───────────────────────────
+// Listing is open to the project's own admins; granting/revoking is power-admin only.
+
+export type ProjectAdmin = components['schemas']['ProjectAdminOut']
+
+async function fetchProjectAdmins(projectId: string): Promise<ProjectAdmin[]> {
+  const { data, error } = await client.GET('/api/admin/projects/{project_id}/admins', {
+    params: { path: { project_id: projectId } },
+  })
+  if (!data) throw new Error(errorMessage(error, 'Failed to load the project admins.'))
+  return data.admins
+}
+
+export function useProjectAdmins(projectId: string) {
+  return useQuery({
+    queryKey: ['admin', 'project-admins', projectId] as const,
+    queryFn: () => fetchProjectAdmins(projectId),
+  })
+}
+
+export interface ProjectAdminInput {
+  projectId: string
+  userId: string
+}
+
+async function grantProjectAdmin({ projectId, userId }: ProjectAdminInput): Promise<void> {
+  const { error } = await client.PUT('/api/admin/projects/{project_id}/admins/{user_id}', {
+    params: { path: { project_id: projectId, user_id: userId } },
+  })
+  if (error) throw new Error(errorMessage(error, 'Failed to add the project admin.'))
+}
+
+async function revokeProjectAdmin({ projectId, userId }: ProjectAdminInput): Promise<void> {
+  const { error } = await client.DELETE('/api/admin/projects/{project_id}/admins/{user_id}', {
+    params: { path: { project_id: projectId, user_id: userId } },
+  })
+  if (error) throw new Error(errorMessage(error, 'Failed to remove the project admin.'))
+}
+
+function useProjectAdminMutation(fn: (input: ProjectAdminInput) => Promise<void>) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: (_data, { projectId }) => {
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'project-admins', projectId] })
+      // admin_project_ids on the directory rows, and dashboard staff exclusion.
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'users'] })
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'dashboard'] })
+    },
+  })
+}
+
+export function useGrantProjectAdmin() {
+  return useProjectAdminMutation(grantProjectAdmin)
+}
+
+export function useRevokeProjectAdmin() {
+  return useProjectAdminMutation(revokeProjectAdmin)
+}

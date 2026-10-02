@@ -34,7 +34,7 @@ interface AppNavProps {
 }
 
 export default function AppNav({ title, backTo, backLabel = '← Back to hub', leftExtra, rightExtra, dark = false }: AppNavProps) {
-  const { user, role, logout } = useAuth()
+  const { user, isPowerAdmin, adminProjectIds, logout } = useAuth()
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const [dropdownOpen, setDropdownOpen] = useState(false)
@@ -57,7 +57,8 @@ export default function AppNav({ title, backTo, backLabel = '← Back to hub', l
   const firstName = user?.first_name ?? ''
   const lastName  = user?.last_name  ?? ''
   const initials  = firstName && lastName ? `${firstName[0]}${lastName[0]}` : '?'
-  const showAdminLink = role === 'admin' && pathname !== '/admin'
+  // Power admins and project admins both have a panel (spec 2026-10-01, #144).
+  const showAdminLink = (isPowerAdmin || adminProjectIds.length > 0) && pathname !== '/admin'
 
   // Dark-variant overrides — transparent bar so the hero background shows
   // through; light logo/text. Everything else (dropdown, avatar) is unchanged.
