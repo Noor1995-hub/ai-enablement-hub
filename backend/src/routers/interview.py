@@ -5,7 +5,8 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from src.core.dependencies.auth import get_current_user, require_admin
+from src.core.dependencies.admin_scope import require_user_in_scope
+from src.core.dependencies.auth import get_current_user
 from src.core.dependencies.components import require_component_unlocked
 from src.core.dependencies.domain import get_admin_user_service
 from src.core.dependencies.interview import (
@@ -53,7 +54,7 @@ router = APIRouter(
     ],
 )
 admin_router = APIRouter(
-    prefix="/api/admin", tags=["admin:interview"], dependencies=[Depends(require_admin)]
+    prefix="/api/admin", tags=["admin:interview"], dependencies=[Depends(require_user_in_scope)]
 )
 
 CurrentUserDep = Annotated[User, Depends(get_current_user)]

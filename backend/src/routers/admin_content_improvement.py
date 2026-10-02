@@ -5,7 +5,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from src.core.dependencies.auth import require_admin
+from src.core.dependencies.admin_scope import require_power_admin
 from src.core.dependencies.content_ai import get_content_improvement_service
 from src.core.dependencies.ratelimit import get_rate_limiter
 from src.core.ratelimit import RateLimiter
@@ -30,7 +30,7 @@ __all__ = ["router"]
 router = APIRouter(
     prefix="/api/admin/content-improvement",
     tags=["admin:content-improvement"],
-    dependencies=[Depends(require_admin)],
+    dependencies=[Depends(require_power_admin)],
 )
 
 ImprovementServiceDep = Annotated[
@@ -65,7 +65,7 @@ async def list_draft_queue(service: ImprovementServiceDep) -> QueueResponse:
 async def run_improvement_pass(
     body: ImprovementRunRequest,
     service: ImprovementServiceDep,
-    admin: Annotated[User, Depends(require_admin)],
+    admin: Annotated[User, Depends(require_power_admin)],
     limiter: RateLimiterDep,
 ) -> ImprovementRunResponse:
     """Draft revisions for the lessons the admin picked out of `GET /queue`.
@@ -135,7 +135,7 @@ async def review_proposal(
     proposal_id: uuid.UUID,
     body: ProposalReviewRequest,
     service: ImprovementServiceDep,
-    admin: Annotated[User, Depends(require_admin)],
+    admin: Annotated[User, Depends(require_power_admin)],
 ) -> ProposalReviewResponse:
     """The human gate. `approve` writes the revision to the live lesson;
     `reject` discards it and frees its feedback for a future run. A 409 means
@@ -156,7 +156,7 @@ async def review_proposal(
 async def generate_learn_card(
     proposal_id: uuid.UUID,
     service: ImprovementServiceDep,
-    admin: Annotated[User, Depends(require_admin)],
+    admin: Annotated[User, Depends(require_power_admin)],
     limiter: RateLimiterDep,
 ) -> LearnCardOut:
     """Ask the agent what it can learn from the difference between its draft and

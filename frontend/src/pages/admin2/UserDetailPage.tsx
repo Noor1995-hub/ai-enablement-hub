@@ -170,10 +170,8 @@ function initials(name: string): string {
   return name.trim().split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase()
 }
 
-function roleClass(role: string): 'admin' | 'user-plus' | 'user' {
-  if (role === 'admin') return 'admin'
-  if (role === 'user+') return 'user-plus'
-  return 'user'
+function roleClass(role: string): 'admin' | 'user' {
+  return role === 'admin' ? 'admin' : 'user'
 }
 
 // ── Assessment card, not-assessed state ─────────────────────────────────────
@@ -265,10 +263,9 @@ function AccountCard({ user, survey, onDeleted }: AccountCardProps) {
           onChange={e => setRole.mutate({ userId: user.id, role: e.target.value as SetRoleInput['role'] })}
         >
           <option value="user">User</option>
-          <option value="user+">User+</option>
           <option value="admin">Admin</option>
         </select>
-        <span className="adm-subtext">user / user+ / admin</span>
+        <span className="adm-subtext">user / admin</span>
       </div>
       {setRole.isError && (
         <p className="adm-form-msg adm-form-msg-err">

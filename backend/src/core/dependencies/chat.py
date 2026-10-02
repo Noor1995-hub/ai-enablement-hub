@@ -60,7 +60,7 @@ async def require_ai_surface(
     org: Annotated[OrgService, Depends(get_org_service)],
 ) -> None:
     """A user with no project can't be verified as paying, so it's treated as
-    disabled. Mirrors require_admin's shape (a reusable authz-style dependency
+    disabled. Mirrors require_power_admin's shape (a reusable authz-style dependency
     raising HTTPException directly)."""
     if user.project_id is None:
         raise HTTPException(

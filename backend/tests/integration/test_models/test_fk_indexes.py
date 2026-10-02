@@ -23,6 +23,8 @@ _EXPECTED = [
     ("feedback", "reviewed_by"),
     ("lesson_content_proposals", "reviewed_by"),
     ("calibration_notes", "reviewed_by"),
+    ("project_admins", "project_id"),
+    ("project_admins", "granted_by"),
 ]
 
 

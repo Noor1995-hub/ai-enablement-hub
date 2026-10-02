@@ -352,7 +352,7 @@ function ModuleCard({ mod, state, meta, onAction, badge }: ModuleCardProps) {
 
 export default function JourneyHome() {
   const navigate = useNavigate()
-  const { user, role } = useAuth()
+  const { user, bypassesLocks } = useAuth()
   // Defaults are only ever visible on the fetch-failure fallback — first paint
   // shows a spinner until /api/me/journey resolves (loaded flag below).
   const [states, setStates] = useState<Record<ComponentKey, ModuleState>>({ assessment: 'available', learning: 'locked', interview: 'locked' })
@@ -398,7 +398,7 @@ export default function JourneyHome() {
         } else if (mod.key === 'interview') {
           const tile = resolveInterviewTile({
             componentLocked: locked,
-            role,
+            bypassesLocks,
             surveyStatus: data.survey_status,
             interviewStatus: data.interview_status,
           })
@@ -418,7 +418,7 @@ export default function JourneyHome() {
     }
     load()
     return () => { cancelled = true }
-  }, [userId, role])
+  }, [userId, bypassesLocks])
 
   const firstName = user?.first_name ?? ''
 

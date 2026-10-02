@@ -22,9 +22,11 @@ from src.repositories.email_template_repository import EmailTemplateRepository
 from src.repositories.feedback_repository import FeedbackRepository
 from src.repositories.org_repository import OrgRepository
 from src.repositories.progress_repository import ProgressRepository
+from src.repositories.project_admin_repository import ProjectAdminRepository
 from src.repositories.survey_repository import SurveyRepository
 from src.repositories.unit_of_work import UnitOfWork
 from src.repositories.user_repository import UserRepository
+from src.services.admin_scope_service import AdminScopeService
 from src.services.admin_user_service import AdminUserService
 from src.services.content_service import ContentService
 from src.services.dashboard_service import DashboardService
@@ -36,6 +38,7 @@ from src.services.org_service import OrgService
 from src.services.survey_service import SurveyService
 
 __all__ = [
+    "get_admin_scope_service",
     "get_admin_user_service",
     "get_assignment_repository",
     "get_content_repository",
@@ -50,10 +53,17 @@ __all__ = [
     "get_org_repository",
     "get_org_service",
     "get_progress_repository",
+    "get_project_admin_repository",
     "get_survey_repository",
     "get_survey_service",
     "get_unit_of_work",
 ]
+
+
+def get_project_admin_repository(
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> ProjectAdminRepository:
+    return ProjectAdminRepository(session)
 
 
 def get_org_repository(session: Annotated[AsyncSession, Depends(get_session)]) -> OrgRepository:
@@ -160,8 +170,18 @@ def get_admin_user_service(
     surveys: Annotated[SurveyRepository, Depends(get_survey_repository)],
     sessions: Annotated[AuthSessionRepository, Depends(get_auth_session_repository)],
     progress: Annotated[ProgressRepository, Depends(get_progress_repository)],
+    project_admins: Annotated[ProjectAdminRepository, Depends(get_project_admin_repository)],
 ) -> AdminUserService:
-    return AdminUserService(users, org, assignments, content, surveys, sessions, progress)
+    return AdminUserService(
+        users,
+        org,
+        assignments,
+        content,
+        surveys,
+        sessions,
+        progress,
+        project_admins=project_admins,
+    )
 
 
 def get_dashboard_service(
@@ -173,5 +193,23 @@ def get_dashboard_service(
     sessions: Annotated[AuthSessionRepository, Depends(get_auth_session_repository)],
     progress: Annotated[ProgressRepository, Depends(get_progress_repository)],
     feedback: Annotated[FeedbackRepository, Depends(get_feedback_repository)],
+    project_admins: Annotated[ProjectAdminRepository, Depends(get_project_admin_repository)],
 ) -> DashboardService:
-    return DashboardService(users, org, assignments, content, surveys, sessions, progress, feedback)
+    return DashboardService(
+        users,
+        org,
+        assignments,
+        content,
+        surveys,
+        sessions,
+        progress,
+        feedback,
+        project_admins=project_admins,
+    )
+
+
+def get_admin_scope_service(
+    users: Annotated[UserRepository, Depends(get_user_repository)],
+    admins: Annotated[ProjectAdminRepository, Depends(get_project_admin_repository)],
+) -> AdminScopeService:
+    return AdminScopeService(users, admins)

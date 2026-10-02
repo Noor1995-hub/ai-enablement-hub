@@ -55,6 +55,9 @@ class TestProfile:
             "project_id": str(project.id),
             "password_set": True,
             "external_login": False,
+            "is_power_admin": False,
+            "admin_project_ids": [],
+            "bypasses_locks": False,
         }
 
 

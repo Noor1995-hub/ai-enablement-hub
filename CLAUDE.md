@@ -24,7 +24,7 @@ history that used to live here: `docs/history/state-log-2026.md`.
   commit) and `build_time`; the admin Setup page shows the same as a Deployment card. Running
   image (read-only): `az containerapp show -n ai-enablement-hub -g imaginemore-playground --query
   properties.template.containers[0].image -o tsv`. DB schema: `cd backend && uv run alembic
-  current` (code head `e5f6a7b8c9d0`, single linear chain).
+  current` (code head `a9b0c1d2e3f4`, single linear chain).
 - **Backlog = GitHub Issues** (labels `way-of-working`, `fix-programme`, `ops`, `security`).
   Way-of-working Tier 2 is complete (`docs/reviews/2026-09-17/` §5). **July fix programme**
   (issues #52–#56, plans in `docs/reviews/2026-07-31/`; master plan §5 decisions all taken
@@ -37,9 +37,13 @@ history that used to live here: `docs/history/state-log-2026.md`.
 - **Aaron is actively shipping interviewer work** (#81, #91, #95) in the same files as the fix
   programme (`interview_service.py`, `chat_service.py`, `llm_service.py`, `tests/fixtures/llm.py`,
   `useChat.ts`): fetch before branching, and expect to merge `main` into open branches.
-- **Scale:** ~85 endpoints, 19 routers (`backend/src/routers/`); ~104 users as of 2026-08-04.
+- **Scale:** ~88 endpoints, 20 routers (`backend/src/routers/`); ~104 users as of 2026-08-04.
 - **Auth:** password (JWT) live; Entra ID OIDC code-complete but **dark** (no `ENTRA__*` on prod;
-  blocked on IT admin consent). Roles: `admin`, `user+` (bypasses locks, no admin powers), `user`.
+  blocked on IT admin consent). Roles: `admin` (**power admin**: everything) and `user`; a `user` with
+  `project_admins` rows is a **project admin** for those projects only (user management, assignments,
+  project settings). Every `/api/admin/*` route declares one guard from
+  `core/dependencies/admin_scope.py` (out-of-scope ⇒ 404); spec
+  `docs/superpowers/specs/2026-10-01-project-scoped-admin-design.md`.
 - **Maturity ladder:** `explore → practitioner → integrator → multiplier`
   (`core/constants.py::LEVEL_ORDER`). The multiplier level holds 4 tracks (General III, Copilot
   II, Claude II, Capstone-only For Developers). Content model: `docs/content/README.md`; active
@@ -121,17 +125,19 @@ history that used to live here: `docs/history/state-log-2026.md`.
     `require_component_unlocked` (`core/dependencies/components.py`) is router-level on
     `survey.py`, `learning.py` and `interview.py` (not its `admin_router`); `chat.py` applies the
     same gate to `kind=interview` only (`require_chat_kind_unlocked`) — hidden/locked ⇒ 403
-    `ComponentLockedError`. Project-level gate, not a role check: admin and `user+` are NOT exempt.
+    `ComponentLockedError`. `hidden` applies to everyone; `locked` is bypassed by callers who
+    bypass locks (power admins, and project admins on their own project —
+    `AdminScopeService.bypasses_locks`, exposed as `bypasses_locks` on `GET /api/me`).
   - **Interview assessment gate (2026-09-26):** `require_completed_assessment`
     (`core/dependencies/interview.py`) on `POST /api/interview/opener`, `/playbook` and
     `POST /api/chat/interview`: learners need `survey_status == "complete"` (a draft does not
-    count) ⇒ else 403 `AssessmentRequiredError`. A role check: `admin` exempt, `user+` not.
+    count) ⇒ else 403 `AssessmentRequiredError`. Callers who bypass locks are exempt.
     `GET /api/interview/me` is deliberately ungated so an existing playbook stays readable.
     Frontend twin: `frontend/src/lib/interviewAccess.ts` ("Assessment first" tile).
   - **Module level:** `module_prerequisites` edge table (only DB constraint is `not_self`;
     nothing blocks cross-track or cyclic edges). The unlock rule exists ONLY in
     `frontend/src/lib/learningPathLocks.ts::isModuleUnlocked` (pure, unit-tested next to it):
-    unlocked ⇔ admin OR user+ OR no prereqs OR every prereq module has assigned-lesson
+    unlocked ⇔ bypasses_locks OR no prereqs OR every prereq module has assigned-lesson
     `total > 0 && completed === total`. Tracks strictly below the learner's effective level are
     freely reviewable (2026-07-20). **Still frontend-only** — no server-side prerequisite check.
 - **Admin maturity pin** (`users.maturity_override`, `PUT /api/admin/users/{id}/maturity`) is
@@ -143,7 +149,7 @@ history that used to live here: `docs/history/state-log-2026.md`.
   pointing into a strictly-lower maturity level than the dependent's track as satisfied by
   maturity alone. Same-track/same-level prereqs still gate.
 - **Lesson access gate (server-side, since the 2026-07-31 review fix):** `GET /api/lessons/{id}`
-  and `PUT …/progress` allow a lesson iff admin/`user+` (`LOCK_BYPASS_ROLES`) OR Introduction
+  and `PUT …/progress` allow a lesson iff the caller bypasses locks OR Introduction
   track OR assigned to the caller OR its track's `required_level` ≤ the caller's
   `effective_level` (so the maturity pin now opens tracks server-side too); only "unassigned
   AND above level" ⇒ 403 `LessonNotAccessibleError`. A caller with neither a completed

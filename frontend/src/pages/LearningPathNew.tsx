@@ -240,11 +240,10 @@ export default function LearningPathNew() {
 
   const userId = user?.id
   const isAdmin = user?.role === 'admin'
-  // 'user+' rides the same learning-path lock bypass as admins (prerequisites,
-  // Introduction gate, maturity gating) but has NO admin powers — edit mode and
-  // the add-track/module controls stay gated on isAdmin below. See the
-  // 2026-07-22 user-plus-role spec.
-  const canBypassLocks = isAdmin || user?.role === 'user+'
+  // Lock bypass is server-resolved (power admins, and project admins on their
+  // own project); edit mode and the add-track/module controls stay gated on
+  // isAdmin (power admin) below. Spec 2026-10-01-project-scoped-admin.
+  const canBypassLocks = user?.bypasses_locks ?? false
   const reload = () => setLoadKey(k => k + 1)
 
   /* ── Load: one graph aggregate (maturity level + locks come with it) ── */

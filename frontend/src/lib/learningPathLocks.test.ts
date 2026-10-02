@@ -87,7 +87,7 @@ describe('isIntroComplete', () => {
 })
 
 describe('isModuleUnlocked', () => {
-  it('admin and user+ bypass every lock', () => {
+  it('a caller who bypasses locks passes every lock', () => {
     const locked = mod('a', { unlocked_by_maturity: false })
     const c = ctx([locked, mod('p')], { prereqs: [['a', 'p']], introComplete: false })
     expect(isModuleUnlocked(c, 'a')).toBe(false)

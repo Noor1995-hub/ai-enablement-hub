@@ -5,7 +5,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from src.core.dependencies.auth import require_admin
+from src.core.dependencies.admin_scope import require_power_admin
 from src.core.dependencies.content_ai import get_feedback_triage_service
 from src.core.dependencies.domain import get_feedback_service
 from src.core.dependencies.ratelimit import get_rate_limiter
@@ -23,7 +23,7 @@ from src.services.feedback_triage_service import FeedbackTriageService
 __all__ = ["router"]
 
 router = APIRouter(
-    prefix="/api/admin", tags=["admin:feedback"], dependencies=[Depends(require_admin)]
+    prefix="/api/admin", tags=["admin:feedback"], dependencies=[Depends(require_power_admin)]
 )
 
 FeedbackServiceDep = Annotated[FeedbackService, Depends(get_feedback_service)]
@@ -56,7 +56,7 @@ async def list_feedback(
 @router.post("/feedback/suggest-triage", response_model=SuggestTriageResponse)
 async def suggest_feedback_triage(
     triage_service: TriageServiceDep,
-    admin: Annotated[User, Depends(require_admin)],
+    admin: Annotated[User, Depends(require_power_admin)],
     limiter: RateLimiterDep,
     project_id: Annotated[uuid.UUID | None, Query()] = None,
     limit: Annotated[int, Query(ge=1, le=25)] = 10,
@@ -87,6 +87,6 @@ async def set_feedback_status(
     feedback_id: uuid.UUID,
     body: FeedbackStatusUpdateRequest,
     feedback_service: FeedbackServiceDep,
-    admin: Annotated[User, Depends(require_admin)],
+    admin: Annotated[User, Depends(require_power_admin)],
 ) -> None:
     await feedback_service.set_status(feedback_id, body.status, admin.id)

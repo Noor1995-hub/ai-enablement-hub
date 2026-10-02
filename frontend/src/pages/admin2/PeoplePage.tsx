@@ -27,7 +27,7 @@ const STATUS_PILLS: { value: StatusFilter; label: string }[] = [
   { value: 'attention', label: 'Needs attention' },
 ]
 
-const ROLE_LABEL: Record<string, string> = { admin: 'Admin', 'user+': 'User+', user: 'User' }
+const ROLE_LABEL: Record<string, string> = { admin: 'Admin', user: 'User' }
 
 /** People screen (spec §3.2, `/admin/people`). Server-driven search + status
  * pills + pager per the contract — `useAdminUsers` threads {q,status,page}
@@ -324,7 +324,6 @@ function statusInfo(row: AdminUserEnriched): { tone: ChipTone; label: string } {
 
 function roleTone(role: string): ChipTone {
   if (role === 'admin') return 'red'
-  if (role === 'user+') return 'info'
   return 'default'
 }
 
@@ -512,7 +511,7 @@ function ChangeRoleModal({ userIds, onClose, onDone }: ChangeRoleModalProps) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  async function apply(role: 'user' | 'user+' | 'admin') {
+  async function apply(role: 'user' | 'admin') {
     setBusy(true)
     setError(null)
     const results = await Promise.allSettled(userIds.map(userId => setRole.mutateAsync({ userId, role })))
@@ -530,9 +529,6 @@ function ChangeRoleModal({ userIds, onClose, onDone }: ChangeRoleModalProps) {
       <div className="adm-pills adm-modal-section">
         <button type="button" className="adm-btn adm-btn-ghost" disabled={busy} onClick={() => void apply('user')}>
           User
-        </button>
-        <button type="button" className="adm-btn adm-btn-ghost" disabled={busy} onClick={() => void apply('user+')}>
-          User+
         </button>
         <button type="button" className="adm-btn adm-btn-ghost" disabled={busy} onClick={() => void apply('admin')}>
           Admin

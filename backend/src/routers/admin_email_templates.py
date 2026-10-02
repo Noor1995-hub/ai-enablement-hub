@@ -6,7 +6,7 @@ from typing import Annotated, Literal, cast
 from fastapi import APIRouter, Depends, status
 
 from src.core.configs.settings import Settings
-from src.core.dependencies.auth import require_admin
+from src.core.dependencies.admin_scope import require_project_in_scope
 from src.core.dependencies.domain import get_email_template_service
 from src.core.dependencies.settings import get_settings
 from src.schemas.email_templates import (
@@ -21,7 +21,9 @@ from src.services.email_template_service import EmailTemplateService
 __all__ = ["router"]
 
 router = APIRouter(
-    prefix="/api/admin", tags=["admin:email-templates"], dependencies=[Depends(require_admin)]
+    prefix="/api/admin",
+    tags=["admin:email-templates"],
+    dependencies=[Depends(require_project_in_scope)],
 )
 
 EmailTemplateServiceDep = Annotated[EmailTemplateService, Depends(get_email_template_service)]

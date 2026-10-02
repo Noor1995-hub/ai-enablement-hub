@@ -146,6 +146,49 @@ class AbstractUserRepository(ABC):
     async def count_by_ids(self, user_ids: list[uuid.UUID]) -> int:
         """How many of the given user ids exist (bulk-assignment validation)."""
 
+    @abstractmethod
+    async def count_power_admins(self) -> int:
+        """How many users hold role 'admin' (last-power-admin guard)."""
+
+    @abstractmethod
+    async def project_ids_of(self, user_ids: list[uuid.UUID]) -> dict[uuid.UUID, uuid.UUID | None]:
+        """user id -> project id for the ids that exist (admin scope checks)."""
+
+
+class AbstractProjectAdminRepository(ABC):
+    """project_admins: which projects a (non-power) admin administers."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    @abstractmethod
+    async def project_ids_for(self, user_id: uuid.UUID) -> frozenset[uuid.UUID]: ...
+
+    @abstractmethod
+    async def is_project_admin(self, user_id: uuid.UUID) -> bool:
+        """True when the user administers at least one project."""
+
+    @abstractmethod
+    async def admin_ids_for_project(self, project_id: uuid.UUID) -> set[uuid.UUID]: ...
+
+    @abstractmethod
+    async def all_pairs(self) -> set[tuple[uuid.UUID, uuid.UUID]]:
+        """Every (user_id, project_id) grant (dashboard staff exclusion)."""
+
+    @abstractmethod
+    async def list_for_project(self, project_id: uuid.UUID) -> list[tuple[User, datetime]]:
+        """(user, granted_at) for the project's admins, by last then first name."""
+
+    @abstractmethod
+    async def grant(
+        self, user_id: uuid.UUID, project_id: uuid.UUID, granted_by: uuid.UUID | None
+    ) -> None:
+        """Idempotent insert."""
+
+    @abstractmethod
+    async def revoke(self, user_id: uuid.UUID, project_id: uuid.UUID) -> bool:
+        """Delete the grant; True when a row was removed."""
+
 
 class AbstractAuthTokenRepository(ABC):
     """Single-use invite/reset tokens (auth_tokens)."""

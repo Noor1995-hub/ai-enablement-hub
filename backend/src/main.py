@@ -32,6 +32,7 @@ from src.routers import (
     admin_feedback,
     admin_media,
     admin_org,
+    admin_project_admins,
     admin_prompts,
     admin_users,
     auth,
@@ -45,6 +46,7 @@ from src.routers import (
 )
 from src.schemas.health import HealthOut
 from src.services.exceptions import (
+    AdminTargetForbiddenError,
     AiGenerationError,
     AssessmentRequiredError,
     ComponentLockedError,
@@ -290,6 +292,7 @@ app.include_router(admin_feedback.router)
 app.include_router(admin_content_improvement.router)
 app.include_router(admin_calibration_notes.router)
 app.include_router(admin_dashboard.router)
+app.include_router(admin_project_admins.router)
 app.include_router(feedback.router)
 
 # Single error shape for the frontend: {"error": {"code", "message"[, "fields"]}}
@@ -341,6 +344,13 @@ async def conflict_handler(request: Request, exc: ConflictError) -> JSONResponse
 
 @app.exception_handler(ComponentLockedError)
 async def component_locked_handler(request: Request, exc: ComponentLockedError) -> JSONResponse:
+    return _error_response(403, exc.message)
+
+
+@app.exception_handler(AdminTargetForbiddenError)
+async def admin_target_forbidden_handler(
+    request: Request, exc: AdminTargetForbiddenError
+) -> JSONResponse:
     return _error_response(403, exc.message)
 
 

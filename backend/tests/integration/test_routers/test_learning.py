@@ -526,7 +526,7 @@ class TestLessonAccessControl:
         )
         assert put.status_code == 204
 
-    async def test_admin_and_user_plus_bypass_the_gate(
+    async def test_admin_bypasses_the_gate(
         self, client: AsyncClient, world: World, db_session: AsyncSession, test_settings: Settings
     ) -> None:
         locked_track = await create_track(
@@ -540,18 +540,11 @@ class TestLessonAccessControl:
             role="admin",
             project_id=world.project_id,
         )
-        user_plus = await create_user(
-            db_session,
-            email="bypass-userplus@example.com",
-            role="user+",
-            project_id=world.project_id,
-        )
 
-        for actor in (admin, user_plus):
-            response = await client.get(
-                f"/api/lessons/{locked_lesson.id}", headers=auth_headers(actor, test_settings)
-            )
-            assert response.status_code == 200, actor.email
+        response = await client.get(
+            f"/api/lessons/{locked_lesson.id}", headers=auth_headers(admin, test_settings)
+        )
+        assert response.status_code == 200
 
     async def test_unknown_lesson_is_still_404_not_403(
         self, client: AsyncClient, world: World, test_settings: Settings

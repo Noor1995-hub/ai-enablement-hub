@@ -12,6 +12,7 @@ from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
 
+from src.core.dependencies.admin_scope import BypassesLocksDep
 from src.core.dependencies.auth import get_current_user
 from src.core.dependencies.chat import (
     ChatKind,
@@ -83,21 +84,17 @@ async def require_interview_surface(
         )
 
 
-# Deliberately NOT core/constants.py LOCK_BYPASS_ROLES ("admin", "user+"): user+ bypasses
-# learning-path locks but still needs an assessment (spec 2026-09-26 A.3.5). Adding a role
-# that bypasses gates? Check both lists.
-_ASSESSMENT_EXEMPT_ROLES: tuple[str, ...] = ("admin",)
-
-
 async def require_completed_assessment(
     user: Annotated[User, Depends(get_current_user)],
     surveys: Annotated[SurveyService, Depends(get_survey_service)],
+    bypasses_locks: BypassesLocksDep,
 ) -> None:
     """The interview write paths need a COMPLETED assessment (a draft is not enough).
-    Admins are exempt. Deliberately not on GET /api/interview/me, nor on the read paths
-    GET /api/chat/conversations*, so a learner who already has a playbook (or an old
-    interview transcript) can still read it."""
-    if user.role in _ASSESSMENT_EXEMPT_ROLES:
+    Callers who bypass locks (power admins, project admins on their own project) are
+    exempt so they can test the flow (spec 2026-10-01 decision 5). Deliberately not on
+    GET /api/interview/me, nor on the read paths GET /api/chat/conversations*, so a
+    learner who already has a playbook (or an old interview transcript) can still read it."""
+    if bypasses_locks:
         return
     if await surveys.survey_status(user.id) != "complete":
         raise AssessmentRequiredError
@@ -107,8 +104,9 @@ async def require_interview_assessment(
     kind: ChatKind,
     user: Annotated[User, Depends(get_current_user)],
     surveys: Annotated[SurveyService, Depends(get_survey_service)],
+    bypasses_locks: BypassesLocksDep,
 ) -> None:
     """Chat-router twin of require_completed_assessment: applies to kind=interview only
     (same binding rule as require_chat_kind_unlocked)."""
     if kind == "interview":
-        await require_completed_assessment(user, surveys)
+        await require_completed_assessment(user, surveys, bypasses_locks)

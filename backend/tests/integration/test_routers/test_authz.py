@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 import pytest
 import pytest_asyncio
@@ -36,6 +36,7 @@ from tests.fixtures.factories import (
     create_survey,
     create_track,
     create_user,
+    make_project_admin,
     unlock_component,
 )
 from tests.fixtures.media import TEST_STORAGE, RecordingUploader
@@ -61,6 +62,9 @@ class Seed:
     other: User
     conversation: Conversation
     feedback: Feedback
+    other_project: Project
+    pa_in: User
+    pa_out: User
 
 
 @pytest_asyncio.fixture
@@ -76,10 +80,10 @@ async def seed(db_session: AsyncSession) -> Seed:
         email="matrix-admin@example.com",
         role="admin",
         password="hunter2hunter2",
-        # The component lock isn't a role check (admin is not exempt — see
-        # test_component_lock.py::test_admin_is_not_exempt) — this matrix's
-        # blanket "admin succeeds everywhere non-admin-only" needs the admin
-        # to actually belong to a project with `learning` unlocked, same as
+        # Admins now bypass a `locked` component but not a `hidden` one (see
+        # test_component_lock.py::test_admin_bypasses_locked_but_not_hidden);
+        # the matrix still seats the admin in a project with `learning`
+        # unlocked, same as
         # a real onboarded admin account would.
         project_id=project.id,
     )
@@ -93,7 +97,7 @@ async def seed(db_session: AsyncSession) -> Seed:
     # The lesson gate is not a role check either: the matrix's blanket "user
     # succeeds everywhere non-admin-only" needs this lesson to actually be on
     # the user's learning path, same as a real onboarded learner. (seed.admin
-    # bypasses via LOCK_BYPASS_ROLES.)
+    # bypasses as a power admin.)
     await assign_lesson(db_session, user, lesson)
     other = await create_user(db_session, email="matrix-other@example.com")
     # For the "chat-conversations-list" _MATRIX entry below — this fixture's
@@ -111,246 +115,118 @@ async def seed(db_session: AsyncSession) -> Seed:
     db_session.add(feedback)
     await db_session.commit()
     await db_session.refresh(feedback)
-    return Seed(company, project, track, module, lesson, admin, user, other, conversation, feedback)
+    # Project admins (spec 2026-10-01): pa_in administers `project` (the seed
+    # user's project) but is itself a member of other_project; pa_out
+    # administers only other_project.
+    other_project = await create_project(db_session, company, "Matrix Other Project")
+    pa_in = await create_user(
+        db_session,
+        email="matrix-pa-in@example.com",
+        password="hunter2hunter2",
+        company_id=company.id,
+        project_id=other_project.id,
+    )
+    await make_project_admin(db_session, pa_in, project, granted_by=admin)
+    pa_out = await create_user(
+        db_session,
+        email="matrix-pa-out@example.com",
+        password="hunter2hunter2",
+        company_id=company.id,
+        project_id=other_project.id,
+    )
+    await make_project_admin(db_session, pa_out, other_project, granted_by=admin)
+    return Seed(
+        company,
+        project,
+        track,
+        module,
+        lesson,
+        admin,
+        user,
+        other,
+        conversation,
+        feedback,
+        other_project,
+        pa_in,
+        pa_out,
+    )
 
 
-# (name, method, path builder, body builder, admin_only)
-_MATRIX: list[tuple[str, str, Any, Any, bool]] = [
-    ("me", "GET", lambda s: "/api/me", lambda s: None, False),
-    ("journey", "GET", lambda s: "/api/me/journey", lambda s: None, False),
-    ("survey-get", "GET", lambda s: "/api/survey/me", lambda s: None, False),
-    ("survey-put", "PUT", lambda s: "/api/survey/me", lambda s: {"job_title": "Dev"}, False),
-    ("survey-complete", "POST", lambda s: "/api/survey/complete", lambda s: None, False),
-    ("graph", "GET", lambda s: "/api/learning/graph", lambda s: None, False),
+# Access kinds (spec 2026-10-01-project-scoped-admin-design.md):
+#   "any"         - any signed-in user (learner endpoints)
+#   "power"       - power admin only; learners and project admins get 403
+#   "scoped"      - project admins of the row's target project succeed (pa_in);
+#                   project admins of another project get 404 (pa_out)
+#   "scoped_list" - project admins reach it either way; this row only proves
+#                   authz passes. What they SEE (filtering, 404 on a named
+#                   foreign project) is asserted in test_admin_scope_routes.py
+Access = Literal["any", "power", "scoped", "scoped_list"]
+
+# (name, method, declared route, path builder, body builder, access). The
+# declared route is what test_every_admin_route_is_in_the_matrix compares
+# against the OpenAPI schema. Per-user admin rows target seed.user, a learner
+# in seed.project (so pa_in is in scope).
+_MATRIX: list[tuple[str, str, str, Any, Any, Access]] = [
+    ("me", "GET", "/api/me", lambda s: "/api/me", lambda s: None, "any"),
+    ("journey", "GET", "/api/me/journey", lambda s: "/api/me/journey", lambda s: None, "any"),
+    ("survey-get", "GET", "/api/survey/me", lambda s: "/api/survey/me", lambda s: None, "any"),
+    (
+        "survey-put",
+        "PUT",
+        "/api/survey/me",
+        lambda s: "/api/survey/me",
+        lambda s: {"job_title": "Dev"},
+        "any",
+    ),
+    (
+        "survey-complete",
+        "POST",
+        "/api/survey/complete",
+        lambda s: "/api/survey/complete",
+        lambda s: None,
+        "any",
+    ),
+    ("graph", "GET", "/api/learning/graph", lambda s: "/api/learning/graph", lambda s: None, "any"),
     (
         "module-lessons",
         "GET",
+        "/api/modules/{module_id}/lessons",
         lambda s: f"/api/modules/{s.module.id}/lessons",
         lambda s: None,
-        False,
+        "any",
     ),
-    ("lesson", "GET", lambda s: f"/api/lessons/{s.lesson.id}", lambda s: None, False),
+    (
+        "lesson",
+        "GET",
+        "/api/lessons/{lesson_id}",
+        lambda s: f"/api/lessons/{s.lesson.id}",
+        lambda s: None,
+        "any",
+    ),
     (
         "feedback",
         "POST",
+        "/api/feedback",
         lambda s: "/api/feedback",
         lambda s: {"lesson_id": str(s.lesson.id), "message": "Great lesson"},
-        False,
+        "any",
     ),
     (
         "progress",
         "PUT",
+        "/api/lessons/{lesson_id}/progress",
         lambda s: f"/api/lessons/{s.lesson.id}/progress",
         lambda s: {"answers": {}},
-        False,
+        "any",
     ),
-    ("tracks", "GET", lambda s: "/api/tracks", lambda s: None, False),
-    ("track-modules", "GET", lambda s: f"/api/tracks/{s.track.id}/modules", lambda s: None, False),
-    ("companies-get", "GET", lambda s: "/api/admin/companies", lambda s: None, True),
+    ("tracks", "GET", "/api/tracks", lambda s: "/api/tracks", lambda s: None, "any"),
     (
-        "companies-post",
-        "POST",
-        lambda s: "/api/admin/companies",
-        lambda s: {"name": "Fresh Co"},
-        True,
-    ),
-    (
-        "projects-post",
-        "POST",
-        lambda s: "/api/admin/projects",
-        lambda s: {"name": "P2", "company_id": str(s.company.id)},
-        True,
-    ),
-    (
-        "components-get",
+        "track-modules",
         "GET",
-        lambda s: f"/api/admin/projects/{s.project.id}/components",
+        "/api/tracks/{track_id}/modules",
+        lambda s: f"/api/tracks/{s.track.id}/modules",
         lambda s: None,
-        True,
-    ),
-    (
-        "components-put",
-        "PUT",
-        lambda s: f"/api/admin/projects/{s.project.id}/components/assessment",
-        lambda s: {"hidden": True},
-        True,
-    ),
-    (
-        "email-templates-get",
-        "GET",
-        lambda s: f"/api/admin/projects/{s.project.id}/email-templates",
-        lambda s: None,
-        True,
-    ),
-    (
-        "email-templates-put",
-        "PUT",
-        lambda s: f"/api/admin/projects/{s.project.id}/email-templates/invite",
-        lambda s: {"subject": "Hi", "body_markdown": "Welcome {{invite_link}}"},
-        True,
-    ),
-    (
-        "email-templates-delete",
-        "DELETE",
-        lambda s: f"/api/admin/projects/{s.project.id}/email-templates/invite",
-        lambda s: None,
-        True,
-    ),
-    (
-        "email-templates-preview",
-        "POST",
-        lambda s: f"/api/admin/projects/{s.project.id}/email-templates/invite/preview",
-        lambda s: {"subject": "Hi", "body_markdown": "Welcome {{invite_link}}"},
-        True,
-    ),
-    ("users-get", "GET", lambda s: "/api/admin/users", lambda s: None, True),
-    (
-        "invite",
-        "POST",
-        lambda s: "/api/admin/invites",
-        lambda s: {
-            "email": "matrix-new@example.com",
-            "first_name": "New",
-            "last_name": "Joiner",
-            "project_id": str(s.project.id),
-        },
-        True,
-    ),
-    (
-        "reset-link",
-        "POST",
-        lambda s: f"/api/admin/users/{s.other.id}/reset-link",
-        lambda s: None,
-        True,
-    ),
-    (
-        "reminder",
-        "POST",
-        lambda s: f"/api/admin/users/{s.other.id}/reminder",
-        lambda s: None,
-        True,
-    ),
-    (
-        "role-patch",
-        "PATCH",
-        lambda s: f"/api/admin/users/{s.other.id}",
-        lambda s: {"role": "user"},
-        True,
-    ),
-    (
-        "maturity-put",
-        "PUT",
-        lambda s: f"/api/admin/users/{s.other.id}/maturity",
-        lambda s: {"level": "practitioner"},
-        True,
-    ),
-    ("user-delete", "DELETE", lambda s: f"/api/admin/users/{s.other.id}", lambda s: None, True),
-    (
-        "assign-track",
-        "PUT",
-        lambda s: f"/api/admin/users/{s.other.id}/tracks/{s.track.id}",
-        lambda s: {"assigned": True},
-        True,
-    ),
-    (
-        "assign-module",
-        "PUT",
-        lambda s: f"/api/admin/users/{s.other.id}/modules/{s.module.id}",
-        lambda s: {"assigned": True},
-        True,
-    ),
-    (
-        "assign-lesson",
-        "PUT",
-        lambda s: f"/api/admin/users/{s.other.id}/lessons/{s.lesson.id}",
-        lambda s: {"assigned": True},
-        True,
-    ),
-    (
-        "assign-tracks-bulk",
-        "PUT",
-        lambda s: f"/api/admin/users/{s.other.id}/tracks",
-        lambda s: {"track_ids": [str(s.track.id)], "assigned": True},
-        True,
-    ),
-    (
-        "assign-modules-bulk",
-        "PUT",
-        lambda s: f"/api/admin/users/{s.other.id}/modules",
-        lambda s: {"module_ids": [str(s.module.id)], "assigned": True},
-        True,
-    ),
-    (
-        "assign-lessons-bulk",
-        "PUT",
-        lambda s: f"/api/admin/users/{s.other.id}/lessons",
-        lambda s: {"lesson_ids": [str(s.lesson.id)], "assigned": True},
-        True,
-    ),
-    (
-        "assignments-bulk",
-        "POST",
-        lambda s: "/api/admin/assignments/bulk",
-        lambda s: {"user_ids": [str(s.other.id)], "track_ids": [str(s.track.id)], "assigned": True},
-        True,
-    ),
-    ("admin-learning", "GET", lambda s: "/api/admin/learning", lambda s: None, True),
-    (
-        "survey-levels",
-        "GET",
-        lambda s: f"/api/admin/surveys?user_ids={s.other.id}",
-        lambda s: None,
-        True,
-    ),
-    ("user-survey", "GET", lambda s: f"/api/admin/surveys/{s.other.id}", lambda s: None, True),
-    (
-        "tracks-post",
-        "POST",
-        lambda s: "/api/admin/tracks",
-        lambda s: {"name": "T2", "track_type": "general"},
-        True,
-    ),
-    (
-        "modules-post",
-        "POST",
-        lambda s: "/api/admin/modules",
-        lambda s: {"track_id": str(s.track.id), "title": "M2"},
-        True,
-    ),
-    (
-        "module-delete",
-        "DELETE",
-        lambda s: f"/api/admin/modules/{s.module.id}",
-        lambda s: None,
-        True,
-    ),
-    (
-        "lessons-post",
-        "POST",
-        lambda s: "/api/admin/lessons",
-        lambda s: {"module_id": str(s.module.id), "title": "L2"},
-        True,
-    ),
-    (
-        "lesson-patch",
-        "PATCH",
-        lambda s: f"/api/admin/lessons/{s.lesson.id}",
-        lambda s: {"title": "Renamed"},
-        True,
-    ),
-    (
-        "lesson-delete",
-        "DELETE",
-        lambda s: f"/api/admin/lessons/{s.lesson.id}",
-        lambda s: None,
-        True,
-    ),
-    (
-        "lessons-order",
-        "PUT",
-        lambda s: f"/api/admin/modules/{s.module.id}/lessons/order",
-        lambda s: {"lesson_ids": [str(s.lesson.id)]},
-        True,
+        "any",
     ),
     # POST /api/chat/{kind} is deliberately NOT here: it has a third gating
     # dimension (the project's AI setting) this flat matrix can't model — see
@@ -361,97 +237,486 @@ _MATRIX: list[tuple[str, str, Any, Any, bool]] = [
     (
         "chat-conversations-list",
         "GET",
+        "/api/chat/conversations",
         lambda s: "/api/chat/conversations?kind=chatbot",
         lambda s: None,
-        False,
+        "any",
     ),
+    # --- org ---
+    (
+        "companies-get",
+        "GET",
+        "/api/admin/companies",
+        lambda s: "/api/admin/companies",
+        lambda s: None,
+        "scoped_list",
+    ),
+    (
+        "companies-post",
+        "POST",
+        "/api/admin/companies",
+        lambda s: "/api/admin/companies",
+        lambda s: {"name": "Fresh Co"},
+        "power",
+    ),
+    (
+        "projects-post",
+        "POST",
+        "/api/admin/projects",
+        lambda s: "/api/admin/projects",
+        lambda s: {"name": "P2", "company_id": str(s.company.id)},
+        "power",
+    ),
+    (
+        "components-get",
+        "GET",
+        "/api/admin/projects/{project_id}/components",
+        lambda s: f"/api/admin/projects/{s.project.id}/components",
+        lambda s: None,
+        "scoped",
+    ),
+    (
+        "components-put",
+        "PUT",
+        "/api/admin/projects/{project_id}/components/{component}",
+        lambda s: f"/api/admin/projects/{s.project.id}/components/assessment",
+        lambda s: {"hidden": True},
+        "scoped",
+    ),
+    (
+        "ai-get",
+        "GET",
+        "/api/admin/projects/{project_id}/ai",
+        lambda s: f"/api/admin/projects/{s.project.id}/ai",
+        lambda s: None,
+        "scoped",
+    ),
+    (
+        "ai-put",
+        "PUT",
+        "/api/admin/projects/{project_id}/ai/{kind}",
+        lambda s: f"/api/admin/projects/{s.project.id}/ai/chatbot",
+        lambda s: {"enabled": False},
+        "scoped",
+    ),
+    # --- email templates ---
+    (
+        "email-templates-get",
+        "GET",
+        "/api/admin/projects/{project_id}/email-templates",
+        lambda s: f"/api/admin/projects/{s.project.id}/email-templates",
+        lambda s: None,
+        "scoped",
+    ),
+    (
+        "email-templates-put",
+        "PUT",
+        "/api/admin/projects/{project_id}/email-templates/{purpose}",
+        lambda s: f"/api/admin/projects/{s.project.id}/email-templates/invite",
+        lambda s: {"subject": "Hi", "body_markdown": "Welcome {{invite_link}}"},
+        "scoped",
+    ),
+    (
+        "email-templates-delete",
+        "DELETE",
+        "/api/admin/projects/{project_id}/email-templates/{purpose}",
+        lambda s: f"/api/admin/projects/{s.project.id}/email-templates/invite",
+        lambda s: None,
+        "scoped",
+    ),
+    (
+        "email-templates-preview",
+        "POST",
+        "/api/admin/projects/{project_id}/email-templates/{purpose}/preview",
+        lambda s: f"/api/admin/projects/{s.project.id}/email-templates/invite/preview",
+        lambda s: {"subject": "Hi", "body_markdown": "Welcome {{invite_link}}"},
+        "scoped",
+    ),
+    # --- defaults ---
     (
         "defaults-get",
         "GET",
+        "/api/admin/projects/{project_id}/defaults",
         lambda s: f"/api/admin/projects/{s.project.id}/defaults",
         lambda s: None,
-        True,
+        "scoped",
     ),
     (
         "defaults-put",
         "PUT",
+        "/api/admin/projects/{project_id}/defaults",
         lambda s: f"/api/admin/projects/{s.project.id}/defaults",
         lambda s: {"track_ids": [str(s.track.id)]},
-        True,
+        "scoped",
     ),
     (
         "defaults-apply",
         "POST",
+        "/api/admin/projects/{project_id}/defaults/apply",
         lambda s: f"/api/admin/projects/{s.project.id}/defaults/apply",
         lambda s: None,
-        True,
+        "scoped",
     ),
-    ("feedback-admin-list", "GET", lambda s: "/api/admin/feedback", lambda s: None, True),
+    # --- users ---
+    (
+        "users-get",
+        "GET",
+        "/api/admin/users",
+        lambda s: "/api/admin/users",
+        lambda s: None,
+        "scoped_list",
+    ),
+    (
+        "user-get",
+        "GET",
+        "/api/admin/users/{user_id}",
+        lambda s: f"/api/admin/users/{s.user.id}",
+        lambda s: None,
+        "scoped",
+    ),
+    (
+        "invite",
+        "POST",
+        "/api/admin/invites",
+        lambda s: "/api/admin/invites",
+        lambda s: {
+            "email": "matrix-new@example.com",
+            "first_name": "New",
+            "last_name": "Joiner",
+            "project_id": str(s.project.id),
+            "send_email": False,
+        },
+        "scoped",
+    ),
+    (
+        "reset-link",
+        "POST",
+        "/api/admin/users/{user_id}/reset-link",
+        lambda s: f"/api/admin/users/{s.user.id}/reset-link",
+        lambda s: {"send_email": False},
+        "scoped",
+    ),
+    (
+        "reminder",
+        "POST",
+        "/api/admin/users/{user_id}/reminder",
+        lambda s: f"/api/admin/users/{s.user.id}/reminder",
+        lambda s: None,
+        "scoped",
+    ),
+    (
+        "role-patch",
+        "PATCH",
+        "/api/admin/users/{user_id}",
+        lambda s: f"/api/admin/users/{s.user.id}",
+        lambda s: {"role": "user"},
+        "power",
+    ),
+    (
+        "maturity-put",
+        "PUT",
+        "/api/admin/users/{user_id}/maturity",
+        lambda s: f"/api/admin/users/{s.user.id}/maturity",
+        lambda s: {"level": "practitioner"},
+        "scoped",
+    ),
+    (
+        "user-delete",
+        "DELETE",
+        "/api/admin/users/{user_id}",
+        lambda s: f"/api/admin/users/{s.user.id}",
+        lambda s: None,
+        "scoped",
+    ),
+    (
+        "assign-track",
+        "PUT",
+        "/api/admin/users/{user_id}/tracks/{track_id}",
+        lambda s: f"/api/admin/users/{s.user.id}/tracks/{s.track.id}",
+        lambda s: {"assigned": True},
+        "scoped",
+    ),
+    (
+        "assign-module",
+        "PUT",
+        "/api/admin/users/{user_id}/modules/{module_id}",
+        lambda s: f"/api/admin/users/{s.user.id}/modules/{s.module.id}",
+        lambda s: {"assigned": True},
+        "scoped",
+    ),
+    (
+        "assign-lesson",
+        "PUT",
+        "/api/admin/users/{user_id}/lessons/{lesson_id}",
+        lambda s: f"/api/admin/users/{s.user.id}/lessons/{s.lesson.id}",
+        lambda s: {"assigned": True},
+        "scoped",
+    ),
+    (
+        "assign-tracks-bulk",
+        "PUT",
+        "/api/admin/users/{user_id}/tracks",
+        lambda s: f"/api/admin/users/{s.user.id}/tracks",
+        lambda s: {"track_ids": [str(s.track.id)], "assigned": True},
+        "scoped",
+    ),
+    (
+        "assign-modules-bulk",
+        "PUT",
+        "/api/admin/users/{user_id}/modules",
+        lambda s: f"/api/admin/users/{s.user.id}/modules",
+        lambda s: {"module_ids": [str(s.module.id)], "assigned": True},
+        "scoped",
+    ),
+    (
+        "assign-lessons-bulk",
+        "PUT",
+        "/api/admin/users/{user_id}/lessons",
+        lambda s: f"/api/admin/users/{s.user.id}/lessons",
+        lambda s: {"lesson_ids": [str(s.lesson.id)], "assigned": True},
+        "scoped",
+    ),
+    (
+        "assignments-bulk",
+        "POST",
+        "/api/admin/assignments/bulk",
+        lambda s: "/api/admin/assignments/bulk",
+        lambda s: {"user_ids": [str(s.user.id)], "track_ids": [str(s.track.id)], "assigned": True},
+        "scoped",
+    ),
+    (
+        "admin-learning",
+        "GET",
+        "/api/admin/learning",
+        lambda s: "/api/admin/learning",
+        lambda s: None,
+        "scoped_list",
+    ),
+    (
+        "survey-levels",
+        "GET",
+        "/api/admin/surveys",
+        lambda s: f"/api/admin/surveys?user_ids={s.user.id}",
+        lambda s: None,
+        "scoped",
+    ),
+    (
+        "user-survey",
+        "GET",
+        "/api/admin/surveys/{user_id}",
+        lambda s: f"/api/admin/surveys/{s.user.id}",
+        lambda s: None,
+        "scoped",
+    ),
+    # test_settings.llm is None here, so the interview service resolves to None
+    # and both 404 "not configured" for every caller that passes authz — the
+    # matrix can't tell in-scope from out-of-scope, so these are scoped_list and
+    # test_admin_scope_routes.py::test_admin_interview_view_is_scoped compares
+    # the bodies instead.
+    (
+        "interview-admin-get",
+        "GET",
+        "/api/admin/interviews/{user_id}",
+        lambda s: f"/api/admin/interviews/{s.user.id}",
+        lambda s: None,
+        "scoped_list",
+    ),
+    (
+        "interview-admin-delete",
+        "DELETE",
+        "/api/admin/interviews/{user_id}",
+        lambda s: f"/api/admin/interviews/{s.user.id}",
+        lambda s: None,
+        "scoped_list",
+    ),
+    (
+        "dashboard",
+        "GET",
+        "/api/admin/dashboard",
+        lambda s: "/api/admin/dashboard",
+        lambda s: None,
+        "scoped_list",
+    ),
+    # --- project admins ---
+    (
+        "project-admins-list",
+        "GET",
+        "/api/admin/projects/{project_id}/admins",
+        lambda s: f"/api/admin/projects/{s.project.id}/admins",
+        lambda s: None,
+        "scoped",
+    ),
+    (
+        "project-admins-grant",
+        "PUT",
+        "/api/admin/projects/{project_id}/admins/{user_id}",
+        lambda s: f"/api/admin/projects/{s.project.id}/admins/{s.user.id}",
+        lambda s: None,
+        "power",
+    ),
+    (
+        "project-admins-revoke",
+        "DELETE",
+        "/api/admin/projects/{project_id}/admins/{user_id}",
+        lambda s: f"/api/admin/projects/{s.project.id}/admins/{s.pa_in.id}",
+        lambda s: None,
+        "power",
+    ),
+    # --- content ---
+    (
+        "tracks-post",
+        "POST",
+        "/api/admin/tracks",
+        lambda s: "/api/admin/tracks",
+        lambda s: {"name": "T2", "track_type": "general"},
+        "power",
+    ),
+    (
+        "modules-post",
+        "POST",
+        "/api/admin/modules",
+        lambda s: "/api/admin/modules",
+        lambda s: {"track_id": str(s.track.id), "title": "M2"},
+        "power",
+    ),
+    (
+        "module-delete",
+        "DELETE",
+        "/api/admin/modules/{module_id}",
+        lambda s: f"/api/admin/modules/{s.module.id}",
+        lambda s: None,
+        "power",
+    ),
+    (
+        "lessons-post",
+        "POST",
+        "/api/admin/lessons",
+        lambda s: "/api/admin/lessons",
+        lambda s: {"module_id": str(s.module.id), "title": "L2"},
+        "power",
+    ),
+    (
+        "lesson-patch",
+        "PATCH",
+        "/api/admin/lessons/{lesson_id}",
+        lambda s: f"/api/admin/lessons/{s.lesson.id}",
+        lambda s: {"title": "Renamed"},
+        "power",
+    ),
+    (
+        "lesson-delete",
+        "DELETE",
+        "/api/admin/lessons/{lesson_id}",
+        lambda s: f"/api/admin/lessons/{s.lesson.id}",
+        lambda s: None,
+        "power",
+    ),
+    (
+        "lessons-order",
+        "PUT",
+        "/api/admin/modules/{module_id}/lessons/order",
+        lambda s: f"/api/admin/modules/{s.module.id}/lessons/order",
+        lambda s: {"lesson_ids": [str(s.lesson.id)]},
+        "power",
+    ),
+    (
+        "prompts-list",
+        "GET",
+        "/api/admin/prompts",
+        lambda s: "/api/admin/prompts",
+        lambda s: None,
+        "power",
+    ),
+    (
+        "prompts-detail",
+        "GET",
+        "/api/admin/prompts/{kind}",
+        lambda s: "/api/admin/prompts/chatbot",
+        lambda s: None,
+        "power",
+    ),
+    # --- feedback ---
+    (
+        "feedback-admin-list",
+        "GET",
+        "/api/admin/feedback",
+        lambda s: "/api/admin/feedback",
+        lambda s: None,
+        "power",
+    ),
     (
         "feedback-admin-patch",
         "PATCH",
+        "/api/admin/feedback/{feedback_id}",
         lambda s: f"/api/admin/feedback/{s.feedback.id}",
         lambda s: {"status": "accepted"},
-        True,
+        "power",
     ),
     # test_settings.llm is None here, so get_feedback_triage_service resolves to
     # None and this 404s "AI triage is not configured" for the admin — before
     # any model call. The row still validly pins anonymous->401 and
-    # non-admin->403 (the router-level require_admin fires first); the 200 path
+    # non-admin->403 (the router-level require_power_admin fires first); the 200 path
     # is covered by test_admin_feedback_triage.py, which overrides the DI.
     (
         "feedback-admin-suggest-triage",
         "POST",
+        "/api/admin/feedback/suggest-triage",
         lambda s: "/api/admin/feedback/suggest-triage",
         lambda s: None,
-        True,
+        "power",
     ),
     # As with the triage row: test_settings.llm is None here, so
     # get_content_improvement_service resolves to None and all four 404 for the
     # admin — before any model call or DB write. The rows still pin
-    # anonymous->401 and non-admin->403 (router-level require_admin). The 200
+    # anonymous->401 and non-admin->403 (router-level require_power_admin). The 200
     # paths are covered by test_admin_content_improvement.py via a DI override.
     (
         "content-improvement-run",
         "POST",
+        "/api/admin/content-improvement/run",
         lambda s: "/api/admin/content-improvement/run",
         lambda s: {"lesson_ids": [str(uuid.uuid4())]},
-        True,
+        "power",
     ),
     (
         "content-improvement-queue",
         "GET",
+        "/api/admin/content-improvement/queue",
         lambda s: "/api/admin/content-improvement/queue",
         lambda s: None,
-        True,
+        "power",
     ),
     (
         "content-improvement-list",
         "GET",
+        "/api/admin/content-improvement",
         lambda s: "/api/admin/content-improvement",
         lambda s: None,
-        True,
+        "power",
     ),
     (
         "content-improvement-detail",
         "GET",
+        "/api/admin/content-improvement/{proposal_id}",
         lambda s: f"/api/admin/content-improvement/{uuid.uuid4()}",
         lambda s: None,
-        True,
+        "power",
     ),
     (
         "content-improvement-review",
         "POST",
+        "/api/admin/content-improvement/{proposal_id}/review",
         lambda s: f"/api/admin/content-improvement/{uuid.uuid4()}/review",
         lambda s: {"decision": "reject"},
-        True,
+        "power",
     ),
     (
         "content-improvement-critique",
         "POST",
+        "/api/admin/content-improvement/{proposal_id}/critique",
         lambda s: f"/api/admin/content-improvement/{uuid.uuid4()}/critique",
         lambda s: None,
-        True,
+        "power",
     ),
     # Unlike the content-improvement rows, this router is NOT LLM-gated —
     # curating notes needs no model. So the admin case here hits the real
@@ -461,31 +726,53 @@ _MATRIX: list[tuple[str, str, Any, Any, bool]] = [
     (
         "calibration-notes-list",
         "GET",
+        "/api/admin/calibration-notes",
         lambda s: "/api/admin/calibration-notes",
         lambda s: None,
-        True,
+        "power",
     ),
     (
         "calibration-notes-review",
         "POST",
+        "/api/admin/calibration-notes/{note_id}/review",
         lambda s: f"/api/admin/calibration-notes/{uuid.uuid4()}/review",
         lambda s: {"decision": "approve"},
-        True,
+        "power",
     ),
     (
         "calibration-notes-graduate",
         "POST",
+        "/api/admin/calibration-notes/{note_id}/graduate",
         lambda s: f"/api/admin/calibration-notes/{uuid.uuid4()}/graduate",
         lambda s: None,
-        True,
+        "power",
     ),
-    ("dashboard", "GET", lambda s: "/api/admin/dashboard", lambda s: None, True),
 ]
+
+# Admin routes that can't be a JSON _MATRIX row; each has its own authz class.
+_MATRIX_EXEMPT: dict[tuple[str, str], str] = {
+    ("POST", "/api/admin/media"): "multipart: TestMediaUploadAuthz below",
+    ("POST", "/api/admin/invites/bulk"): "multipart: test_admin_bulk_invite.py",
+}
+
+
+def test_every_admin_route_is_in_the_matrix() -> None:
+    """A new /api/admin route must declare its access level here, or fail."""
+    covered = {(method, route) for _, method, route, _, _, _ in _MATRIX}
+    schema = app.openapi()
+    missing = sorted(
+        (method.upper(), path)
+        for path, operations in schema["paths"].items()
+        if path.startswith("/api/admin")
+        for method in operations
+        if (method.upper(), path) not in covered and (method.upper(), path) not in _MATRIX_EXEMPT
+    )
+    assert not missing, f"admin routes missing from _MATRIX: {missing}"
 
 
 @pytest.mark.parametrize(
-    ("method", "path_of", "body_of", "admin_only"),
-    [spec[1:] for spec in _MATRIX],
+    ("method", "path_of", "body_of", "access"),
+    [(spec[1], spec[3], spec[4], spec[5]) for spec in _MATRIX],
     ids=[spec[0] for spec in _MATRIX],
 )
 async def test_matrix(
@@ -495,8 +782,11 @@ async def test_matrix(
     method: str,
     path_of: Any,
     body_of: Any,
-    admin_only: bool,
+    access: Access,
 ) -> None:
+    """Order matters: non-mutating denials first, then pa_in, admin last, so a
+    destructive row (DELETE, invite) is consumed by the in-scope caller and
+    the admin's 404/409 on the already-consumed target still passes authz."""
     path, body = path_of(seed), body_of(seed)
 
     anonymous = await client.request(method, path, json=body)
@@ -506,13 +796,31 @@ async def test_matrix(
     as_user = await client.request(
         method, path, json=body, headers=auth_headers(seed.user, test_settings)
     )
-    if admin_only:
-        assert as_user.status_code == 403, f"user {method} {path}"
-        assert as_user.json()["error"]["code"] == "forbidden"
-    else:
+    if access == "any":
         # Business-rule statuses (e.g. 409 complete-without-draft) are fine;
         # what matters is that authz passed.
         assert as_user.status_code not in (401, 403, 500), f"user {method} {path}"
+    else:
+        assert as_user.status_code == 403, f"user {method} {path}"
+        assert as_user.json()["error"]["code"] == "forbidden"
+
+        as_pa_out = await client.request(
+            method, path, json=body, headers=auth_headers(seed.pa_out, test_settings)
+        )
+        as_pa_in = await client.request(
+            method, path, json=body, headers=auth_headers(seed.pa_in, test_settings)
+        )
+        if access == "power":
+            assert as_pa_out.status_code == 403, f"other project admin {method} {path}"
+            assert as_pa_in.status_code == 403, f"project admin {method} {path}"
+        elif access == "scoped":
+            assert as_pa_out.status_code == 404, f"other project admin {method} {path}"
+            assert as_pa_in.status_code not in (401, 403, 404, 500), (
+                f"project admin {method} {path}"
+            )
+        else:  # scoped_list
+            assert as_pa_out.status_code not in (401, 403, 500), f"other pa {method} {path}"
+            assert as_pa_in.status_code not in (401, 403, 500), f"project admin {method} {path}"
 
     as_admin = await client.request(
         method, path, json=body, headers=auth_headers(seed.admin, test_settings)

@@ -505,8 +505,7 @@
 }
 
 /* Native select — role + maturity pin. Role color mapping mirrors the old
-   panel's roleBadgeColor helper: admin = dark/white, user+ = indigo tint,
-   user = neutral. */
+   panel's roleBadgeColor helper: admin = dark/white, user = neutral. */
 .adm-select {
   font-family: var(--dlw-font-body); font-size: 13px; font-weight: 600;
   border: 1px solid var(--adm-border); border-radius: var(--adm-radius-sm);
@@ -514,7 +513,6 @@
 }
 .adm-select:disabled { opacity: .6; cursor: default; }
 .adm-role-select-admin { background: var(--adm-ink); color: #fff; border-color: var(--adm-ink); }
-.adm-role-select-user-plus { background: var(--adm-info-bg); color: var(--adm-info-text); border-color: var(--adm-info-border); }
 .adm-role-select-user { background: var(--adm-surface); color: var(--adm-muted); }
 
 /* Learning progress rows (one per assigned track). */

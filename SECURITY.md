@@ -72,6 +72,20 @@ Inventory verified against Azure and GitHub on 2026-09-23 (names only; values we
   The review key `ANTHROPIC_API_KEY` — delaware's Anthropic workspace admins; on GitHub it is
   write-only.
 
+## Admin access to learner data
+
+Power admins (role `admin`) can read and change everything in the app. **Project admins** (a
+`user` with `project_admins` rows) can read the personal data of the learners in the projects
+they administer: assessment answers, progress, and the AI interview transcript and internal
+playbook. Only power admins grant or revoke project-admin rights
+(`PUT`/`DELETE /api/admin/projects/{id}/admins/{user_id}`); each grant is logged with UUIDs only.
+Project admins also receive invite and reset **links** for their own projects' learners, as power
+admins do (decision 2026-10-01). Whoever holds such a link can set that learner's password, so a
+project admin can in effect take over a learner account in their project, including the learner's
+private chat history, which the admin API itself never shows. Accepted: project admins are named
+by power admins and scoped to their own projects.
+Spec: `docs/superpowers/specs/2026-10-01-project-scoped-admin-design.md`.
+
 ## Rotations owed
 
 | Secret | Why | Blast radius | Status |

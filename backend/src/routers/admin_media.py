@@ -5,7 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from starlette.datastructures import UploadFile
 
-from src.core.dependencies.auth import require_admin
+from src.core.dependencies.admin_scope import require_power_admin
 from src.core.dependencies.storage import require_media_service
 from src.schemas.admin_media import MediaUploadOut
 from src.services.exceptions import PayloadTooLargeError
@@ -20,7 +20,7 @@ router = APIRouter(prefix="/api/admin", tags=["media"])
     "/media",
     response_model=MediaUploadOut,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_admin)],
+    dependencies=[Depends(require_power_admin)],
 )
 async def upload_media(
     request: Request,

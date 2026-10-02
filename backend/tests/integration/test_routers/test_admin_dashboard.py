@@ -29,6 +29,7 @@ from tests.fixtures.factories import (
     create_survey,
     create_track,
     create_user,
+    make_project_admin,
 )
 
 if TYPE_CHECKING:
@@ -267,3 +268,23 @@ class TestAdminDashboard:
         )
         assert resp.status_code == 404
         assert resp.json()["error"]["code"] == "not_found"
+
+
+async def test_a_projects_own_admins_are_not_counted_as_its_learners(
+    client: AsyncClient, db_session: AsyncSession, test_settings: Settings
+) -> None:
+    """Spec 2026-10-01: admins are staff, not learners — power admins everywhere,
+    project admins in the projects they run."""
+    company = await create_company(db_session, "Dash PA Co")
+    project = await create_project(db_session, company, "Dash PA")
+    power = await create_user(db_session, email="dash-pa-power@example.com", role="admin")
+    await create_user(db_session, email="dash-pa-l1@example.com", project_id=project.id)
+    coach = await create_user(db_session, email="dash-pa-coach@example.com", project_id=project.id)
+    await make_project_admin(db_session, coach, project)
+    response = await client.get(
+        f"/api/admin/dashboard?project_id={project.id}", headers=auth_headers(power, test_settings)
+    )
+    assert response.status_code == 200
+    funnel = next(f for f in response.json()["funnels"] if f["project_id"] == str(project.id))
+    assert funnel["invited"] == 1
+    assert response.json()["tiles"]["learners"] == 1

@@ -1,5 +1,8 @@
 # `user+` role — design
 
+> **Superseded 2026-10-01:** `user+` was removed by
+> `2026-10-01-project-scoped-admin-design.md` (existing accounts became `user`).
+
 **Date:** 2026-07-22
 **Status:** approved, implementing
 

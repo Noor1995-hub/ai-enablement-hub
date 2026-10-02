@@ -211,7 +211,8 @@ class LearningService:
         """Whether the caller may READ/COMPLETE this specific lesson.
 
         An OR of four independent grants, and the order matters only for cost:
-          1. admin / user+ (LOCK_BYPASS_ROLES) — resolved by the router,
+          1. callers who bypass locks (AdminScopeService.bypasses_locks) — resolved
+             by the router,
           2. the Introduction track — implicitly assigned to everyone, exactly as
              `graph` treats it,
           3. an explicit assignment — an admin's grant outranks any maturity

@@ -5,7 +5,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, status
 
-from src.core.dependencies.auth import require_admin
+from src.core.dependencies.admin_scope import require_project_in_scope
 from src.core.dependencies.domain import get_admin_user_service
 from src.schemas.admin_defaults import (
     ApplyDefaultsResponse,
@@ -17,7 +17,7 @@ from src.services.admin_user_service import AdminUserService
 __all__ = ["router"]
 
 router = APIRouter(
-    prefix="/api/admin", tags=["admin:defaults"], dependencies=[Depends(require_admin)]
+    prefix="/api/admin", tags=["admin:defaults"], dependencies=[Depends(require_project_in_scope)]
 )
 
 AdminUserServiceDep = Annotated[AdminUserService, Depends(get_admin_user_service)]

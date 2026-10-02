@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Annotated
 
 from fastapi import Depends
 
+from src.core.dependencies.admin_scope import BypassesLocksDep
 from src.core.dependencies.auth import get_current_user
 from src.core.dependencies.chat import ChatKind
 from src.core.dependencies.domain import get_org_service
@@ -29,24 +30,32 @@ __all__ = ["require_chat_kind_unlocked", "require_component_unlocked"]
 _CHAT_KIND_COMPONENT: dict[str, str] = {"interview": "interview"}
 
 
-async def _ensure_unlocked(org_service: OrgService, user: User, component: str) -> None:
+async def _ensure_unlocked(
+    org_service: OrgService, user: User, component: str, *, bypasses_locks: bool
+) -> None:
+    """hidden is absolute; locked is bypassed by power admins and by project
+    admins on their own project (AdminScopeService.bypasses_locks)."""
     resolved = await org_service.resolve_components(user.project_id)
     state = resolved[component]
-    if state["hidden"] or state["locked"]:
+    if state["hidden"] or (state["locked"] and not bypasses_locks):
         raise ComponentLockedError(component)
 
 
-def require_component_unlocked(component: str) -> Callable[[User, OrgService], Awaitable[None]]:
+def require_component_unlocked(
+    component: str,
+) -> Callable[[User, OrgService, bool], Awaitable[None]]:
     """Router-level dependency factory:
     `dependencies=[Depends(require_component_unlocked("learning"))]`. A
-    project-level gate, not a role check — admin and user+ are not exempt
-    (see docs/superpowers/specs/2026-07-22-user-plus-role-design.md)."""
+    project-level gate: `hidden` applies to everyone, `locked` is bypassed by
+    power admins and project admins on their own project (spec
+    2026-10-01-project-scoped-admin-design.md decision 5)."""
 
     async def _check(
         user: Annotated[User, Depends(get_current_user)],
         org_service: Annotated[OrgService, Depends(get_org_service)],
+        bypasses_locks: BypassesLocksDep,
     ) -> None:
-        await _ensure_unlocked(org_service, user, component)
+        await _ensure_unlocked(org_service, user, component, bypasses_locks=bypasses_locks)
 
     return _check
 
@@ -55,10 +64,11 @@ async def require_chat_kind_unlocked(
     kind: ChatKind,
     user: Annotated[User, Depends(get_current_user)],
     org_service: Annotated[OrgService, Depends(get_org_service)],
+    bypasses_locks: BypassesLocksDep,
 ) -> None:
     """Chat-router dependency: `kind` binds to the `{kind}` path segment or the
     `?kind=` query param, whichever the route has (same as require_ai_surface).
     Applies the component gate only to kinds in _CHAT_KIND_COMPONENT."""
     component = _CHAT_KIND_COMPONENT.get(kind)
     if component is not None:
-        await _ensure_unlocked(org_service, user, component)
+        await _ensure_unlocked(org_service, user, component, bypasses_locks=bypasses_locks)

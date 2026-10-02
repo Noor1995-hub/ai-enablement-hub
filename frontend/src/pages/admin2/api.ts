@@ -613,7 +613,7 @@ export function useSuggestTriage() {
 
 export interface SetRoleInput {
   userId: string
-  role: 'admin' | 'user+' | 'user'
+  role: 'admin' | 'user'
 }
 
 async function setRole({ userId, role }: SetRoleInput): Promise<void> {

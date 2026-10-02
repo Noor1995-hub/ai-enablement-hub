@@ -20,6 +20,11 @@ class UserProfileResponse(BaseModel):
     project_id: uuid.UUID | None
     password_set: bool
     external_login: bool
+    # Admin rights (spec 2026-10-01-project-scoped-admin-design.md); filled in
+    # by the router, so the defaults only apply to model_validate(user).
+    is_power_admin: bool = False
+    admin_project_ids: list[uuid.UUID] = []
+    bypasses_locks: bool = False
 
 
 class ComponentState(BaseModel):

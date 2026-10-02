@@ -6,7 +6,12 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from src.core.attention import attention_for
 from src.core.constants import advance_level, module_level_map
-from src.services.exceptions import EmailAlreadyRegisteredError, NotFoundError
+from src.services.exceptions import (
+    EmailAlreadyRegisteredError,
+    LastPowerAdminError,
+    NotFoundError,
+    SelfModificationError,
+)
 
 if TYPE_CHECKING:
     from src.db.models import User
@@ -16,6 +21,7 @@ if TYPE_CHECKING:
         AbstractContentRepository,
         AbstractOrgRepository,
         AbstractProgressRepository,
+        AbstractProjectAdminRepository,
         AbstractSurveyRepository,
         AbstractUserRepository,
     )
@@ -25,7 +31,8 @@ __all__ = ["AdminUserService"]
 
 class AdminUserService:
     """Admin user directory: listing, invites, reset links, roles, deletion,
-    and track/module assignment — everything behind require_admin.
+    and track/module assignment — everything behind the admin guards in
+    core/dependencies/admin_scope.py.
 
     Token issuance (invite/reset) is deliberately NOT done here: this service
     only creates/looks up the user, and the router mints the action token via
@@ -40,6 +47,8 @@ class AdminUserService:
         surveys: AbstractSurveyRepository,
         sessions: AbstractAuthSessionRepository,
         progress: AbstractProgressRepository,
+        *,
+        project_admins: AbstractProjectAdminRepository,
     ) -> None:
         self._users = users
         self._org = org
@@ -48,6 +57,7 @@ class AdminUserService:
         self._surveys = surveys
         self._sessions = sessions
         self._progress = progress
+        self._project_admins = project_admins
 
     async def list_users(
         self,
@@ -271,19 +281,49 @@ class AdminUserService:
             created.append(user)
         return created
 
-    async def set_role(self, user_id: uuid.UUID, role: str) -> None:
+    async def set_role(self, actor: User, user_id: uuid.UUID, role: str) -> None:
+        """Nobody changes their own role, and the last power admin stays one."""
         user = await self._users.get_by_id(user_id)
         if user is None:
             raise NotFoundError("User")
+        if user.id == actor.id:
+            raise SelfModificationError
+        if user.role == "admin" and role != "admin" and await self._users.count_power_admins() <= 1:
+            raise LastPowerAdminError
         await self._users.update_role(user, role)
 
-    async def delete_user(self, user_id: uuid.UUID) -> None:
-        """Single DELETE; FK cascades wipe tokens, sessions, survey, progress
-        and assignments atomically (fixes legacy B2 by construction)."""
+    async def delete_user(self, actor: User, user_id: uuid.UUID) -> None:
+        """Single DELETE; FK cascades wipe tokens, sessions, survey, progress,
+        assignments and project-admin grants atomically (fixes legacy B2 by
+        construction). Nobody deletes their own account or the last power admin."""
         user = await self._users.get_by_id(user_id)
         if user is None:
             raise NotFoundError("User")
+        if user.id == actor.id:
+            raise SelfModificationError
+        if user.role == "admin" and await self._users.count_power_admins() <= 1:
+            raise LastPowerAdminError
         await self._users.delete(user)
+
+    async def list_project_admins(self, project_id: uuid.UUID) -> list[tuple[User, datetime]]:
+        await self.ensure_project(project_id)
+        return await self._project_admins.list_for_project(project_id)
+
+    async def grant_project_admin(
+        self, actor: User, project_id: uuid.UUID, user_id: uuid.UUID
+    ) -> None:
+        """Idempotent. A power admin already covers every project: no row."""
+        await self.ensure_project(project_id)
+        user = await self._users.get_by_id(user_id)
+        if user is None:
+            raise NotFoundError("User")
+        if user.role == "admin":
+            return
+        await self._project_admins.grant(user_id, project_id, actor.id)
+
+    async def revoke_project_admin(self, project_id: uuid.UUID, user_id: uuid.UUID) -> None:
+        if not await self._project_admins.revoke(user_id, project_id):
+            raise NotFoundError("Project admin")
 
     async def set_track_assignment(
         self, user_id: uuid.UUID, track_id: uuid.UUID, assigned: bool

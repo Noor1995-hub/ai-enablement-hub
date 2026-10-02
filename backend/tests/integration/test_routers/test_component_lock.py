@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 import pytest_asyncio
 
+from src.db.models import ProjectComponentSetting
 from tests.fixtures.auth import auth_headers
 from tests.fixtures.factories import (
     create_company,
@@ -124,22 +125,25 @@ class TestLearningLockedByDefault:
         )
         assert response.status_code == 403
 
-    async def test_admin_is_not_exempt(
+    async def test_admin_bypasses_locked_but_not_hidden(
         self,
         client: AsyncClient,
         db_session: AsyncSession,
         project: Project,
         test_settings: Settings,
     ) -> None:
-        """Per the user+ design doc: component locks are a project-level gate,
-        not a learning-path requirement — neither admin nor user+ bypass it."""
+        """Spec 2026-10-01 decision 5: a power admin bypasses `locked` (learning
+        is locked by default here), but `hidden` applies to everyone."""
         admin = await create_user(
             db_session, email="locked-admin@example.com", role="admin", project_id=project.id
         )
-        response = await client.get(
-            "/api/learning/graph", headers=auth_headers(admin, test_settings)
+        headers = auth_headers(admin, test_settings)
+        assert (await client.get("/api/learning/graph", headers=headers)).status_code == 200
+        db_session.add(
+            ProjectComponentSetting(project_id=project.id, component="learning", hidden=True)
         )
-        assert response.status_code == 403
+        await db_session.commit()
+        assert (await client.get("/api/learning/graph", headers=headers)).status_code == 403
 
 
 class TestLearningUnlocked:

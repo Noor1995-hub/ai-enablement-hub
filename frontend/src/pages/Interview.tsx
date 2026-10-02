@@ -534,7 +534,7 @@ function BuildingScreen({ t }: { t: InterviewStrings }) {
 export default function Interview() {
   const chat = useChat('interview')
   const navigate = useNavigate()
-  const { role } = useAuth()
+  const { bypassesLocks } = useAuth()
   const [state, setState] = useState<InterviewState | null>(null)
   const [phase, setPhase] = useState<Phase>('loading')
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -565,7 +565,7 @@ export default function Interview() {
         if (!data) return false
         const tile = resolveInterviewTile({
           componentLocked: false,
-          role,
+          bypassesLocks,
           surveyStatus: data.survey_status,
           interviewStatus,
         })
@@ -608,7 +608,7 @@ export default function Interview() {
     return () => { cancelled = true }
     // Mount-only: chat.loadConversation is stable (useCallback with no deps), and this
     // effect must run exactly once regardless of the fresh `chat` object identity each render.
-    // `role` (read by needsAssessment) is safe to capture once: App.tsx renders no route until
+    // `bypassesLocks` (read by needsAssessment) is safe to capture once: App.tsx renders no route until
     // the auth restore has finished, so it is final by the time this page mounts.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])

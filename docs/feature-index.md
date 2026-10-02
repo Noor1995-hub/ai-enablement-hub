@@ -14,7 +14,9 @@ a feature ships.
   `frontend/src/lib/learningPathLocks.ts`; `2026-07-14-learning-path-level-headers-design.md`,
   `2026-07-20-below-level-free-review-design.md`.
 - **Introduction level** — `2026-07-17-introduction-level-design.md`.
-- **`user+` role** — `2026-07-22-user-plus-role-design.md`.
+- **Project-scoped admins** (power admin / project admin; `user+` removed) —
+  `2026-10-01-project-scoped-admin-design.md`; `core/dependencies/admin_scope.py`.
+- **`user+` role** (superseded 2026-10-01) — `2026-07-22-user-plus-role-design.md`.
 - **Cascading track/module assignment** (full resync both ways) —
   `2026-07-23-cascading-track-module-assignment-design.md`; `services/admin_user_service.py`.
 - **Admin panel** (`/admin/*` routed shell, `frontend/src/pages/admin2/`) — shipped 2026-07-27:

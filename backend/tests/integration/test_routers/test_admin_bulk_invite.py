@@ -24,6 +24,7 @@ from src.repositories.auth_session_repository import AuthSessionRepository
 from src.repositories.content_repository import ContentRepository
 from src.repositories.org_repository import OrgRepository
 from src.repositories.progress_repository import ProgressRepository
+from src.repositories.project_admin_repository import ProjectAdminRepository
 from src.repositories.survey_repository import SurveyRepository
 from src.repositories.user_repository import UserRepository
 from src.services.admin_user_service import AdminUserService
@@ -38,6 +39,7 @@ from tests.fixtures.factories import (
     create_project,
     create_track,
     create_user,
+    make_project_admin,
 )
 
 if TYPE_CHECKING:
@@ -54,6 +56,7 @@ def admin_user_service(db_session: AsyncSession) -> AdminUserService:
         SurveyRepository(db_session),
         AuthSessionRepository(db_session),
         ProgressRepository(db_session),
+        project_admins=ProjectAdminRepository(db_session),
     )
 
 
@@ -289,6 +292,29 @@ class TestBulkInviteEndpoint:
             client, _CSV, project.id, dry_run=True, headers=auth_headers(member, test_settings)
         )
         assert resp.status_code == 403
+
+    async def test_project_admin_is_limited_to_their_projects(
+        self,
+        client: AsyncClient,
+        project,
+        db_session,
+        test_settings,
+    ) -> None:
+        """Spec 2026-10-01: a project admin of another project gets 404 (no
+        probing); a project admin of this project may preview."""
+        other = await create_project(db_session, await create_company(db_session, "Bulk B"), "B")
+        outsider = await create_user(db_session, email="bulk-pa-out@example.com")
+        await make_project_admin(db_session, outsider, other)
+        insider = await create_user(db_session, email="bulk-pa-in@example.com")
+        await make_project_admin(db_session, insider, project)
+        resp = await _upload(
+            client, _CSV, project.id, dry_run=True, headers=auth_headers(outsider, test_settings)
+        )
+        assert resp.status_code == 404
+        resp = await _upload(
+            client, _CSV, project.id, dry_run=True, headers=auth_headers(insider, test_settings)
+        )
+        assert resp.status_code == 200
 
     async def test_commit_materializes_project_defaults_for_created_users(
         self,

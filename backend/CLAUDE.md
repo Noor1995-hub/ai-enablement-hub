@@ -27,7 +27,10 @@ test user or a script that writes rows edits live learner data.
    ruff/ty clean. Two approved deviations: asyncpg is a main dependency, and integration tests run
    against real Postgres (schema needs text[]/JSONB/ON CONFLICT), not in-memory SQLite.
 2. **Authorization iron rule (tests must enforce):** no endpoint outside `/admin/*` accepts a user
-   identifier from the request — ownership comes from the token only.
+   identifier from the request — ownership comes from the token only. **Admin routes** each declare
+   exactly one guard from `core/dependencies/admin_scope.py` (`require_power_admin`,
+   `require_project_in_scope`, `require_user_in_scope`, or `AdminScopeDep` for lists and bodies);
+   `tests/integration/test_routers/test_authz.py` fails on an admin route missing from `_MATRIX`.
 3. **FastAPI signature gotcha:** any type in a *parameter* annotation FastAPI inspects (routers,
    DI providers) must be imported at runtime, not under `TYPE_CHECKING` — an unresolvable name
    silently degrades the param to a required query param (uniform 422s).

@@ -112,15 +112,16 @@ class TestInterviewComponentGate:
         response = await client.get("/api/interview/me", headers=auth_headers(user, test_settings))
         assert response.status_code == 403
 
-    async def test_admin_is_not_exempt(
+    async def test_admin_bypasses_a_locked_interview(
         self,
         client: AsyncClient,
         db_session: AsyncSession,
         project: Project,
         test_settings: Settings,
     ) -> None:
-        """Component locks are a project-level gate, not a role check (same rule
-        as test_component_lock.py::test_admin_is_not_exempt)."""
+        """Spec 2026-10-01 decision 5: a power admin bypasses a `locked`
+        component (interview is locked by default); `hidden` still applies —
+        see test_component_lock.py::test_admin_bypasses_locked_but_not_hidden."""
         await _enable_interview_ai(db_session, project.id)
         admin = await create_user(
             db_session,
@@ -130,7 +131,9 @@ class TestInterviewComponentGate:
         )
 
         response = await client.get("/api/interview/me", headers=auth_headers(admin, test_settings))
-        assert response.status_code == 403
+        # Past both router gates: this client has no LLM configured, so the
+        # handler itself answers 404 "not configured" rather than 403.
+        assert response.status_code != 403
 
     async def test_anonymous_is_401(self, client: AsyncClient) -> None:
         assert (await client.get("/api/interview/me")).status_code == 401

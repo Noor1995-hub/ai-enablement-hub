@@ -4,6 +4,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
+from src.core.dependencies.admin_scope import AdminScopeServiceDep, BypassesLocksDep
 from src.core.dependencies.auth import get_current_user
 from src.core.dependencies.domain import (
     get_learning_service,
@@ -26,8 +27,17 @@ CurrentUserDep = Annotated[User, Depends(get_current_user)]
 
 
 @router.get("", response_model=UserProfileResponse)
-async def get_profile(user: CurrentUserDep) -> User:
-    return user
+async def get_profile(
+    user: CurrentUserDep, scope_service: AdminScopeServiceDep, bypasses_locks: BypassesLocksDep
+) -> UserProfileResponse:
+    scope = await scope_service.scope_for(user)
+    return UserProfileResponse.model_validate(user).model_copy(
+        update={
+            "is_power_admin": user.role == "admin",
+            "admin_project_ids": sorted(scope.project_ids) if scope is not None else [],
+            "bypasses_locks": bypasses_locks,
+        }
+    )
 
 
 @router.get("/journey", response_model=JourneyResponse)
@@ -37,10 +47,14 @@ async def get_journey(
     survey_service: Annotated[SurveyService, Depends(get_survey_service)],
     learning_service: Annotated[LearningService, Depends(get_learning_service)],
     interview_service: Annotated[InterviewService | None, Depends(get_interview_service)],
+    bypasses_locks: BypassesLocksDep,
 ) -> JourneyResponse:
     """JourneyHome's legacy queries in one call; the DEFAULT_HIDDEN/LOCKED
-    fallback now lives server-side (kills the old D4 duplication)."""
+    fallback now lives server-side (kills the old D4 duplication). A caller who
+    bypasses locks sees every component unlocked; `hidden` is never bypassed."""
     components = await org_service.resolve_components(user.project_id)
+    if bypasses_locks:
+        components = {comp: {**state, "locked": False} for comp, state in components.items()}
     survey_status = await survey_service.survey_status(user.id)
     learning_status = await learning_service.learning_status(user.id)
     interview_status = (

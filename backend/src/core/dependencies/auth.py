@@ -28,7 +28,6 @@ __all__ = [
     "get_auth_token_repository",
     "get_current_user",
     "get_token_service",
-    "require_admin",
 ]
 
 _bearer = HTTPBearer(auto_error=False)
@@ -80,12 +79,4 @@ async def get_current_user(
     user = await user_service.get_active_user(user_id)
     if user is None:
         raise _unauthorized("Invalid or expired token")
-    return user
-
-
-async def require_admin(
-    user: Annotated[User, Depends(get_current_user)],
-) -> User:
-    if user.role != "admin":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin role required")
     return user

@@ -3,7 +3,7 @@ import { resolveInterviewTile } from './interviewAccess'
 
 const base = {
   componentLocked: false,
-  role: 'user' as const,
+  bypassesLocks: false,
   surveyStatus: 'complete' as const,
   interviewStatus: 'not_started' as const,
 }
@@ -18,9 +18,9 @@ describe('resolveInterviewTile', () => {
     expect(resolveInterviewTile({ ...base, surveyStatus: 'in_progress' })).toBe('needs_assessment')
   })
 
-  it('user+ is not exempt, admin is', () => {
-    expect(resolveInterviewTile({ ...base, role: 'user+', surveyStatus: 'not_started' })).toBe('needs_assessment')
-    expect(resolveInterviewTile({ ...base, role: 'admin', surveyStatus: 'not_started' })).toBe('available')
+  it('a caller who bypasses locks (power admin, project admin on their own project) is exempt', () => {
+    expect(resolveInterviewTile({ ...base, bypassesLocks: true, surveyStatus: 'not_started' })).toBe('available')
+    expect(resolveInterviewTile({ ...base, bypassesLocks: false, surveyStatus: 'not_started' })).toBe('needs_assessment')
   })
 
   it('an existing playbook stays reachable even without an assessment', () => {

@@ -5,7 +5,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Query
 
-from src.core.dependencies.auth import require_admin
+from src.core.dependencies.admin_scope import require_power_admin
 from src.core.dependencies.content_ai import get_calibration_note_service
 from src.db.models import User
 from src.schemas.admin_calibration_notes import (
@@ -22,7 +22,7 @@ __all__ = ["router"]
 router = APIRouter(
     prefix="/api/admin/calibration-notes",
     tags=["admin:calibration-notes"],
-    dependencies=[Depends(require_admin)],
+    dependencies=[Depends(require_power_admin)],
 )
 
 NoteServiceDep = Annotated[CalibrationNoteService, Depends(get_calibration_note_service)]
@@ -51,7 +51,7 @@ async def review_calibration_note(
     note_id: uuid.UUID,
     body: CalibrationNoteReviewRequest,
     service: NoteServiceDep,
-    admin: Annotated[User, Depends(require_admin)],
+    admin: Annotated[User, Depends(require_power_admin)],
 ) -> CalibrationNoteReviewResponse:
     """The human gate. Approving is what lets a note start influencing future
     drafts; rejecting takes it out of consideration for good."""
@@ -63,7 +63,7 @@ async def review_calibration_note(
 async def graduate_calibration_note(
     note_id: uuid.UUID,
     service: NoteServiceDep,
-    admin: Annotated[User, Depends(require_admin)],
+    admin: Annotated[User, Depends(require_power_admin)],
 ) -> CalibrationNoteGraduateResponse:
     """Retire an approved note and hand back the line to paste into
     house_style.md. Retiring frees one of the capped runtime slots and stops the

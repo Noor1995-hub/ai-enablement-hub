@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 __all__ = [
+    "AdminTargetForbiddenError",
     "AiGenerationError",
     "AssessmentRequiredError",
     "AuthError",
@@ -16,10 +17,12 @@ __all__ = [
     "InvalidEmailTemplateError",
     "InvalidRequestError",
     "InvalidSessionError",
+    "LastPowerAdminError",
     "LessonNotAccessibleError",
     "LessonSetMismatchError",
     "NotFoundError",
     "PayloadTooLargeError",
+    "SelfModificationError",
     "SurveyAlreadyCompleteError",
     "SurveyNotInProgressError",
     "TokenExpiredError",
@@ -74,8 +77,8 @@ class NotFoundError(DomainError):
 
 class ComponentLockedError(DomainError):
     """The caller's project has this hub component (assessment/learning/
-    interview) hidden or locked — a project-level gate, not a role check;
-    admin and user+ are not exempt (see the user+ role design doc). → 403"""
+    interview) hidden, or locked and the caller doesn't bypass locks (power
+    admins and project admins on their own project do). → 403"""
 
     def __init__(self, component: str) -> None:
         super().__init__(f"The {component} component is not available for your project")
@@ -86,7 +89,7 @@ class LessonNotAccessibleError(DomainError):
     track their effective maturity covers. → 403
 
     Distinct from ComponentLockedError: that one is a project-level switch,
-    this one is per-lesson and IS bypassed by admin/user+ (LOCK_BYPASS_ROLES).
+    this one is per-lesson. Both are bypassed by AdminScopeService.bypasses_locks.
     """
 
     def __init__(self) -> None:
@@ -95,11 +98,19 @@ class LessonNotAccessibleError(DomainError):
 
 class AssessmentRequiredError(DomainError):
     """The interview is briefed from the caller's completed assessment, so it needs one.
-    A role check, unlike ComponentLockedError: admins are exempt so they can test the
-    flow (spec 2026-09-26 A.3.5). user+ is NOT exempt. → 403"""
+    Callers who bypass locks are exempt so they can test the flow (spec 2026-10-01
+    decision 5). → 403"""
 
     def __init__(self) -> None:
         super().__init__("Complete your assessment before starting the interview")
+
+
+class AdminTargetForbiddenError(DomainError):
+    """A project admin addressed a power admin, another project admin, or
+    themselves through a scoped admin route. → 403"""
+
+    def __init__(self) -> None:
+        super().__init__("Project admins can only manage learners")
 
 
 class ConflictError(DomainError):
@@ -109,6 +120,16 @@ class ConflictError(DomainError):
 class EmailAlreadyRegisteredError(ConflictError):
     def __init__(self) -> None:
         super().__init__("A user with this email already exists")
+
+
+class SelfModificationError(ConflictError):
+    def __init__(self) -> None:
+        super().__init__("You can't change your own role or delete your own account")
+
+
+class LastPowerAdminError(ConflictError):
+    def __init__(self) -> None:
+        super().__init__("At least one power admin must remain")
 
 
 class DuplicateCompanyNameError(ConflictError):

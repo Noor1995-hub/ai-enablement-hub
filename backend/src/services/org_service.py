@@ -19,12 +19,21 @@ class OrgService:
     def __init__(self, org: AbstractOrgRepository) -> None:
         self._org = org
 
-    async def companies_with_projects(self) -> list[tuple[Company, list[Project]]]:
+    async def companies_with_projects(
+        self, project_ids: frozenset[uuid.UUID] | None = None
+    ) -> list[tuple[Company, list[Project]]]:
+        """Every company with its projects. With `project_ids` (a project
+        admin's scope) only those projects, and only companies that keep one."""
         companies = await self._org.list_companies()
         projects = await self._org.list_projects()
-        return [
+        if project_ids is not None:
+            projects = [p for p in projects if p.id in project_ids]
+        pairs = [
             (company, [p for p in projects if p.company_id == company.id]) for company in companies
         ]
+        if project_ids is not None:
+            pairs = [(company, owned) for company, owned in pairs if owned]
+        return pairs
 
     async def create_company(self, name: str) -> Company:
         name = name.strip()

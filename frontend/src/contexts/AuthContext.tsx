@@ -14,9 +14,9 @@ import type { UserProfile } from '../types/domain'
 // existed only for Supabase's recovery-session event) so consuming pages port
 // mechanically; the internals are the FastAPI token pair (design-frontend.md §2).
 
-// 'user+' bypasses learning-path locks (like an admin) but has no admin powers —
-// see the 2026-07-22 user-plus-role spec.
-export type Role = 'admin' | 'user+' | 'user'
+// 'admin' = power admin. Project admins are role 'user' with admin rights over
+// specific projects (adminProjectIds) — spec 2026-10-01-project-scoped-admin.
+export type Role = 'admin' | 'user'
 
 /** Thrown by login() so the Login page can distinguish 401 (wrong password)
  * from 429 (rate limited — NEVER auto-retried). */
@@ -35,6 +35,13 @@ interface AuthValue {
   session: boolean | undefined
   user: UserProfile | null | undefined
   role: Role | null
+  /** role === 'admin': every admin power, on every project. */
+  isPowerAdmin: boolean
+  /** Projects this user administers as a project admin (empty for learners). */
+  adminProjectIds: string[]
+  /** Server-resolved: power admins, and project admins on their own project,
+   * bypass locked components, module prerequisites and the assessment gate. */
+  bypassesLocks: boolean
   passwordSet: boolean | undefined
   /** true once an Entra ID account is linked — such users never need the
    * forced set-password step (they may have no password at all). */
@@ -122,6 +129,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     session: user === undefined ? undefined : user !== null,
     user,
     role: user ? (user.role as Role) : null,
+    isPowerAdmin: user?.is_power_admin ?? false,
+    adminProjectIds: user?.admin_project_ids ?? [],
+    bypassesLocks: user?.bypasses_locks ?? false,
     passwordSet: user?.password_set,
     externalLogin: user?.external_login,
     loading: user === undefined,

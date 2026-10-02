@@ -13,7 +13,8 @@ export type LockModule = Pick<
 export type LockTrack = Pick<TrackNode, 'id' | 'is_introduction'>
 
 export interface LockContext {
-  /** admin and user+ ride the same lock bypass (2026-07-22 user-plus-role spec). */
+  /** Server-resolved (GET /api/me bypasses_locks): power admins, and project
+   * admins on their own project (spec 2026-10-01-project-scoped-admin). */
   canBypassLocks: boolean
   moduleById: Map<string, LockModule>
   /** module_id → its ASSIGNED prerequisite module ids. */
@@ -63,7 +64,7 @@ export function isPrereqSatisfied(ctx: LockContext, predId: string, dependentId:
 }
 
 export function isModuleUnlocked(ctx: LockContext, id: string): boolean {
-  if (ctx.canBypassLocks) return true // admin + user+ bypass, same as the live page
+  if (ctx.canBypassLocks) return true // same rule as the server's lesson gate
   const mod = ctx.moduleById.get(id)
   if (mod?.unlocked_by_maturity === false) return false
   // Introduction gate: modules OUTSIDE the Introduction track stay locked

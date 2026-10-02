@@ -5,7 +5,8 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, status
 
-from src.core.dependencies.auth import get_current_user, require_admin
+from src.core.dependencies.admin_scope import require_power_admin
+from src.core.dependencies.auth import get_current_user
 from src.core.dependencies.domain import get_content_service
 from src.core.dependencies.storage import get_media_service
 from src.db.models import Lesson, Module, Track
@@ -56,7 +57,7 @@ async def list_track_modules(
     "/admin/tracks",
     response_model=TrackOut,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_admin)],
+    dependencies=[Depends(require_power_admin)],
 )
 async def create_track(body: TrackCreateRequest, content_service: ContentServiceDep) -> Track:
     """sort_order is computed server-side (max+1) inside the transaction
@@ -68,7 +69,7 @@ async def create_track(body: TrackCreateRequest, content_service: ContentService
     "/admin/modules",
     response_model=ModuleOut,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_admin)],
+    dependencies=[Depends(require_power_admin)],
 )
 async def create_module(body: ModuleCreateRequest, content_service: ContentServiceDep) -> Module:
     """Server computes sort_order, shifts successors and inserts prerequisite
@@ -81,7 +82,7 @@ async def create_module(body: ModuleCreateRequest, content_service: ContentServi
 @router.delete(
     "/admin/modules/{module_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[Depends(require_admin)],
+    dependencies=[Depends(require_power_admin)],
 )
 async def delete_module(module_id: uuid.UUID, content_service: ContentServiceDep) -> None:
     """Lessons, prerequisite links (both directions), and assignment/progress
@@ -93,7 +94,7 @@ async def delete_module(module_id: uuid.UUID, content_service: ContentServiceDep
     "/admin/lessons",
     response_model=LessonSummaryOut,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_admin)],
+    dependencies=[Depends(require_power_admin)],
 )
 async def create_lesson(body: LessonCreateRequest, content_service: ContentServiceDep) -> Lesson:
     return await content_service.create_lesson(body.module_id, body.title)
@@ -102,7 +103,7 @@ async def create_lesson(body: LessonCreateRequest, content_service: ContentServi
 @router.patch(
     "/admin/lessons/{lesson_id}",
     response_model=LessonOut,
-    dependencies=[Depends(require_admin)],
+    dependencies=[Depends(require_power_admin)],
 )
 async def update_lesson(
     lesson_id: uuid.UUID,
@@ -132,7 +133,7 @@ async def update_lesson(
 @router.delete(
     "/admin/lessons/{lesson_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[Depends(require_admin)],
+    dependencies=[Depends(require_power_admin)],
 )
 async def delete_lesson(lesson_id: uuid.UUID, content_service: ContentServiceDep) -> None:
     """lesson_progress rows cascade."""
@@ -142,7 +143,7 @@ async def delete_lesson(lesson_id: uuid.UUID, content_service: ContentServiceDep
 @router.put(
     "/admin/modules/{module_id}/lessons/order",
     status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[Depends(require_admin)],
+    dependencies=[Depends(require_power_admin)],
 )
 async def reorder_lessons(
     module_id: uuid.UUID, body: LessonOrderRequest, content_service: ContentServiceDep

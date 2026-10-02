@@ -130,3 +130,17 @@ class UserRepository(AbstractUserRepository):
             select(func.count()).select_from(User).where(User.id.in_(user_ids))
         )
         return int(result.scalar_one())
+
+    async def count_power_admins(self) -> int:
+        result = await self._session.execute(
+            select(func.count()).select_from(User).where(User.role == "admin")
+        )
+        return int(result.scalar_one())
+
+    async def project_ids_of(self, user_ids: list[uuid.UUID]) -> dict[uuid.UUID, uuid.UUID | None]:
+        if not user_ids:
+            return {}
+        result = await self._session.execute(
+            select(User.id, User.project_id).where(User.id.in_(user_ids))
+        )
+        return dict(result.tuples().all())

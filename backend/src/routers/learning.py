@@ -5,7 +5,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, status
 
-from src.core.constants import LOCK_BYPASS_ROLES
+from src.core.dependencies.admin_scope import BypassesLocksDep
 from src.core.dependencies.auth import get_current_user
 from src.core.dependencies.components import require_component_unlocked
 from src.core.dependencies.domain import get_learning_service, get_maturity_service
@@ -63,6 +63,7 @@ async def get_lesson(
     learning_service: LearningServiceDep,
     maturity_service: MaturityServiceDep,
     media: MediaServiceDep,
+    bypasses_locks: BypassesLocksDep,
 ) -> LessonDetailResponse:
     """Lesson + module + caller's answers + next destination in one response
     (collapses LessonPage's sequential prefetch chain, fixes legacy B4).
@@ -81,7 +82,7 @@ async def get_lesson(
         user.id,
         lesson_id,
         effective_level=await maturity_service.effective_level(user),
-        bypass_locks=user.role in LOCK_BYPASS_ROLES,
+        bypass_locks=bypasses_locks,
     )
     if media is not None:
         payload["content_blocks"] = media.stamp_blocks(payload["content_blocks"])
@@ -95,6 +96,7 @@ async def save_lesson_progress(
     user: CurrentUserDep,
     learning_service: LearningServiceDep,
     maturity_service: MaturityServiceDep,
+    bypasses_locks: BypassesLocksDep,
 ) -> None:
     """Mark the lesson complete for the caller (idempotent upsert). lesson_id
     is the only client-supplied identifier — ownership comes from the token,
@@ -104,5 +106,5 @@ async def save_lesson_progress(
         lesson_id,
         body.answers,
         effective_level=await maturity_service.effective_level(user),
-        bypass_locks=user.role in LOCK_BYPASS_ROLES,
+        bypass_locks=bypasses_locks,
     )

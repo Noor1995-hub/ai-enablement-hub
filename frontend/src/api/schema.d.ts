@@ -220,7 +220,8 @@ export interface paths {
         /**
          * Get Journey
          * @description JourneyHome's legacy queries in one call; the DEFAULT_HIDDEN/LOCKED
-         *     fallback now lives server-side (kills the old D4 duplication).
+         *     fallback now lives server-side (kills the old D4 duplication). A caller who
+         *     bypasses locks sees every component unlocked; `hidden` is never bypassed.
          */
         get: operations["get_journey_api_me_journey_get"];
         put?: never;
@@ -382,7 +383,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Companies */
+        /**
+         * List Companies
+         * @description Power admins see every company; a project admin only the companies and
+         *     projects they administer.
+         */
         get: operations["list_companies_api_admin_companies_get"];
         put?: never;
         /**
@@ -535,7 +540,10 @@ export interface paths {
         delete: operations["delete_user_api_admin_users__user_id__delete"];
         options?: never;
         head?: never;
-        /** Update User Role */
+        /**
+         * Update User Role
+         * @description 409 for your own role, or when it would leave no power admin.
+         */
         patch: operations["update_user_role_api_admin_users__user_id__patch"];
         trace?: never;
     };
@@ -552,7 +560,9 @@ export interface paths {
          * Create Invite
          * @description Create the user row + single-use invite token; the link is emailed to
          *     the user (when EMAIL__* is configured and body.send_email is true) and
-         *     always returned as the admin's manual fallback.
+         *     always returned as the admin's manual fallback. A project admin may only
+         *     invite into a project they administer (else 404); invites are always role
+         *     'user'.
          */
         post: operations["create_invite_api_admin_invites_post"];
         delete?: never;
@@ -778,6 +788,7 @@ export interface paths {
          * @description Many-users × one content kind ("assign N users to this track/module/
          *     lesson"); 404 if any user or content id is unknown, validated before any
          *     write. The schema enforces exactly one of track_ids/module_ids/lesson_ids.
+         *     A project admin's user ids must all be in scope (all-or-nothing 404).
          */
         post: operations["bulk_assign_api_admin_assignments_bulk_post"];
         delete?: never;
@@ -1577,12 +1588,55 @@ export interface paths {
          * Get Dashboard
          * @description One call for the whole dashboard screen (spec §4.4). `project_id` scopes
          *     every aggregate to a single project; omitting it reports across all
-         *     projects. Unknown `project_id` -> 404.
+         *     projects (power admins only; a project admin is limited to their project).
+         *     Unknown or out-of-scope `project_id` -> 404.
          */
         get: operations["get_dashboard_api_admin_dashboard_get"];
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{project_id}/admins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Project Admins */
+        get: operations["list_project_admins_api_admin_projects__project_id__admins_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{project_id}/admins/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Grant Project Admin
+         * @description Idempotent; a no-op for a power admin (they already cover every project).
+         */
+        put: operations["grant_project_admin_api_admin_projects__project_id__admins__user_id__put"];
+        post?: never;
+        /**
+         * Revoke Project Admin
+         * @description 404 when the user is not an admin of this project. Takes effect on the
+         *     user's next request (scope is read from the DB every time).
+         */
+        delete: operations["revoke_project_admin_api_admin_projects__project_id__admins__user_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -3010,6 +3064,30 @@ export interface components {
              */
             prerequisite_module_id: string;
         };
+        /** ProjectAdminOut */
+        ProjectAdminOut: {
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+            /** First Name */
+            first_name: string;
+            /** Last Name */
+            last_name: string;
+            /** Email */
+            email: string;
+            /**
+             * Granted At
+             * Format: date-time
+             */
+            granted_at: string;
+        };
+        /** ProjectAdminsResponse */
+        ProjectAdminsResponse: {
+            /** Admins */
+            admins: components["schemas"]["ProjectAdminOut"][];
+        };
         /** ProjectCreateRequest */
         ProjectCreateRequest: {
             /** Name */
@@ -3278,7 +3356,7 @@ export interface components {
              * Role
              * @enum {string}
              */
-            role: "admin" | "user+" | "user";
+            role: "admin" | "user";
         };
         /** SetPasswordRequest */
         SetPasswordRequest: {
@@ -3616,6 +3694,21 @@ export interface components {
             password_set: boolean;
             /** External Login */
             external_login: boolean;
+            /**
+             * Is Power Admin
+             * @default false
+             */
+            is_power_admin: boolean;
+            /**
+             * Admin Project Ids
+             * @default []
+             */
+            admin_project_ids: string[];
+            /**
+             * Bypasses Locks
+             * @default false
+             */
+            bypasses_locks: boolean;
         };
         /** UserSurveyResponse */
         UserSurveyResponse: {
@@ -6181,6 +6274,97 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["DashboardResponse"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_project_admins_api_admin_projects__project_id__admins_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectAdminsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    grant_project_admin_api_admin_projects__project_id__admins__user_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_project_admin_api_admin_projects__project_id__admins__user_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

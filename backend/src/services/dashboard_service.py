@@ -17,6 +17,7 @@ if TYPE_CHECKING:
         AbstractFeedbackRepository,
         AbstractOrgRepository,
         AbstractProgressRepository,
+        AbstractProjectAdminRepository,
         AbstractSurveyRepository,
         AbstractUserRepository,
     )
@@ -46,6 +47,8 @@ class DashboardService:
         sessions: AbstractAuthSessionRepository,
         progress: AbstractProgressRepository,
         feedback: AbstractFeedbackRepository,
+        *,
+        project_admins: AbstractProjectAdminRepository,
     ) -> None:
         self._users = users
         self._org = org
@@ -55,6 +58,7 @@ class DashboardService:
         self._sessions = sessions
         self._progress = progress
         self._feedback = feedback
+        self._project_admins = project_admins
 
     async def overview(self, project_id: uuid.UUID | None) -> dict[str, Any]:
         scope: Project | None = None
@@ -63,14 +67,16 @@ class DashboardService:
             if scope is None:
                 raise NotFoundError("Project")
 
-        # Learners in scope (admins are staff, not learners). list_with_org_names
-        # filters by project when scoped; None returns everyone.
+        # Learners in scope. Admins are staff, not learners: power admins
+        # everywhere, project admins in the projects they run (spec 2026-10-01).
+        # list_with_org_names filters by project when scoped; None returns everyone.
+        staff = await self._project_admins.all_pairs()
         rows = [
             (user, company_name, project_name)
             for user, company_name, project_name in await self._users.list_with_org_names(
                 project_id
             )
-            if user.role != "admin"
+            if user.role != "admin" and (user.id, user.project_id) not in staff
         ]
         users = [user for user, _, _ in rows]
         user_ids = [user.id for user in users]

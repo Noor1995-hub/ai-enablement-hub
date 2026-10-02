@@ -4,7 +4,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
-from src.core.dependencies.auth import require_admin
+from src.core.dependencies.admin_scope import require_power_admin
 from src.core.dependencies.prompt import get_prompt_service
 from src.schemas.prompt import PromptDetail, PromptListResponse
 from src.services.prompt_service import PromptService
@@ -12,7 +12,7 @@ from src.services.prompt_service import PromptService
 __all__ = ["router"]
 
 router = APIRouter(
-    prefix="/api/admin/prompts", tags=["admin-prompts"], dependencies=[Depends(require_admin)]
+    prefix="/api/admin/prompts", tags=["admin-prompts"], dependencies=[Depends(require_power_admin)]
 )
 
 PromptServiceDep = Annotated[PromptService, Depends(get_prompt_service)]

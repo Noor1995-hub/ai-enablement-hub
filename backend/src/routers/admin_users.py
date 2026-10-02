@@ -7,7 +7,15 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 
 from src.core.configs.settings import Settings
-from src.core.dependencies.auth import get_token_service, require_admin
+from src.core.dependencies.admin_scope import (
+    AdminScopeDep,
+    AdminScopeServiceDep,
+    PowerAdminDep,
+    get_admin_scope,
+    require_power_admin,
+    require_user_in_scope,
+)
+from src.core.dependencies.auth import get_token_service
 from src.core.dependencies.domain import (
     get_admin_user_service,
     get_email_template_service,
@@ -18,7 +26,6 @@ from src.core.dependencies.email import get_email_service
 from src.core.dependencies.ratelimit import get_rate_limiter
 from src.core.dependencies.settings import get_settings
 from src.core.ratelimit import RateLimiter
-from src.db.models import User
 from src.schemas.admin_users import (
     AdminLearningResponse,
     AdminSurveyOut,
@@ -46,7 +53,7 @@ from src.services.admin_user_service import AdminUserService
 from src.services.email_service import EmailService
 from src.services.email_template_service import EmailTemplateService
 from src.services.email_templates import REMINDER_TEMPLATE, build_reminder_tokens, render_email
-from src.services.exceptions import PayloadTooLargeError
+from src.services.exceptions import NotFoundError, PayloadTooLargeError
 from src.services.invite_csv import MAX_INVITE_CSV_BYTES, build_preview, parse_invite_csv
 from src.services.maturity_service import MaturityService
 from src.services.survey_service import SurveyService
@@ -54,7 +61,9 @@ from src.services.token_service import TokenService
 
 __all__ = ["router"]
 
-router = APIRouter(prefix="/api/admin", tags=["admin:users"], dependencies=[Depends(require_admin)])
+router = APIRouter(
+    prefix="/api/admin", tags=["admin:users"], dependencies=[Depends(get_admin_scope)]
+)
 
 logger = logging.getLogger(__name__)
 
@@ -125,6 +134,7 @@ async def _email_the_link(
 @router.get("/users", response_model=AdminUsersResponse)
 async def list_users(
     admin_user_service: AdminUserServiceDep,
+    scope: AdminScopeDep,
     project_id: Annotated[uuid.UUID | None, Query()] = None,
     q: Annotated[str | None, Query()] = None,
     status: Annotated[Literal["active", "invited", "attention"] | None, Query()] = None,
@@ -136,14 +146,16 @@ async def list_users(
     params). `total` is additive: count after q/status filtering, before
     limit/offset slicing."""
     users, total = await admin_user_service.list_users(
-        project_id, q=q, status=status, limit=limit, offset=offset
+        scope.resolve_list_project(project_id), q=q, status=status, limit=limit, offset=offset
     )
     return AdminUsersResponse(
         users=[AdminUserOut.model_validate(user) for user in users], total=total
     )
 
 
-@router.get("/users/{user_id}", response_model=AdminUserOut)
+@router.get(
+    "/users/{user_id}", response_model=AdminUserOut, dependencies=[Depends(require_user_in_scope)]
+)
 async def get_user(
     user_id: uuid.UUID,
     admin_user_service: AdminUserServiceDep,
@@ -157,6 +169,7 @@ async def get_user(
 @router.post("/invites", response_model=LinkResponse, status_code=status.HTTP_201_CREATED)
 async def create_invite(
     body: InviteRequest,
+    scope: AdminScopeDep,
     admin_user_service: AdminUserServiceDep,
     token_service: TokenServiceDep,
     settings: SettingsDep,
@@ -166,7 +179,11 @@ async def create_invite(
 ) -> LinkResponse:
     """Create the user row + single-use invite token; the link is emailed to
     the user (when EMAIL__* is configured and body.send_email is true) and
-    always returned as the admin's manual fallback."""
+    always returned as the admin's manual fallback. A project admin may only
+    invite into a project they administer (else 404); invites are always role
+    'user'."""
+    if not scope.covers(body.project_id):
+        raise NotFoundError("Project")
     if limiter.is_limited(f"invite:{body.email.strip().lower()}"):
         raise _RATE_LIMITED
     user = await admin_user_service.invite(
@@ -197,7 +214,7 @@ async def create_invite(
 
 @router.post("/invites/bulk", response_model=BulkInviteReport)
 async def create_bulk_invites(
-    admin: Annotated[User, Depends(require_admin)],
+    scope: AdminScopeDep,
     admin_user_service: AdminUserServiceDep,
     token_service: TokenServiceDep,
     settings: SettingsDep,
@@ -219,6 +236,8 @@ async def create_bulk_invites(
     raw = await file.read()
     if len(raw) > MAX_INVITE_CSV_BYTES:
         raise PayloadTooLargeError(MAX_INVITE_CSV_BYTES)
+    if not scope.covers(project_id):
+        raise NotFoundError("Project")
 
     await admin_user_service.ensure_project(project_id)  # 404 early, even on dry_run
     parsed = parse_invite_csv(raw)  # InvalidCsvError → 400
@@ -228,7 +247,7 @@ async def create_bulk_invites(
     preview = build_preview(parsed, existing)
 
     if not dry_run:
-        if limiter.is_limited(f"bulk_invite:{admin.id}"):
+        if limiter.is_limited(f"bulk_invite:{scope.user.id}"):
             raise _RATE_LIMITED
         valid_rows = [p for p in preview if p.status == "valid"]
         created = await admin_user_service.create_invited_users(
@@ -261,7 +280,7 @@ async def create_bulk_invites(
                 p.status, p.detail = "created", None
         logger.info(
             "bulk invite: admin=%s project=%s created=%d duplicates=%d invalid=%d email_failed=%d",
-            admin.id,
+            scope.user.id,
             project_id,
             sum(p.status == "created" for p in preview),
             sum(p.status == "duplicate" for p in preview),
@@ -285,7 +304,11 @@ async def create_bulk_invites(
     )
 
 
-@router.post("/users/{user_id}/reset-link", response_model=LinkResponse)
+@router.post(
+    "/users/{user_id}/reset-link",
+    response_model=LinkResponse,
+    dependencies=[Depends(require_user_in_scope)],
+)
 async def create_reset_link(
     user_id: uuid.UUID,
     admin_user_service: AdminUserServiceDep,
@@ -327,7 +350,11 @@ async def create_reset_link(
     return LinkResponse(link=link, email_status=email_status)
 
 
-@router.post("/users/{user_id}/reminder", response_model=ReminderResponse)
+@router.post(
+    "/users/{user_id}/reminder",
+    response_model=ReminderResponse,
+    dependencies=[Depends(require_user_in_scope)],
+)
 async def send_reminder(
     user_id: uuid.UUID,
     admin_user_service: AdminUserServiceDep,
@@ -359,14 +386,26 @@ async def send_reminder(
     return ReminderResponse(email_status="sent" if sent else "failed")
 
 
-@router.patch("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.patch(
+    "/users/{user_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_power_admin)],
+)
 async def update_user_role(
-    user_id: uuid.UUID, body: RoleUpdateRequest, admin_user_service: AdminUserServiceDep
+    user_id: uuid.UUID,
+    body: RoleUpdateRequest,
+    actor: PowerAdminDep,
+    admin_user_service: AdminUserServiceDep,
 ) -> None:
-    await admin_user_service.set_role(user_id, body.role)
+    """409 for your own role, or when it would leave no power admin."""
+    await admin_user_service.set_role(actor, user_id, body.role)
 
 
-@router.put("/users/{user_id}/maturity", status_code=status.HTTP_204_NO_CONTENT)
+@router.put(
+    "/users/{user_id}/maturity",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_user_in_scope)],
+)
 async def set_user_maturity(
     user_id: uuid.UUID, body: MaturityOverrideRequest, maturity_service: MaturityServiceDep
 ) -> None:
@@ -376,14 +415,24 @@ async def set_user_maturity(
     await maturity_service.set_override(user_id, body.level)
 
 
-@router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_user(user_id: uuid.UUID, admin_user_service: AdminUserServiceDep) -> None:
+@router.delete(
+    "/users/{user_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_user_in_scope)],
+)
+async def delete_user(
+    user_id: uuid.UUID, scope: AdminScopeDep, admin_user_service: AdminUserServiceDep
+) -> None:
     """Single DELETE; FK cascades wipe tokens/sessions/survey/progress (fixes
     the legacy two-system atomicity problem B2 by construction)."""
-    await admin_user_service.delete_user(user_id)
+    await admin_user_service.delete_user(scope.user, user_id)
 
 
-@router.put("/users/{user_id}/tracks/{track_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.put(
+    "/users/{user_id}/tracks/{track_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_user_in_scope)],
+)
 async def set_user_track(
     user_id: uuid.UUID,
     track_id: uuid.UUID,
@@ -393,7 +442,11 @@ async def set_user_track(
     await admin_user_service.set_track_assignment(user_id, track_id, body.assigned)
 
 
-@router.put("/users/{user_id}/modules/{module_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.put(
+    "/users/{user_id}/modules/{module_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_user_in_scope)],
+)
 async def set_user_module(
     user_id: uuid.UUID,
     module_id: uuid.UUID,
@@ -403,7 +456,11 @@ async def set_user_module(
     await admin_user_service.set_module_assignment(user_id, module_id, body.assigned)
 
 
-@router.put("/users/{user_id}/tracks", status_code=status.HTTP_204_NO_CONTENT)
+@router.put(
+    "/users/{user_id}/tracks",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_user_in_scope)],
+)
 async def set_user_tracks(
     user_id: uuid.UUID,
     body: BulkTrackAssignmentRequest,
@@ -413,7 +470,11 @@ async def set_user_tracks(
     await admin_user_service.set_track_assignments(user_id, body.track_ids, body.assigned)
 
 
-@router.put("/users/{user_id}/modules", status_code=status.HTTP_204_NO_CONTENT)
+@router.put(
+    "/users/{user_id}/modules",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_user_in_scope)],
+)
 async def set_user_modules(
     user_id: uuid.UUID,
     body: BulkModuleAssignmentRequest,
@@ -423,7 +484,11 @@ async def set_user_modules(
     await admin_user_service.set_module_assignments(user_id, body.module_ids, body.assigned)
 
 
-@router.put("/users/{user_id}/lessons/{lesson_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.put(
+    "/users/{user_id}/lessons/{lesson_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_user_in_scope)],
+)
 async def set_user_lesson(
     user_id: uuid.UUID,
     lesson_id: uuid.UUID,
@@ -433,7 +498,11 @@ async def set_user_lesson(
     await admin_user_service.set_lesson_assignment(user_id, lesson_id, body.assigned)
 
 
-@router.put("/users/{user_id}/lessons", status_code=status.HTTP_204_NO_CONTENT)
+@router.put(
+    "/users/{user_id}/lessons",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_user_in_scope)],
+)
 async def set_user_lessons(
     user_id: uuid.UUID,
     body: BulkLessonAssignmentRequest,
@@ -444,10 +513,17 @@ async def set_user_lessons(
 
 
 @router.post("/assignments/bulk", status_code=status.HTTP_204_NO_CONTENT)
-async def bulk_assign(body: BulkAssignmentRequest, admin_user_service: AdminUserServiceDep) -> None:
+async def bulk_assign(
+    body: BulkAssignmentRequest,
+    scope: AdminScopeDep,
+    scope_service: AdminScopeServiceDep,
+    admin_user_service: AdminUserServiceDep,
+) -> None:
     """Many-users × one content kind ("assign N users to this track/module/
     lesson"); 404 if any user or content id is unknown, validated before any
-    write. The schema enforces exactly one of track_ids/module_ids/lesson_ids."""
+    write. The schema enforces exactly one of track_ids/module_ids/lesson_ids.
+    A project admin's user ids must all be in scope (all-or-nothing 404)."""
+    await scope_service.ensure_users_in_scope(scope, body.user_ids)
     await admin_user_service.bulk_assign(
         body.user_ids,
         track_ids=body.track_ids,
@@ -460,6 +536,7 @@ async def bulk_assign(body: BulkAssignmentRequest, admin_user_service: AdminUser
 @router.get("/learning", response_model=AdminLearningResponse)
 async def get_learning_overview(
     admin_user_service: AdminUserServiceDep,
+    scope: AdminScopeDep,
     project_id: Annotated[uuid.UUID | None, Query()] = None,
     limit: Annotated[int | None, Query(ge=1, le=200)] = None,
     offset: Annotated[int, Query(ge=0)] = 0,
@@ -468,7 +545,7 @@ async def get_learning_overview(
     complete. limit/offset/project_id are optional, so omitting them
     reproduces the pre-Task-9 full (unscoped) list, plus the additive `total`."""
     overview = await admin_user_service.learning_overview(
-        project_id=project_id, limit=limit, offset=offset
+        project_id=scope.resolve_list_project(project_id), limit=limit, offset=offset
     )
     return AdminLearningResponse(**overview)
 
@@ -476,6 +553,8 @@ async def get_learning_overview(
 @router.get("/surveys", response_model=SurveyLevelsResponse)
 async def get_survey_levels(
     survey_service: SurveyServiceDep,
+    scope: AdminScopeDep,
+    scope_service: AdminScopeServiceDep,
     user_ids: Annotated[str | None, Query(description="comma-separated user UUIDs")] = None,
 ) -> SurveyLevelsResponse:
     if not user_ids:
@@ -487,10 +566,15 @@ async def get_survey_levels(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="user_ids must be comma-separated UUIDs",
         ) from exc
+    await scope_service.ensure_users_in_scope(scope, parsed)
     return SurveyLevelsResponse(levels=await survey_service.complete_levels(parsed))
 
 
-@router.get("/surveys/{user_id}", response_model=UserSurveyResponse)
+@router.get(
+    "/surveys/{user_id}",
+    response_model=UserSurveyResponse,
+    dependencies=[Depends(require_user_in_scope)],
+)
 async def get_user_survey(
     user_id: uuid.UUID,
     admin_user_service: AdminUserServiceDep,

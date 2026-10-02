@@ -12,6 +12,7 @@ from src.db.models import (
     Module,
     ModulePrerequisite,
     Project,
+    ProjectAdmin,
     ProjectComponentSetting,
     SurveyResponse,
     Track,
@@ -38,6 +39,7 @@ __all__ = [
     "create_survey",
     "create_track",
     "create_user",
+    "make_project_admin",
     "unlock_component",
 ]
 
@@ -206,3 +208,17 @@ async def create_survey(
 ) -> SurveyResponse:
     values: dict[str, Any] = {**VALID_ANSWERS, **fields}
     return await _persist(session, SurveyResponse(user_id=user.id, status=status, **values))
+
+
+async def make_project_admin(
+    session: AsyncSession, user: User, project: Project, granted_by: User | None = None
+) -> ProjectAdmin:
+    """Grant `user` admin rights over `project` (a project admin, not a power admin)."""
+    return await _persist(
+        session,
+        ProjectAdmin(
+            user_id=user.id,
+            project_id=project.id,
+            granted_by=granted_by.id if granted_by is not None else None,
+        ),
+    )
