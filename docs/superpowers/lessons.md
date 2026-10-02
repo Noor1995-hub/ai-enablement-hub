@@ -273,3 +273,33 @@ reaches port 5432, whichever database is named.
 
 **The rule.** Check with `Test-NetConnection <pg host> -Port 5432` before debugging tests. If it
 fails, fall back to CI (it has its own postgres). Never add a firewall rule without asking.
+
+## 2026-10-01 — `app.routes` no longer lists the included routers
+
+**What went wrong.** A test meant to fail on any `/api/admin/*` route missing from the authz
+matrix walked `app.routes` and found no admin routes at all, so it passed vacuously.
+
+**Why it bites here.** This FastAPI version wraps each `app.include_router(...)` in an
+`_IncludedRouter` entry with no `path`; the real `APIRoute`s are not on `app.routes`.
+
+**The rule.** Enumerate routes from `app.openapi()["paths"]` (as `TestIronRule` and
+`test_every_admin_route_is_in_the_matrix` in `test_authz.py` do). A route registered with
+`include_in_schema=False` is then invisible too — keep admin routes in the schema.
+
+## 2026-10-02 — a stacked PR after its base PR was squash-merged
+
+**What went wrong.** PR #153 was branched from #152's branch. Once #152 was squash-merged and its
+branch deleted, `gh pr create --base <old branch>` failed, and merging `main` into #153's branch
+conflicted in every file #152 had touched, because the squash commit and the original commits
+carry the same change twice.
+
+**Why it bites here.** `main` only accepts squash merges, so a stacked branch never shares
+commits with what lands on `main`.
+
+**The rule.** After the base PR merges, merge `origin/main` into the stacked branch and, for each
+conflicted file, check `git diff <base-PR head> origin/main -- <file>`: if empty, `main` changed
+nothing beyond the base PR, so take the stacked branch's side (`git checkout --ours`). Then
+re-run the checks and open the PR against `main`. Also give new `useAuth()` fields to every test
+mock of `AuthContext` (`grep -rln "contexts/AuthContext'" src --include=*.test.tsx`) — a
+component that reads a field the mock lacks crashes the whole page test.
+

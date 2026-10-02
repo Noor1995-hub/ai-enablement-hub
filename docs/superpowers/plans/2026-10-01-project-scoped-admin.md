@@ -1,5 +1,11 @@
 # Project-scoped admins (B1) Implementation Plan
 
+> **Status (2026-10-02): all 10 tasks done and merged in PR #152 (`9c2665d`).** The admin-panel
+> follow-up (B2, #144) merged in PR #153 (`c930496`). Deviations from this plan, decided with
+> Matthias: project admins *do* receive invite/reset links for their own learners (accepted risk,
+> `SECURITY.md`); for project-admin callers `GET /api/admin/users` and `/learning` leave out
+> power admins and project admins (#153). Deferred follow-ups: #154. Not deployed as of this note — ask the app (`/api/health`), not this file.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add a project-admin tier: a `project_admins` table, plus scoped guards on every `/api/admin/*` route. Power admins keep today's powers. Drop `user+`.
