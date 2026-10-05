@@ -16,6 +16,10 @@ a feature ships.
 - **Introduction level** — `2026-07-17-introduction-level-design.md`.
 - **Project-scoped admins** (power admin / project admin; `user+` removed) —
   `2026-10-01-project-scoped-admin-design.md`; `core/dependencies/admin_scope.py`.
+- **Project data export** (#92, B3) — one `.xlsx` per project (people, assessment, progress,
+  interview), People page → Export data; `routers/admin_export.py`,
+  `services/project_export_service.py`; labels in `core/survey_labels.py` (drift-tested
+  against `frontend/src/lib/surveyOptions.ts`).
 - **`user+` role** (superseded 2026-10-01) — `2026-07-22-user-plus-role-design.md`.
 - **Cascading track/module assignment** (full resync both ways) —
   `2026-07-23-cascading-track-module-assignment-design.md`; `services/admin_user_service.py`.

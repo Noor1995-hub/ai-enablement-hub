@@ -103,3 +103,13 @@ class ConversationRepository(AbstractConversationRepository):
     async def delete(self, conversation_id: uuid.UUID) -> None:
         await self._session.execute(delete(Conversation).where(Conversation.id == conversation_id))
         await self._session.commit()
+
+    async def interviews_for_users(self, user_ids: list[uuid.UUID]) -> list[Conversation]:
+        if not user_ids:
+            return []
+        result = await self._session.execute(
+            select(Conversation).where(
+                Conversation.user_id.in_(user_ids), Conversation.kind == "interview"
+            )
+        )
+        return list(result.scalars().all())

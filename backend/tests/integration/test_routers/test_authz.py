@@ -357,6 +357,14 @@ _MATRIX: list[tuple[str, str, str, Any, Any, Access]] = [
         lambda s: None,
         "scoped",
     ),
+    (
+        "project-export",
+        "GET",
+        "/api/admin/projects/{project_id}/export",
+        lambda s: f"/api/admin/projects/{s.project.id}/export?sections=people",
+        lambda s: None,
+        "scoped",
+    ),
     # --- users ---
     (
         "users-get",

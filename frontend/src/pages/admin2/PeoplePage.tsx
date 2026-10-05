@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import BulkInviteModal from './BulkInviteModal'
+import ExportModal from './ExportModal'
 import type { AdminUserEnriched } from '../../types/domain'
 import {
   useAdminUsers,
@@ -52,6 +53,7 @@ export default function PeoplePage() {
 
   const [inviteOpen, setInviteOpen] = useState(false)
   const [bulkCsvOpen, setBulkCsvOpen] = useState(false)
+  const [exportOpen, setExportOpen] = useState(false)
   const [assignOpen, setAssignOpen] = useState(false)
   const [roleOpen, setRoleOpen] = useState(false)
   const [bulkMessage, setBulkMessage] = useState<string | null>(null)
@@ -192,6 +194,15 @@ export default function PeoplePage() {
             type="button"
             className="adm-btn adm-btn-ghost"
             disabled={unscoped}
+            title={unscoped ? 'Pick a project to export its data' : undefined}
+            onClick={() => setExportOpen(true)}
+          >
+            Export data
+          </button>
+          <button
+            type="button"
+            className="adm-btn adm-btn-ghost"
+            disabled={unscoped}
             title={unscoped ? 'Pick a project to bulk invite' : undefined}
             onClick={() => setBulkCsvOpen(true)}
           >
@@ -209,7 +220,7 @@ export default function PeoplePage() {
         </div>
       </div>
 
-      {unscoped && <p className="adm-hint">Pick a project in the scope switcher to invite participants.</p>}
+      {unscoped && <p className="adm-hint">Pick a project in the scope switcher to invite participants or export data.</p>}
 
       <Toolbar>
         <span className="adm-search">
@@ -308,6 +319,14 @@ export default function PeoplePage() {
           projectId={scope.projectId}
           projectName={scopedProject ? `${scopedProject.companyName} · ${scopedProject.name}` : 'this project'}
           onClose={() => setInviteOpen(false)}
+        />
+      )}
+
+      {exportOpen && scope.projectId && (
+        <ExportModal
+          projectId={scope.projectId}
+          projectName={scopedProject ? `${scopedProject.companyName} · ${scopedProject.name}` : 'this project'}
+          onClose={() => setExportOpen(false)}
         />
       )}
 

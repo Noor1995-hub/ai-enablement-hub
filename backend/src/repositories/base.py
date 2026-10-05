@@ -386,6 +386,10 @@ class AbstractSurveyRepository(ABC):
         """Which of the given users have any survey row at all (a draft counts
         as "assessment started", spec §4.4)."""
 
+    @abstractmethod
+    async def list_for_users(self, user_ids: list[uuid.UUID]) -> list[SurveyResponse]:
+        """Every survey row (drafts included) of the given users — the data export."""
+
 
 class AbstractContentRepository(ABC):
     """Learning content: tracks, modules, prerequisites, lessons."""
@@ -771,6 +775,13 @@ class AbstractProgressRepository(ABC):
         An absent key means the user has completed nothing."""
 
     @abstractmethod
+    async def completions_for_users(
+        self, user_ids: list[uuid.UUID]
+    ) -> dict[tuple[uuid.UUID, uuid.UUID], datetime]:
+        """(user_id, lesson_id) -> completed_at for the given users. Reads no
+        answers — the data export's progress sheet."""
+
+    @abstractmethod
     async def upsert(
         self, user_id: uuid.UUID, lesson_id: uuid.UUID, answers: dict[str, Any]
     ) -> None:
@@ -820,6 +831,10 @@ class AbstractConversationRepository(ABC):
     async def delete(self, conversation_id: uuid.UUID) -> None:
         """Remove the conversation (and its messages, via FK cascade)."""
 
+    @abstractmethod
+    async def interviews_for_users(self, user_ids: list[uuid.UUID]) -> list[Conversation]:
+        """The `interview` conversation (at most one each) of the given users."""
+
 
 class AbstractMessageRepository(ABC):
     """messages — every chat turn, both sides (the 'save all dialogue' table)."""
@@ -845,6 +860,11 @@ class AbstractMessageRepository(ABC):
     @abstractmethod
     async def list_recent(self, conversation_id: uuid.UUID, *, limit: int) -> list[Message]:
         """Last `limit` messages in the same total order (window cap sent to the model)."""
+
+    @abstractmethod
+    async def list_for_conversations(self, conversation_ids: list[uuid.UUID]) -> list[Message]:
+        """Every message of the given conversations, grouped by conversation and
+        chronological within each (created_at, id) — the data export's transcripts."""
 
 
 class AbstractProposalRepository(ABC):

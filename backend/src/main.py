@@ -29,6 +29,7 @@ from src.routers import (
     admin_dashboard,
     admin_defaults,
     admin_email_templates,
+    admin_export,
     admin_feedback,
     admin_media,
     admin_org,
@@ -293,6 +294,7 @@ app.include_router(admin_content_improvement.router)
 app.include_router(admin_calibration_notes.router)
 app.include_router(admin_dashboard.router)
 app.include_router(admin_project_admins.router)
+app.include_router(admin_export.router)
 app.include_router(feedback.router)
 
 # Single error shape for the frontend: {"error": {"code", "message"[, "fields"]}}

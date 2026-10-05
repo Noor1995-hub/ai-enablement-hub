@@ -45,6 +45,18 @@ class ProgressRepository(AbstractProgressRepository):
         )
         return {user_id: completed_at for user_id, completed_at in result.all()}
 
+    async def completions_for_users(
+        self, user_ids: list[uuid.UUID]
+    ) -> dict[tuple[uuid.UUID, uuid.UUID], datetime]:
+        if not user_ids:
+            return {}
+        result = await self._session.execute(
+            select(
+                LessonProgress.user_id, LessonProgress.lesson_id, LessonProgress.completed_at
+            ).where(LessonProgress.user_id.in_(user_ids))
+        )
+        return {(user_id, lesson_id): at for user_id, lesson_id, at in result.all()}
+
     async def upsert(
         self, user_id: uuid.UUID, lesson_id: uuid.UUID, answers: dict[str, Any]
     ) -> None:

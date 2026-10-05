@@ -65,3 +65,14 @@ class MessageRepository(AbstractMessageRepository):
         rows = list(result.scalars().all())
         rows.reverse()
         return rows
+
+    async def list_for_conversations(self, conversation_ids: list[uuid.UUID]) -> list[Message]:
+        if not conversation_ids:
+            return []
+        # Same (created_at, id) total order as list_for_conversation, per conversation.
+        result = await self._session.execute(
+            select(Message)
+            .where(Message.conversation_id.in_(conversation_ids))
+            .order_by(Message.conversation_id, Message.created_at.asc(), Message.id.asc())
+        )
+        return list(result.scalars().all())

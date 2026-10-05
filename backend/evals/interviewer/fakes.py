@@ -77,6 +77,10 @@ class InMemoryConversationRepository(AbstractConversationRepository):
     async def delete(self, conversation_id: uuid.UUID) -> None:
         self._rows.pop(conversation_id, None)
 
+    async def interviews_for_users(self, user_ids: list[uuid.UUID]) -> list[Conversation]:
+        wanted = set(user_ids)
+        return [c for c in self._rows.values() if c.user_id in wanted and c.kind == "interview"]
+
 
 class InMemoryMessageRepository(AbstractMessageRepository):
     def __init__(self) -> None:
@@ -121,6 +125,9 @@ class InMemoryMessageRepository(AbstractMessageRepository):
 
     async def list_recent(self, conversation_id: uuid.UUID, *, limit: int) -> list[Message]:
         return list(self._rows.get(conversation_id, []))[-limit:]
+
+    async def list_for_conversations(self, conversation_ids: list[uuid.UUID]) -> list[Message]:
+        return [m for cid in conversation_ids for m in self._rows.get(cid, [])]
 
 
 class StubSurveyService:

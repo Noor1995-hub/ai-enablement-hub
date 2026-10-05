@@ -32,6 +32,8 @@ dependencies = [
     # level, so the app cannot start without it. Bounded to the 1.x line; a 2.x bump is a
     # deliberate PR (read the SDK's MIGRATION.md first).
     "anthropic~=1.8",
+    # Project data export (#92): the admin download is one .xlsx, one sheet per section.
+    "openpyxl~=3.1",
 ]
 
 [project.optional-dependencies]

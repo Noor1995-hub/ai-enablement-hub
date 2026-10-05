@@ -86,6 +86,14 @@ private chat history, which the admin API itself never shows. Accepted: project 
 by power admins and scoped to their own projects.
 Spec: `docs/superpowers/specs/2026-10-01-project-scoped-admin-design.md`.
 
+**Project data export (#92).** Any admin in scope can download a project's learner data as one
+`.xlsx` (People page → Export data; `GET /api/admin/projects/{id}/export`): names, emails,
+assessment answers, lesson progress and, if ticked, the interview playbooks (including the
+delaware-internal one) and full transcripts. Once downloaded, the file is outside the app's
+access control. The dialog warns about this. Each export is logged with the caller, project and
+sections as UUIDs only. Learner text is always written as text cells, so it can't run as a
+formula when the file is opened.
+
 ## Rotations owed
 
 | Secret | Why | Blast radius | Status |

@@ -1642,6 +1642,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/projects/{project_id}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Project
+         * @description One .xlsx of the project's learners, one sheet per requested section
+         *     (repeat the parameter: `?sections=people&sections=assessment`). Unknown
+         *     section -> 422; unknown or out-of-scope project -> 404.
+         */
+        get: operations["export_project_api_admin_projects__project_id__export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/feedback": {
         parameters: {
             query?: never;
@@ -6367,6 +6389,39 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_project_api_admin_projects__project_id__export_get: {
+        parameters: {
+            query: {
+                sections: ("people" | "assessment" | "progress" | "interview")[];
+            };
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
+                };
             };
             /** @description Validation Error */
             422: {
