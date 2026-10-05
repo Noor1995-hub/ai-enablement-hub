@@ -155,3 +155,15 @@ class Lesson(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+    # B5 (spec 2026-10-05-lesson-editor-qa): the editor's conflict check. Stamped
+    # by every content write (admin PATCH, AI-proposal approval), not by a
+    # reorder. updated_by is the admin who saved; NULL when unknown or deleted.
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )

@@ -24,7 +24,7 @@ history that used to live here: `docs/history/state-log-2026.md`.
   commit) and `build_time`; the admin Setup page shows the same as a Deployment card. Running
   image (read-only): `az containerapp show -n ai-enablement-hub -g imaginemore-playground --query
   properties.template.containers[0].image -o tsv`. DB schema: `cd backend && uv run alembic
-  current` (code head `a9b0c1d2e3f4`, single linear chain).
+  current` (code head `c1d2e3f4a5b6`, single linear chain).
 - **Backlog = GitHub Issues** (labels `way-of-working`, `fix-programme`, `ops`, `security`).
   Way-of-working Tier 2 is complete (`docs/reviews/2026-09-17/` §5). **July fix programme**
   (issues #52–#56, plans in `docs/reviews/2026-07-31/`; master plan §5 decisions all taken

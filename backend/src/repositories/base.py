@@ -493,6 +493,12 @@ class AbstractContentRepository(ABC):
     async def get_lesson(self, lesson_id: uuid.UUID) -> Lesson | None: ...
 
     @abstractmethod
+    async def get_lesson_for_update(self, lesson_id: uuid.UUID) -> Lesson | None:
+        """get_lesson under SELECT ... FOR UPDATE: the editor's conflict check
+        (B5) holds the row until the save commits, so two saves carrying the
+        same expected_updated_at can't both pass."""
+
+    @abstractmethod
     async def max_lesson_sort_order(self, module_id: uuid.UUID) -> int | None: ...
 
     @abstractmethod

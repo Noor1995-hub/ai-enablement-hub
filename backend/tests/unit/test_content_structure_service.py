@@ -149,7 +149,9 @@ async def test_update_lesson_with_module_id_moves_it() -> None:
     await service.update_lesson(lesson.id, {"module_id": new})
 
     content.move_lesson.assert_awaited_once_with(lesson, new)
-    content.update_lesson.assert_not_awaited()
+    # B5: a move is a content write, so only the stamp follows it.
+    _, stamp = content.update_lesson.await_args.args
+    assert set(stamp) == {"updated_at", "updated_by"}
 
 
 async def test_track_impact_counts_everything_below_it() -> None:

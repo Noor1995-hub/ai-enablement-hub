@@ -23,6 +23,13 @@ content checklist itself.
   found in the Copilot track round (deliberately parked, not solved) — worth a dedicated
   investigation before it recurs on another track, since patching it lesson-by-lesson doesn't
   scale.
+  **Found and fixed (2026-10-05, #60, B5):** the MDX mode. `blocksToMdx` wrote quiz and card data
+  as raw JSON inside single quotes (`<Quiz data='…' />`), and the parser read up to the first
+  apostrophe, so any MDX "Save as blocks" on a lesson whose quiz or card text contained one
+  ("don't", "it's") dropped those blocks; `question` blocks were never written at all. All three
+  are now base64-encoded like the interactive blocks, the old form is still read, and
+  `frontend/src/lib/mdxRoundTrip.test.ts` round-trips every block type. The editor also warns
+  ("This removes 1 quiz.") before any save that would remove blocks.
 - **Production deploys must build from a clean checkout, never the live working directory.**
   A review session accumulates other people's concurrent uncommitted work in the same repo
   (draft reorganizations, untracked exploratory files). `az acr build` (or any

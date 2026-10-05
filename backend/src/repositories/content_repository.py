@@ -168,6 +168,17 @@ class ContentRepository(AbstractContentRepository):
         result = await self._session.execute(select(Lesson).where(Lesson.id == lesson_id))
         return result.scalar_one_or_none()
 
+    async def get_lesson_for_update(self, lesson_id: uuid.UUID) -> Lesson | None:
+        # populate_existing: a Lesson already in the identity map must be
+        # refreshed from the locked row, not served stale from the session.
+        result = await self._session.execute(
+            select(Lesson)
+            .where(Lesson.id == lesson_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        return result.scalar_one_or_none()
+
     async def max_lesson_sort_order(self, module_id: uuid.UUID) -> int | None:
         result = await self._session.execute(
             select(func.max(Lesson.sort_order)).where(Lesson.module_id == module_id)

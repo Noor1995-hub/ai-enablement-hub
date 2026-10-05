@@ -322,6 +322,7 @@ class LearningService:
             "title": lesson.title,
             "sort_order": lesson.sort_order,
             "content_blocks": lesson.content_blocks,
+            "updated_at": lesson.updated_at,
             "module": {
                 "id": module.id,
                 "title": module.title,

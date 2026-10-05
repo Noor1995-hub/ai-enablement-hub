@@ -3,16 +3,19 @@ from __future__ import annotations
 import json
 import uuid
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from src.core.prerequisites import would_create_cycle
 from src.services.content_blocks_validation import check_link_schemes
 from src.services.exceptions import (
     InvalidRequestError,
+    LessonChangedError,
     LessonSetMismatchError,
     NotFoundError,
     PayloadTooLargeError,
 )
+from src.services.lesson_qa import Finding, check_lesson
 from src.services.media_blocks import strip_ephemeral
 
 if TYPE_CHECKING:
@@ -143,18 +146,35 @@ class ContentService:
         sort_order = (max_sort if max_sort is not None else -1) + 1
         return await self._content.create_lesson(module_id, title.strip(), sort_order)
 
-    async def update_lesson(self, lesson_id: uuid.UUID, values: dict[str, Any]) -> Lesson:
-        lesson = await self._content.get_lesson(lesson_id)
+    async def update_lesson(
+        self, lesson_id: uuid.UUID, values: dict[str, Any], *, actor_id: uuid.UUID | None = None
+    ) -> Lesson:
+        """The editor save (and B4's move). `expected_updated_at`, when sent, must
+        match the stored one, or LessonChangedError (409) names who changed it and
+        when (B5). Every write stamps updated_at/updated_by. A checked save reads
+        the row FOR UPDATE, so a concurrent save waits and then sees the change."""
+        checked = values.get("expected_updated_at") is not None
+        lesson = await (
+            self._content.get_lesson_for_update(lesson_id)
+            if checked
+            else self._content.get_lesson(lesson_id)
+        )
         if lesson is None:
             raise NotFoundError("Lesson")
         values = dict(values)
+        expected = values.pop("expected_updated_at", None)
+        if expected is not None and expected != lesson.updated_at:
+            editor = await self._users.get_by_id(lesson.updated_by) if lesson.updated_by else None
+            name = f"{editor.first_name} {editor.last_name}".strip() if editor else None
+            raise LessonChangedError(lesson.updated_at, name or None)
+        stamp = {"updated_at": datetime.now(UTC), "updated_by": actor_id}
         module_id = values.pop("module_id", None)
         if module_id is not None and module_id != lesson.module_id:
             if await self._content.get_module(module_id) is None:
                 raise NotFoundError("Module")
             lesson = await self._content.move_lesson(lesson, module_id)
         if not values:
-            return lesson
+            return await self._content.update_lesson(lesson, stamp) if module_id else lesson
         if "content_blocks" in values:
             # Scheme-only validation, NOT the full structural validator: most of
             # the live corpus predates that validator (see review 6.8), so
@@ -177,7 +197,7 @@ class ContentService:
             size = len(json.dumps(blocks, ensure_ascii=False, separators=(",", ":")).encode())
             if size > MAX_LESSON_BLOCKS_BYTES:
                 raise PayloadTooLargeError(MAX_LESSON_BLOCKS_BYTES, what="Lesson content")
-        return await self._content.update_lesson(lesson, values)
+        return await self._content.update_lesson(lesson, {**values, **stamp})
 
     async def delete_lesson(self, lesson_id: uuid.UUID) -> None:
         lesson = await self._content.get_lesson(lesson_id)
@@ -378,3 +398,9 @@ class ContentService:
             if (user_id, lesson_id) not in have
         ]
         return missing, lesson_order
+
+    async def check_lesson(self, lesson_id: uuid.UUID, blocks: list[Any]) -> list[Finding]:
+        """The house-style checks on unsaved blocks (B5). Read-only."""
+        if await self._content.get_lesson(lesson_id) is None:
+            raise NotFoundError("Lesson")
+        return check_lesson(blocks)

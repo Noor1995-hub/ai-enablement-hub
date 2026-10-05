@@ -9,7 +9,7 @@ const MODULE_ID = '22222222-2222-2222-2222-222222222222'
 
 // client.GET is hit for two endpoints from this page (lesson detail, module
 // lesson list); route on the templated path openapi-fetch is called with.
-const clientMock = vi.hoisted(() => ({ GET: vi.fn(), PATCH: vi.fn() }))
+const clientMock = vi.hoisted(() => ({ GET: vi.fn(), PATCH: vi.fn(), POST: vi.fn() }))
 vi.mock('../api/client', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../api/client')>()
   return { ...actual, client: clientMock }
@@ -164,6 +164,9 @@ describe('LessonPage MDX preview parsing', () => {
     authState.role = 'admin'
     clientMock.GET.mockReset()
     clientMock.PATCH.mockReset()
+    // B5: Save as blocks runs the house-style check first.
+    clientMock.POST.mockReset()
+    clientMock.POST.mockResolvedValue({ data: { findings: [] }, error: undefined })
     mockLessonResponse({ data: lessonBody() })
   })
 
@@ -205,6 +208,9 @@ describe('LessonPage MDX pane unsaved-changes guard', () => {
     authState.role = 'admin'
     clientMock.GET.mockReset()
     clientMock.PATCH.mockReset()
+    // B5: Save as blocks runs the house-style check first.
+    clientMock.POST.mockReset()
+    clientMock.POST.mockResolvedValue({ data: { findings: [] }, error: undefined })
     mockLessonResponse({ data: lessonBody() })
   })
 
@@ -231,6 +237,7 @@ describe('LessonPage MDX pane unsaved-changes guard', () => {
     expect(unloadBlocked()).toBe(true)
 
     fireEvent.click(screen.getByText('Save as blocks'))
+    fireEvent.click(await screen.findByRole('button', { name: 'Save anyway' }))
     expect(await screen.findByText('✓ Editing')).toBeInTheDocument()
     expect(unloadBlocked()).toBe(false)
   })
@@ -241,6 +248,7 @@ describe('LessonPage MDX pane unsaved-changes guard', () => {
     fireEvent.click(await screen.findByText('MDX'))
     fireEvent.change(screen.getByPlaceholderText(/Lesson heading/), { target: { value: '# Title' } })
     fireEvent.click(screen.getByText('Save as blocks'))
+    fireEvent.click(await screen.findByRole('button', { name: 'Save anyway' }))
     expect(await screen.findByText('nope')).toBeInTheDocument()
     expect(unloadBlocked()).toBe(true)
   })
@@ -283,5 +291,49 @@ describe('LessonPage MDX pane unsaved-changes guard', () => {
     expect(screen.queryByText('Save as blocks')).not.toBeInTheDocument()
     expect(unloadBlocked()).toBe(false)
     expect(clientMock.PATCH).not.toHaveBeenCalled()
+  })
+})
+
+describe('LessonPage MDX save: removal warning (B5, #60 safety net)', () => {
+  beforeEach(() => {
+    authState.role = 'admin'
+    clientMock.GET.mockReset()
+    clientMock.PATCH.mockReset()
+    clientMock.POST.mockReset()
+    clientMock.POST.mockResolvedValue({ data: { findings: [] }, error: undefined })
+    mockLessonResponse({
+      data: lessonBody({
+        content_blocks: [
+          { id: 'p1', type: 'paragraph', text: 'Hello world' },
+          { id: 'h1', type: 'heading', level: 2, text: 'Check your understanding' },
+          { id: 'q1', type: 'quiz', questions: [{ id: 'qq', q: 'Q?', options: ['a', 'b'], correct: 1, explanation: 'e' }] },
+        ],
+        updated_at: '2026-10-05T12:00:00Z',
+      }),
+    })
+  })
+
+  it('names what an MDX save would remove and waits for a decision', async () => {
+    renderLessonPage()
+    fireEvent.click(await screen.findByText('MDX'))
+    fireEvent.change(screen.getByPlaceholderText(/Lesson heading/), { target: { value: 'Hello world' } })
+    fireEvent.click(screen.getByText('Save as blocks'))
+
+    expect(await screen.findByText('This removes 1 heading and 1 quiz.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Keep editing' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Save anyway' })).toBeInTheDocument()
+    expect(clientMock.PATCH).not.toHaveBeenCalled()
+  })
+
+  it('saves straight away, sending the base updated_at, when nothing is lost', async () => {
+    clientMock.PATCH.mockResolvedValue({
+      data: { ...lessonBody(), updated_at: '2026-10-05T12:05:00Z' },
+      error: undefined,
+    })
+    renderLessonPage()
+    fireEvent.click(await screen.findByText('MDX'))
+    fireEvent.click(screen.getByText('Save as blocks'))
+    await waitFor(() => expect(clientMock.PATCH).toHaveBeenCalled())
+    expect(clientMock.PATCH.mock.calls[0][1].body.expected_updated_at).toBe('2026-10-05T12:00:00Z')
   })
 })

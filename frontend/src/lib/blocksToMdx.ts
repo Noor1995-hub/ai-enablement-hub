@@ -9,14 +9,15 @@ import type { ContentBlock } from '../types/contentBlocks'
  *  - kicker: serialised as a bare `*text*` line; the block's own text must not
  *    already be wrapped in a single pair of asterisks, and must stay on one
  *    line, or it will misparse on re-import.
- *  - card_group / quiz: serialised as raw JSON inside <Cards /> / <Quiz /> tags;
- *    any special characters in card/question text are not escaped.
- *  - interactive / try_it_yourself: base64-encoded inside <Interactive /> /
- *    <TryItYourself /> tags so their nested id references (bucketId,
+ *  - a paragraph or callout LINE starting with `#`, `>` or a lone `*…*`
+ *    re-parses as a heading, callout or kicker — inherent to MDX. The editor
+ *    warns before a save that would remove blocks (B5, lib/lessonSave.ts).
+ *  - card_group / quiz / question / interactive / try_it_yourself:
+ *    base64-encoded inside <Cards /> / <Quiz /> / <Question /> / <Interactive /> /
+ *    <TryItYourself /> tags (#60: card_group and quiz used raw JSON in single
+ *    quotes, truncated by the first apostrophe; question was dropped) so their nested id references (bucketId,
  *    correctOptionId) and free-text prompts survive the round-trip intact.
  *    Not hand-editable as text — author these with the block editor.
- *  - question: has no MDX form — dropped on serialise (matches the old app,
- *    which dropped it too; it carries only a prompt string).
  */
 // UTF-8-safe base64: TextEncoder handles multi-byte chars, and base64's
 // [A-Za-z0-9+/=] alphabet can't be broken by a quote, backtick or `>` inside
@@ -49,11 +50,13 @@ export function blocksToMdx(blocks: ContentBlock[] | null | undefined): string {
         case 'kicker':
           return `*${block.text}*`
 
+        // Base64 like Interactive (#60): the old raw-JSON-in-single-quotes form
+        // was truncated by the first apostrophe in any card or question text.
         case 'card_group':
-          return `<Cards data='${JSON.stringify(block.cards)}' />`
+          return `<Cards data="${encodeBlock(block)}" />`
 
         case 'quiz':
-          return `<Quiz data='${JSON.stringify(block.questions)}' />`
+          return `<Quiz data="${encodeBlock(block)}" />`
 
         case 'whitespace':
           return `<Spacer size="${block.size ?? 'md'}" />`
@@ -78,7 +81,7 @@ export function blocksToMdx(blocks: ContentBlock[] | null | undefined): string {
             : `<Video data="${encodeBlock(block)}" />`
 
         case 'question':
-          return ''
+          return `<Question data="${encodeBlock(block)}" />`
 
         default: {
           const exhaustive: never = block

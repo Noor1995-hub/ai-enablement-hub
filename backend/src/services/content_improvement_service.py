@@ -24,6 +24,7 @@ import asyncio
 import json
 import logging
 import uuid
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, NamedTuple
 
 from src.services.calibration_prompt import MAX_INJECTED_NOTES, render_calibration_block
@@ -611,7 +612,13 @@ class ContentImprovementService:
         # so re-approving compared the new lesson against the old base_blocks and
         # mis-reported "superseded".
         await self._content.stage_lesson_update(
-            lesson, {"content_blocks": strip_ephemeral(list(blocks))}
+            lesson,
+            {
+                "content_blocks": strip_ephemeral(list(blocks)),
+                # B5: an approval is a content write like an editor save.
+                "updated_at": datetime.now(UTC),
+                "updated_by": reviewer_id,
+            },
         )
         await self._proposals.stage_approved(
             proposal, edited_blocks=admin_edits, reviewed_by=reviewer_id

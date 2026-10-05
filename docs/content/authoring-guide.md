@@ -380,8 +380,9 @@ There is a tool that generates branded concept diagrams; use them where a diagra
   no forbidden punctuation, no duplicate ids).
 - **Access**: Azure Postgres via `backend/.env` creds (asyncpg, `ssl="require"` passed as a kwarg,
   NOT in the DSN), or the admin API (`PATCH /api/admin/lessons/{id}`, `POST /api/admin/lessons`).
-- **`lessons` has no `updated_at` column** — `UPDATE ... SET updated_at = now()` errors with
-  `UndefinedColumnError`; update only `title` and `content_blocks` (2026-07-17).
+- **`lessons.updated_at` / `updated_by`** (since B5, 2026-10-05) are the editor's conflict check: a
+  script that rewrites `content_blocks` should also set `updated_at = now()`, so an editor open on
+  the old copy gets the Reload / Overwrite prompt instead of silently overwriting the script's write.
 - **Automate the dry-run + read-back checks** (2026-07-17): grep every text field for em/en dash and
   ellipsis, scan for duplicate block/card/question ids, confirm no quiz `correct` is the
   unique-longest option, confirm the `correct` positions vary within a quiz, confirm a
@@ -391,7 +392,9 @@ There is a tool that generates branded concept diagrams; use them where a diagra
 - **Concurrency**: the user edits lessons **live in the admin UI**. Do **not** write while he may be
   editing — concurrent saves clobber each other (a quiz rebalance was once lost this way). Treat his
   live edits as authoritative; after he edits, diff the live DB against what you delivered to
-  recalibrate (that diff is how most of §8 was learned).
+  recalibrate (that diff is how most of §8 was learned). Since B5 the editor itself refuses a
+  save from an outdated copy and offers Reload / Overwrite; scripts writing straight to the DB
+  bypass that, so this rule still binds them.
 - Run one-off scripts from `backend/` with `uv run python <script>` (asyncpg is installed there).
 
 ## 12. Product facts worth knowing (verify before reuse; Matthias's version wins)

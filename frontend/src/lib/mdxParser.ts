@@ -1,4 +1,13 @@
-import type { ContentBlock, ImageBlock, InteractiveBlock, TryItYourselfBlock, VideoBlock } from '../types/contentBlocks'
+import type {
+  CardGroupBlock,
+  ContentBlock,
+  ImageBlock,
+  InteractiveBlock,
+  QuestionBlock,
+  QuizBlock,
+  TryItYourselfBlock,
+  VideoBlock,
+} from '../types/contentBlocks'
 import {
   createCallout,
   createCardGroup,
@@ -22,12 +31,14 @@ function decodeBlock<T>(data: string): T {
  * Parses a raw MDX string into a content_blocks array compatible with the lesson editor.
  *
  * Handles:
- *   - <Cards data='[...]' />  or  <Cards data={`[...]`} />
- *   - <Quiz data='[...]' />   or  <Quiz data={`[...]`} />
+ *   - <Cards data="<base64>" />, <Quiz data="<base64>" />, <Question data="<base64>" />
+ *     (the whole block, ids kept — #60)
+ *   - legacy <Cards data='[...]' /> / <Cards data={`[...]`} /> and the same for
+ *     <Quiz> (fresh ids; still read so older pasted MDX keeps working)
  *   - <Spacer size="sm|md|lg" />
  *   - <Interactive data="<base64>" /> and <TryItYourself data="<base64>" />
  *   - Markdown headings (# / ## / ###)
- *   - Blockquotes (> text)
+ *   - Blockquotes (> text); consecutive `>` lines form one callout
  *   - Kicker lines (a line that is entirely *one italic span*, e.g. `*text*`)
  *   - Plain paragraphs
  */
@@ -36,11 +47,24 @@ export function parseMdxToBlocks(mdx: string): ContentBlock[] {
 
   const blocks: ContentBlock[] = []
 
-  // Split on self-closing component tags (base64 payloads contain no `>`, so
-  // the [^>] tag matcher stays intact for Interactive/TryItYourself too)
-  const segments = mdx.split(/(<(?:Cards|Quiz|Spacer|Interactive|TryItYourself|Image|Video)\s[^>]*?\/>)/g)
+  // Split on self-closing component tags. A quoted attribute value is matched
+  // as a unit, so a `>` inside legacy JSON data no longer ends the tag early
+  // (#60); base64 payloads contain no quote or `>` at all.
+  const segments = mdx.split(
+    /(<(?:Cards|Quiz|Question|Spacer|Interactive|TryItYourself|Image|Video)\s(?:[^>"'`]|"[^"]*"|'[^']*'|\{`[^`]*`\})*?\/>)/g,
+  )
 
   for (const seg of segments) {
+    const encoded = seg.match(/^<(Cards|Quiz|Question)\s+data="([^"]*)"/)
+    if (encoded) {
+      try {
+        blocks.push(decodeBlock<CardGroupBlock | QuizBlock | QuestionBlock>(encoded[2]))
+      } catch {
+        // malformed payload — skip
+      }
+      continue
+    }
+
     const cardsMatch = seg.match(/^<Cards\s+data='([^']*)'/)
       ?? seg.match(/^<Cards\s+data=\{`([^`]*)`\}/)
     const quizMatch = seg.match(/^<Quiz\s+data='([^']*)'/)
@@ -124,6 +148,15 @@ export function parseMdxToBlocks(mdx: string): ContentBlock[] {
       paragraphLines = []
     }
 
+    // blocksToMdx prefixes EVERY line of a multi-line callout with `>`, so
+    // consecutive `>` lines are one callout (they used to split into several).
+    let calloutLines: string[] = []
+    function flushCallout() {
+      const text = calloutLines.join('\n').trim()
+      if (text) blocks.push(createCallout(text))
+      calloutLines = []
+    }
+
     for (const line of lines) {
       const h3 = line.match(/^###\s+(.+)/)
       const h2 = line.match(/^##\s+(.+)/)
@@ -133,6 +166,8 @@ export function parseMdxToBlocks(mdx: string): ContentBlock[] {
       // longer line, which stays plain prose for ParagraphBlock to render).
       const kicker = line.trim().match(/^\*([^*\n]+)\*$/)
 
+      if (!bq) flushCallout()
+
       if (h1 || h2 || h3) {
         flushParagraph()
         const level = h3 ? 3 : h2 ? 2 : 1
@@ -140,7 +175,7 @@ export function parseMdxToBlocks(mdx: string): ContentBlock[] {
         blocks.push(createHeading(level, text))
       } else if (bq) {
         flushParagraph()
-        blocks.push(createCallout(bq[1].trim()))
+        calloutLines.push(bq[1].trimEnd())
       } else if (kicker) {
         flushParagraph()
         blocks.push(createKicker(kicker[1].trim()))
@@ -150,6 +185,7 @@ export function parseMdxToBlocks(mdx: string): ContentBlock[] {
     }
 
     flushParagraph()
+    flushCallout()
   }
 
   return blocks.filter((b) => {

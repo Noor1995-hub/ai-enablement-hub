@@ -11,6 +11,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic_core import to_jsonable_python
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import RequestResponseEndpoint
@@ -54,6 +55,7 @@ from src.services.exceptions import (
     ComponentLockedError,
     ConflictError,
     DomainError,
+    LessonChangedError,
     LessonNotAccessibleError,
     NotFoundError,
     PayloadTooLargeError,
@@ -317,14 +319,23 @@ _ERROR_CODES = {
 
 
 def _error_response(
-    status_code: int, message: str, headers: Mapping[str, str] | None = None
+    status_code: int,
+    message: str,
+    headers: Mapping[str, str] | None = None,
+    *,
+    code: str | None = None,
+    extra: Mapping[str, object] | None = None,
 ) -> JSONResponse:
+    """`code` overrides the status-derived code; `extra` adds fields INSIDE
+    `error`, the way the 422 handler adds `fields` (e.g. lesson_changed's
+    updated_at / updated_by_name)."""
     return JSONResponse(
         status_code=status_code,
         content={
             "error": {
-                "code": _ERROR_CODES.get(status_code, "http_error"),
+                "code": code or _ERROR_CODES.get(status_code, "http_error"),
                 "message": message,
+                **(extra or {}),
             }
         },
         headers=headers,
@@ -339,6 +350,21 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException) 
 @app.exception_handler(NotFoundError)
 async def not_found_handler(request: Request, exc: NotFoundError) -> JSONResponse:
     return _error_response(404, exc.message)
+
+
+@app.exception_handler(LessonChangedError)
+async def lesson_changed_handler(request: Request, exc: LessonChangedError) -> JSONResponse:
+    return _error_response(
+        409,
+        exc.message,
+        code="lesson_changed",
+        # Pydantic's own datetime form ("…Z"), the same string the lesson
+        # GET/PATCH responses carry, so the editor can echo it.
+        extra={
+            "updated_at": to_jsonable_python(exc.updated_at),
+            "updated_by_name": exc.updated_by_name,
+        },
+    )
 
 
 @app.exception_handler(ConflictError)

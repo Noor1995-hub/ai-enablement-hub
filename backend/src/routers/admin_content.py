@@ -5,13 +5,16 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, status
 
-from src.core.dependencies.admin_scope import require_power_admin
+from src.core.dependencies.admin_scope import PowerAdminDep, require_power_admin
 from src.core.dependencies.auth import get_current_user
 from src.core.dependencies.domain import get_content_service
 from src.core.dependencies.storage import get_media_service
 from src.db.models import Lesson, Module, Track
 from src.schemas.admin_content import (
+    LessonCheckRequest,
+    LessonCheckResponse,
     LessonCreateRequest,
+    LessonFindingOut,
     LessonOrderRequest,
     LessonOut,
     LessonSummaryOut,
@@ -100,14 +103,11 @@ async def create_lesson(body: LessonCreateRequest, content_service: ContentServi
     return await content_service.create_lesson(body.module_id, body.title)
 
 
-@router.patch(
-    "/admin/lessons/{lesson_id}",
-    response_model=LessonOut,
-    dependencies=[Depends(require_power_admin)],
-)
+@router.patch("/admin/lessons/{lesson_id}", response_model=LessonOut)
 async def update_lesson(
     lesson_id: uuid.UUID,
     body: LessonUpdateRequest,
+    actor: PowerAdminDep,
     content_service: ContentServiceDep,
     media: MediaServiceDep,
 ) -> Lesson | LessonOut:
@@ -119,7 +119,9 @@ async def update_lesson(
     persisting; when storage is configured the response is stamped so the
     editor's just-saved view has working urls (contract consistency with
     GET) — the DB write itself is unaffected."""
-    lesson = await content_service.update_lesson(lesson_id, body.model_dump(exclude_unset=True))
+    lesson = await content_service.update_lesson(
+        lesson_id, body.model_dump(exclude_unset=True), actor_id=actor.id
+    )
     if media is None:
         return lesson
     return LessonOut(
@@ -128,6 +130,7 @@ async def update_lesson(
         title=lesson.title,
         sort_order=lesson.sort_order,
         content_blocks=media.stamp_blocks(lesson.content_blocks),
+        updated_at=lesson.updated_at,
     )
 
 
@@ -152,3 +155,17 @@ async def reorder_lessons(
     """Batch reorder in one transaction; lesson_ids must be a permutation of
     the module's lessons (replaces ModulePanel's N parallel updates, fixes B5)."""
     await content_service.reorder_lessons(module_id, body.lesson_ids)
+
+
+@router.post(
+    "/admin/lessons/{lesson_id}/check",
+    response_model=LessonCheckResponse,
+    dependencies=[Depends(require_power_admin)],
+)
+async def check_lesson(
+    lesson_id: uuid.UUID, body: LessonCheckRequest, content_service: ContentServiceDep
+) -> LessonCheckResponse:
+    """House-style findings for the editor's unsaved blocks; writes nothing.
+    Warnings never block a save (spec 2026-10-05-lesson-editor-qa)."""
+    findings = await content_service.check_lesson(lesson_id, body.content_blocks)
+    return LessonCheckResponse(findings=[LessonFindingOut.model_validate(f) for f in findings])

@@ -365,6 +365,14 @@ _MATRIX: list[tuple[str, str, str, Any, Any, Access]] = [
         lambda s: None,
         "scoped",
     ),
+    (
+        "lesson-check",
+        "POST",
+        "/api/admin/lessons/{lesson_id}/check",
+        lambda s: f"/api/admin/lessons/{s.lesson.id}/check",
+        lambda s: {"content_blocks": []},
+        "power",
+    ),
     # --- content structure (B4) ---
     (
         "content-tree",

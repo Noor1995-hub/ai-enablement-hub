@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -12,7 +13,10 @@ __all__ = [
     "AssignmentGapResponse",
     "ContentTreeResponse",
     "DeleteImpactResponse",
+    "LessonCheckRequest",
+    "LessonCheckResponse",
     "LessonCreateRequest",
+    "LessonFindingOut",
     "LessonOrderRequest",
     "LessonOut",
     "LessonSummaryOut",
@@ -100,6 +104,9 @@ class LessonUpdateRequest(BaseModel):
     content_blocks: list[dict[str, Any]] | None = None
     # B4: a different module moves the lesson to the end of that module.
     module_id: uuid.UUID | None = None
+    # B5: the updated_at the editor loaded. A mismatch → 409 lesson_changed.
+    # Optional for one release (the deployed frontend doesn't send it yet).
+    expected_updated_at: datetime | None = None
 
     _non_blank = field_validator("title")(require_non_blank)
 
@@ -112,6 +119,7 @@ class LessonOut(BaseModel):
     title: str
     sort_order: int
     content_blocks: list[Any]
+    updated_at: datetime
 
 
 class LessonOrderRequest(BaseModel):
@@ -217,3 +225,22 @@ class AssignmentGapResponse(BaseModel):
 
 class AssignGapResponse(BaseModel):
     assigned_pairs: int
+
+
+class LessonCheckRequest(BaseModel):
+    """The editor's UNSAVED blocks (B5)."""
+
+    content_blocks: list[dict[str, Any]]
+
+
+class LessonFindingOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    severity: Literal["warning", "info"]
+    block_index: int | None
+    where: str
+    message: str
+
+
+class LessonCheckResponse(BaseModel):
+    findings: list[LessonFindingOut]

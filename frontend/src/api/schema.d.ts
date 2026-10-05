@@ -1141,6 +1141,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/lessons/{lesson_id}/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check Lesson
+         * @description House-style findings for the editor's unsaved blocks; writes nothing.
+         *     Warnings never block a save (spec 2026-10-05-lesson-editor-qa).
+         */
+        post: operations["check_lesson_api_admin_lessons__lesson_id__check_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/content/tree": {
         parameters: {
             query?: never;
@@ -2965,6 +2986,21 @@ export interface components {
             /** Maturity Level */
             maturity_level: string | null;
         };
+        /**
+         * LessonCheckRequest
+         * @description The editor's UNSAVED blocks (B5).
+         */
+        LessonCheckRequest: {
+            /** Content Blocks */
+            content_blocks: {
+                [key: string]: unknown;
+            }[];
+        };
+        /** LessonCheckResponse */
+        LessonCheckResponse: {
+            /** Findings */
+            findings: components["schemas"]["LessonFindingOut"][];
+        };
         /** LessonCreateRequest */
         LessonCreateRequest: {
             /**
@@ -3000,8 +3036,27 @@ export interface components {
             } | null;
             /** Next Lesson Id */
             next_lesson_id: string | null;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
             /** Next Module Id */
             next_module_id: string | null;
+        };
+        /** LessonFindingOut */
+        LessonFindingOut: {
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "warning" | "info";
+            /** Block Index */
+            block_index: number | null;
+            /** Where */
+            where: string;
+            /** Message */
+            message: string;
         };
         /** LessonModuleInfo */
         LessonModuleInfo: {
@@ -3043,6 +3098,11 @@ export interface components {
             sort_order: number;
             /** Content Blocks */
             content_blocks: unknown[];
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
         };
         /** LessonProgressRequest */
         LessonProgressRequest: {
@@ -3073,6 +3133,8 @@ export interface components {
             }[] | null;
             /** Module Id */
             module_id?: string | null;
+            /** Expected Updated At */
+            expected_updated_at?: string | null;
         };
         /** LinkResponse */
         LinkResponse: {
@@ -5909,6 +5971,41 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    check_lesson_api_admin_lessons__lesson_id__check_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lesson_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LessonCheckRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LessonCheckResponse"];
+                };
             };
             /** @description Validation Error */
             422: {

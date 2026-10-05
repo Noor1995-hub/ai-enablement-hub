@@ -11,7 +11,9 @@ writes straight to what learners see. This folder is the model and the process.
    built only from the rules have shipped the guide's own "before" example three times.
 2. Apply `content-review-lens.md`; for General I/II also `general-i-ii-style-guide.md`.
 3. Gate every draft with `backend/scripts/content_qa/check_draft.py` before it goes near the DB
-   — it catches, among others, the quiz answer-length bias every time.
+   — it catches, among others, the quiz answer-length bias every time. In the website the same
+   checks run on **Save** and on the editor's **Check** button (`backend/src/services/lesson_qa.py`);
+   `check_draft.py` is the CLI over that module, for drafts written outside the editor.
 
 ## House rules that get broken most
 

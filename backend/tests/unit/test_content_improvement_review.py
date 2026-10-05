@@ -41,6 +41,16 @@ def _lesson(blocks: list[Any]) -> Any:
     return SimpleNamespace(id=uuid.uuid4(), title="Prompting basics", content_blocks=blocks)
 
 
+def _assert_lesson_written(content: Any, lesson: Any, blocks: list[Any]) -> None:
+    """The approval writes the blocks and stamps updated_at/updated_by (B5)."""
+    content.stage_lesson_update.assert_awaited_once()
+    written_lesson, values = content.stage_lesson_update.await_args.args
+    assert written_lesson is lesson
+    assert values["content_blocks"] == blocks
+    assert values["updated_at"] is not None
+    assert "updated_by" in values
+
+
 def _service(
     proposal: Any | None, lesson: Any | None, *, uow: AsyncMock | None = None
 ) -> tuple[ContentImprovementService, AsyncMock, AsyncMock]:
@@ -70,7 +80,8 @@ async def test_approve_writes_the_lesson_and_stamps_the_proposal() -> None:
     )
 
     assert result == "approved"
-    content.stage_lesson_update.assert_awaited_once_with(lesson, {"content_blocks": _PROPOSED})
+    _assert_lesson_written(content, lesson, _PROPOSED)
+    assert content.stage_lesson_update.await_args.args[1]["updated_by"] == reviewer_id
     proposals.stage_approved.assert_awaited_once_with(
         proposal, edited_blocks=None, reviewed_by=reviewer_id
     )
@@ -265,7 +276,7 @@ async def test_approving_without_edits_is_unchanged_behaviour() -> None:
         == "approved"
     )
 
-    content.stage_lesson_update.assert_awaited_once_with(lesson, {"content_blocks": _PROPOSED})
+    _assert_lesson_written(content, lesson, _PROPOSED)
     proposals.stage_approved.assert_awaited_once_with(
         proposal, edited_blocks=None, reviewed_by=reviewer_id
     )
@@ -300,7 +311,7 @@ async def test_edits_apply_the_admin_array_and_store_the_delta() -> None:
     )
 
     # The ADMIN's text reaches the lesson, not the agent's.
-    content.stage_lesson_update.assert_awaited_once_with(lesson, {"content_blocks": _ADMIN_EDITED})
+    _assert_lesson_written(content, lesson, _ADMIN_EDITED)
     proposals.stage_approved.assert_awaited_once_with(
         proposal, edited_blocks=_ADMIN_EDITED, reviewed_by=reviewer_id
     )
@@ -406,7 +417,7 @@ async def test_edits_missing_only_nested_ids_normalise_to_the_same_draft() -> No
         edited_blocks=edited_blocks,
     )
 
-    content.stage_lesson_update.assert_awaited_once_with(lesson, {"content_blocks": proposed})
+    _assert_lesson_written(content, lesson, proposed)
     proposals.stage_approved.assert_awaited_once_with(
         proposal, edited_blocks=None, reviewed_by=reviewer_id
     )

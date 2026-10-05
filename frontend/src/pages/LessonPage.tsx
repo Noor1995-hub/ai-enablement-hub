@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
-import { client, errorMessage } from '../api/client'
+import { client } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
 import AppNav from '../components/AppNav'
 import { parseMdxToBlocks } from '../lib/mdxParser'
@@ -9,6 +9,8 @@ import { classifyLessonLoadError, type LessonLoadError } from '../lib/lessonLoad
 import { useUnsavedGuard } from '../lib/useUnsavedGuard'
 import LessonView from '../components/lesson/LessonView'
 import LessonEditor, { type EditedLesson } from '../components/lesson/LessonEditor'
+import SaveGate from '../components/lesson/SaveGate'
+import { useGuardedSave } from '../components/lesson/useGuardedSave'
 import LessonFeedback from '../components/LessonFeedback'
 import type { ContentBlock } from '../types/contentBlocks'
 import type { LessonDetail, ModuleLessonItem } from '../types/domain'
@@ -38,8 +40,6 @@ export default function LessonPage() {
   // What the pane was seeded with on opening (blocksToMdx of the lesson), so an
   // untouched pane does not count as unsaved work.
   const [mdxSeed, setMdxSeed]     = useState('')
-  const [mdxSaving, setMdxSaving] = useState(false)
-  const [mdxError, setMdxError]   = useState<string | null>(null)
   const [quizDone, setQuizDone]           = useState(false)
   const [answers, setAnswers]             = useState<Record<string, string>>({})
   const [completing, setCompleting]       = useState(false)
@@ -202,28 +202,39 @@ export default function LessonPage() {
   }, [])
 
   function handleEditorSave(updated: EditedLesson) {
-    setLesson(l => (l ? { ...l, title: updated.title, content_blocks: updated.content_blocks } : l))
+    setLesson(l => (l ? {
+      ...l,
+      title: updated.title,
+      content_blocks: updated.content_blocks,
+      updated_at: updated.updated_at ?? l.updated_at,
+    } : l))
     setEditMode(false)
   }
 
-  async function saveMdx() {
+  const reloadLesson = useCallback(() => setReloadKey(k => k + 1), [])
+
+  // B5: "Save as blocks" goes through the same guarded save as the block
+  // editor — house-style check, a warning when it would remove blocks (#60's
+  // safety net), and the Reload / Overwrite prompt on a stale copy.
+  const mdxSave = useGuardedSave({
+    lessonId: lesson?.id ?? '',
+    baseUpdatedAt: lesson?.updated_at,
+    onReload: reloadLesson,
+    onSaved: data => {
+      // Use the backend's stamped content_blocks, not the locally parsed ones:
+      // the write strips ephemeral SAS urls, so the parsed blocks would render
+      // media as placeholders until a reload. The response is re-stamped.
+      setLesson(l => (l ? { ...l, content_blocks: data.content_blocks, updated_at: data.updated_at } : l))
+      setMdxMode(false)
+      setMdxText('')
+      setEditMode(true)
+    },
+  })
+  const mdxSaving = mdxSave.gate.kind === 'busy'
+
+  function saveMdx() {
     if (!lesson) return
-    const newBlocks = parseMdxToBlocks(mdxText)
-    setMdxSaving(true)
-    setMdxError(null)
-    const { data, error } = await client.PATCH('/api/admin/lessons/{lesson_id}', {
-      params: { path: { lesson_id: lesson.id } },
-      body: { content_blocks: newBlocks },
-    })
-    setMdxSaving(false)
-    if (error || !data) { setMdxError(errorMessage(error, 'Failed to save.')); return }
-    // Use the backend's stamped content_blocks, not the locally parsed ones:
-    // the write strips ephemeral SAS urls, so the parsed blocks would render
-    // media as placeholders until a reload. The response is re-stamped.
-    setLesson(l => (l ? { ...l, content_blocks: data.content_blocks } : l))
-    setMdxMode(false)
-    setMdxText('')
-    setEditMode(true)
+    void mdxSave.save({ content_blocks: parseMdxToBlocks(mdxText) }, { before: blocks })
   }
 
   if (loading) {
@@ -326,7 +337,12 @@ export default function LessonPage() {
             </div>
             <div style={{ width: 480, flexShrink: 0, display: 'flex', flexDirection: 'column', background: '#fff' }}>
               <LessonEditor
+                // A new base (a reload or a save) remounts the editor with it;
+                // typing never changes updated_at, so it never remounts mid-edit.
+                key={lesson.updated_at}
                 lesson={{ id: lesson.id, title: lesson.title, content_blocks: blocks }}
+                updatedAt={lesson.updated_at}
+                onReload={reloadLesson}
                 onSave={handleEditorSave}
                 onLiveChange={handleEditorLiveChange}
               />
@@ -390,11 +406,13 @@ export default function LessonPage() {
                 </div>
               </div>
 
-              {mdxError && (
-                <div style={{ padding: '10px 20px', background: '#FEF2F2', color: '#C42828', fontFamily: 'var(--dlw-font-body)', fontSize: 13, flexShrink: 0 }}>
-                  {mdxError}
-                </div>
-              )}
+              <SaveGate
+                gate={mdxSave.gate}
+                onSaveAnyway={() => mdxSave.saveAnyway({ content_blocks: parseMdxToBlocks(mdxText) })}
+                onKeepEditing={mdxSave.keepEditing}
+                onReload={mdxSave.reload}
+                onOverwrite={() => mdxSave.overwrite({ content_blocks: parseMdxToBlocks(mdxText) })}
+              />
 
               <textarea
                 value={mdxText}

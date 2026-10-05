@@ -68,7 +68,9 @@ test user or a script that writes rows edits live learner data.
    `request.client.host`**, which uvicorn fills from the client-controlled leftmost hop
    (`docs/superpowers/lessons.md`, 2026-09-25). Limits that must not punish a shared office NAT
    count failures only (`RateLimiter.charge` + `refund`, see `routers/auth.py` login).
-9. **Error envelope:** everything answers `{"error":{code,message}}` — domain errors via their
+9. **Error envelope:** everything answers `{"error":{code,message}}` — extra fields go INSIDE
+   `error` through `_error_response(..., extra=)` (422's `fields`, 409 `lesson_changed`'s
+   `updated_at`/`updated_by_name`) — domain errors via their
    handlers, unclaimed exceptions via the catch-all 500 in `main.py`; Anthropic/provider failures
    raise `AiGenerationError` (502, `llm_service.is_provider_error` tells them from our own bugs);
    a failed SSE stream ends with an `event: error` frame instead.

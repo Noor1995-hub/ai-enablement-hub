@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel
@@ -92,6 +93,8 @@ class LessonDetailResponse(BaseModel):
     module: LessonModuleInfo
     my_answers: dict[str, Any] | None
     next_lesson_id: uuid.UUID | None
+    # B5: the editor's conflict-check base (echoed back as expected_updated_at).
+    updated_at: datetime
     next_module_id: uuid.UUID | None
 
 

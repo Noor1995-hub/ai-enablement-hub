@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, Fragment, type ComponentType } from 'react'
-import { client, errorMessage } from '../../api/client'
+import SaveGate from './SaveGate'
+import { useGuardedSave } from './useGuardedSave'
 import { BLOCK_TYPES, BLOCK_LABELS, BLOCK_FACTORIES } from '../../lib/contentBlocks'
 import { useUnsavedGuard } from '../../lib/useUnsavedGuard'
 import type { ContentBlock } from '../../types/contentBlocks'
@@ -151,6 +152,8 @@ function InsertZone({ open, types, onOpen, onPick, onCancel }: {
 export interface EditedLesson {
   title: string
   content_blocks: ContentBlock[]
+  /** The saved lesson's updated_at (B5): the base for the next conflict check. */
+  updated_at?: string
 }
 
 // The minimal structural shape this component actually reads (lesson.id,
@@ -173,14 +176,17 @@ interface LessonEditorProps {
   // are not rendered, so `save()` — which PATCHes /api/admin/lessons/{id} —
   // is never reachable from that surface.
   embedded?: boolean
+  /** The lesson's updated_at as loaded (B5). Sent as expected_updated_at, so a
+   * save from an outdated copy is refused instead of silently overwriting. */
+  updatedAt?: string | null
+  /** "Reload their version" after a conflict: the host re-fetches the lesson. */
+  onReload?: () => void
 }
 
-export default function LessonEditor({ lesson, onSave, onLiveChange, embedded = false }: LessonEditorProps) {
+export default function LessonEditor({ lesson, onSave, onLiveChange, embedded = false, updatedAt, onReload }: LessonEditorProps) {
   const [title, setTitle]     = useState(lesson.title ?? '')
   const [blocks, setBlocks]   = useState<ContentBlock[]>((lesson.content_blocks as ContentBlock[] | undefined) ?? [])
   const [dirty, setDirty]     = useState(false)
-  const [saving, setSaving]   = useState(false)
-  const [error, setError]     = useState<string | null>(null)
   // Index at which the block picker is open (a new block is inserted here);
   // null = closed. blocks.length = the bottom "+ Add block" (append).
   const [addAt, setAddAt]     = useState<number | null>(null)
@@ -230,25 +236,21 @@ export default function LessonEditor({ lesson, onSave, onLiveChange, embedded = 
     setAddAt(null)
   }
 
-  async function save() {
-    setSaving(true)
-    setError(null)
-    const { data, error: err } = await client.PATCH('/api/admin/lessons/{lesson_id}', {
-      params: { path: { lesson_id: lesson.id } },
-      body: { title, content_blocks: blocks },
-    })
-
-    setSaving(false)
-    if (err || !data) {
-      setError(errorMessage(err, 'Failed to save.'))
-    } else {
+  // B5: Save = house-style check (soft gate) → PATCH with the base updated_at;
+  // a 409 lesson_changed becomes the Reload / Overwrite prompt (SaveGate).
+  const guarded = useGuardedSave({
+    lessonId: lesson.id,
+    baseUpdatedAt: updatedAt,
+    onReload,
+    onSaved: data => {
       setDirty(false)
       // Hand up the backend's stamped content_blocks (the write strips
       // ephemeral SAS urls; the response re-stamps them) so the just-saved
       // preview shows working media instead of placeholders.
-      onSave?.({ title: data.title, content_blocks: data.content_blocks as ContentBlock[] })
-    }
-  }
+      onSave?.({ title: data.title, content_blocks: data.content_blocks as ContentBlock[], updated_at: data.updated_at })
+    },
+  })
+  const saving = guarded.gate.kind === 'busy'
 
   const headerStyle: React.CSSProperties = {
     fontFamily: 'var(--dlw-font-ui)',
@@ -276,8 +278,21 @@ export default function LessonEditor({ lesson, onSave, onLiveChange, embedded = 
           <span style={{ fontFamily: 'var(--dlw-font-body)', fontWeight: 600, fontSize: 14, color: dirty ? '#B45309' : '#8A8A8A' }}>
             {dirty ? 'Unsaved changes' : 'Saved'}
           </span>
+          <span style={{ display: 'flex', gap: 8 }}>
           <button
-            onClick={save}
+            type="button"
+            onClick={() => void guarded.check(blocks)}
+            disabled={saving}
+            style={{
+              padding: '7px 16px', borderRadius: 999, background: '#fff',
+              border: '1.5px solid #E2E2E2', color: '#3C3C3C',
+              fontFamily: 'var(--dlw-font-body)', fontWeight: 600, fontSize: 14, cursor: 'pointer',
+            }}
+          >
+            Check
+          </button>
+          <button
+            onClick={() => void guarded.save({ title, content_blocks: blocks })}
             disabled={!dirty || saving}
             style={{
               padding: '7px 20px', borderRadius: 999,
@@ -289,13 +304,18 @@ export default function LessonEditor({ lesson, onSave, onLiveChange, embedded = 
           >
             {saving ? 'Saving…' : 'Save'}
           </button>
+          </span>
         </div>
       )}
 
-      {error && (
-        <div style={{ padding: '10px 20px', background: '#FEF2F2', color: '#C42828', fontFamily: 'var(--dlw-font-body)', fontSize: 13 }}>
-          {error}
-        </div>
+      {!embedded && (
+        <SaveGate
+          gate={guarded.gate}
+          onSaveAnyway={() => guarded.saveAnyway({ title, content_blocks: blocks })}
+          onKeepEditing={guarded.keepEditing}
+          onReload={guarded.reload}
+          onOverwrite={() => guarded.overwrite({ title, content_blocks: blocks })}
+        />
       )}
 
       {/* Scrollable content */}

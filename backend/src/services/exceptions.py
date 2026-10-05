@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 __all__ = [
     "AdminTargetForbiddenError",
     "AiGenerationError",
@@ -18,6 +20,7 @@ __all__ = [
     "InvalidRequestError",
     "InvalidSessionError",
     "LastPowerAdminError",
+    "LessonChangedError",
     "LessonNotAccessibleError",
     "LessonSetMismatchError",
     "NotFoundError",
@@ -115,6 +118,17 @@ class AdminTargetForbiddenError(DomainError):
 
 class ConflictError(DomainError):
     """The request conflicts with current state. → 409"""
+
+
+class LessonChangedError(ConflictError):
+    """A lesson save carried an outdated `expected_updated_at` (B5). → 409
+    `lesson_changed`, with who changed it and when, so the editor can offer
+    Reload or Overwrite."""
+
+    def __init__(self, updated_at: datetime, updated_by_name: str | None) -> None:
+        super().__init__("This lesson was changed by someone else while you were editing.")
+        self.updated_at = updated_at
+        self.updated_by_name = updated_by_name
 
 
 class EmailAlreadyRegisteredError(ConflictError):
