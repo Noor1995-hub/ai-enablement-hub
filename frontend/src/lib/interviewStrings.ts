@@ -27,6 +27,7 @@ const INTERVIEW_EN = {
   startButton: 'Start the interview',
   languagePickerLabel: 'Interview language',
   conversationLabel: 'Conversation',
+  interviewerName: 'Your interviewer',
   typing: 'The interviewer is typing',
   typingAnnouncement: 'The interviewer is typing.',
   tryAgain: 'Try again',
@@ -58,6 +59,7 @@ const INTERVIEW_EN = {
     'Turning our conversation into practical use cases and clear next steps. This usually takes a ' +
     'minute or two, so hang tight and keep this tab open. Your playbook will appear here.',
   buildingAnnouncement: 'Building your playbook. This usually takes a minute or two.',
+  playbookWillContain: 'Your playbook will contain',
   readyAnnouncement: 'Your playbook is ready.',
   playbookHeading: 'Your AI playbook',
   playbookIntro: 'Built from your interview. You can come back to it any time from the hub.',
@@ -86,6 +88,7 @@ const INTERVIEW_NL: InterviewStrings = {
   startButton: 'Start het gesprek',
   languagePickerLabel: 'Taal van het gesprek',
   conversationLabel: 'Gesprek',
+  interviewerName: 'Uw interviewer',
   typing: 'De interviewer is aan het typen',
   typingAnnouncement: 'De interviewer is aan het typen.',
   tryAgain: 'Probeer opnieuw',
@@ -115,6 +118,7 @@ const INTERVIEW_NL: InterviewStrings = {
     'We zetten ons gesprek om in praktische toepassingen en duidelijke volgende stappen. Dat duurt ' +
     'meestal een minuutje of twee, dus even geduld en laat dit tabblad open. Uw playbook verschijnt hier.',
   buildingAnnouncement: 'Uw playbook wordt gebouwd. Dat duurt meestal een minuutje of twee.',
+  playbookWillContain: 'Uw playbook bevat',
   readyAnnouncement: 'Uw playbook is klaar.',
   playbookHeading: 'Uw AI-playbook',
   playbookIntro: 'Gebouwd op basis van uw gesprek. U kunt er altijd naar terugkeren via de hub.',
@@ -156,6 +160,14 @@ const PLAYBOOK_EN = {
   difficultyQuickWin: 'Quick win',
   difficultyWorthASession: 'Worth a session',
   difficultyBiggerBuild: 'Bigger build',
+  showDetails: 'Show details',
+  hideDetails: 'Hide details',
+  systems: 'Systems',
+  withColleagues: 'Involves colleagues',
+  forUseCase: 'For: ',
+  timeNeeded: 'Time needed: ',
+  useCaseCountOne: 'One use case, picked for you',
+  useCaseCountMany: '{n} use cases, ranked for you',
 }
 
 export type PlaybookStrings = typeof PLAYBOOK_EN
@@ -178,9 +190,22 @@ const PLAYBOOK_NL: PlaybookStrings = {
   difficultyQuickWin: 'Snelle winst',
   difficultyWorthASession: 'Een sessie waard',
   difficultyBiggerBuild: 'Groter project',
+  showDetails: 'Details tonen',
+  hideDetails: 'Details verbergen',
+  systems: 'Systemen',
+  withColleagues: 'Samen met collega’s',
+  forUseCase: 'Voor: ',
+  timeNeeded: 'Benodigde tijd: ',
+  useCaseCountOne: 'Eén toepassing, voor u gekozen',
+  useCaseCountMany: '{n} toepassingen, voor u gerangschikt',
 }
 
 export const PLAYBOOK_STRINGS: Record<InterviewLanguage, PlaybookStrings> = {
   en: PLAYBOOK_EN,
   nl: PLAYBOOK_NL,
+}
+
+/** The use-case count under the playbook's use-case heading, singular for one. */
+export function formatUseCaseCount(n: number, t: PlaybookStrings): string {
+  return n === 1 ? t.useCaseCountOne : t.useCaseCountMany.replace('{n}', String(n))
 }

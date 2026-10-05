@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import ts from 'typescript'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -121,6 +121,60 @@ describe('Interview: the language choice', () => {
 
     expect(await screen.findByRole('heading', { name: NL.needsAssessmentHeading })).toBeTruthy()
     expect(screen.getByText(NL.needsAssessmentText)).toBeTruthy()
+  })
+
+  it('names the interviewer above the hint in the chat header', async () => {
+    api.getInterviewState.mockResolvedValue({ status: 'in_progress', language: 'nl', conversation_id: 'c1' })
+    chat.messages = [{ role: 'assistant', content: 'Waar werkt u het meest in?' }]
+    renderPage()
+    const hint = await screen.findByText(NL.hintFirstAnswer)
+    const header = hint.closest('.iv-chat-head') as HTMLElement
+    expect(header).toBeTruthy()
+    expect(within(header).getByText(NL.interviewerName)).toBeTruthy()
+  })
+
+  it('shows the three steps as an ordered list and no label above the heading', async () => {
+    renderPage()
+    await screen.findByRole('heading', { name: EN.welcomeHeading })
+    const steps = screen.getAllByRole('list').find(list => list.tagName === 'OL')!
+    expect(steps).toBeTruthy()
+    expect(within(steps).getAllByRole('listitem').map(li => li.textContent)).toEqual([
+      EN.stepTalkLabel + EN.stepTalkText, EN.stepBuildLabel + EN.stepBuildText, EN.stepStartLabel + EN.stepStartText,
+    ])
+    expect(screen.queryByText(EN.eyebrow)).toBeNull()
+  })
+})
+
+describe('Interview: the playbook', () => {
+  const shared = {
+    where_you_are_today: 'Intro.\n\n- One.\n- Two.',
+    use_cases: [{ rank: 1, start_here: true, name: 'Draft the supplier emails', pain_it_kills: 'Five emails', in_practice: 'Prompt.', before: 'B.', after: 'A.', impact: 'I.', difficulty: 'Quick Win' as const, systems_involved: ['Outlook'], assumption_to_check: null, cross_functional: false }],
+    next_moves: [{ order: 1, move: 'Try it Monday', why_now: 'Low risk.', linked_use_case: 1 }],
+    reframes: [],
+    do_this_today: { action: 'Paste the list into Copilot.', time_required: '10 minutes', why_this_one: 'No approval.' },
+  }
+
+  it('opens on the page heading, then Do this today, in the interview language', async () => {
+    api.getInterviewState.mockResolvedValue({ status: 'complete', playbook: shared, language: 'nl' })
+    renderPage()
+    expect(await screen.findByRole('heading', { level: 1, name: NL.playbookHeading })).toBeTruthy()
+    expect(screen.getAllByRole('heading', { level: 2 })[0].textContent).toBe('Doe dit vandaag')
+    expect(screen.getByText('Paste the list into Copilot.')).toBeTruthy()
+  })
+})
+
+describe('Interview: building', () => {
+  it('lists what the playbook will contain, in the playbook’s order, in the interview language', async () => {
+    api.getInterviewState.mockResolvedValue({ status: 'in_progress', language: 'nl', conversation_id: 'c1' })
+    api.buildPlaybook.mockReturnValue(new Promise(() => {}))
+    chat.messages = longConversation()
+    renderPage()
+    fireEvent.click(await screen.findByRole('button', { name: NL.buildButton }))
+    expect(await screen.findByRole('heading', { name: NL.buildingHeading })).toBeTruthy()
+    const parts = screen.getByText(NL.playbookWillContain).nextElementSibling as HTMLElement
+    expect(within(parts).getAllByRole('listitem').map(li => li.textContent)).toEqual([
+      'Doe dit vandaag', 'Uw AI-toepassingen', 'Uw volgende stappen', 'Wat u misschien tegenhoudt', 'Waar u vandaag staat',
+    ])
   })
 })
 

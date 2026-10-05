@@ -12,14 +12,15 @@ import { client } from '../api/client'
 import AppNav from '../components/AppNav'
 import Spinner from '../components/Spinner'
 import LanguagePicker from '../components/interview/LanguagePicker'
-import Playbook from '../components/interview/Playbook'
+import LearnerPlaybook from '../components/interview/LearnerPlaybook'
+import { INTERVIEW_CSS } from '../components/interview/interviewCss'
 import { useAuth } from '../contexts/AuthContext'
 import { resolveInterviewTile } from '../lib/interviewAccess'
 import { buildPlaybook, getInterviewState, openInterview } from '../lib/interviewApi'
 import { allToolbarHints, chatToolbarHint } from '../lib/interviewHints'
 import { parseReadySignal } from '../lib/interviewReady'
 import { useChat } from '../lib/useChat'
-import { DEFAULT_INTERVIEW_LANGUAGE, INTERVIEW_STRINGS, interviewError, type InterviewLanguage, type InterviewStrings } from '../lib/interviewStrings'
+import { DEFAULT_INTERVIEW_LANGUAGE, INTERVIEW_STRINGS, PLAYBOOK_STRINGS, interviewError, type InterviewLanguage, type InterviewStrings } from '../lib/interviewStrings'
 import { bubbleView, buildButtonStatus, liveAnnouncement } from '../lib/interviewChatView'
 import type { InterviewState } from '../types/domain'
 
@@ -52,48 +53,22 @@ const MAX_INPUT = 4000
 const BUILD_HINT_ID = 'interview-build-hint'
 
 const s = {
-  page: { minHeight: '100vh', background: '#fff', display: 'flex', flexDirection: 'column' },
-  languageRow: { display: 'flex', justifyContent: 'flex-end', marginBottom: 18 },
-  main: { flex: 1, width: 'min(760px, 100%)', margin: '0 auto', padding: '44px 40px 80px', boxSizing: 'border-box' },
+  // The redesign's warm-grey page (the brand's own token); each screen sits on a white sheet
+  // (interviewCss.ts iv-sheet).
+  page: { minHeight: '100vh', background: 'var(--dlw-warm-grey)', display: 'flex', flexDirection: 'column' },
+  main: { flex: 1, width: '100%', margin: '0 auto', padding: '0 24px', boxSizing: 'border-box' },
   // Chat phase: the page is pinned to the window so the chat and the Build button always fit.
   // inset:0, not height:100vh: vh units disagree with the baked-in :root zoom (same approach
   // as LessonPage's edit mode). overflowY:auto, so a very short window scrolls, never clips.
   pageChat: { position: 'fixed', inset: 0, minHeight: 0, overflowY: 'auto' },
-  mainChat: { display: 'flex', flexDirection: 'column', padding: '28px 40px 24px' },
+  // 908 = the 860px sheet plus 2 x 24px padding, so the chat lines up with the other screens.
+  mainChat: { display: 'flex', flexDirection: 'column', width: 'min(908px, 100%)', padding: '24px 24px 20px' },
   chatScreen: { flex: 1, display: 'flex', flexDirection: 'column' },
 
   loadingWrap: { minHeight: 400, display: 'flex' },
-  errorMsg: { fontSize: 15, fontWeight: 300, color: 'var(--dlw-primary-red)', margin: '40px 0 0' },
+  errorMsg: { fontSize: 15, fontWeight: 300, color: 'var(--dlw-primary-red)', margin: 0 },
 
-  // ── Welcome ──
-  eyebrow: {
-    fontFamily: 'var(--dlw-font-ui)', fontWeight: 600,
-    fontSize: 11, letterSpacing: '0.16em', textTransform: 'uppercase',
-    color: 'var(--dlw-dot-red)', margin: '0 0 14px',
-  },
-  heading: {
-    fontFamily: 'var(--dlw-font-body)', fontWeight: 700,
-    fontSize: 40, lineHeight: 1.15, letterSpacing: '-0.015em',
-    color: 'var(--dlw-black)', margin: '0 0 18px',
-  },
-  body: { fontSize: 16, fontWeight: 300, color: MUTED_TEXT, lineHeight: 1.65, margin: '0 0 28px', maxWidth: '58ch' },
-
-  stepsGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, margin: '0 0 24px' },
-  stepCard: { border: '1px solid var(--dlw-border)', borderRadius: 10, padding: '14px 16px' },
-  stepLabel: {
-    display: 'block', fontFamily: 'var(--dlw-font-ui)', fontWeight: 700,
-    fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase',
-    color: 'var(--dlw-dot-red)', marginBottom: 6,
-  },
-  stepText: { margin: 0, fontSize: 13.5, fontWeight: 300, lineHeight: 1.5, color: 'var(--dlw-text)' },
-
-  notice: {
-    display: 'flex', gap: 10, alignItems: 'flex-start',
-    background: 'var(--dlw-surface)', border: '1px solid var(--dlw-border)',
-    borderRadius: 10, padding: '12px 14px', margin: '0 0 32px',
-  },
-  noticeText: { margin: 0, fontSize: 13, lineHeight: 1.55, color: MUTED_TEXT },
-
+  // ── Buttons ──
   // Primary-red base (white text 5.70:1; the brighter dot-red was 3.74:1, too low for the
   // small buttons). Used with className "btn-red-dark", whose hover darkens to sub-red-2.
   btnPrimary: {
@@ -111,41 +86,34 @@ const s = {
   // hidden) keeps the rounded corners but is not a scroll container, so the box never shrinks
   // below its content: in a very short window or at high zoom the page scrolls instead of the
   // conversation collapsing or the answer box being cut off.
+  // The white sheet's look (background, radius, shadow) comes from the iv-chat class; the
+  // radius stays inline too because overflow:clip needs it on the same element.
   chatShell: {
     display: 'flex', flexDirection: 'column',
-    flex: '1 1 0', maxHeight: 720,
-    border: '1px solid var(--dlw-border)', borderRadius: 12,
-    background: '#fff', boxShadow: '0 16px 36px -20px rgba(16,24,32,0.30)',
+    flex: '1 1 0', maxHeight: 720, borderRadius: 20,
     overflow: 'clip',
-  },
-  chatToolbar: {
-    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
-    padding: '14px 18px', borderBottom: '1px solid var(--dlw-border)', background: 'var(--dlw-surface)',
   },
   // All hints share one grid cell (only the current one visible), so the cell is as tall as
   // the longest hint at this width: a hint that wraps to two lines on a narrow window or at
   // 200% zoom never makes the toolbar jump when the hint changes.
   chatToolbarHints: { display: 'grid', flex: 1, minWidth: 0 },
-  chatToolbarHint: { gridArea: '1 / 1', margin: 0, fontSize: 13, fontWeight: 300, color: MUTED_TEXT },
+  chatToolbarHint: { gridArea: '1 / 1', margin: 0, fontSize: 13.5, fontWeight: 400, lineHeight: 1.45, color: MUTED_TEXT },
   chatToolbarHintSpacer: { visibility: 'hidden' },
 
   // minHeight: always room for the latest message, however little space the window leaves.
-  messages: { flex: '1 1 0', minHeight: 160, overflowY: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 12 },
+  messages: { flex: '1 1 0', minHeight: 160, overflowY: 'auto', padding: '26px 28px', display: 'flex', flexDirection: 'column', gap: 18 },
   // position:relative contains the hidden speaker label (srOnly is absolute), so it scrolls
-  // with the list instead of stretching the pinned chat page.
-  bubble: {
-    position: 'relative', maxWidth: '78%', padding: '10px 14px', borderRadius: 14,
-    fontSize: 14.5, lineHeight: 1.55, whiteSpace: 'pre-wrap',
-  },
-  bubbleUser: { alignSelf: 'flex-end', background: 'var(--dlw-primary-red)', color: '#fff', borderBottomRightRadius: 4 },
-  bubbleAssistant: { alignSelf: 'flex-start', background: 'var(--dlw-surface)', color: 'var(--dlw-text)', borderBottomLeftRadius: 4 },
+  // with the list instead of stretching the pinned chat page. The look per speaker comes from
+  // the iv-msg-ai / iv-msg-me classes (interviewCss.ts): interviewer turns as plain text with
+  // the red dot, the learner's answers in warm-grey bubbles.
+  bubble: { position: 'relative', lineHeight: 1.55, whiteSpace: 'pre-wrap' },
   chatError: { margin: 0, fontSize: 13, color: 'var(--dlw-primary-red)' },
   typingDots: { display: 'inline-flex', gap: 4, alignItems: 'center', height: '1.55em', verticalAlign: 'bottom' },
   typingDotsAfterText: { marginLeft: 8 },
   // 4.89:1 on the bubble grey; the animation never dims below 3:1 (non-text contrast).
   typingDot: { width: 6, height: 6, borderRadius: '50%', background: MUTED_TEXT },
 
-  privacyNotice: { fontSize: 11.5, fontWeight: 300, color: MUTED_TEXT, textAlign: 'center', padding: '8px 18px 0', margin: 0 },
+  privacyNotice: { fontSize: 12, fontWeight: 400, color: MUTED_TEXT, padding: '4px 28px 14px', margin: 0 },
 
   buildBar: {
     display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
@@ -153,7 +121,7 @@ const s = {
   },
   buildError: { margin: 0, fontSize: 13, color: 'var(--dlw-primary-red)', textAlign: 'center' },
 
-  chatForm: { display: 'flex', gap: 10, alignItems: 'flex-end', padding: '14px 18px', borderTop: '1px solid var(--dlw-border)' },
+  chatForm: { display: 'flex', gap: 10, alignItems: 'flex-end', padding: '14px 20px 6px 28px', borderTop: '1px solid var(--dlw-border)' },
   // overflowY is set by the auto-grow effect (only scrolls once maxHeight is reached).
   chatInput: {
     flex: 1, padding: '11px 16px', borderRadius: 16,
@@ -173,15 +141,8 @@ const s = {
     overflow: 'hidden', clip: 'rect(0, 0, 0, 0)', whiteSpace: 'nowrap', border: 0,
   },
 
-  // ── Building ──
-  buildingWrap: {
-    minHeight: 400, display: 'flex', flexDirection: 'column',
-    alignItems: 'center', justifyContent: 'center', gap: 6, textAlign: 'center',
-  },
-  buildingTitle: { fontFamily: 'var(--dlw-font-body)', fontWeight: 700, fontSize: 20, color: 'var(--dlw-black)', margin: '18px 0 0', outline: 'none' },
   // Headings that receive focus programmatically (tabIndex -1) are not controls: no ring.
   focusTarget: { outline: 'none' },
-  buildingSub: { fontSize: 14, fontWeight: 300, color: MUTED_TEXT, margin: '6px 0 0', maxWidth: '40ch' },
 } satisfies Record<string, CSSProperties>
 
 // ── Welcome screen ──────────────────────────────────────────────────────────
@@ -196,44 +157,33 @@ function WelcomeScreen({
   onLanguageChange: (language: InterviewLanguage) => void
 }) {
   const t = INTERVIEW_STRINGS[language]
+  const steps: [string, string][] = [
+    [t.stepTalkLabel, t.stepTalkText], [t.stepBuildLabel, t.stepBuildText], [t.stepStartLabel, t.stepStartText],
+  ]
   return (
-    <div>
+    <div className="iv-sheet">
       {/* The learner's language choice (#83), first thing on the page: the screen switches
           as soon as one is picked, and the interview runs in it. */}
-      <div style={s.languageRow}>
+      <div className="iv-top">
         <LanguagePicker value={language} onChange={onLanguageChange} label={t.languagePickerLabel} />
       </div>
       {/* No eyebrow above the heading here: the heading says it on its own. */}
-      <h1 style={s.heading}>{t.welcomeHeading}</h1>
-      <p style={s.body}>
-        {t.welcomeBodyBefore}
-        <strong style={{ fontWeight: 600, color: 'var(--dlw-black)' }}>{t.welcomeBodyStrong}</strong>
-        {t.welcomeBodyAfter}
+      <h1 className="iv-h1">{t.welcomeHeading}</h1>
+      <p className="iv-lead">
+        {t.welcomeBodyBefore}<strong>{t.welcomeBodyStrong}</strong>{t.welcomeBodyAfter}
       </p>
-
-      <div style={s.stepsGrid}>
-        <div style={s.stepCard}>
-          <span style={s.stepLabel}>1 &middot; {t.stepTalkLabel}</span>
-          <p style={s.stepText}>{t.stepTalkText}</p>
-        </div>
-        <div style={s.stepCard}>
-          <span style={s.stepLabel}>2 &middot; {t.stepBuildLabel}</span>
-          <p style={s.stepText}>{t.stepBuildText}</p>
-        </div>
-        <div style={s.stepCard}>
-          <span style={s.stepLabel}>3 &middot; {t.stepStartLabel}</span>
-          <p style={s.stepText}>{t.stepStartText}</p>
-        </div>
+      {/* The three steps really are a sequence: a line with the logo's red dots. */}
+      <ol className="iv-steps">
+        {steps.map(([label, text]) => (
+          <li key={label}><span className="iv-dot" aria-hidden="true" /><strong>{label}</strong><span>{text}</span></li>
+        ))}
+      </ol>
+      <div className="iv-start">
+        <button type="button" className="btn-red-dark" style={{ ...s.btnPrimary, padding: '14px 32px', fontSize: 16 }} onClick={onStart}>
+          {t.startButton}
+        </button>
+        <p className="iv-privacy">{t.privacyNotice}</p>
       </div>
-
-      <div style={s.notice}>
-        <span aria-hidden="true">🔒</span>
-        <p style={s.noticeText}>{t.privacyNotice}</p>
-      </div>
-
-      <button type="button" className="btn-red-dark" style={s.btnPrimary} onClick={onStart}>
-        {t.startButton} <span aria-hidden="true">→</span>
-      </button>
     </div>
   )
 }
@@ -245,18 +195,29 @@ function WelcomeScreen({
 
 function NeedsAssessmentScreen({ onGoToAssessment, t }: { onGoToAssessment: () => void; t: InterviewStrings }) {
   return (
-    <div>
-      <p style={s.eyebrow}>{t.eyebrow}</p>
-      <h1 style={s.heading}>{t.needsAssessmentHeading}</h1>
-      <p style={s.body}>{t.needsAssessmentText}</p>
+    <div className="iv-sheet">
+      <h1 className="iv-h1">{t.needsAssessmentHeading}</h1>
+      <p className="iv-lead">{t.needsAssessmentText}</p>
       <button type="button" className="btn-red-dark" style={s.btnPrimary} onClick={onGoToAssessment}>
-        {t.needsAssessmentButton} <span aria-hidden="true">→</span>
+        {t.needsAssessmentButton}
       </button>
     </div>
   )
 }
 
 // ── Chat screen ──────────────────────────────────────────────────────────────
+
+/** A quiet speech-bubble outline next to "Your interviewer" (redesign D): the black disc with
+ *  the logo dot was too prominent. Decorative; the name next to it says who it is. */
+function InterviewerMark() {
+  return (
+    <svg className="iv-mark" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      {/* Path written with commas, not spaces: the house-style guard reads a capitalised
+          literal with spaces as prose. */}
+      <path d="M4,5.5A2.5,2.5,0,0,1,6.5,3h11A2.5,2.5,0,0,1,20,5.5v8a2.5,2.5,0,0,1-2.5,2.5H10l-4.2,3.6c-.5.4-1.3.1-1.3-.6V16A2.5,2.5,0,0,1,4,13.5z" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+    </svg>
+  )
+}
 
 /** What inline styles can't express: the typing-dot keyframes (the dots never dim below
  *  75%, so they stay above 3:1) and the conversation's inset keyboard focus ring (inset, so
@@ -399,14 +360,18 @@ function ChatScreen({ chat, buildError, onBuildPlaybook, opening, openError, onR
       <h1 style={s.srOnly}>{t.eyebrow}</h1>
       <style>{CHAT_CSS}</style>
 
-      <div style={s.chatShell}>
-        <div style={s.chatToolbar}>
-          <div style={s.chatToolbarHints}>
-            <p id={BUILD_HINT_ID} style={s.chatToolbarHint}>{toolbarHint}</p>
-            {/* Hidden (to screen readers too): they only hold the toolbar's height. */}
-            {allToolbarHints(language).filter(hint => hint !== toolbarHint).map(hint => (
-              <p key={hint} style={{ ...s.chatToolbarHint, ...s.chatToolbarHintSpacer }}>{hint}</p>
-            ))}
+      <div className="iv-chat" style={s.chatShell}>
+        <div className="iv-chat-head">
+          <InterviewerMark />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p className="iv-who">{t.interviewerName}</p>
+            <div style={s.chatToolbarHints}>
+              <p id={BUILD_HINT_ID} style={s.chatToolbarHint}>{toolbarHint}</p>
+              {/* Hidden (to screen readers too): they only hold the toolbar's height. */}
+              {allToolbarHints(language).filter(hint => hint !== toolbarHint).map(hint => (
+                <p key={hint} style={{ ...s.chatToolbarHint, ...s.chatToolbarHintSpacer }}>{hint}</p>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -421,7 +386,7 @@ function ChatScreen({ chat, buildError, onBuildPlaybook, opening, openError, onR
           className="iv-conversation"
         >
           {chat.messages.length === 0 && opening && (
-            <div style={{ ...s.bubble, ...s.bubbleAssistant }}>
+            <div className="iv-msg-ai" style={s.bubble}>
               <span style={s.srOnly}>{t.typing}</span>
               <TypingDots />
             </div>
@@ -438,10 +403,7 @@ function ChatScreen({ chat, buildError, onBuildPlaybook, opening, openError, onR
             const view = bubbleView(display, i, chat.loading)
             if (view === 'hidden') return null
             return (
-              <div
-                key={i}
-                style={{ ...s.bubble, ...(m.role === 'user' ? s.bubbleUser : s.bubbleAssistant) }}
-              >
+              <div key={i} className={m.role === 'user' ? 'iv-msg-me' : 'iv-msg-ai'} style={s.bubble}>
                 {view === 'typing' ? (
                   <>
                     <span style={s.srOnly}>{t.typing}</span>
@@ -517,14 +479,21 @@ function ChatScreen({ chat, buildError, onBuildPlaybook, opening, openError, onR
 
 // ── Building screen ──────────────────────────────────────────────────────────
 
-function BuildingScreen({ t }: { t: InterviewStrings }) {
+function BuildingScreen({ language }: { language: InterviewLanguage }) {
+  const t = INTERVIEW_STRINGS[language]
+  const p = PLAYBOOK_STRINGS[language]
+  // The playbook's own section order (LearnerPlaybook), so the list matches what appears.
+  const parts = [p.doThisToday, p.useCases, p.nextMoves, p.holdingYouBack, p.whereYouAreToday]
   return (
-    <div style={s.buildingWrap}>
-      {/* A plain block wrapper: the shared Spinner stretches (flex: 1) in a flex column,
-          which pushed the title far below it. */}
-      <div><Spinner /></div>
-      <h1 id={BUILDING_HEADING_ID} tabIndex={-1} style={s.buildingTitle}>{t.buildingHeading}</h1>
-      <p style={s.buildingSub}>{t.buildingText}</p>
+    <div className="iv-sheet">
+      {/* Indeterminate on purpose: the build reports no progress, so nothing pretends to. */}
+      <div className="iv-track" aria-hidden="true"><span className="iv-dot iv-run" /></div>
+      <h1 id={BUILDING_HEADING_ID} tabIndex={-1} className="iv-h1" style={s.focusTarget}>{t.buildingHeading}</h1>
+      <p className="iv-lead" style={{ fontSize: 18, color: 'var(--dlw-text)' }}>{t.buildingText}</p>
+      <p className="iv-small">{t.playbookWillContain}</p>
+      <ul className="iv-parts">
+        {parts.map(part => <li key={part}><span className="iv-dot" aria-hidden="true" />{part}</li>)}
+      </ul>
     </div>
   )
 }
@@ -680,6 +649,7 @@ export default function Interview() {
 
   return (
     <div style={chatLayout ? { ...s.page, ...s.pageChat } : s.page}>
+      <style>{INTERVIEW_CSS}</style>
       {/* Short on purpose: AppNav's 64px bar can't fit a two-line title. */}
       <AppNav backTo="/" title="Interview" />
       {/* The page's only live region, mounted once for every phase so screen readers pick up
@@ -688,7 +658,7 @@ export default function Interview() {
       <div aria-live="polite" lang={language} style={s.srOnly}>{announcement}</div>
       <main lang={language} style={chatLayout ? { ...s.main, ...s.mainChat } : s.main}>
         {shownLoadError ? (
-          <p style={s.errorMsg}>{shownLoadError}</p>
+          <div className="iv-sheet"><p style={s.errorMsg}>{shownLoadError}</p></div>
         ) : phase === 'loading' ? (
           <div style={s.loadingWrap}><Spinner /></div>
         ) : phase === 'needs_assessment' ? (
@@ -706,17 +676,19 @@ export default function Interview() {
             language={language}
           />
         ) : phase === 'building' ? (
-          <BuildingScreen t={t} />
+          <BuildingScreen language={language} />
         ) : state?.playbook ? (
-          // The heading lives here, not in Playbook: the admin panel renders Playbook too.
-          <div>
-            <p style={s.eyebrow}>{t.eyebrow}</p>
-            <h1 id={PLAYBOOK_HEADING_ID} tabIndex={-1} style={{ ...s.heading, ...s.focusTarget }}>{t.playbookHeading}</h1>
-            <p style={s.body}>{t.playbookIntro}</p>
-            <Playbook shared={state.playbook} language={language} />
+          // The heading lives here, not in the playbook component. The admin card keeps its own
+          // Playbook (components/interview/Playbook.tsx); this page renders the learner's.
+          <div className="iv-sheet iv-sheet-wide">
+            <header className="iv-pb-head">
+              <h1 id={PLAYBOOK_HEADING_ID} tabIndex={-1} className="iv-h1" style={s.focusTarget}>{t.playbookHeading}</h1>
+              <p>{t.playbookIntro}</p>
+            </header>
+            <LearnerPlaybook shared={state.playbook} language={language} />
           </div>
         ) : (
-          <p style={s.errorMsg}>{t.playbookUnavailable}</p>
+          <div className="iv-sheet"><p style={s.errorMsg}>{t.playbookUnavailable}</p></div>
         )}
       </main>
     </div>
