@@ -11,6 +11,7 @@ import pytest
 from evals.interviewer import cases as cases_module
 from evals.interviewer import runner
 from src.services.llm_service import LlmUsage
+from src.services.playbook_document import render_playbook_document
 from tests.fixtures.llm import FakeLlmClient
 
 _EXTRACTION: dict[str, Any] = {
@@ -65,6 +66,9 @@ _EXTRACTION: dict[str, Any] = {
     },
 }
 
+# The playbook as the model writes it since #149: a tagged document.
+_DOC = render_playbook_document(_EXTRACTION)
+
 
 def _case(case_id: str) -> dict[str, Any]:
     return {
@@ -90,8 +94,7 @@ def _case(case_id: str) -> dict[str, Any]:
 
 async def test_a_full_run_writes_a_complete_row_and_trace(tmp_path: Path) -> None:
     llm = FakeLlmClient(
-        chunks=[],
-        structured=_EXTRACTION,
+        chunks=[_DOC],
         usage=LlmUsage(10, 20, model="fake-model", stop_reason="tool_use"),
     )
 
@@ -121,7 +124,7 @@ async def test_a_full_run_writes_a_complete_row_and_trace(tmp_path: Path) -> Non
 
 
 async def test_a_conflict_error_lands_in_errors_not_results(tmp_path: Path) -> None:
-    llm = FakeLlmClient(chunks=[], structured=_EXTRACTION)
+    llm = FakeLlmClient(chunks=[_DOC])
     case = _case("thin-case")
     case["transcript"] = [
         {"role": "user", "content": "one answer only"}
@@ -147,8 +150,7 @@ async def test_a_conflict_error_lands_in_errors_not_results(tmp_path: Path) -> N
 
 async def test_a_served_model_mismatch_fails_the_attempt(tmp_path: Path) -> None:
     llm = FakeLlmClient(
-        chunks=[],
-        structured=_EXTRACTION,
+        chunks=[_DOC],
         usage=LlmUsage(10, 20, model="claude-other", stop_reason="tool_use"),
     )
 
@@ -176,8 +178,7 @@ async def test_run_refuses_an_unknown_model_before_spending_anything(tmp_path: P
     """F4: an unpriced `expected_model` must fail fast, before any (case, rep) attempt
     starts - not partway through billing, once `_bill` happens to raise."""
     llm = FakeLlmClient(
-        chunks=[],
-        structured=_EXTRACTION,
+        chunks=[_DOC],
         usage=LlmUsage(10, 20, model="not-a-real-model", stop_reason="tool_use"),
     )
 
@@ -199,8 +200,7 @@ async def test_a_served_model_dated_snapshot_passes(tmp_path: Path) -> None:
     """R4: a dated snapshot of the expected model id (e.g. what the provider serves the
     day after a release) is not a mismatch."""
     llm = FakeLlmClient(
-        chunks=[],
-        structured=_EXTRACTION,
+        chunks=[_DOC],
         usage=LlmUsage(10, 20, model="fake-model-20260101", stop_reason="tool_use"),
     )
 
@@ -224,8 +224,7 @@ async def test_a_served_model_dated_snapshot_passes(tmp_path: Path) -> None:
 
 async def test_resume_skips_finished_pairs_when_reps_increases(tmp_path: Path) -> None:
     llm = FakeLlmClient(
-        chunks=[],
-        structured=_EXTRACTION,
+        chunks=[_DOC],
         usage=LlmUsage(10, 20, model="fake-model", stop_reason="tool_use"),
     )
     case = _case("cfo-food")
@@ -260,8 +259,7 @@ async def test_spend_cap_stops_new_work_without_discarding_completed_attempts(
     tmp_path: Path,
 ) -> None:
     llm = FakeLlmClient(
-        chunks=[],
-        structured=_EXTRACTION,
+        chunks=[_DOC],
         usage=LlmUsage(10, 20, model="fake-model", stop_reason="tool_use"),
     )
     cases = [_case(f"case-{i}") for i in range(6)]
@@ -289,8 +287,7 @@ async def test_spend_cap_accounts_for_cost_already_billed_in_errors_jsonl(
     `_committed_spend` must count that prior billed cost or the spend cap resets to zero
     on every restart and never actually caps anything."""
     erroring_llm = FakeLlmClient(
-        chunks=[],
-        structured={"not": "a valid extraction"},
+        chunks=["not a playbook document"],
         usage=LlmUsage(10, 20, model="fake-model", stop_reason="tool_use"),
     )
     case_a = _case("cfo-food")
@@ -314,8 +311,7 @@ async def test_spend_cap_accounts_for_cost_already_billed_in_errors_jsonl(
     assert billed_so_far > 0
 
     good_llm = FakeLlmClient(
-        chunks=[],
-        structured=_EXTRACTION,
+        chunks=[_DOC],
         usage=LlmUsage(10, 20, model="fake-model", stop_reason="tool_use"),
     )
     case_b = _case("second-case")
@@ -344,14 +340,13 @@ async def test_spend_cap_accounts_for_cost_already_billed_in_errors_jsonl(
 async def test_a_max_tokens_stop_reason_is_classified_as_truncated_on_the_domain_error_path(
     tmp_path: Path,
 ) -> None:
-    """R5: build_playbook fails after two unusable attempts (invalid structured output),
+    """R5: build_playbook fails after two unusable attempts (an invalid document),
     and every recorded call reports stop_reason == 'max_tokens' -> failure_class
     'truncated', taking priority over the message-based classification (the DomainError's
     own message here is the generic "Could not generate the playbook" one, which the
     message-based classifier would otherwise call 'generation_failed')."""
     llm = FakeLlmClient(
-        chunks=[],
-        structured={"not": "a valid extraction"},
+        chunks=["not a playbook document"],
         usage=LlmUsage(10, 20, model="fake-model", stop_reason="max_tokens"),
     )
 
@@ -374,14 +369,12 @@ async def test_a_max_tokens_stop_reason_is_classified_as_truncated_on_the_domain
     assert errors[0]["cost_usd"] > 0
 
 
-async def test_a_successful_row_is_marked_truncated_when_the_last_call_hit_max_tokens(
-    tmp_path: Path,
-) -> None:
-    """R5, success-path half: a usable extraction that nonetheless stopped on
-    max_tokens still gets graded, but its row is flagged 'truncated' rather than 'ok'."""
+async def test_a_cut_off_playbook_is_never_graded_as_a_success(tmp_path: Path) -> None:
+    """R5, since #149: a document that stopped on max_tokens may be missing its end, so the
+    service never uses it, even when what arrived happens to parse. The pair lands in
+    errors.jsonl as 'truncated', not in results.jsonl."""
     llm = FakeLlmClient(
-        chunks=[],
-        structured=_EXTRACTION,
+        chunks=[_DOC],
         usage=LlmUsage(10, 20, model="fake-model", stop_reason="max_tokens"),
     )
 
@@ -395,11 +388,12 @@ async def test_a_successful_row_is_marked_truncated_when_the_last_call_hit_max_t
         runs_dir=tmp_path,
     )
 
-    rows = [
+    assert not (tmp_path / "v1" / "results.jsonl").exists()
+    errors = [
         json.loads(line)
-        for line in (tmp_path / "v1" / "results.jsonl").read_text(encoding="utf-8").splitlines()
+        for line in (tmp_path / "v1" / "errors.jsonl").read_text(encoding="utf-8").splitlines()
     ]
-    assert rows[0]["status"] == "truncated"
+    assert errors[0]["failure_class"] == "truncated"
 
 
 def _sdk_error(cls: Any, status: int) -> Exception:
@@ -410,7 +404,7 @@ def _sdk_error(cls: Any, status: int) -> Exception:
 
 
 class _ApiErrorLlmClient:
-    """An inner LlmClient whose structured call raises a real (non-transient) anthropic
+    """An inner LlmClient whose playbook stream raises a real (non-transient) anthropic
     SDK error, the way an auth or bad-request failure would, so it escapes
     InterviewService.build_playbook raw (spec: only transient errors get wrapped)."""
 
@@ -420,10 +414,10 @@ class _ApiErrorLlmClient:
         self._exc = exc
 
     def stream_reply(self, **_: object) -> Any:
-        raise NotImplementedError
+        raise self._exc
 
     async def complete_structured(self, **_: object) -> tuple[dict[str, object], LlmUsage]:
-        raise self._exc
+        raise NotImplementedError
 
 
 async def test_a_non_transient_anthropic_api_error_lands_in_errors_as_provider_error(

@@ -1,20 +1,6 @@
 from __future__ import annotations
 
-import json
-
 from src.schemas.interview import PlaybookExtraction
-from src.services.interview_schema import PLAYBOOK_SCHEMA
-
-
-def test_schema_top_level_is_two_boxes() -> None:
-    properties = PLAYBOOK_SCHEMA.input_schema["properties"]
-    assert set(properties.keys()) == {"internal", "shared"}
-
-
-def test_difficulty_enum_labels() -> None:
-    schema_text = json.dumps(PLAYBOOK_SCHEMA.input_schema)
-    for label in ("Quick Win", "Worth a Session", "Bigger Build"):
-        assert label in schema_text
 
 
 def test_extraction_roundtrips() -> None:

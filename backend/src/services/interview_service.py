@@ -25,13 +25,17 @@ from src.services.interview_language import (
     resolve_language,
 )
 from src.services.interview_marker import has_ready_marker, strip_ready_marker
-from src.services.interview_schema import PLAYBOOK_SCHEMA
 from src.services.llm_service import (
     THINKING_MODE,
-    LlmError,
     is_provider_error,
     is_transient_provider_error,
 )
+from src.services.playbook_document import (
+    PlaybookFormatError,
+    output_template,
+    parse_playbook,
+)
+from src.services.playbook_guardrails import drop_unnamed_systems
 from src.services.prompts import load_prompt, prompt_version
 
 if TYPE_CHECKING:
@@ -51,7 +55,10 @@ _KIND = "interview"
 # and long Dutch interviews ran into 8192 and failed twice (eval v9, #83). 12288 still
 # fits a full generation inside _GENERATION_TIMEOUT_SECONDS.
 _MAX_TOKENS = 12288
-_GENERATE_PROMPT = "Produce the playbook now by calling the record_playbook tool."
+_GENERATE_PROMPT = "Write the playbook now, in the template under Output."
+# How the model writes the playbook (#149): a tagged document parsed by code, not JSON in
+# a tool call. Stored in the run metadata.
+_PLAYBOOK_FORMAT = "tagged-v1"
 _OPENER_MAX_TOKENS = 1024
 _KICKOFF = "[Begin the interview now: greet me and ask your first question.]"
 
@@ -59,9 +66,11 @@ _KICKOFF = "[Begin the interview now: greet me and ask your first question.]"
 # timeout so a hung provider call answers the learner instead of the ingress doing it.
 _OPENER_TIMEOUT_SECONDS = 45.0
 # One budget for the whole generation (both attempts, and the SDK's own retries inside
-# them). Sized under the Container Apps ingress timeout of 240 s, same reasoning as
-# content_improvement_service._PER_LESSON_TIMEOUT_SECONDS.
-_GENERATION_TIMEOUT_SECONDS = 180.0
+# them). Azure Container Apps ends every HTTP request at 240 s and our plan can't change
+# that, so the build gets as much of it as is safe: 15 s stay for saving and responding,
+# and the learner gets our "try again" message, not a dropped connection. A longer build
+# needs it to run in the background instead (#149 follow-up).
+_GENERATION_TIMEOUT_SECONDS = 225.0
 # Chat messages have no length limit, so the transcript is unbounded. ~25k tokens is far
 # past any real interview (the longest in production so far is ~20 answers, ~12k chars).
 # Refuse rather than truncate: half a transcript makes a confidently wrong playbook.
@@ -106,7 +115,13 @@ def _describe_generation_error(exc: Exception) -> str:
             f"{'.'.join(str(p) for p in e['loc'])}: {e['type']}"
             for e in exc.errors(include_url=False, include_input=False)
         )
+    if isinstance(exc, PlaybookFormatError):
+        return "; ".join(exc.problems)
     return f"{type(exc).__name__}: {exc}"
+
+
+class _CutOffError(Exception):
+    """The playbook stream stopped at max_tokens: what arrived is incomplete."""
 
 
 def _ensure_ready(rows: Sequence[Message]) -> None:
@@ -271,37 +286,49 @@ class InterviewService:
             .replace("{assessment_json}", assessment)
             .replace("{company_context}", "")
             .replace("{transcript}", transcript)
+            .replace("{output_template}", output_template())
         ) + f"\n\n{language_directive(conversation.language)}"
 
         extraction, usage, attempts = await self._generate(system, conversation_id=conversation.id)
-        summary = cast("dict[str, Any]", _sanitize_dashes(extraction.model_dump(mode="json")))
-        summary["meta"] = self._run_meta(usage=usage, attempts=attempts)
+        # The person's own words: what a system in the shared box must come from (#149).
+        sources = [m.content for m in rows if m.role == "user"] + [assessment]
+        data, systems_dropped = drop_unnamed_systems(extraction.model_dump(mode="json"), sources)
+        if systems_dropped:
+            logger.info(
+                "playbook for conversation %s: dropped %d system(s) the person never named",
+                conversation.id,
+                systems_dropped,
+            )
+        summary = cast("dict[str, Any]", _sanitize_dashes(data))
+        summary["meta"] = self._run_meta(
+            usage=usage, attempts=attempts, systems_dropped=systems_dropped
+        )
         await self._conversations.update_summary(conversation.id, summary)
         return PlaybookShared.model_validate(summary["shared"])
 
     async def _generate(
         self, system: str, *, conversation_id: uuid.UUID
     ) -> tuple[PlaybookExtraction, LlmUsage, int]:
-        """Two attempts against the schema inside one time budget. Returns the extraction,
-        the usage of the call that produced it, and which attempt (1 or 2) that was.
+        """Two attempts inside one time budget. Returns the extraction, the usage of the call
+        that produced it, and which attempt (1 or 2) that was.
 
-        Unusable output (schema mismatch, no tool_use block) is retried once. A timeout or
-        a provider failure is not: the SDK has already retried those itself, so another
-        round only burns the budget. Both are a 502 (AiGenerationError). Anything else is
-        a bug and propagates as a 500."""
+        The model writes the playbook as a tagged document (#149) and code parses it, so the
+        person's quotes need no JSON escaping. A cut-off stream, a document that doesn't match
+        the template, or one that fails the schema is unusable and retried once. A timeout or
+        a provider failure is not: the SDK has already retried those itself, so another round
+        only burns the budget. Both are a 502 (AiGenerationError). Anything else is a bug and
+        propagates as a 500."""
         last_error: Exception | None = None
         try:
             async with asyncio.timeout(_GENERATION_TIMEOUT_SECONDS):
                 for attempt in (1, 2):
                     try:
-                        result, usage = await self._llm.complete_structured(
-                            system=system,
-                            prompt=_GENERATE_PROMPT,
-                            schema=PLAYBOOK_SCHEMA,
-                            max_tokens=_MAX_TOKENS,
-                        )
-                        return PlaybookExtraction.model_validate(result), usage, attempt
-                    except (ValidationError, LlmError) as exc:
+                        text, usage = await self._stream_document(system)
+                        if usage.stop_reason == "max_tokens":
+                            raise _CutOffError("cut off at max_tokens")
+                        extraction = PlaybookExtraction.model_validate(parse_playbook(text))
+                        return extraction, usage, attempt
+                    except (ValidationError, PlaybookFormatError, _CutOffError) as exc:
                         logger.warning(
                             "playbook attempt %d unusable (conversation %s): %s",
                             attempt,
@@ -343,7 +370,19 @@ class InterviewService:
         )
         raise DomainError("Could not generate the playbook - please try again.") from last_error
 
-    def _run_meta(self, *, usage: LlmUsage, attempts: int) -> dict[str, Any]:
+    async def _stream_document(self, system: str) -> tuple[str, LlmUsage]:
+        chunks: list[str] = []
+        async with self._llm.stream_reply(
+            system=system,
+            messages=[{"role": "user", "content": _GENERATE_PROMPT}],
+            max_tokens=_MAX_TOKENS,
+        ) as reply:
+            async for chunk in reply:
+                chunks.append(chunk)
+            usage = await reply.usage()
+        return "".join(chunks), usage
+
+    def _run_meta(self, *, usage: LlmUsage, attempts: int, systems_dropped: int) -> dict[str, Any]:
         """Which prompts, model and settings produced this playbook (spec 2026-09-26 A.1).
         Stored next to the two boxes in conversations.summary. Nothing learner-facing
         reads it: get_state and get_admin_view only read "shared" and "internal"."""
@@ -353,7 +392,10 @@ class InterviewService:
             "interview_prompt_version": prompt_version(_KIND),
             "max_tokens": _MAX_TOKENS,
             "thinking": THINKING_MODE,
+            "format": _PLAYBOOK_FORMAT,
+            "stop_reason": usage.stop_reason,
             "attempts": attempts,
+            "systems_dropped": systems_dropped,
             "usage": {"input_tokens": usage.input_tokens, "output_tokens": usage.output_tokens},
             "generated_at": datetime.now(UTC).isoformat(),
         }

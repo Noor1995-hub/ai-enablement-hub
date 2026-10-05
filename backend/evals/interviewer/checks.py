@@ -1,6 +1,8 @@
 """Pure-function checks: (case, playbook, raw_output) -> CheckResult. No model calls
-(spec §5). `playbook`/`raw_output` are plain dicts shaped {"internal": {...}, "shared":
-{...}} - the same shape PlaybookExtraction.model_dump() produces."""
+(spec §5). `playbook` is a plain dict shaped {"internal": {...}, "shared": {...}} - the same
+shape PlaybookExtraction.model_dump() produces. `raw_output` is what the model wrote before
+the dash sanitiser: the tagged document text since #149, the tool-call dict in older traces.
+Only raw_dash_count reads it, and it handles both."""
 
 from __future__ import annotations
 

@@ -19,6 +19,7 @@ from src.services.interview_context import InterviewContextService
 from src.services.interview_service import InterviewService
 from src.services.learning_service import LearningService
 from src.services.maturity_service import MaturityService
+from src.services.playbook_document import render_playbook_document
 from src.services.survey_service import SurveyService
 from tests.golden.ai.harness import RecordingLlm, assert_golden, render_calls
 
@@ -200,7 +201,7 @@ async def test_interview_golden() -> None:
 
 
 async def test_interview_playbook_golden() -> None:
-    llm = RecordingLlm(structured_results=[_EXTRACTION])
+    llm = RecordingLlm(chunks=[render_playbook_document(_EXTRACTION)])
     conversations = AsyncMock(spec=AbstractConversationRepository)
     messages = AsyncMock(spec=AbstractMessageRepository)
     conversation = SimpleNamespace(
@@ -231,7 +232,7 @@ async def test_interview_playbook_golden() -> None:
             assert token not in call["system"]
 
     # determinism: a second independent run renders identically
-    llm2 = RecordingLlm(structured_results=[_EXTRACTION])
+    llm2 = RecordingLlm(chunks=[render_playbook_document(_EXTRACTION)])
     conversations2 = AsyncMock(spec=AbstractConversationRepository)
     messages2 = AsyncMock(spec=AbstractMessageRepository)
     conversation2 = SimpleNamespace(

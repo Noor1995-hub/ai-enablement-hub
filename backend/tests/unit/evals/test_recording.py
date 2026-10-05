@@ -34,18 +34,24 @@ async def test_recording_client_keeps_every_call_in_order() -> None:
     assert recorder.calls[1]["system"] == "s2"
 
 
-async def test_recording_client_delegates_stream_reply_unrecorded() -> None:
-    """simulate.py uses stream_reply (the opener/chat calls); `run` never does. Delegate
-    plainly rather than recording it, so RecordingLlmClient satisfies LlmClient without
-    pretending stream_reply matters to a playbook run."""
-    inner = FakeLlmClient(chunks=["hi"])
+async def test_recording_client_records_a_streamed_call_once_it_is_read() -> None:
+    """The playbook is a streamed tagged document since #149: the runner bills it, checks the
+    served model and stop reason, and grades the raw text, so the stream is recorded too."""
+    usage = LlmUsage(input_tokens=7, output_tokens=3, model="m", stop_reason="end_turn")
+    inner = FakeLlmClient(chunks=["<shared>", "</shared>"], usage=usage)
     recorder = RecordingLlmClient(inner)
 
-    async with recorder.stream_reply(system="s", messages=[], max_tokens=10) as reply:
+    async with recorder.stream_reply(
+        system="s", messages=[{"role": "user", "content": "write it"}], max_tokens=10
+    ) as reply:
         chunks = [c async for c in reply]
+        reported = await reply.usage()
 
-    assert chunks == ["hi"]
-    assert recorder.calls == []
+    assert chunks == ["<shared>", "</shared>"]
+    assert reported == usage
+    assert recorder.calls == [
+        {"system": "s", "prompt": "write it", "raw_output": "<shared></shared>", "usage": usage}
+    ]
 
 
 async def test_usage_capturing_client_captures_usage_even_when_the_caller_never_asks() -> None:

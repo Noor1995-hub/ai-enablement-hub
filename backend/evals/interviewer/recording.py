@@ -1,7 +1,7 @@
-"""Wraps one real LlmClient for a single (case, rep) attempt: keeps every
-complete_structured call's inputs, raw tool output (before the dash sanitiser) and
-usage, in call order, so the runner (Task 4) can bill the attempt and write a full
-trace even across a retried attempt."""
+"""Wraps one real LlmClient for a single (case, rep) attempt: keeps every call's inputs, raw
+output (before the dash sanitiser) and usage, in call order, so the runner (Task 4) can bill
+the attempt and write a full trace even across a retried attempt. Since #149 the playbook is a
+streamed tagged document, so streamed calls are recorded too, with the text as raw_output."""
 
 from __future__ import annotations
 
@@ -24,10 +24,14 @@ class RecordingLlmClient:
     def model(self) -> str:
         return self._inner.model
 
-    def stream_reply(self, **kwargs: Any) -> LlmReplyStream:
-        # Unused by `run` (the frozen transcript already ends at the offer); kept so this
-        # class satisfies LlmClient for simulate.py, which does use it.
-        return self._inner.stream_reply(**kwargs)
+    def stream_reply(
+        self, *, system: str, messages: list[dict[str, str]], max_tokens: int
+    ) -> LlmReplyStream:
+        # The playbook is a streamed tagged document since #149: record it like a structured
+        # call, with the full text as raw_output.
+        inner = self._inner.stream_reply(system=system, messages=messages, max_tokens=max_tokens)
+        prompt = messages[-1]["content"] if messages else ""
+        return _RecordingReplyStream(inner, self.calls, system=system, prompt=prompt)
 
     async def complete_structured(
         self, *, system: str, prompt: str, schema: Any, max_tokens: int
@@ -39,6 +43,47 @@ class RecordingLlmClient:
             {"system": system, "prompt": prompt, "raw_output": result, "usage": usage}
         )
         return result, usage
+
+
+class _RecordingReplyStream:
+    """Wraps one stream so the call lands in `calls` once its text is fully read: the text
+    as raw_output, and the usage (read from the inner stream at the end of the iterator)."""
+
+    def __init__(
+        self, inner: LlmReplyStream, calls: list[dict[str, Any]], *, system: str, prompt: str
+    ) -> None:
+        self._inner = inner
+        self._calls = calls
+        self._system = system
+        self._prompt = prompt
+        self._usage: LlmUsage | None = None
+
+    async def __aenter__(self) -> _RecordingReplyStream:
+        await self._inner.__aenter__()
+        return self
+
+    async def __aexit__(self, *exc: object) -> None:
+        await self._inner.__aexit__(*exc)
+
+    async def __aiter__(self) -> AsyncIterator[str]:
+        chunks: list[str] = []
+        async for chunk in self._inner:
+            chunks.append(chunk)
+            yield chunk
+        self._usage = await self._inner.usage()
+        self._calls.append(
+            {
+                "system": self._system,
+                "prompt": self._prompt,
+                "raw_output": "".join(chunks),
+                "usage": self._usage,
+            }
+        )
+
+    async def usage(self) -> LlmUsage:
+        if self._usage is None:
+            self._usage = await self._inner.usage()
+        return self._usage
 
 
 class _UsageCapturingReplyStream:
