@@ -35,6 +35,7 @@ from src.routers import (
     admin_org,
     admin_project_admins,
     admin_prompts,
+    admin_structure,
     admin_users,
     auth,
     auth_entra,
@@ -284,6 +285,7 @@ app.include_router(admin_users.router)
 app.include_router(admin_email_templates.router)
 app.include_router(admin_prompts.router)
 app.include_router(admin_content.router)
+app.include_router(admin_structure.router)
 app.include_router(admin_media.router)
 app.include_router(chat.router)
 app.include_router(interview.router)

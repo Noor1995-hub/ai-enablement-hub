@@ -367,11 +367,12 @@ There is a tool that generates branded concept diagrams; use them where a diagra
 - **Inline markdown** in text fields: `**bold**`, `[label](url)`; paragraph text also renders `- `
   bullets, `1. ` ordered lists and `| … |` tables.
 - **Quiz gates completion** ("Mark as complete" needs all answers correct).
-- **Assignment**: `user_lessons` (a row = assigned); learners see only assigned lessons. When adding
-  lessons to a module whose lessons are already assigned, **replicate that assignment set onto the
-  new lessons** (get the distinct user_ids from the existing lessons' `user_lessons` and insert rows
-  for the new lesson). If images are still pending, consider leaving new lessons unassigned and
-  telling the user to assign when ready.
+- **Assignment**: `user_lessons` (a row = assigned); learners see only assigned lessons. A lesson
+  added to (or moved into) a module is **not** assigned automatically. When it's ready, open the
+  module in **Admin → Content** and press **Assign to the N learners who have this module**
+  (`POST /api/admin/modules/{id}/assign-new-lessons`; project admins get the same button for their
+  own project). Structure changes (rename, reorder, move, delete, prerequisites) are on the same
+  page; none needs SQL.
 - **Workflow**: draft → **dry-run validate** (grep for em/en dash + ellipsis in the JSON; confirm no
   quiz correct answer is the unique longest; confirm sort `bucketId`s resolve to a bucket; confirm
   schema) → **apply** (UPDATE existing rows by `sort_order`; INSERT new; DELETE a removed lesson,

@@ -20,6 +20,10 @@ a feature ships.
   interview), People page → Export data; `routers/admin_export.py`,
   `services/project_export_service.py`; labels in `core/survey_labels.py` (drift-tested
   against `frontend/src/lib/surveyOptions.ts`).
+- **Content structure editing** (#145, B4) — Admin → Content: tracks/modules/lessons edit,
+  reorder, move, delete with impact warning, prerequisites (cycles refused), "assign new lessons";
+  `2026-10-05-content-structure-editing-design.md`; `routers/admin_structure.py`,
+  `frontend/src/pages/admin2/ContentPage.tsx`.
 - **`user+` role** (superseded 2026-10-01) — `2026-07-22-user-plus-role-design.md`.
 - **Cascading track/module assignment** (full resync both ways) —
   `2026-07-23-cascading-track-module-assignment-design.md`; `services/admin_user_service.py`.

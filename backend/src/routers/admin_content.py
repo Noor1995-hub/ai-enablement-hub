@@ -113,6 +113,7 @@ async def update_lesson(
 ) -> Lesson | LessonOut:
     """LessonPage editor save (title and/or content_blocks; both the
     block-editor and the MDX-editor UI save through this one endpoint).
+    `module_id` (Admin → Content, B4) moves the lesson to the end of that module.
 
     ContentService.update_lesson always strips ephemeral SAS urls before
     persisting; when storage is configured the response is stamped so the

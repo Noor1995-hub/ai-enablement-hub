@@ -514,6 +514,46 @@ class AbstractContentRepository(ABC):
     async def set_lesson_orders(self, orders: list[tuple[uuid.UUID, int]]) -> None:
         """Assign sort_order per lesson id in one transaction (batch reorder)."""
 
+    @abstractmethod
+    async def update_track(self, track: Track, values: dict[str, Any]) -> Track:
+        """Set name/color/track_type/required_level and commit."""
+
+    @abstractmethod
+    async def delete_track(self, track: Track) -> None:
+        """Delete (modules, lessons, assignments, progress cascade), then
+        renumber the remaining tracks 0..n-1, in one commit."""
+
+    @abstractmethod
+    async def set_track_orders(self, orders: list[tuple[uuid.UUID, int]]) -> None:
+        """Write the given positions in one commit (deferred uniqueness)."""
+
+    @abstractmethod
+    async def update_module(self, module: Module, values: dict[str, Any]) -> Module:
+        """Set title/description and commit. Moving is move_module."""
+
+    @abstractmethod
+    async def move_module(self, module: Module, track_id: uuid.UUID) -> Module:
+        """Append to the destination track and renumber the source, one commit."""
+
+    @abstractmethod
+    async def set_module_orders(self, orders: list[tuple[uuid.UUID, int]]) -> None:
+        """Write the given positions in one commit (deferred uniqueness)."""
+
+    @abstractmethod
+    async def set_prerequisites(
+        self, module_id: uuid.UUID, prerequisite_ids: list[uuid.UUID]
+    ) -> None:
+        """Replace the module's prerequisite set, one commit."""
+
+    @abstractmethod
+    async def move_lesson(self, lesson: Lesson, module_id: uuid.UUID) -> Lesson:
+        """Append to the destination module and renumber the source, one commit."""
+
+    @abstractmethod
+    async def learner_counts_for_lessons(self, lesson_ids: list[uuid.UUID]) -> tuple[int, int]:
+        """(distinct users assigned any of them, distinct users with progress
+        on any of them): the delete warning's counts."""
+
 
 class AbstractFeedbackRepository(ABC):
     """feedback — free-text lesson feedback (one row per submission)."""
@@ -750,6 +790,17 @@ class AbstractAssignmentRepository(ABC):
         """Flush-only twin of set_user_lessons: same statement, NO commit, so a
         service can compose several writes into one transaction and commit once
         via AbstractUnitOfWork."""
+
+    @abstractmethod
+    async def user_ids_with_module(self, module_id: uuid.UUID) -> set[uuid.UUID]:
+        """Users with a user_modules row for the module."""
+
+    @abstractmethod
+    async def add_user_lesson_pairs(
+        self, pairs: list[tuple[uuid.UUID, uuid.UUID]], *, assigned_via: str = "manual"
+    ) -> int:
+        """Insert (user_id, lesson_id) rows, skipping existing ones; one commit.
+        Returns how many were inserted."""
 
 
 class AbstractProgressRepository(ABC):

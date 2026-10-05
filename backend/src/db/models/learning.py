@@ -31,6 +31,10 @@ class Track(Base):
             "required_level IN ('explore', 'practitioner', 'integrator', 'multiplier')",
             name="required_level",
         ),
+        # Deferred for the same reason as lessons' (reorders pass through
+        # duplicates mid-transaction). Migration b0c1d2e3f4a5 renumbered the
+        # live duplicates before adding it.
+        UniqueConstraint("sort_order", deferrable=True, initially="DEFERRED"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -80,6 +84,9 @@ class Curriculum(Base):
 
 class Module(Base):
     __tablename__ = "modules"
+    __table_args__ = (
+        UniqueConstraint("track_id", "sort_order", deferrable=True, initially="DEFERRED"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
@@ -126,10 +133,8 @@ class Lesson(Base):
         # lesson's new sort_order in its own statement, so a permutation
         # passes through intermediate states where two lessons briefly share a
         # value. Deferring the check to end-of-transaction (or an explicit
-        # `SET CONSTRAINTS ... IMMEDIATE`) makes that safe. Lessons only —
-        # not modules or tracks — because live data has duplicate
-        # (track_id, sort_order) on modules and a duplicate sort_order on
-        # tracks (see progress.md's pre-flight read); lessons had zero.
+        # `SET CONSTRAINTS ... IMMEDIATE`) makes that safe. Tracks and
+        # modules got the same deferred constraint in migration b0c1d2e3f4a5 (B4).
         UniqueConstraint("module_id", "sort_order", deferrable=True, initially="DEFERRED"),
     )
 

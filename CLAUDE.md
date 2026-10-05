@@ -90,7 +90,8 @@ history that used to live here: `docs/history/state-log-2026.md`.
    path) — do not move them.
 5. **Lesson content** (any write, from any folder — admin API, `db/content_tools/`, scripts): read
    `docs/content/authoring-guide.md` and finished lessons first, and gate every draft with
-   `backend/scripts/content_qa/check_draft.py` before it touches the DB (`docs/content/CLAUDE.md`).
+   `backend/scripts/content_qa/check_draft.py` before it touches the DB (`docs/content/CLAUDE.md`). Structure
+   (tracks, modules, order, prerequisites, assigning new lessons) is edited in **Admin → Content**.
 6. **Secrets:** never in the repo. Local ones in git-ignored `backend/.env` + `db/.env`; the full
    inventory, who can read what and rotation recipes are in `SECURITY.md`.
 
@@ -140,6 +141,7 @@ history that used to live here: `docs/history/state-log-2026.md`.
     unlocked ⇔ bypasses_locks OR no prereqs OR every prereq module has assigned-lesson
     `total > 0 && completed === total`. Tracks strictly below the learner's effective level are
     freely reviewable (2026-07-20). **Still frontend-only** — no server-side prerequisite check.
+    Admin → Content refuses prerequisite cycles server-side (`core/prerequisites.py`).
 - **Admin maturity pin** (`users.maturity_override`, `PUT /api/admin/users/{id}/maturity`) is
   **level-only**: it sets the base of `effective_level` (the whole-track "Unlocks at
   {Level}" lane lock and the lesson access gate below) and deliberately does NOT assign content (assignment is seeded only on

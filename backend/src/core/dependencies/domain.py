@@ -134,12 +134,6 @@ def get_learning_service(
     return LearningService(content, assignments, progress, surveys)
 
 
-def get_content_service(
-    content: Annotated[ContentRepository, Depends(get_content_repository)],
-) -> ContentService:
-    return ContentService(content)
-
-
 def get_feedback_repository(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> FeedbackRepository:
@@ -213,3 +207,14 @@ def get_admin_scope_service(
     admins: Annotated[ProjectAdminRepository, Depends(get_project_admin_repository)],
 ) -> AdminScopeService:
     return AdminScopeService(users, admins)
+
+
+def get_content_service(
+    content: Annotated[ContentRepository, Depends(get_content_repository)],
+    assignments: Annotated[AssignmentRepository, Depends(get_assignment_repository)],
+    users: Annotated[UserRepository, Depends(get_user_repository)],
+    project_admins: Annotated[ProjectAdminRepository, Depends(get_project_admin_repository)],
+) -> ContentService:
+    return ContentService(
+        content, assignments=assignments, users=users, project_admins=project_admins
+    )

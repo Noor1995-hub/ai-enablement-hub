@@ -3,10 +3,10 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from sqlalchemy import func, select, tuple_, update
+from sqlalchemy import delete, func, select, tuple_, update
 from sqlalchemy.orm import load_only
 
-from src.db.models import Lesson, Module, ModulePrerequisite, Track
+from src.db.models import Lesson, LessonProgress, Module, ModulePrerequisite, Track, UserLesson
 from src.repositories.base import AbstractContentRepository
 
 __all__ = ["ContentRepository"]
@@ -111,7 +111,21 @@ class ContentRepository(AbstractContentRepository):
         return list(result.scalars().all())
 
     async def delete_module(self, module: Module) -> None:
+        track_id = module.track_id
         await self._session.delete(module)
+        await self._session.flush()
+        siblings = (
+            (
+                await self._session.execute(
+                    select(Module.id)
+                    .where(Module.track_id == track_id)
+                    .order_by(Module.sort_order, Module.id)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        await self._write_orders(Module, list(siblings))
         await self._session.commit()
 
     # -- lessons -----------------------------------------------------------
@@ -196,6 +210,140 @@ class ContentRepository(AbstractContentRepository):
             [{"id": lesson_id, "sort_order": sort_order} for lesson_id, sort_order in orders],
         )
         await self._session.commit()
+
+    # -- B4 structure operations (spec 2026-10-05). Each is one commit; the
+    # deferred unique constraints let a renumber pass through duplicates.
+
+    async def update_track(self, track: Track, values: dict[str, Any]) -> Track:
+        for field, value in values.items():
+            setattr(track, field, value)
+        await self._session.commit()
+        await self._session.refresh(track)
+        return track
+
+    async def delete_track(self, track: Track) -> None:
+        await self._session.delete(track)
+        await self._session.flush()
+        remaining = (
+            (await self._session.execute(select(Track.id).order_by(Track.sort_order, Track.id)))
+            .scalars()
+            .all()
+        )
+        await self._write_orders(Track, list(remaining))
+        await self._session.commit()
+
+    async def set_track_orders(self, orders: list[tuple[uuid.UUID, int]]) -> None:
+        if orders:
+            await self._session.execute(
+                update(Track), [{"id": i, "sort_order": o} for i, o in orders]
+            )
+        await self._session.commit()
+
+    async def update_module(self, module: Module, values: dict[str, Any]) -> Module:
+        for field, value in values.items():
+            setattr(module, field, value)
+        await self._session.commit()
+        await self._session.refresh(module)
+        return module
+
+    async def move_module(self, module: Module, track_id: uuid.UUID) -> Module:
+        source = module.track_id
+        top = (
+            await self._session.execute(
+                select(func.max(Module.sort_order)).where(Module.track_id == track_id)
+            )
+        ).scalar_one()
+        module.track_id = track_id
+        module.sort_order = 0 if top is None else top + 1
+        await self._session.flush()
+        siblings = (
+            (
+                await self._session.execute(
+                    select(Module.id)
+                    .where(Module.track_id == source)
+                    .order_by(Module.sort_order, Module.id)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        await self._write_orders(Module, list(siblings))
+        await self._session.commit()
+        await self._session.refresh(module)
+        return module
+
+    async def set_module_orders(self, orders: list[tuple[uuid.UUID, int]]) -> None:
+        if orders:
+            await self._session.execute(
+                update(Module), [{"id": i, "sort_order": o} for i, o in orders]
+            )
+        await self._session.commit()
+
+    async def set_prerequisites(
+        self, module_id: uuid.UUID, prerequisite_ids: list[uuid.UUID]
+    ) -> None:
+        await self._session.execute(
+            delete(ModulePrerequisite).where(ModulePrerequisite.module_id == module_id)
+        )
+        self._session.add_all(
+            ModulePrerequisite(module_id=module_id, prerequisite_module_id=prereq_id)
+            for prereq_id in prerequisite_ids
+        )
+        await self._session.commit()
+
+    async def move_lesson(self, lesson: Lesson, module_id: uuid.UUID) -> Lesson:
+        source = lesson.module_id
+        top = (
+            await self._session.execute(
+                select(func.max(Lesson.sort_order)).where(Lesson.module_id == module_id)
+            )
+        ).scalar_one()
+        lesson.module_id = module_id
+        lesson.sort_order = 0 if top is None else top + 1
+        await self._session.flush()
+        siblings = (
+            (
+                await self._session.execute(
+                    select(Lesson.id)
+                    .where(Lesson.module_id == source)
+                    .order_by(Lesson.sort_order, Lesson.id)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        await self._write_orders(Lesson, list(siblings))
+        await self._session.commit()
+        await self._session.refresh(lesson)
+        return lesson
+
+    async def learner_counts_for_lessons(self, lesson_ids: list[uuid.UUID]) -> tuple[int, int]:
+        if not lesson_ids:
+            return (0, 0)
+        assigned = (
+            await self._session.execute(
+                select(func.count(func.distinct(UserLesson.user_id))).where(
+                    UserLesson.lesson_id.in_(lesson_ids)
+                )
+            )
+        ).scalar_one()
+        with_progress = (
+            await self._session.execute(
+                select(func.count(func.distinct(LessonProgress.user_id))).where(
+                    LessonProgress.lesson_id.in_(lesson_ids)
+                )
+            )
+        ).scalar_one()
+        return (int(assigned), int(with_progress))
+
+    async def _write_orders(
+        self, model: type[Track | Module | Lesson], ids: list[uuid.UUID]
+    ) -> None:
+        """0..n-1 in the given order; no commit (callers commit once)."""
+        if ids:
+            await self._session.execute(
+                update(model), [{"id": i, "sort_order": o} for o, i in enumerate(ids)]
+            )
 
     async def lesson_context(
         self, lesson_ids: list[uuid.UUID]

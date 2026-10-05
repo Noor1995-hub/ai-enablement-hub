@@ -851,3 +851,21 @@ button.adm-loc-chip:hover .adm-loc-label { color: var(--adm-red-deep); }
 }
 
 .adm-muted { font-family: var(--dlw-font-body); font-size: 12.5px; color: var(--adm-muted); margin: 0; }
+
+/* Admin → Content (B4, spec 2026-10-05) */
+.adm-content-layout { display: grid; grid-template-columns: minmax(320px, 2fr) 3fr; gap: 16px; align-items: start; }
+.adm-content-tree-head { margin-bottom: 8px; }
+.adm-content-outline, .adm-content-outline ul { list-style: none; margin: 0; padding: 0; }
+.adm-content-row { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 6px; }
+.adm-content-row.active { background: var(--adm-surface); }
+.adm-content-depth-1 { padding-left: 20px; }
+.adm-content-depth-2 { padding-left: 40px; }
+.adm-content-name { flex: 1; text-align: left; background: none; border: 0; padding: 0; cursor: pointer; font: inherit; }
+.adm-content-move { display: inline-flex; gap: 2px; }
+.adm-content-add, .adm-content-add-track { display: flex; gap: 6px; padding: 6px 0 0 20px; }
+.adm-content-add-track { padding-left: 0; margin-top: 12px; }
+.adm-content-detail { display: flex; flex-direction: column; gap: 12px; }
+.adm-content-actions { display: flex; gap: 8px; }
+.adm-content-prereqs { border: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.adm-content-danger { border-top: 1px solid var(--adm-border); padding-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.adm-content-disclosure { background: none; border: 0; padding: 0 2px; cursor: pointer; font: inherit; color: var(--adm-muted); }

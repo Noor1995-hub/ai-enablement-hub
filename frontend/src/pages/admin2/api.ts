@@ -1206,3 +1206,143 @@ export function useGrantProjectAdmin() {
 export function useRevokeProjectAdmin() {
   return useProjectAdminMutation(revokeProjectAdmin)
 }
+
+// ── Content structure (B4, spec 2026-10-05) ─────────────────────────────────
+
+export type ContentAction =
+  | { kind: 'updateTrack'; trackId: string; body: components['schemas']['TrackUpdateRequest'] }
+  | { kind: 'deleteTrack'; trackId: string }
+  | { kind: 'reorderTracks'; trackIds: string[] }
+  | { kind: 'createTrack'; body: components['schemas']['TrackCreateRequest'] }
+  | { kind: 'updateModule'; moduleId: string; body: components['schemas']['ModuleUpdateRequest'] }
+  | { kind: 'deleteModule'; moduleId: string }
+  | { kind: 'reorderModules'; trackId: string; moduleIds: string[] }
+  | { kind: 'setPrerequisites'; moduleId: string; prerequisiteIds: string[] }
+  | { kind: 'createModule'; body: components['schemas']['ModuleCreateRequest'] }
+  | { kind: 'updateLesson'; lessonId: string; body: { title?: string; module_id?: string } }
+  | { kind: 'deleteLesson'; lessonId: string }
+  | { kind: 'reorderLessons'; moduleId: string; lessonIds: string[] }
+  | { kind: 'createLesson'; moduleId: string; title: string }
+  | { kind: 'assignGap'; moduleId: string; projectId: string | null }
+
+async function runContentAction(action: ContentAction): Promise<void> {
+  const call = (() => {
+    switch (action.kind) {
+      case 'updateTrack':
+        return client.PATCH('/api/admin/tracks/{track_id}', { params: { path: { track_id: action.trackId } }, body: action.body })
+      case 'deleteTrack':
+        return client.DELETE('/api/admin/tracks/{track_id}', { params: { path: { track_id: action.trackId } } })
+      case 'reorderTracks':
+        return client.PUT('/api/admin/tracks/order', { body: { track_ids: action.trackIds } })
+      case 'createTrack':
+        return client.POST('/api/admin/tracks', { body: action.body })
+      case 'updateModule':
+        return client.PATCH('/api/admin/modules/{module_id}', { params: { path: { module_id: action.moduleId } }, body: action.body })
+      case 'deleteModule':
+        return client.DELETE('/api/admin/modules/{module_id}', { params: { path: { module_id: action.moduleId } } })
+      case 'reorderModules':
+        return client.PUT('/api/admin/tracks/{track_id}/modules/order', {
+          params: { path: { track_id: action.trackId } },
+          body: { module_ids: action.moduleIds },
+        })
+      case 'setPrerequisites':
+        return client.PUT('/api/admin/modules/{module_id}/prerequisites', {
+          params: { path: { module_id: action.moduleId } },
+          body: { prerequisite_ids: action.prerequisiteIds },
+        })
+      case 'createModule':
+        return client.POST('/api/admin/modules', { body: action.body })
+      case 'updateLesson':
+        return client.PATCH('/api/admin/lessons/{lesson_id}', { params: { path: { lesson_id: action.lessonId } }, body: action.body })
+      case 'deleteLesson':
+        return client.DELETE('/api/admin/lessons/{lesson_id}', { params: { path: { lesson_id: action.lessonId } } })
+      case 'reorderLessons':
+        return client.PUT('/api/admin/modules/{module_id}/lessons/order', {
+          params: { path: { module_id: action.moduleId } },
+          body: { lesson_ids: action.lessonIds },
+        })
+      case 'createLesson':
+        return client.POST('/api/admin/lessons', { body: { module_id: action.moduleId, title: action.title } })
+      case 'assignGap':
+        return action.projectId
+          ? client.POST('/api/admin/projects/{project_id}/modules/{module_id}/assign-new-lessons', {
+              params: { path: { project_id: action.projectId, module_id: action.moduleId } },
+            })
+          : client.POST('/api/admin/modules/{module_id}/assign-new-lessons', {
+              params: { path: { module_id: action.moduleId } },
+            })
+    }
+  })()
+  const { error } = await call
+  if (error !== undefined) throw new Error(errorMessage(error, 'The change could not be saved.'))
+}
+
+export function useContentMutation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: runContentAction,
+    onSettled: () => {
+      for (const key of [['admin', 'content'], ['admin', 'tracks'], ['admin', 'learning']]) {
+        void queryClient.invalidateQueries({ queryKey: key })
+      }
+    },
+  })
+}
+
+export function useContentTree() {
+  return useQuery({
+    queryKey: ['admin', 'content', 'tree'] as const,
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/admin/content/tree')
+      if (!data) throw new Error(errorMessage(error, 'Failed to load the content.'))
+      return data.tracks
+    },
+  })
+}
+
+export function useTrackImpact(trackId: string | null) {
+  return useQuery({
+    queryKey: ['admin', 'content', 'impact', 'track', trackId] as const,
+    enabled: trackId !== null,
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/admin/tracks/{track_id}/impact', {
+        params: { path: { track_id: trackId! } },
+      })
+      if (!data) throw new Error(errorMessage(error, 'Failed to load the impact.'))
+      return data
+    },
+  })
+}
+
+export function useModuleImpact(moduleId: string | null) {
+  return useQuery({
+    queryKey: ['admin', 'content', 'impact', 'module', moduleId] as const,
+    enabled: moduleId !== null,
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/admin/modules/{module_id}/impact', {
+        params: { path: { module_id: moduleId! } },
+      })
+      if (!data) throw new Error(errorMessage(error, 'Failed to load the impact.'))
+      return data
+    },
+  })
+}
+
+/** projectId null → every learner (power admins in the all-projects scope). */
+export function useAssignmentGap(moduleId: string | null, projectId: string | null) {
+  return useQuery({
+    queryKey: ['admin', 'content', 'gap', moduleId, projectId] as const,
+    enabled: moduleId !== null,
+    queryFn: async () => {
+      const { data, error } = projectId
+        ? await client.GET('/api/admin/projects/{project_id}/modules/{module_id}/assignment-gap', {
+            params: { path: { project_id: projectId, module_id: moduleId! } },
+          })
+        : await client.GET('/api/admin/modules/{module_id}/assignment-gap', {
+            params: { path: { module_id: moduleId! } },
+          })
+      if (!data) throw new Error(errorMessage(error, 'Failed to load the assignment gap.'))
+      return data
+    },
+  })
+}

@@ -14,7 +14,12 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from src.repositories.base import AbstractContentRepository
+from src.repositories.base import (
+    AbstractAssignmentRepository,
+    AbstractContentRepository,
+    AbstractProjectAdminRepository,
+    AbstractUserRepository,
+)
 from src.services.content_service import MAX_LESSON_BLOCKS_BYTES, ContentService
 from src.services.exceptions import InvalidRequestError, PayloadTooLargeError
 
@@ -22,7 +27,13 @@ from src.services.exceptions import InvalidRequestError, PayloadTooLargeError
 def _service(*, lesson: object | None) -> tuple[ContentService, AsyncMock]:
     content = AsyncMock(spec=AbstractContentRepository)
     content.get_lesson.return_value = lesson
-    return ContentService(content), content
+    service = ContentService(
+        content,
+        assignments=AsyncMock(spec=AbstractAssignmentRepository),
+        users=AsyncMock(spec=AbstractUserRepository),
+        project_admins=AsyncMock(spec=AbstractProjectAdminRepository),
+    )
+    return service, content
 
 
 def _blocks_of_size(target_bytes: int) -> list[dict[str, str]]:

@@ -19,6 +19,7 @@ describe('visibleNavItems', () => {
       'dashboard',
       'people',
       'assignments',
+      'content',
       'projects',
       'templates',
     ])
@@ -26,7 +27,7 @@ describe('visibleNavItems', () => {
 
   it('shows a power admin everything', () => {
     expect(visibleNavItems(power).map(i => i.key)).toContain('content-ai')
-    expect(visibleNavItems(power)).toHaveLength(9)
+    expect(visibleNavItems(power)).toHaveLength(10)
   })
 })
 

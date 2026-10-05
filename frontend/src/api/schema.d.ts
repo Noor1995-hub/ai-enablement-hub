@@ -1065,7 +1065,11 @@ export interface paths {
         delete: operations["delete_module_api_admin_modules__module_id__delete"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Update Module
+         * @description A different track_id moves the module to the end of that track.
+         */
+        patch: operations["update_module_api_admin_modules__module_id__patch"];
         trace?: never;
     };
     "/api/admin/lessons": {
@@ -1106,6 +1110,7 @@ export interface paths {
          * Update Lesson
          * @description LessonPage editor save (title and/or content_blocks; both the
          *     block-editor and the MDX-editor UI save through this one endpoint).
+         *     `module_id` (Admin → Content, B4) moves the lesson to the end of that module.
          *
          *     ContentService.update_lesson always strips ephemeral SAS urls before
          *     persisting; when storage is configured the response is stamped so the
@@ -1130,6 +1135,205 @@ export interface paths {
          */
         put: operations["reorder_lessons_api_admin_modules__module_id__lessons_order_put"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/content/tree": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Content Tree
+         * @description Every track → module → lesson with counts; any admin (project admins
+         *     read it to find the modules whose new lessons they assign).
+         */
+        get: operations["content_tree_api_admin_content_tree_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/tracks/{track_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Track
+         * @description Cascades to modules, lessons, assignments and progress (the UI shows
+         *     GET …/impact first).
+         */
+        delete: operations["delete_track_api_admin_tracks__track_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Track */
+        patch: operations["update_track_api_admin_tracks__track_id__patch"];
+        trace?: never;
+    };
+    "/api/admin/tracks/order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Reorder Tracks */
+        put: operations["reorder_tracks_api_admin_tracks_order_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/tracks/{track_id}/modules/order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Reorder Modules */
+        put: operations["reorder_modules_api_admin_tracks__track_id__modules_order_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/modules/{module_id}/prerequisites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Prerequisites
+         * @description Replaces the set; a self-loop or cycle → 400 naming the module.
+         */
+        put: operations["set_prerequisites_api_admin_modules__module_id__prerequisites_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/tracks/{track_id}/impact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Track Impact */
+        get: operations["track_impact_api_admin_tracks__track_id__impact_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/modules/{module_id}/impact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Module Impact */
+        get: operations["module_impact_api_admin_modules__module_id__impact_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/modules/{module_id}/assignment-gap": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Assignment Gap */
+        get: operations["assignment_gap_api_admin_modules__module_id__assignment_gap_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/modules/{module_id}/assign-new-lessons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Assign Gap */
+        post: operations["assign_gap_api_admin_modules__module_id__assign_new_lessons_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{project_id}/modules/{module_id}/assignment-gap": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Project Assignment Gap */
+        get: operations["project_assignment_gap_api_admin_projects__project_id__modules__module_id__assignment_gap_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{project_id}/modules/{module_id}/assign-new-lessons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Project Assign Gap */
+        post: operations["project_assign_gap_api_admin_projects__project_id__modules__module_id__assign_new_lessons_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2043,6 +2247,20 @@ export interface components {
             /** Users Updated */
             users_updated: number;
         };
+        /** AssignGapResponse */
+        AssignGapResponse: {
+            /** Assigned Pairs */
+            assigned_pairs: number;
+        };
+        /** AssignmentGapResponse */
+        AssignmentGapResponse: {
+            /** Lesson Ids */
+            lesson_ids: string[];
+            /** Learner Count */
+            learner_count: number;
+            /** Missing Pairs */
+            missing_pairs: number;
+        };
         /** AssignmentRequest */
         AssignmentRequest: {
             /** Assigned */
@@ -2341,6 +2559,11 @@ export interface components {
                 [key: string]: components["schemas"]["ComponentState"];
             };
         };
+        /** ContentTreeResponse */
+        ContentTreeResponse: {
+            /** Tracks */
+            tracks: components["schemas"]["TreeTrack"][];
+        };
         /** ConversationDetailResponse */
         ConversationDetailResponse: {
             conversation: components["schemas"]["ConversationSummary"];
@@ -2406,6 +2629,17 @@ export interface components {
         DefaultsUpdateRequest: {
             /** Track Ids */
             track_ids: string[];
+        };
+        /** DeleteImpactResponse */
+        DeleteImpactResponse: {
+            /** Modules */
+            modules: number;
+            /** Lessons */
+            lessons: number;
+            /** Learners Assigned */
+            learners_assigned: number;
+            /** Learners With Progress */
+            learners_with_progress: number;
         };
         /** DiagnosedBlocker */
         DiagnosedBlocker: {
@@ -2837,6 +3071,8 @@ export interface components {
             content_blocks?: {
                 [key: string]: unknown;
             }[] | null;
+            /** Module Id */
+            module_id?: string | null;
         };
         /** LinkResponse */
         LinkResponse: {
@@ -2986,6 +3222,11 @@ export interface components {
             /** Is Introduction */
             is_introduction: boolean;
         };
+        /** ModuleOrderRequest */
+        ModuleOrderRequest: {
+            /** Module Ids */
+            module_ids: string[];
+        };
         /** ModuleOut */
         ModuleOut: {
             /**
@@ -3002,6 +3243,21 @@ export interface components {
             title: string;
             /** Sort Order */
             sort_order: number;
+            /** Description */
+            description?: string | null;
+        };
+        /**
+         * ModuleUpdateRequest
+         * @description All optional; `description` may be null. A different `track_id` moves
+         *     the module to the end of that track.
+         */
+        ModuleUpdateRequest: {
+            /** Title */
+            title?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Track Id */
+            track_id?: string | null;
         };
         /** NextMove */
         NextMove: {
@@ -3087,6 +3343,11 @@ export interface components {
              * Format: uuid
              */
             prerequisite_module_id: string;
+        };
+        /** PrerequisitesRequest */
+        PrerequisitesRequest: {
+            /** Prerequisite Ids */
+            prerequisite_ids: string[];
         };
         /** ProjectAdminOut */
         ProjectAdminOut: {
@@ -3638,6 +3899,11 @@ export interface components {
             /** Is Introduction */
             is_introduction: boolean;
         };
+        /** TrackOrderRequest */
+        TrackOrderRequest: {
+            /** Track Ids */
+            track_ids: string[];
+        };
         /** TrackOut */
         TrackOut: {
             /**
@@ -3658,12 +3924,80 @@ export interface components {
             /** Is Introduction */
             is_introduction: boolean;
         };
+        /**
+         * TrackUpdateRequest
+         * @description All optional; only `color` may be set to null (no colour).
+         */
+        TrackUpdateRequest: {
+            /** Name */
+            name?: string | null;
+            /** Color */
+            color?: string | null;
+            /** Track Type */
+            track_type?: ("tool" | "general") | null;
+            /** Required Level */
+            required_level?: ("explore" | "practitioner" | "integrator" | "multiplier") | null;
+        };
         /** TranscriptMessage */
         TranscriptMessage: {
             /** Role */
             role: string;
             /** Content */
             content: string;
+        };
+        /** TreeLesson */
+        TreeLesson: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /** Sort Order */
+            sort_order: number;
+        };
+        /** TreeModule */
+        TreeModule: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /** Description */
+            description: string | null;
+            /** Sort Order */
+            sort_order: number;
+            /** Prerequisite Ids */
+            prerequisite_ids: string[];
+            /** Lesson Count */
+            lesson_count: number;
+            /** Lessons */
+            lessons: components["schemas"]["TreeLesson"][];
+        };
+        /** TreeTrack */
+        TreeTrack: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Color */
+            color: string | null;
+            /** Track Type */
+            track_type: string;
+            /** Required Level */
+            required_level: string;
+            /** Is Introduction */
+            is_introduction: boolean;
+            /** Sort Order */
+            sort_order: number;
+            /** Modules */
+            modules: components["schemas"]["TreeModule"][];
         };
         /** UseCase */
         UseCase: {
@@ -5422,6 +5756,41 @@ export interface operations {
             };
         };
     };
+    update_module_api_admin_modules__module_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                module_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModuleUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModuleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     create_lesson_api_admin_lessons_post: {
         parameters: {
             query?: never;
@@ -5540,6 +5909,375 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    content_tree_api_admin_content_tree_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentTreeResponse"];
+                };
+            };
+        };
+    };
+    delete_track_api_admin_tracks__track_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                track_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_track_api_admin_tracks__track_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                track_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TrackUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrackOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reorder_tracks_api_admin_tracks_order_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TrackOrderRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reorder_modules_api_admin_tracks__track_id__modules_order_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                track_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModuleOrderRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_prerequisites_api_admin_modules__module_id__prerequisites_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                module_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PrerequisitesRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    track_impact_api_admin_tracks__track_id__impact_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                track_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeleteImpactResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    module_impact_api_admin_modules__module_id__impact_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                module_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeleteImpactResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    assignment_gap_api_admin_modules__module_id__assignment_gap_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                module_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssignmentGapResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    assign_gap_api_admin_modules__module_id__assign_new_lessons_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                module_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssignGapResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    project_assignment_gap_api_admin_projects__project_id__modules__module_id__assignment_gap_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                module_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssignmentGapResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    project_assign_gap_api_admin_projects__project_id__modules__module_id__assign_new_lessons_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                module_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssignGapResponse"];
+                };
             };
             /** @description Validation Error */
             422: {

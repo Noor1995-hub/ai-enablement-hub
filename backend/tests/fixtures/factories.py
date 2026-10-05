@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from src.core.security import hash_password
@@ -119,10 +120,14 @@ async def create_track(
     *,
     track_type: str = "general",
     color: str | None = None,
-    sort_order: int = 0,
+    sort_order: int | None = None,
     required_level: str = "explore",
     is_introduction: bool = False,
 ) -> Track:
+    """sort_order=None → the next free position (tracks.sort_order is unique)."""
+    if sort_order is None:
+        current = (await session.execute(select(func.max(Track.sort_order)))).scalar_one()
+        sort_order = 0 if current is None else current + 1
     return await _persist(
         session,
         Track(
@@ -137,8 +142,16 @@ async def create_track(
 
 
 async def create_module(
-    session: AsyncSession, track: Track, title: str = "Module", *, sort_order: int = 0
+    session: AsyncSession, track: Track, title: str = "Module", *, sort_order: int | None = None
 ) -> Module:
+    """sort_order=None → the next free position in the track."""
+    if sort_order is None:
+        current = (
+            await session.execute(
+                select(func.max(Module.sort_order)).where(Module.track_id == track.id)
+            )
+        ).scalar_one()
+        sort_order = 0 if current is None else current + 1
     return await _persist(session, Module(track_id=track.id, title=title, sort_order=sort_order))
 
 

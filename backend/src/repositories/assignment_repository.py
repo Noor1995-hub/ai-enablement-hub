@@ -282,3 +282,29 @@ class AssignmentRepository(AbstractAssignmentRepository):
     ) -> None:
         await self.stage_user_lessons(user_id, lesson_ids, assigned, assigned_via=assigned_via)
         await self._session.commit()
+
+    async def user_ids_with_module(self, module_id: uuid.UUID) -> set[uuid.UUID]:
+        result = await self._session.execute(
+            select(UserModule.user_id).where(UserModule.module_id == module_id)
+        )
+        return set(result.scalars().all())
+
+    async def add_user_lesson_pairs(
+        self, pairs: list[tuple[uuid.UUID, uuid.UUID]], *, assigned_via: str = "manual"
+    ) -> int:
+        if not pairs:
+            return 0
+        result = await self._session.execute(
+            pg_insert(UserLesson)
+            .values(
+                [
+                    {"user_id": user_id, "lesson_id": lesson_id, "assigned_via": assigned_via}
+                    for user_id, lesson_id in pairs
+                ]
+            )
+            .on_conflict_do_nothing(index_elements=["user_id", "lesson_id"])
+            .returning(UserLesson.id)
+        )
+        inserted = len(result.scalars().all())
+        await self._session.commit()
+        return inserted
