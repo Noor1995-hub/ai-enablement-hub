@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from sqlalchemy import CheckConstraint
+
 from src.db.base import Base
-from src.db.models import ProjectAdmin, User
+from src.db.models import ProjectAdmin
 
 
 def test_project_admins_table_shape() -> None:
@@ -19,6 +21,10 @@ def test_project_admins_table_shape() -> None:
 
 
 def test_role_check_is_admin_or_user_only() -> None:
-    checks = [c for c in User.__table__.constraints if getattr(c, "name", None) == "ck_users_role"]
+    checks = [
+        c
+        for c in Base.metadata.tables["users"].constraints
+        if isinstance(c, CheckConstraint) and c.name == "ck_users_role"
+    ]
     assert len(checks) == 1
     assert str(checks[0].sqltext) == "role IN ('admin', 'user')"
