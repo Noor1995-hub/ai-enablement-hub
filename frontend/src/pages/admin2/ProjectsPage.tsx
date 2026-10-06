@@ -4,8 +4,9 @@ import { useAuth } from '../../contexts/AuthContext'
 import type { ComponentKey } from '../../lib/constants'
 import type { ComponentState } from '../../types/domain'
 import type { AiSurfaceKind } from './api'
-import { useAiSettings, useComponents, useCompanies, useToggleAiSetting, useToggleComponent } from './api'
-import { Card, EmptyState, ErrorState, Spinner, COMPONENT_KEYS, COMPONENT_LABELS } from './kit'
+import { type OrgKind, useAiSettings, useComponents, useCompanies, useRenameOrg, useToggleAiSetting, useToggleComponent } from './api'
+import { Card, EmptyState, ErrorState, Modal, Spinner, COMPONENT_KEYS, COMPONENT_LABELS } from './kit'
+import OrgDeleteDialog from './OrgDeleteDialog'
 import ProjectAdminsSection from './ProjectAdminsSection'
 import { useScope } from './useScope'
 
@@ -36,6 +37,9 @@ export default function ProjectsPage() {
   const navigate = useNavigate()
   const scope = useScope()
   const { isPowerAdmin } = useAuth()
+  // B6 housekeeping (power admins): which item is being renamed or deleted.
+  const [renaming, setRenaming] = useState<OrgTarget | null>(null)
+  const [deleting, setDeleting] = useState<OrgTarget | null>(null)
 
   if (companiesQuery.isLoading) {
     return (
@@ -54,9 +58,21 @@ export default function ProjectsPage() {
     )
   }
 
-  const rows = companiesQuery.data
+  const companies = companiesQuery.data
+  const rows = companies
     .flatMap(company => company.projects.map(project => ({ company, project })))
     .filter(({ project }) => scope.projectId === null || project.id === scope.projectId)
+
+  function afterDelete(target: OrgTarget) {
+    setDeleting(null)
+    // Deleting the scoped project (or the company holding it) must not leave the
+    // whole admin panel pointed at a project that no longer exists.
+    const scopedGone =
+      target.kind === 'project'
+        ? scope.projectId === target.id
+        : companies.some(c => c.id === target.id && c.projects.some(p => p.id === scope.projectId))
+    if (scopedGone) scope.setProject(null, { replace: true })
+  }
 
   function goTo(path: string, projectId: string) {
     navigate({ pathname: path, search: `?project=${projectId}` })
@@ -70,6 +86,34 @@ export default function ProjectsPage() {
           ? 'Project settings live here — day-to-day work happens in People, Assignments and Feedback with the project filter.'
           : 'Settings for your project: what learners can see and open, and who runs it. Day-to-day work happens in People and Assignments.'}
       </p>
+
+      {isPowerAdmin && companies.length > 0 && (
+        <Card title="Companies">
+          {companies.map(company => (
+            <div key={company.id} className="adm-acct-row">
+              <span className="adm-acct-label">{company.name}</span>
+              <span className="adm-subtext">{company.projects.length} project{company.projects.length === 1 ? '' : 's'}</span>
+              <button type="button" className="adm-btn adm-btn-ghost adm-btn-sm" onClick={() => setRenaming({ kind: 'company', id: company.id, name: company.name })}>
+                Rename
+              </button>
+              <button type="button" className="adm-btn adm-btn-ghost adm-btn-sm" onClick={() => setDeleting({ kind: 'company', id: company.id, name: company.name })}>
+                Delete…
+              </button>
+            </div>
+          ))}
+        </Card>
+      )}
+
+      {renaming && <RenameDialog target={renaming} onClose={() => setRenaming(null)} />}
+      {deleting && (
+        <OrgDeleteDialog
+          kind={deleting.kind}
+          id={deleting.id}
+          name={deleting.name}
+          onClose={() => setDeleting(null)}
+          onDeleted={() => afterDelete(deleting)}
+        />
+      )}
 
       {rows.length === 0 ? (
         <EmptyState
@@ -104,6 +148,16 @@ export default function ProjectsPage() {
                 >
                   Email templates
                 </button>
+                {isPowerAdmin && (
+                  <>
+                    <button type="button" className="adm-btn adm-btn-ghost adm-btn-sm" onClick={() => setRenaming({ kind: 'project', id: project.id, name: project.name })}>
+                      Rename
+                    </button>
+                    <button type="button" className="adm-btn adm-btn-ghost adm-btn-sm" onClick={() => setDeleting({ kind: 'project', id: project.id, name: project.name })}>
+                      Delete…
+                    </button>
+                  </>
+                )}
               </>
             }
           >
@@ -269,5 +323,44 @@ function ProjectSettingsToggles({ projectId, showUnreleasedAi }: { projectId: st
         </p>
       )}
     </div>
+  )
+}
+
+interface OrgTarget {
+  kind: OrgKind
+  id: string
+  name: string
+}
+
+/** Rename a project or a company (B6). Company names stay unique (409 shown). */
+function RenameDialog({ target, onClose }: { target: OrgTarget; onClose: () => void }) {
+  const rename = useRenameOrg()
+  const [name, setName] = useState(target.name)
+  const save = () => rename.mutate({ kind: target.kind, id: target.id, name: name.trim() }, { onSuccess: onClose })
+  return (
+    <Modal
+      title={`Rename ${target.kind}`}
+      onClose={onClose}
+      footer={
+        <>
+          <button type="button" className="adm-btn adm-btn-red" disabled={!name.trim() || rename.isPending} onClick={save}>
+            Save
+          </button>
+          <button type="button" className="adm-btn adm-btn-subtle adm-push-right" onClick={onClose}>Cancel</button>
+        </>
+      }
+    >
+      <div className="adm-field">
+        <label className="adm-field-label" htmlFor="rename-org">Name</label>
+        <input
+          id="rename-org"
+          className="adm-field-input"
+          value={name}
+          onChange={e => setName(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' && name.trim()) save() }}
+        />
+      </div>
+      {rename.error && <p className="adm-form-msg adm-form-msg-err" role="alert">{rename.error.message}</p>}
+    </Modal>
   )
 }

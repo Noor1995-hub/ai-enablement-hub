@@ -23,6 +23,7 @@ __all__ = [
     "LessonChangedError",
     "LessonNotAccessibleError",
     "LessonSetMismatchError",
+    "MediaInUseError",
     "NotFoundError",
     "PayloadTooLargeError",
     "SelfModificationError",
@@ -118,6 +119,13 @@ class AdminTargetForbiddenError(DomainError):
 
 class ConflictError(DomainError):
     """The request conflicts with current state. → 409"""
+
+
+class MediaInUseError(ConflictError):
+    """A media file the library was asked to delete is still referenced (B6). → 409"""
+
+    def __init__(self, used_in: list[str]) -> None:
+        super().__init__("This file is still used in: " + ", ".join(used_in[:5]))
 
 
 class LessonChangedError(ConflictError):

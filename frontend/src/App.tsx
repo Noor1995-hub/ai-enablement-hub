@@ -23,6 +23,7 @@ const AdminShell = lazy(() => import('./pages/admin2/AdminShell'))
 const AssignmentsPage = lazy(() => import('./pages/admin2/AssignmentsPage'))
 const ContentImprovementPage = lazy(() => import('./pages/admin2/ContentImprovementPage'))
 const ContentPage = lazy(() => import('./pages/admin2/ContentPage'))
+const MediaPage = lazy(() => import('./pages/admin2/MediaPage'))
 const DashboardPage = lazy(() => import('./pages/admin2/DashboardPage'))
 const FeedbackPage = lazy(() => import('./pages/admin2/FeedbackPage'))
 const PeoplePage = lazy(() => import('./pages/admin2/PeoplePage'))
@@ -82,6 +83,7 @@ function AppRoutes() {
         <Route path="people/:userId" element={<UserDetailPage />} />
         <Route path="assignments" element={<AssignmentsPage />} />
         <Route path="content" element={<ContentPage />} />
+        <Route path="media" element={powerOnly(<MediaPage />)} />
         <Route path="feedback" element={powerOnly(<FeedbackPage />)} />
         <Route path="content-improvement" element={powerOnly(<ContentImprovementPage />)} />
         <Route path="projects" element={<ProjectsPage />} />

@@ -1,17 +1,25 @@
 from __future__ import annotations
 
 import uuid
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from io import SEEK_END, SEEK_SET
-from typing import Any, BinaryIO, NamedTuple, Protocol
+from typing import Any, BinaryIO, Literal, NamedTuple, Protocol
 
+from azure.core.exceptions import ResourceNotFoundError
 from azure.storage.blob import BlobSasPermissions, ContentSettings, generate_blob_sas
 from starlette.concurrency import run_in_threadpool
 
 from src.services.exceptions import PayloadTooLargeError, UnsupportedMediaTypeError
 from src.services.media_blocks import stamp_urls
 
-__all__ = ["MAX_UPLOAD_BYTES", "BlobUploader", "MediaService", "UploadedMedia"]
+__all__ = [
+    "BlobUploader",
+    "MAX_UPLOAD_BYTES",
+    "MediaService",
+    "StoredFile",
+    "UploadedMedia",
+]
 
 # Content type -> file extension; the extension is NEVER taken from the
 # client's filename (spoofed-extension / path-traversal risk). No SVG: it can
@@ -46,6 +54,8 @@ class BlobUploader(Protocol):
 
     def get_blob_client(self, container: str, blob: str) -> Any: ...
 
+    def get_container_client(self, container: str) -> Any: ...
+
 
 def _classify(content_type: str) -> tuple[str, str, int]:
     """kind, extension, max size for a content type; raises
@@ -67,6 +77,16 @@ def _stream_length(stream: BinaryIO) -> int:
         return stream.tell()
     finally:
         stream.seek(current, SEEK_SET)
+
+
+@dataclass(frozen=True)
+class StoredFile:
+    """One file in the media container (B6 media library)."""
+
+    path: str
+    kind: Literal["image", "video"]
+    size_bytes: int
+    uploaded_at: datetime
 
 
 class MediaService:
@@ -149,3 +169,29 @@ class MediaService:
         """Thin composition over the pure helper: stamps a fresh SAS `url`
         into every image/blob-video block (see media_blocks.stamp_urls)."""
         return stamp_urls(blocks, self.sas_url)
+
+    async def list_files(self) -> list[StoredFile]:
+        """Every uploaded file, newest first (B6 media library). The SDK is sync:
+        listing runs in the threadpool, never on the event loop."""
+        container = self._uploader.get_container_client(self._container)
+        blobs = await run_in_threadpool(lambda: list(container.list_blobs()))
+        files = [
+            StoredFile(
+                path=blob.name,
+                kind="image" if blob.name.startswith("images/") else "video",
+                size_bytes=int(blob.size or 0),
+                uploaded_at=blob.last_modified,
+            )
+            for blob in blobs
+            if blob.name.startswith(("images/", "videos/"))
+        ]
+        return sorted(files, key=lambda f: f.uploaded_at, reverse=True)
+
+    async def delete_file(self, path: str) -> bool:
+        """Delete one blob; False when it does not exist."""
+        blob = self._uploader.get_blob_client(self._container, path)
+        try:
+            await run_in_threadpool(blob.delete_blob)
+        except ResourceNotFoundError:
+            return False
+        return True

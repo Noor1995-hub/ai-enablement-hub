@@ -41,6 +41,24 @@ class OrgService:
             raise DuplicateCompanyNameError
         return await self._org.create_company(name)
 
+    async def rename_company(self, company_id: uuid.UUID, name: str) -> Company:
+        """B6. Company names stay unique case-insensitively (as on create)."""
+        company = await self._org.get_company(company_id)
+        if company is None:
+            raise NotFoundError("Company")
+        name = name.strip()
+        clash = await self._org.get_company_by_name_ci(name)
+        if clash is not None and clash.id != company.id:
+            raise DuplicateCompanyNameError
+        return await self._org.rename_company(company, name)
+
+    async def rename_project(self, project_id: uuid.UUID, name: str) -> Project:
+        """B6. Project names have no uniqueness rule (create has none either)."""
+        project = await self._org.get_project(project_id)
+        if project is None:
+            raise NotFoundError("Project")
+        return await self._org.rename_project(project, name.strip())
+
     async def create_project(self, name: str, company_id: uuid.UUID) -> Project:
         """Create the project plus its three default component settings rows
         in the same transaction (replaces the legacy two-step insert)."""

@@ -154,6 +154,24 @@ class AbstractUserRepository(ABC):
     async def project_ids_of(self, user_ids: list[uuid.UUID]) -> dict[uuid.UUID, uuid.UUID | None]:
         """user id -> project id for the ids that exist (admin scope checks)."""
 
+    @abstractmethod
+    async def members_of(
+        self, project_ids: list[uuid.UUID], company_id: uuid.UUID | None
+    ) -> list[User]:
+        """Users whose project_id is in project_ids, or whose company_id is
+        company_id (B6: the people a project/company delete affects)."""
+
+    @abstractmethod
+    async def stage_set_org(
+        self, user_ids: list[uuid.UUID], project_id: uuid.UUID | None, company_id: uuid.UUID | None
+    ) -> None:
+        """Set project_id + company_id for these users; flush only (B6)."""
+
+    @abstractmethod
+    async def stage_delete_many(self, user_ids: list[uuid.UUID]) -> None:
+        """Delete these users; their data cascades (every FK into users.id is
+        CASCADE or SET NULL). Flush only (B6)."""
+
 
 class AbstractProjectAdminRepository(ABC):
     """project_admins: which projects a (non-power) admin administers."""
@@ -194,6 +212,10 @@ class AbstractProjectAdminRepository(ABC):
     @abstractmethod
     async def revoke(self, user_id: uuid.UUID, project_id: uuid.UUID) -> bool:
         """Delete the grant; True when a row was removed."""
+
+    @abstractmethod
+    async def stage_revoke(self, user_id: uuid.UUID, project_id: uuid.UUID) -> None:
+        """revoke() without the commit, for an atomic move (B6)."""
 
 
 class AbstractAuthTokenRepository(ABC):
@@ -316,6 +338,21 @@ class AbstractOrgRepository(ABC):
     @abstractmethod
     async def set_default_tracks(self, project_id: uuid.UUID, track_ids: list[uuid.UUID]) -> None:
         """Full replace of the project's default tracks."""
+
+    @abstractmethod
+    async def rename_company(self, company: Company, name: str) -> Company: ...
+
+    @abstractmethod
+    async def rename_project(self, project: Project, name: str) -> Project: ...
+
+    @abstractmethod
+    async def stage_delete_project(self, project: Project) -> None:
+        """Delete the project (settings/templates/defaults/grants cascade). Flush only."""
+
+    @abstractmethod
+    async def stage_delete_company(self, company: Company) -> None:
+        """Delete the company (its projects cascade). Users pointing at it must be
+        gone or detached first (users.company_id is RESTRICT). Flush only."""
 
 
 class AbstractEmailTemplateRepository(ABC):
@@ -559,6 +596,11 @@ class AbstractContentRepository(ABC):
     async def learner_counts_for_lessons(self, lesson_ids: list[uuid.UUID]) -> tuple[int, int]:
         """(distinct users assigned any of them, distinct users with progress
         on any of them): the delete warning's counts."""
+
+    @abstractmethod
+    async def lessons_with_module_titles(self) -> list[tuple[Lesson, str]]:
+        """Every lesson (full row, blocks included) with its module title: the
+        media library's usage scan (B6)."""
 
 
 class AbstractFeedbackRepository(ABC):
@@ -1000,6 +1042,11 @@ class AbstractProposalRepository(ABC):
     ) -> None:
         """Store the agent's self-assessment of the difference between its
         draft and the admin's version, and stamp `critiqued_at`."""
+
+    @abstractmethod
+    async def live_block_sets(self) -> list[list[Any]]:
+        """For each pending/approved proposal, its base, proposed and (when set)
+        edited blocks as separate entries: media still referenced (B6)."""
 
 
 class AbstractCalibrationNoteRepository(ABC):

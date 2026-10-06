@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import uuid
 from typing import Annotated, Literal
 
@@ -10,7 +11,7 @@ from src.core.dependencies.admin_scope import (
     require_power_admin,
     require_project_in_scope,
 )
-from src.core.dependencies.domain import get_org_service
+from src.core.dependencies.domain import get_org_deletion_service, get_org_service
 from src.db.models import Company, Project
 from src.schemas.admin_org import (
     AiSettingsResponse,
@@ -22,17 +23,24 @@ from src.schemas.admin_org import (
     CompanyWithProjects,
     ComponentsResponse,
     ComponentUpdateRequest,
+    OrgImpactResponse,
     ProjectCreateRequest,
     ProjectOut,
+    RenameRequest,
 )
 from src.schemas.me import ComponentState
+from src.services.org_deletion_service import OrgDeletionService
 from src.services.org_service import OrgService
 
 __all__ = ["router"]
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api/admin", tags=["admin:org"])
 
 OrgServiceDep = Annotated[OrgService, Depends(get_org_service)]
+OrgDeletionServiceDep = Annotated[OrgDeletionService, Depends(get_org_deletion_service)]
+_POWER = [Depends(require_power_admin)]
 
 
 @router.get("/companies", response_model=CompaniesResponse)
@@ -126,3 +134,64 @@ async def put_ai_setting(
     org_service: OrgServiceDep,
 ) -> None:
     await org_service.set_ai_surface(project_id, kind, enabled=body.enabled)
+
+
+# --- B6 housekeeping (spec 2026-10-06-admin-housekeeping-design.md), power admin only
+
+
+@router.patch("/projects/{project_id}", response_model=ProjectOut, dependencies=_POWER)
+async def rename_project(
+    project_id: uuid.UUID, body: RenameRequest, org_service: OrgServiceDep
+) -> Project:
+    return await org_service.rename_project(project_id, body.name)
+
+
+@router.patch("/companies/{company_id}", response_model=CompanyOut, dependencies=_POWER)
+async def rename_company(
+    company_id: uuid.UUID, body: RenameRequest, org_service: OrgServiceDep
+) -> Company:
+    """409 when another company already has the name (case-insensitive)."""
+    return await org_service.rename_company(company_id, body.name)
+
+
+@router.get("/projects/{project_id}/impact", response_model=OrgImpactResponse, dependencies=_POWER)
+async def project_impact(
+    project_id: uuid.UUID, service: OrgDeletionServiceDep
+) -> OrgImpactResponse:
+    return OrgImpactResponse.model_validate(await service.project_impact(project_id))
+
+
+@router.get("/companies/{company_id}/impact", response_model=OrgImpactResponse, dependencies=_POWER)
+async def company_impact(
+    company_id: uuid.UUID, service: OrgDeletionServiceDep
+) -> OrgImpactResponse:
+    return OrgImpactResponse.model_validate(await service.company_impact(company_id))
+
+
+@router.delete(
+    "/projects/{project_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=_POWER
+)
+async def delete_project(project_id: uuid.UUID, service: OrgDeletionServiceDep) -> None:
+    """Deletes the project and its members (power admins are kept, project-less)."""
+    impact = await service.delete_project(project_id)
+    logger.info(
+        "project deleted: project=%s users_deleted=%d power_admins_kept=%d",
+        project_id,
+        impact.users_deleted,
+        impact.power_admins_kept,
+    )
+
+
+@router.delete(
+    "/companies/{company_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=_POWER
+)
+async def delete_company(company_id: uuid.UUID, service: OrgDeletionServiceDep) -> None:
+    """Deletes the company, its projects and their members (power admins kept)."""
+    impact = await service.delete_company(company_id)
+    logger.info(
+        "company deleted: company=%s projects=%d users_deleted=%d power_admins_kept=%d",
+        company_id,
+        impact.projects,
+        impact.users_deleted,
+        impact.power_admins_kept,
+    )

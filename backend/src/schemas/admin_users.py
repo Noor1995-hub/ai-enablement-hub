@@ -28,6 +28,7 @@ __all__ = [
     "InviteRequest",
     "LinkResponse",
     "MaturityOverrideRequest",
+    "MoveUserRequest",
     "ReminderResponse",
     "ResetLinkRequest",
     "RoleUpdateRequest",
@@ -289,3 +290,9 @@ class AdminSurveyOut(BaseModel):
 
 class UserSurveyResponse(BaseModel):
     survey: AdminSurveyOut | None
+
+
+class MoveUserRequest(BaseModel):
+    """B6 / #111: the user's new home project."""
+
+    project_id: uuid.UUID

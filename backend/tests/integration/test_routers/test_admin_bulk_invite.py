@@ -26,6 +26,7 @@ from src.repositories.org_repository import OrgRepository
 from src.repositories.progress_repository import ProgressRepository
 from src.repositories.project_admin_repository import ProjectAdminRepository
 from src.repositories.survey_repository import SurveyRepository
+from src.repositories.unit_of_work import UnitOfWork
 from src.repositories.user_repository import UserRepository
 from src.services.admin_user_service import AdminUserService
 from src.services.email_service import EmailSender, EmailService
@@ -57,6 +58,7 @@ def admin_user_service(db_session: AsyncSession) -> AdminUserService:
         AuthSessionRepository(db_session),
         ProgressRepository(db_session),
         project_admins=ProjectAdminRepository(db_session),
+        uow=UnitOfWork(db_session),
     )
 
 

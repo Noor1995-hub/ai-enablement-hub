@@ -18,8 +18,10 @@ __all__ = [
     "CompanyWithProjects",
     "ComponentUpdateRequest",
     "ComponentsResponse",
+    "OrgImpactResponse",
     "ProjectCreateRequest",
     "ProjectOut",
+    "RenameRequest",
 ]
 
 
@@ -81,3 +83,32 @@ class AiSettingsResponse(BaseModel):
 
 class AiSurfaceUpdateRequest(BaseModel):
     enabled: bool
+
+
+def _not_null(value: object) -> object:
+    if value is None:
+        msg = "must not be null"
+        raise ValueError(msg)
+    return value
+
+
+class RenameRequest(BaseModel):
+    """B6: rename a project or a company."""
+
+    name: str
+
+    _non_blank = field_validator("name")(require_non_blank)
+    _not_null = field_validator("name", mode="before")(_not_null)
+
+
+class OrgImpactResponse(BaseModel):
+    """What a project/company delete takes with it (B6): counts only."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    projects: int
+    users_deleted: int
+    power_admins_kept: int
+    project_admin_grants: int
+    users_with_progress: int
+    other_project_admins_deleted: int

@@ -119,3 +119,25 @@ class OrgRepository(AbstractOrgRepository):
             ProjectTrackDefault(project_id=project_id, track_id=track_id) for track_id in track_ids
         )
         await self._session.commit()
+
+    async def rename_company(self, company: Company, name: str) -> Company:
+        company.name = name
+        await self._session.commit()
+        await self._session.refresh(company)
+        return company
+
+    async def rename_project(self, project: Project, name: str) -> Project:
+        project.name = name
+        await self._session.commit()
+        await self._session.refresh(project)
+        return project
+
+    async def stage_delete_project(self, project: Project) -> None:
+        await self._session.delete(project)
+        await self._session.flush()
+
+    async def stage_delete_company(self, company: Company) -> None:
+        # projects.company_id is ON DELETE CASCADE; users pointing at the
+        # company (RESTRICT) are deleted or detached first (OrgDeletionService).
+        await self._session.delete(company)
+        await self._session.flush()

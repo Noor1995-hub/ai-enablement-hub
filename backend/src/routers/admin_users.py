@@ -43,6 +43,7 @@ from src.schemas.admin_users import (
     InviteRequest,
     LinkResponse,
     MaturityOverrideRequest,
+    MoveUserRequest,
     ReminderResponse,
     ResetLinkRequest,
     RoleUpdateRequest,
@@ -594,3 +595,16 @@ async def get_user_survey(
     return UserSurveyResponse(
         survey=AdminSurveyOut.model_validate(row) if row is not None else None
     )
+
+
+@router.put(
+    "/users/{user_id}/project",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_power_admin)],
+)
+async def move_user(
+    user_id: uuid.UUID, body: MoveUserRequest, admin_user_service: AdminUserServiceDep
+) -> None:
+    """Move a user to another project (B6 / #111); assignments and progress stay."""
+    await admin_user_service.move_user(user_id, body.project_id)
+    logger.info("user moved: user=%s project=%s", user_id, body.project_id)

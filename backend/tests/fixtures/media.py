@@ -5,8 +5,11 @@ network double is needed for that half of MediaService)."""
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import UTC, datetime
+from types import SimpleNamespace
 from typing import Any
 
+from azure.core.exceptions import ResourceNotFoundError
 from pydantic import SecretStr
 
 from src.core.configs.storage import StorageSettings
@@ -35,10 +38,19 @@ class UploadCall:
 
 
 class _FakeBlobClient:
-    def __init__(self, calls: list[UploadCall], container: str, blob: str) -> None:
+    def __init__(
+        self, owner: RecordingUploader, calls: list[UploadCall], container: str, blob: str
+    ) -> None:
+        self._owner = owner
         self._calls = calls
         self._container = container
         self._blob = blob
+
+    def delete_blob(self, **kwargs: Any) -> None:
+        if self._blob not in self._owner.stored:
+            raise ResourceNotFoundError("The specified blob does not exist.")
+        del self._owner.stored[self._blob]
+        self._owner.deleted.append(self._blob)
 
     def upload_blob(
         self,
@@ -63,6 +75,7 @@ class _FakeBlobClient:
                 content_type=getattr(content_settings, "content_type", None),
             )
         )
+        self._owner.stored[self._blob] = (len(content), datetime.now(UTC))
 
 
 class RecordingUploader:
@@ -72,6 +85,23 @@ class RecordingUploader:
 
     def __init__(self) -> None:
         self.calls: list[UploadCall] = []
+        # B6 media library: what the fake container holds, and what was deleted.
+        self.stored: dict[str, tuple[int, datetime]] = {}
+        self.deleted: list[str] = []
 
     def get_blob_client(self, container: str, blob: str) -> _FakeBlobClient:
-        return _FakeBlobClient(self.calls, container, blob)
+        return _FakeBlobClient(self, self.calls, container, blob)
+
+    def get_container_client(self, container: str) -> _FakeContainer:
+        return _FakeContainer(self)
+
+
+class _FakeContainer:
+    def __init__(self, owner: RecordingUploader) -> None:
+        self._owner = owner
+
+    def list_blobs(self, **kwargs: Any) -> list[SimpleNamespace]:
+        return [
+            SimpleNamespace(name=path, size=size, last_modified=ts)
+            for path, (size, ts) in self._owner.stored.items()
+        ]

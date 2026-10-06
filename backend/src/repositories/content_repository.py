@@ -375,3 +375,9 @@ class ContentRepository(AbstractContentRepository):
         )
         rows = (await self._session.execute(query)).all()
         return {row[0]: (row[1], row[2], row[3], row[4]) for row in rows}
+
+    async def lessons_with_module_titles(self) -> list[tuple[Lesson, str]]:
+        result = await self._session.execute(
+            select(Lesson, Module.title).join(Module, Module.id == Lesson.module_id)
+        )
+        return [(lesson, title) for lesson, title in result.all()]

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.orm import aliased
 
 from src.db.models import Company, Project, User
@@ -144,3 +144,31 @@ class UserRepository(AbstractUserRepository):
             select(User.id, User.project_id).where(User.id.in_(user_ids))
         )
         return dict(result.tuples().all())
+
+    async def members_of(
+        self, project_ids: list[uuid.UUID], company_id: uuid.UUID | None
+    ) -> list[User]:
+        conditions = []
+        if project_ids:
+            conditions.append(User.project_id.in_(project_ids))
+        if company_id is not None:
+            conditions.append(User.company_id == company_id)
+        if not conditions:
+            return []
+        result = await self._session.execute(select(User).where(or_(*conditions)))
+        return list(result.scalars().all())
+
+    async def stage_set_org(
+        self, user_ids: list[uuid.UUID], project_id: uuid.UUID | None, company_id: uuid.UUID | None
+    ) -> None:
+        if user_ids:
+            await self._session.execute(
+                update(User)
+                .where(User.id.in_(user_ids))
+                .values(project_id=project_id, company_id=company_id)
+            )
+
+    async def stage_delete_many(self, user_ids: list[uuid.UUID]) -> None:
+        # One DELETE; every FK into users.id is CASCADE or SET NULL (census 2026-10-06).
+        if user_ids:
+            await self._session.execute(delete(User).where(User.id.in_(user_ids)))

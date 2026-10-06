@@ -82,3 +82,10 @@ class ProjectAdminRepository(AbstractProjectAdminRepository):
         )
         await self._session.commit()
         return cast("CursorResult[Any]", result).rowcount > 0
+
+    async def stage_revoke(self, user_id: uuid.UUID, project_id: uuid.UUID) -> None:
+        await self._session.execute(
+            delete(ProjectAdmin).where(
+                ProjectAdmin.user_id == user_id, ProjectAdmin.project_id == project_id
+            )
+        )

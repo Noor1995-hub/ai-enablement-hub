@@ -25,7 +25,7 @@ def _service(target: Any, power_admins: int) -> tuple[AdminUserService, AsyncMoc
     users.get_by_id.return_value = target
     users.count_power_admins.return_value = power_admins
     repos = [AsyncMock() for _ in range(6)]
-    return AdminUserService(users, *repos, project_admins=AsyncMock()), users
+    return AdminUserService(users, *repos, project_admins=AsyncMock(), uow=AsyncMock()), users
 
 
 async def test_last_power_admin_cannot_be_demoted() -> None:

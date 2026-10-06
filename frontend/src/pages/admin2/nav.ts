@@ -21,6 +21,7 @@ export const NAV_ITEMS: NavItem[] = [
   { key: 'people',      label: 'People',          icon: 'users',    path: 'people' },
   { key: 'assignments', label: 'Assignments',     icon: 'grid',     path: 'assignments' },
   { key: 'content',     label: 'Content',         icon: 'folder',   path: 'content' },
+  { key: 'media',       label: 'Media',           icon: 'folder',   path: 'media', powerOnly: true },
   { key: 'feedback',    label: 'Feedback',        icon: 'inbox',    path: 'feedback', powerOnly: true },
   { key: 'content-ai',  label: 'Content AI',      icon: 'edit',     path: 'content-improvement', powerOnly: true },
   { key: 'projects',    label: 'Projects',        icon: 'folder',   path: 'projects' },

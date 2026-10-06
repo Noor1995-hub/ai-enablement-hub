@@ -23,6 +23,7 @@ if TYPE_CHECKING:
         AbstractProgressRepository,
         AbstractProjectAdminRepository,
         AbstractSurveyRepository,
+        AbstractUnitOfWork,
         AbstractUserRepository,
     )
 
@@ -49,7 +50,9 @@ class AdminUserService:
         progress: AbstractProgressRepository,
         *,
         project_admins: AbstractProjectAdminRepository,
+        uow: AbstractUnitOfWork,
     ) -> None:
+        self._uow = uow
         self._users = users
         self._org = org
         self._assignments = assignments
@@ -317,6 +320,25 @@ class AdminUserService:
         if user.role == "admin" and await self._users.count_power_admins() <= 1:
             raise LastPowerAdminError
         await self._users.delete(user)
+
+    async def move_user(self, user_id: uuid.UUID, project_id: uuid.UUID) -> User:
+        """B6 / #111: change a user's home project (and its company). Assignments,
+        progress, survey and interview stay: they belong to the user. A grant to
+        administer the DESTINATION project is dropped: staff aren't learners of
+        the project they run (B1). One commit."""
+        user = await self._users.get_by_id(user_id)
+        if user is None:
+            raise NotFoundError("User")
+        project = await self._org.get_project(project_id)
+        if project is None:
+            raise NotFoundError("Project")
+        if user.project_id == project.id:
+            return user
+        if project.id in await self._project_admins.project_ids_for(user.id):
+            await self._project_admins.stage_revoke(user.id, project.id)
+        await self._users.stage_set_org([user.id], project.id, project.company_id)
+        await self._uow.commit()
+        return user
 
     async def list_project_admins(self, project_id: uuid.UUID) -> list[tuple[User, datetime]]:
         await self.ensure_project(project_id)

@@ -86,6 +86,11 @@ private chat history, which the admin API itself never shows. Accepted: project 
 by power admins and scoped to their own projects.
 Spec: `docs/superpowers/specs/2026-10-01-project-scoped-admin-design.md`.
 
+**Deleting a project or company (B6, #147).** A power admin can delete a project or a company, and
+with it every member's account and learner data (progress, assessments, interviews). Power admins
+in it are kept (made project-less). The dialog shows the impact first; recovery is only the nightly
+backup (`docs/db-backup-restore.md`). Each delete logs ids and counts, never names or emails.
+
 **Project data export (#92).** Any admin in scope can download a project's learner data as one
 `.xlsx` (People page → Export data; `GET /api/admin/projects/{id}/export`): names, emails,
 assessment answers, lesson progress and, if ticked, the interview playbooks (including the

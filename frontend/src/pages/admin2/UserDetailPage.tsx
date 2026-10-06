@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { canManageUser } from './adminAccess'
+import MoveUserDialog from './MoveUserDialog'
 import SurveyResults from './SurveyResults'
 import { LEVELS, levelByCode } from '../../lib/levels'
 import type { AdminSurvey, AdminUserEnriched } from '../../types/domain'
@@ -243,6 +244,7 @@ function AccountCard({ user, survey, onDeleted }: AccountCardProps) {
 
   const [copied, setCopied] = useState(false)
   const [resetDismissed, setResetDismissed] = useState(false)
+  const [moving, setMoving] = useState(false)
 
   function handleGenerateReset(sendEmail: boolean) {
     setResetDismissed(false)
@@ -282,6 +284,23 @@ function AccountCard({ user, survey, onDeleted }: AccountCardProps) {
           <span className="adm-subtext">{user.role === 'admin' ? 'Power admin' : 'User'}</span>
         )}
       </div>
+      <div className="adm-acct-row">
+        <span className="adm-acct-label">Project</span>
+        <span className="adm-subtext">{user.project_id ? projectNames.get(user.project_id) ?? 'Project' : 'No project'}</span>
+        {isPowerAdmin && (
+          <button type="button" className="adm-btn adm-btn-ghost adm-btn-sm" onClick={() => setMoving(true)}>
+            Move…
+          </button>
+        )}
+      </div>
+      {moving && (
+        <MoveUserDialog
+          userId={user.id}
+          currentProjectId={user.project_id}
+          holdsGrantOn={user.admin_project_ids}
+          onClose={() => setMoving(false)}
+        />
+      )}
       {user.admin_project_ids.length > 0 && (
         <div className="adm-acct-row">
           <span className="adm-acct-label">Admin of</span>

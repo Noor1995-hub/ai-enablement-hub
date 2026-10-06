@@ -493,6 +493,85 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/projects/{project_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Project
+         * @description Deletes the project and its members (power admins are kept, project-less).
+         */
+        delete: operations["delete_project_api_admin_projects__project_id__delete"];
+        options?: never;
+        head?: never;
+        /** Rename Project */
+        patch: operations["rename_project_api_admin_projects__project_id__patch"];
+        trace?: never;
+    };
+    "/api/admin/companies/{company_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Company
+         * @description Deletes the company, its projects and their members (power admins kept).
+         */
+        delete: operations["delete_company_api_admin_companies__company_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Rename Company
+         * @description 409 when another company already has the name (case-insensitive).
+         */
+        patch: operations["rename_company_api_admin_companies__company_id__patch"];
+        trace?: never;
+    };
+    "/api/admin/projects/{project_id}/impact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Project Impact */
+        get: operations["project_impact_api_admin_projects__project_id__impact_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/companies/{company_id}/impact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Company Impact */
+        get: operations["company_impact_api_admin_companies__company_id__impact_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/users": {
         parameters: {
             query?: never;
@@ -849,6 +928,26 @@ export interface paths {
          */
         get: operations["get_user_survey_api_admin_surveys__user_id__get"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/users/{user_id}/project": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Move User
+         * @description Move a user to another project (B6 / #111); assignments and progress stay.
+         */
+        put: operations["move_user_api_admin_users__user_id__project_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -1368,7 +1467,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Media Library
+         * @description Every uploaded file with where it is used (B6). Two services, so the
+         *     router orchestrates: storage lists, the usage service scans lessons and
+         *     live AI proposals.
+         */
+        get: operations["media_library_api_admin_media_get"];
         put?: never;
         /**
          * Upload Media
@@ -1382,6 +1487,27 @@ export interface paths {
          */
         post: operations["upload_media_api_admin_media_post"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/media/{kind}/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Media
+         * @description Unused files only, re-checked now (409 names where it is used). Only
+         *     upload-shaped names (`images|videos/<32 hex>.<ext>`) reach storage.
+         */
+        delete: operations["delete_media_api_admin_media__kind___name__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -3189,6 +3315,40 @@ export interface components {
             level: ("explore" | "practitioner" | "integrator" | "multiplier") | null;
         };
         /**
+         * MediaFileOut
+         * @description One file in the media library (B6). `preview_url` is a short-lived SAS for
+         *     images, null for videos; `used_in` empty and `proposals` 0 means unused.
+         */
+        MediaFileOut: {
+            /** Path */
+            path: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "image" | "video";
+            /** Size Bytes */
+            size_bytes: number;
+            /**
+             * Uploaded At
+             * Format: date-time
+             */
+            uploaded_at: string;
+            /** Preview Url */
+            preview_url: string | null;
+            /** Used In */
+            used_in: components["schemas"]["MediaUseOut"][];
+            /** Proposals */
+            proposals: number;
+        };
+        /** MediaLibraryResponse */
+        MediaLibraryResponse: {
+            /** Files */
+            files: components["schemas"]["MediaFileOut"][];
+            /** Total Bytes */
+            total_bytes: number;
+        };
+        /**
          * MediaUploadOut
          * @description `url` is a freshly-stamped SAS for instant admin-side preview; it is
          *     never persisted (the lesson stores `blob_path` only).
@@ -3202,6 +3362,18 @@ export interface components {
             content_type: string;
             /** Size Bytes */
             size_bytes: number;
+        };
+        /** MediaUseOut */
+        MediaUseOut: {
+            /**
+             * Lesson Id
+             * Format: uuid
+             */
+            lesson_id: string;
+            /** Lesson Title */
+            lesson_title: string;
+            /** Module Title */
+            module_title: string;
         };
         /** MessageResponse */
         MessageResponse: {
@@ -3321,6 +3493,17 @@ export interface components {
             /** Track Id */
             track_id?: string | null;
         };
+        /**
+         * MoveUserRequest
+         * @description B6 / #111: the user's new home project.
+         */
+        MoveUserRequest: {
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+        };
         /** NextMove */
         NextMove: {
             /** Order */
@@ -3331,6 +3514,24 @@ export interface components {
             why_now: string;
             /** Linked Use Case */
             linked_use_case: number;
+        };
+        /**
+         * OrgImpactResponse
+         * @description What a project/company delete takes with it (B6): counts only.
+         */
+        OrgImpactResponse: {
+            /** Projects */
+            projects: number;
+            /** Users Deleted */
+            users_deleted: number;
+            /** Power Admins Kept */
+            power_admins_kept: number;
+            /** Project Admin Grants */
+            project_admin_grants: number;
+            /** Users With Progress */
+            users_with_progress: number;
+            /** Other Project Admins Deleted */
+            other_project_admins_deleted: number;
         };
         /** Pain */
         Pain: {
@@ -3688,6 +3889,14 @@ export interface components {
              * @enum {string}
              */
             email_status: "sent" | "failed" | "disabled" | "skipped";
+        };
+        /**
+         * RenameRequest
+         * @description B6: rename a project or a company.
+         */
+        RenameRequest: {
+            /** Name */
+            name: string;
         };
         /** ResetLinkRequest */
         ResetLinkRequest: {
@@ -4869,6 +5078,196 @@ export interface operations {
             };
         };
     };
+    delete_project_api_admin_projects__project_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rename_project_api_admin_projects__project_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenameRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_company_api_admin_companies__company_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                company_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rename_company_api_admin_companies__company_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                company_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenameRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompanyOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    project_impact_api_admin_projects__project_id__impact_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrgImpactResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    company_impact_api_admin_companies__company_id__impact_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                company_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrgImpactResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_users_api_admin_users_get: {
         parameters: {
             query?: {
@@ -5478,6 +5877,39 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["UserSurveyResponse"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    move_user_api_admin_users__user_id__project_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MoveUserRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -6387,6 +6819,26 @@ export interface operations {
             };
         };
     };
+    media_library_api_admin_media_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaLibraryResponse"];
+                };
+            };
+        };
+    };
     upload_media_api_admin_media_post: {
         parameters: {
             query?: never;
@@ -6403,6 +6855,36 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MediaUploadOut"];
+                };
+            };
+        };
+    };
+    delete_media_api_admin_media__kind___name__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

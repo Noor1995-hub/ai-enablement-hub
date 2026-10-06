@@ -1346,3 +1346,92 @@ export function useAssignmentGap(moduleId: string | null, projectId: string | nu
     },
   })
 }
+
+// ── Housekeeping (B6, spec 2026-10-06-admin-housekeeping) ───────────────────
+
+export type OrgKind = 'project' | 'company'
+
+function invalidate(queryClient: ReturnType<typeof useQueryClient>, keys: unknown[][]) {
+  for (const key of keys) void queryClient.invalidateQueries({ queryKey: key })
+}
+
+export function useMoveUser() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ userId, projectId }: { userId: string; projectId: string }) => {
+      const { error } = await client.PUT('/api/admin/users/{user_id}/project', {
+        params: { path: { user_id: userId } },
+        body: { project_id: projectId },
+      })
+      if (error !== undefined) throw new Error(errorMessage(error, 'The move failed.'))
+    },
+    onSettled: () => invalidate(queryClient, [['admin', 'users'], ['admin', 'dashboard']]),
+  })
+}
+
+export function useRenameOrg() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ kind, id, name }: { kind: OrgKind; id: string; name: string }) => {
+      const { error } = kind === 'project'
+        ? await client.PATCH('/api/admin/projects/{project_id}', { params: { path: { project_id: id } }, body: { name } })
+        : await client.PATCH('/api/admin/companies/{company_id}', { params: { path: { company_id: id } }, body: { name } })
+      if (error !== undefined) throw new Error(errorMessage(error, 'The rename failed.'))
+    },
+    onSettled: () => invalidate(queryClient, [['admin', 'companies']]),
+  })
+}
+
+export function useOrgImpact(kind: OrgKind, id: string | null) {
+  return useQuery({
+    queryKey: ['admin', 'org-impact', kind, id] as const,
+    enabled: id !== null,
+    // The delete warning is the only guard before learner data goes: never
+    // show a cached count (users may have been moved or invited since).
+    staleTime: 0,
+    gcTime: 0,
+    queryFn: async () => {
+      const { data, error } = kind === 'project'
+        ? await client.GET('/api/admin/projects/{project_id}/impact', { params: { path: { project_id: id! } } })
+        : await client.GET('/api/admin/companies/{company_id}/impact', { params: { path: { company_id: id! } } })
+      if (!data) throw new Error(errorMessage(error, 'Failed to load what this deletes.'))
+      return data
+    },
+  })
+}
+
+export function useDeleteOrg() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ kind, id }: { kind: OrgKind; id: string }) => {
+      const { error } = kind === 'project'
+        ? await client.DELETE('/api/admin/projects/{project_id}', { params: { path: { project_id: id } } })
+        : await client.DELETE('/api/admin/companies/{company_id}', { params: { path: { company_id: id } } })
+      if (error !== undefined) throw new Error(errorMessage(error, 'The delete failed.'))
+    },
+    onSettled: () => invalidate(queryClient, [['admin', 'companies'], ['admin', 'users'], ['admin', 'dashboard']]),
+  })
+}
+
+export function useMediaLibrary() {
+  return useQuery({
+    queryKey: ['admin', 'media'] as const,
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/admin/media')
+      if (!data) throw new Error(errorMessage(error, 'Failed to load the media library.'))
+      return data
+    },
+  })
+}
+
+export function useDeleteMedia() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (path: string) => {
+      const [kind, name] = path.split('/')
+      const { error } = await client.DELETE('/api/admin/media/{kind}/{name}', { params: { path: { kind, name } } })
+      if (error !== undefined) throw new Error(errorMessage(error, 'The delete failed.'))
+    },
+    onSettled: () => invalidate(queryClient, [['admin', 'media']]),
+  })
+}

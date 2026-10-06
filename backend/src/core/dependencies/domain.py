@@ -34,6 +34,7 @@ from src.services.email_template_service import EmailTemplateService
 from src.services.feedback_service import FeedbackService
 from src.services.learning_service import LearningService
 from src.services.maturity_service import MaturityService
+from src.services.org_deletion_service import OrgDeletionService
 from src.services.org_service import OrgService
 from src.services.survey_service import SurveyService
 
@@ -50,6 +51,7 @@ __all__ = [
     "get_feedback_service",
     "get_learning_service",
     "get_maturity_service",
+    "get_org_deletion_service",
     "get_org_repository",
     "get_org_service",
     "get_progress_repository",
@@ -165,6 +167,7 @@ def get_admin_user_service(
     sessions: Annotated[AuthSessionRepository, Depends(get_auth_session_repository)],
     progress: Annotated[ProgressRepository, Depends(get_progress_repository)],
     project_admins: Annotated[ProjectAdminRepository, Depends(get_project_admin_repository)],
+    uow: Annotated[UnitOfWork, Depends(get_unit_of_work)],
 ) -> AdminUserService:
     return AdminUserService(
         users,
@@ -175,6 +178,7 @@ def get_admin_user_service(
         sessions,
         progress,
         project_admins=project_admins,
+        uow=uow,
     )
 
 
@@ -218,3 +222,13 @@ def get_content_service(
     return ContentService(
         content, assignments=assignments, users=users, project_admins=project_admins
     )
+
+
+def get_org_deletion_service(
+    org: Annotated[OrgRepository, Depends(get_org_repository)],
+    users: Annotated[UserRepository, Depends(get_user_repository)],
+    project_admins: Annotated[ProjectAdminRepository, Depends(get_project_admin_repository)],
+    progress: Annotated[ProgressRepository, Depends(get_progress_repository)],
+    uow: Annotated[UnitOfWork, Depends(get_unit_of_work)],
+) -> OrgDeletionService:
+    return OrgDeletionService(org, users, project_admins, progress, uow)

@@ -28,6 +28,10 @@ a feature ships.
   a Check button, Reload / Overwrite on a stale save (`lessons.updated_at`), MDX round-trip fix (#60);
   `2026-10-05-lesson-editor-qa-design.md`; `backend/src/services/lesson_qa.py`,
   `frontend/src/components/lesson/useGuardedSave.ts`.
+- **Admin housekeeping** (#147, #111, B6) — move a user to another project; rename/delete projects
+  and companies (deletes their users; power admins kept); media library (where each file is used,
+  delete unused); `2026-10-06-admin-housekeeping-design.md`; `services/org_deletion_service.py`,
+  `services/media_usage_service.py`, `frontend/src/pages/admin2/MediaPage.tsx`.
 - **`user+` role** (superseded 2026-10-01) — `2026-07-22-user-plus-role-design.md`.
 - **Cascading track/module assignment** (full resync both ways) —
   `2026-07-23-cascading-track-module-assignment-design.md`; `services/admin_user_service.py`.

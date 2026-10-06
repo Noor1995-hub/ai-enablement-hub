@@ -133,3 +133,16 @@ class ProposalRepository(AbstractProposalRepository):
         proposal.critique_admin_preferred = admin_preferred
         proposal.critiqued_at = datetime.now(UTC)
         await self._session.commit()
+
+    async def live_block_sets(self) -> list[list[Any]]:
+        result = await self._session.execute(
+            select(
+                LessonContentProposal.base_blocks,
+                LessonContentProposal.proposed_blocks,
+                LessonContentProposal.edited_blocks,
+            ).where(LessonContentProposal.status.in_(("pending", "approved")))
+        )
+        sets: list[list[Any]] = []
+        for base, proposed, edited in result.all():
+            sets.extend(blocks for blocks in (base, proposed, edited) if blocks is not None)
+        return sets
