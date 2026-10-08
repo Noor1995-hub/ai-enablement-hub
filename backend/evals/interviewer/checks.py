@@ -299,9 +299,27 @@ def has_cross_functional(
 def summary_length(
     case: dict[str, Any], playbook: dict[str, Any], raw_output: dict[str, Any]
 ) -> CheckResult:
+    # 60-180 since the summary became a short intro plus bullets (2026-10-01); was 120-180.
     words = len(playbook.get("shared", {}).get("where_you_are_today", "").split())
-    ok = 120 <= words <= 180
+    ok = 60 <= words <= 180
     return CheckResult("summary_length", "rate", 1.0 if ok else 0.0, f"{words} words")
+
+
+_BULLET_LINE_RE = re.compile(r"^\s*[-•*]\s+\S")
+_MIN_SUMMARY_BULLETS = 3
+_MAX_SUMMARY_BULLETS = 7
+
+
+def summary_bullets(
+    case: dict[str, Any], playbook: dict[str, Any], raw_output: dict[str, Any]
+) -> CheckResult:
+    """Rate: "Where you are today" is a short intro, then a handful of bullet points (Aaron,
+    2026-10-01: 3 to 6 asked, a few more tolerated)."""
+    lines = playbook.get("shared", {}).get("where_you_are_today", "").splitlines()
+    bullets = sum(1 for line in lines if _BULLET_LINE_RE.match(line))
+    intro = any(line.strip() and not _BULLET_LINE_RE.match(line) for line in lines)
+    ok = intro and _MIN_SUMMARY_BULLETS <= bullets <= _MAX_SUMMARY_BULLETS
+    return CheckResult("summary_bullets", "rate", 1.0 if ok else 0.0, f"{bullets} bullets")
 
 
 def use_case_count(
@@ -440,6 +458,7 @@ ALL_CHECKS: tuple[_CheckFn, ...] = (
     start_here_quick_win,
     has_cross_functional,
     summary_length,
+    summary_bullets,
     use_case_count,
     next_moves_valid,
     reframes_count,

@@ -54,10 +54,12 @@ ASYMMETRY: flags/confidence live ONLY in internal. In shared, uncertainty appear
 phrasing + at most one collaborative assumption_to_check line — never a "you didn't give enough" flag.
 
 ## shared content
-- where_you_are_today (120–180 words, 180 is a hard maximum): warm, 2nd person, evidence-based,
-  forward-leaning; name things they already do well; acknowledge their real constraint in their own
-  framing; NO level/score/comparison, and never compare them to other people ("most people", "than
-  most", "ahead of others", "few people"), not even as praise; end pointing forward.
+- where_you_are_today (180 words is a hard maximum): one or two short opening sentences, then a
+  blank line, then 3 to 6 bullet points, each on its own line starting with "- " and holding one
+  idea in at most about 20 words. Warm, 2nd person, evidence-based, forward-leaning; name things
+  they already do well; acknowledge their real constraint in their own framing; NO
+  level/score/comparison, and never compare them to other people ("most people", "than most",
+  "ahead of others", "few people"), not even as praise; the last bullet points forward.
 - use_cases: up to 5, in rank order (the first one is Start Here), genuinely DISTINCT (no
   near-duplicates, no one idea split in three;
   fewer is fine if thin). Each: name (concrete, theirs, 3–7 words); pain_it_kills (their words);
@@ -110,4 +112,4 @@ next hour with zero permissions?  10 both internal and shared written, every tem
 and closed?  11 any he/she/him/her/his/hers for
 {first_name} in internal OR shared (unless stated)? → rewrite with their name or they.  12 shared
 compares them to other people ("most people", "than most")? → delete.  13 where_you_are_today over
-180 words? → cut.
+180 words, or not a short intro plus 3 to 6 "- " bullets? → fix.

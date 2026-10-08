@@ -610,3 +610,32 @@ def test_playbook_language_does_not_fail_text_too_short_to_call() -> None:
     # wrong language.
     playbook = _shared("SAP.")
     assert checks.run_all(_DUTCH_CASE, playbook, playbook)["playbook_language"].value == 1.0
+
+
+# --- summary: a short intro, then bullet points (Aaron, 2026-10-01) ------------------------
+
+_BULLET_SUMMARY = (
+    "You already know where your month goes, and you have a clear sense of what to fix first.\n\n"
+    "- You rebuild the board deck commentary from scratch every month.\n"
+    "- Reconciling the SAP export against Excel eats most of a day.\n"
+    "- You already use Copilot for drafting, so the first step is close.\n"
+    "- Your caution about financial numbers is a good instinct to keep."
+)
+
+
+def test_summary_bullets_wants_an_intro_and_a_handful_of_bullets() -> None:
+    playbook = _shared(_BULLET_SUMMARY)
+    assert checks.run_all(_CASE, playbook, playbook)["summary_bullets"].value == 1.0
+
+
+def test_summary_bullets_fails_a_plain_paragraph_and_a_long_list() -> None:
+    paragraph = _shared(_GOOD_SUMMARY)
+    long_list = _shared("Intro.\n\n" + "\n".join(f"- Point {i} about the work." for i in range(9)))
+    assert checks.run_all(_CASE, paragraph, paragraph)["summary_bullets"].value == 0.0
+    assert checks.run_all(_CASE, long_list, long_list)["summary_bullets"].value == 0.0
+
+
+def test_summary_length_accepts_a_shorter_bulleted_summary() -> None:
+    playbook = _shared(_BULLET_SUMMARY)
+    result = checks.run_all(_CASE, playbook, playbook)["summary_length"]
+    assert result.value == 1.0, result.evidence
