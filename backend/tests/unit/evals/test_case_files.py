@@ -23,6 +23,8 @@ _EXPECTED_IDS = {
     "hr-director-services-dutch",
     "maintenance-tech-utility-dutch",
     "adv-assessment-injection-dutch",
+    # an AI-mature Dutch learner: the briefing carries Skills/connector labels (2026-10-07)
+    "process-lead-food-dutch",
 }
 _ADVERSARIAL_IDS = {
     "adv-assessment-injection",

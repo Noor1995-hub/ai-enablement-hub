@@ -48,7 +48,7 @@ runs/_state.json          metric declarations for the report builder
 
 ## Languages (#83)
 
-The interviewer follows the learner's language: English, or Flemish Dutch with the formal "u". The opener follows the language of the assessment's free-text answers. The word lists in `vocabulary.py` carry Dutch versions, and every check scans for both languages. `language.py` calls a text Dutch or English by counting function words (no model call). `chat_language_match` grades the interviewer's turns; `playbook_language` (a hard rule) grades the shared box. The four `*-dutch` cases are Dutch-speaking personas; `plant-manager-dutch` mixes both.
+The interviewer follows the learner's language: English, or Flemish Dutch with the formal "u". The opener follows the language of the assessment's free-text answers. The word lists in `vocabulary.py` carry Dutch versions, and every check scans for both languages. `language.py` calls a text Dutch or English by counting function words (no model call). `chat_language_match` grades the interviewer's turns; `playbook_language` (a hard rule) grades the shared box. The `*-dutch` cases are Dutch-speaking personas; `plant-manager-dutch` mixes both. `process-lead-food-dutch` is an AI-mature learner whose assessment ticks Skills, a connector and a Project, so the briefing carries AI feature names: it tests the rule that these get the Flemish word with the English term in brackets ("koppeling (connector)").
 
 ## Unit tests
 
