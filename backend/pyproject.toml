@@ -48,7 +48,7 @@ dev = [
     "ruff~=0.11",
     # Pinned exactly: ty is pre-1.0 and every release can add diagnostics; `ty check src` is part
     # of the required CI check, so a new version arrives as a Dependabot PR, never by surprise.
-    "ty==0.0.83",
+    "ty==0.0.85",
     "poethepoet~=0.30",
     "pytest-xdist~=3.8",
     # Auto-retry integration tests once on failure — they hit a real remote
